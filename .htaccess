@@ -1,2 +1,3 @@
 RewriteEngine On
 RewriteRule ^auth$ /modules/auth/auth.php [L]
+RewriteRule ^auth_callback$ /modules/auth/auth_callback.php [L]
