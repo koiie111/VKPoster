@@ -1,0 +1,2 @@
+RewriteEngine On
+RewriteRule ^auth$ /modules/auth/auth.php [L]
