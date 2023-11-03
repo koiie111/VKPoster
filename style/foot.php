@@ -7,7 +7,7 @@
             <li class="nav-item"><a href="/about" class="nav-link px-2 text-body-secondary">О нас</a></li>
             <li class="nav-item"><a href="/contacts" class="nav-link px-2 text-body-secondary">Контакты</a></li>
         </ul>
-        <p class="text-center text-body-secondary">&copy; 2023 VKPoster</p>
+        <p class="text-center text-body-secondary">&copy; 2023 <?=$Core->name?></p>
     </footer>
 </div>
 </body>

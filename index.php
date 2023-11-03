@@ -1,6 +1,10 @@
 <?php
 $title = 'VKPoster';
 include_once ($_SERVER["DOCUMENT_ROOT"].'/style/head.php');
+
+if(isset($User)){
+    header('location:/main');
+}
 ?>
 
     <svg xmlns="http://www.w3.org/2000/svg" class="d-none">

@@ -61,3 +61,4 @@ include_once ($_SERVER['DOCUMENT_ROOT'].'/system/extensions.php');
         <?}?>
     </div>
 </nav>
+<body>
