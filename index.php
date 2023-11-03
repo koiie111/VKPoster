@@ -93,7 +93,7 @@ include_once ($_SERVER["DOCUMENT_ROOT"].'/style/head.php');
                 <p class="lead">VKPoster создан для людей, которые ценят свое время. С нашей помощью Вы можете создать посты заранее и запланировать их размещение в сообществе в указанное время.
                     Присоединяйтесь и оцените преимущества работы с VKPoster!</p>
                 <div class="d-grid gap-2 d-md-flex justify-content-md-start">
-                    <button type="button" class="btn btn-primary btn-lg px-4 me-md-2">Попробовать</button>
+                    <a type="button" class="btn btn-primary btn-lg px-4 me-md-2" href="/auth">Попробовать</a>
                     <button type="button" class="btn btn-outline-secondary btn-lg px-4">Как использовать?</button>
                 </div>
             </div>

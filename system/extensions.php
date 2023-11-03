@@ -8,3 +8,6 @@ spl_autoload_register(function ($class) {
 
 $Core = new Core('http://vkposter.ru', 'VKPoster');
 
+if(!empty($_SESSION['id'])){
+    $User = new User($_SESSION['id']);
+}
