@@ -12,6 +12,15 @@ include_once ($_SERVER['DOCUMENT_ROOT'].'/system/extensions.php');
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="/js/toastes.js"></script>
+    <style>
+        .toast-container {
+            position: fixed;
+            bottom: 20px; /* Регулируйте отступ от нижнего края */
+            left: 20px; /* Регулируйте отступ от левого края */
+            z-index: 1000; /* Убедитесь, что контейнер находится поверх других элементов */
+        }
+    </style>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -62,3 +71,4 @@ include_once ($_SERVER['DOCUMENT_ROOT'].'/system/extensions.php');
     </div>
 </nav>
 <body>
+<div id="toastContainer" class="toast-container"></div>

@@ -10,7 +10,7 @@ class Core
         $this->name = $name;
     }
 
-    function outputText($string){
+    public static function outputText($string){
         return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
     }
 }
