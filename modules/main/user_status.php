@@ -47,7 +47,7 @@ if(!isset($User)){
                             <a href="#" class="list-group-item list-group-item-action active" aria-current="true">
                                 Статус пользователя
                             </a>
-                            <a href="#" class="list-group-item list-group-item-action">Подключенные группы</a>
+                            <a href="/main/groups" class="list-group-item list-group-item-action">Подключенные группы</a>
                             <a href="#" class="list-group-item list-group-item-action">Администраторы</a>
                         </div>
                     </div>
