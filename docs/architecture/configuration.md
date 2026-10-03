@@ -6,7 +6,7 @@
 |---|---|---|
 | `APP_ENV` | `local` | `local` · `testing` · `production`. Dev-фичи (DEV_LOGIN, Fake-адаптеры) только при `local` |
 | `APP_URL` | `http://localhost:8080` | Базовый URL (ссылки в письмах, OAuth-коллбеки) |
-| `APP_NAME` | `VKPoster` | Название продукта |
+| `APP_NAME` | `ezposter` | Название продукта |
 | `APP_KEY` | — | Ключ libsodium `secretbox` в base64 (32 байта). Шифрует токены соцсетей и TOTP |
 | `DB_HOST` `DB_PORT` | `mysql` `3306` | MySQL |
 | `DB_DATABASE` | `app` | Имя БД (в тестах `app_test`, задаётся `phpunit.xml`) |
