@@ -4,3 +4,4 @@ RewriteRule ^auth_callback$ /modules/auth/auth_callback.php [L]
 
 RewriteRule ^main$ /modules/main/user_status.php [L]
 RewriteRule ^main/groups$ /modules/main/groups.php [L]
+RewriteRule ^dev_login$ /modules/auth/dev_login.php [L]
