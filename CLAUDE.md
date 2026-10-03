@@ -33,6 +33,16 @@ docker compose --profile tools up   # adds phpMyAdmin at :8081
 - All SQL uses prepared statements; keep it that way. State-changing endpoints must check `csrf_check()`, and redirects must use `redirect()` (it exits).
 - `VK_CLIENT_SECRET` comes only from the environment; never hard-code secrets. The old leaked secret must be rotated in VK.
 
+## Development plan
+
+The project is being rewritten from scratch as a multi-platform scheduler (VK, MAX, Telegram, Instagram) in plain PHP. Everything above describes the legacy code that stage 00 removes. Start every agent session with:
+
+- `docs/plans/AGENT_PROMPT.md`: the universal agent prompt (decides which stage to run next)
+- `docs/plans/PROGRESS.md`: stage statuses and questions for the owner
+- `docs/plans/ENGINEERING_RULES.md`: mandatory coding, security and git rules
+- `docs/plans/00-master-plan.md` and `docs/plans/stages/NN-*.md`: what to build
+
 ## Workflow rules
 
-- After every approved and tested update, make a commit and push it to `main` (`git push origin main`). Do not commit untested or unapproved changes.
+- Each stage is built on its own branch `stage-NN-slug`, then PR → green CI → `gh pr merge --squash --delete-branch` into `main`. Never commit or push to `main` directly.
+- Merge only tested changes; if the stage requires the owner's manual check, wait for their answer in `docs/plans/PROGRESS.md` before merging.
