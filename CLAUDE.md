@@ -1,48 +1,47 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Instructions for Claude Code (claude.ai/code) in this repository. `AGENTS.md` has the same content for other agents; keep them in sync.
 
 ## Overview
 
-VKPoster is a plain-PHP (no framework) web app for scheduling posts in VK (VKontakte) communities. UI text is in Russian. There is no build step, linter, or test suite. `vendor/` is committed (only dependency: `vkcom/vk-php-sdk`).
+VKPoster: a scheduled-posting web service for VK, MAX, Telegram and Instagram, written in plain PHP 8.3 (no frameworks), developed and tested only in Docker. UI text is in Russian; code, comments and commits are in English. The repository is being rewritten from scratch by stages (the old code is in tag `legacy-v0`).
 
-## Running
+## Start every session with
+
+1. `docs/plans/AGENT_PROMPT.md`: the universal agent prompt (decides which stage to run next)
+2. `docs/plans/PROGRESS.md`: stage statuses and questions for the owner
+3. `docs/plans/ENGINEERING_RULES.md`: mandatory coding, security, test and git rules
+4. `docs/plans/00-master-plan.md` and `docs/plans/stages/NN-*.md`: what to build
+
+## Commands (all run in Docker, no PHP on the host)
 
 ```bash
-docker compose up --build      # app at http://localhost:8080 (php:8.2-apache + mysql:8.0)
-docker compose down -v         # reset DB (schema is loaded from docker/init.sql on first MySQL start only)
-docker compose --profile tools up   # adds phpMyAdmin at :8081
+make init      # .env from .env.example + APP_KEY
+make up        # build + start stack (app http://localhost:8080, mailpit :8025) + composer install
+make down      # stop
+make sh        # shell in the app container
+make console CMD="migrate"   # bin/console in the container
+make migrate | seed
+make test      # PHPUnit: Unit, Integration, Feature (DB app_test)
+make stan      # PHPStan level 8 + strict-rules
+make cs | cs-fix   # php-cs-fixer (PSR-12 + strict_types)
+make audit     # composer audit
+make docs      # phpDocumentor -> docs/reference (gitignored)
+make check     # cs + stan + test + audit + docs; must be green before a PR
 ```
 
-- `/dev_login` logs in without VK OAuth (enabled only when `DEV_LOGIN=1`; off by default — run `DEV_LOGIN=1 docker compose up`).
-- Real VK auth needs `VK_CLIENT_ID` / `VK_CLIENT_SECRET`; `APP_URL` is used as the OAuth redirect base.
-- Any VK API call for groups needs a real token stored in `users.private_tocken` (the column/method names deliberately use the misspelling "tocken" — keep it).
-- DB config comes from env vars `DB_HOST/DB_USER/DB_PASSWORD/DB_NAME` (see `system/db.php`); the repo is bind-mounted into the container, so edits are live.
+Config comes from env vars (see `.env.example`, `docs/architecture/configuration.md`). The repo is bind-mounted into the `app` container, so edits are live. Compose profiles: `s3` (MinIO), `tunnel` (cloudflared).
 
-## Architecture
+## Layout (current)
 
-- **Routing**: `.htaccess` mod_rewrite maps clean URLs to scripts (`/auth`, `/auth_callback`, `/dev_login`, `/main`, `/main/groups` → `modules/...`). `index.php` is the landing page. New routes need a `RewriteRule` there.
-- **Bootstrap**: every page/endpoint includes `system/extensions.php` (directly or via `style/head.php`), which loads the DB (`$db`, global mysqli), composer autoload, starts the session, registers a class autoloader for `system/classes/*.php` (class name = filename), creates `$Core`, and creates `$User` if `$_SESSION['id']` is set. Code relies on these globals (`global $db`) and on `$_SERVER["DOCUMENT_ROOT"]` includes.
-- **Pages** use `style/head.php` / `style/foot.php` as the layout (Bootstrap-based); `$title` is set before including head. Data endpoints such as `modules/main/get_groups.php` return JSON consumed by the frontend; `js/toastes.js` holds client-side toasts.
-- **Classes** (`system/classes`): `Core` (app URL/name, `outputText()` = htmlspecialchars helper), `User` (loads a `users` row; holds VK access token and the separate "private" token used for group API calls), `Groups` (loads a `groups` row and fetches name/avatar/members/type from the VK API using the user's private token on construction — one API call per group).
-- **Schema** (`docker/init.sql`): `users` (`id_vk` unique, tokens) and `groups` (`id_group` = VK group id, `id_admin` = admin's VK id).
+`public/index.php` (front controller; stub until stage 01), `src/` (PSR-4 `App\`), `bin/console`, `config/`, `templates/`, `database/`, `tests/{Unit,Integration,Feature}`, `docker/`, `docs/`. Target structure: master plan §4.1.
 
-## Gotchas
+## Rules in short
 
-- Much of the code is work in progress: several `User` getters are empty stubs, and `get_groups.php` returns only the current user's groups, with a placeholder admin field.
-- All SQL uses prepared statements; keep it that way. State-changing endpoints must check `csrf_check()`, and redirects must use `redirect()` (it exits).
-- `VK_CLIENT_SECRET` comes only from the environment; never hard-code secrets. The old leaked secret must be rotated in VK.
+- Every PHP file has `declare(strict_types=1);`; no frameworks; dependencies only from the whitelist in ENGINEERING_RULES §2 (others need an ADR in `docs/adr/`). `vendor/` is not committed, `composer.lock` is.
+- Prepared statements only; state-changing routes need CSRF; never commit secrets or `.env`; never call real social/payment APIs from tests.
+- Docs are part of every feature (ENGINEERING_RULES §7): update `docs/architecture/`, `docs/CHANGELOG.md`, `.env.example`, README/CLAUDE/AGENTS when commands or env change.
 
-## Development plan
+## Git workflow
 
-The project is being rewritten from scratch as a multi-platform scheduler (VK, MAX, Telegram, Instagram) in plain PHP. Everything above describes the legacy code that stage 00 removes. Start every agent session with:
-
-- `docs/plans/AGENT_PROMPT.md`: the universal agent prompt (decides which stage to run next)
-- `docs/plans/PROGRESS.md`: stage statuses and questions for the owner
-- `docs/plans/ENGINEERING_RULES.md`: mandatory coding, security and git rules
-- `docs/plans/00-master-plan.md` and `docs/plans/stages/NN-*.md`: what to build
-
-## Workflow rules
-
-- Each stage is built on its own branch `stage-NN-slug`, then PR → green CI → `gh pr merge --squash --delete-branch` into `main`. Never commit or push to `main` directly.
-- Merge only tested changes; if the stage requires the owner's manual check, wait for their answer in `docs/plans/PROGRESS.md` before merging.
+Each stage lives on its own branch `stage-NN-slug`, then PR → green CI → `gh pr merge --squash --delete-branch` into `main`. Never commit or push to `main` directly, never force-push, never `--no-verify`. If a stage needs the owner's manual check or a decision, write the questions into `docs/plans/PROGRESS.md`, set the stage to `NEEDS_OWNER` and stop without merging.
