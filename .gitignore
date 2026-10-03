@@ -2,3 +2,4 @@
 .env
 *.log
 storage/agent-logs/
+storage/ui-review/

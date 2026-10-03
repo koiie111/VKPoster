@@ -17,7 +17,8 @@
 | Кэш / сессии / rate limit | Redis 7 |
 | Очередь задач | Таблица в MySQL + `SELECT … FOR UPDATE SKIP LOCKED` (без отдельного брокера) |
 | Шаблоны | Twig 3 (автоэкранирование: главная защита от XSS) |
-| Фронтенд | Без сборки Node: Bootstrap 5 + Alpine.js + htmx, файлы лежат в `public/assets/vendor` с фиксированными версиями |
+| Фронтенд | Tailwind CSS (standalone CLI, без Node) + свои Twig-компоненты + Alpine.js + htmx; JS-библиотеки лежат в `public/assets/vendor` с фиксированными версиями. Дизайн-система — этап 21 |
+| Дизайн | Дружелюбный SaaS в духе Buffer/Later, светлая и тёмная темы; агент предлагает 3 варианта стиля, владелец выбирает |
 | Платежи | ЮKassa, интернет-эквайринг Т-Банка, CloudPayments, Stripe, Paddle, крипта, Telegram Stars (за единым интерфейсом `PaymentGateway`) |
 | Окружение | Вся разработка и тесты — в Docker (`docker compose`) |
 | Git | Каждый этап делается в ветке `stage-NN-slug`, затем PR, зелёный CI, squash-merge в `main` |
@@ -79,7 +80,13 @@
 - **Управление:** пользователи и workspace (карточка, блокировка, начисления через ledger, impersonation, запросы по 152-ФЗ), платежи и возвраты, подписки, тарифы и цены, промокоды и рефералы, выгрузка для бухгалтерии.
 - **Контент и коммуникации:** CMS лендинга, FAQ, базы знаний и юр. документов, объявления в приложении, email-рассылки по сегментам, шаблоны писем, тикеты поддержки, режим обслуживания.
 
-### 2.5 Нефункциональные требования
+### 2.5 Дизайн и UX (этап 21 + правила ENGINEERING_RULES §8)
+- Стиль: дружелюбный SaaS (как Buffer/Later): воздух, мягкие скругления, один акцентный цвет, цвета соцсетей как метки, иллюстрации в пустых состояниях; полноценная тёмная тема.
+- Порядок: 3 варианта стиля → выбор владельца → дизайн-система (токены + Twig-компоненты + витрина `/dev/ui`) → кликабельные прототипы ключевых экранов (онбординг, каналы, редактор, календарь, дашборд) → утверждение → только потом реальные экраны этапов 02+.
+- Каждый экран: собран из компонентов, имеет состояния «загрузка / пусто / ошибка / успех», понятные тексты по `docs/design/ux-writing.md`, работает от 360 px, с клавиатуры, контраст WCAG AA.
+- Каждый этап с UI: агент снимает скриншоты (375/768/1440 px × светлая/тёмная тема), прогоняет axe-core и сверяет экраны с UX-чек-листом до PR.
+
+### 2.6 Нефункциональные требования
 - Публикация в течение **60 секунд** от запланированного времени (p95).
 - Ни одного дубля поста при сбоях (идемпотентность, см. §4.4).
 - Целевой уровень безопасности: **OWASP ASVS 4.0 Level 2**.
@@ -137,7 +144,7 @@
 /
 ├── public/                      # ЕДИНСТВЕННЫЙ docroot nginx
 │   ├── index.php                # front controller: вообще всё идёт через него
-│   └── assets/                  # css, js, vendor (bootstrap, alpine, htmx), images
+│   └── assets/                  # build/ (собранный Tailwind CSS), js/, vendor/ (alpine, htmx, chart.js), fonts/, icons/, images/
 ├── src/                         # PSR-4: namespace App\
 │   ├── Kernel/                  # самописный каркас
 │   │   ├── Application.php      # сборка контейнера, пайплайн middleware
@@ -174,7 +181,9 @@
 │   │   └── Storage/             # LocalStorage, S3Storage
 │   └── Support/                 # Clock, Uuid, Str, Money, helpers
 ├── config/                      # app.php, database.php, security.php, plans.php, platforms.php, payments.php
-├── templates/                   # Twig: layouts/, components/, auth/, app/, admin/, emails/, landing/
+├── resources/css/app.css        # исходник Tailwind (токены, слои компонентов)
+├── tailwind.config.js           # токены дизайн-системы (читает standalone CLI, Node не нужен)
+├── templates/                   # Twig: layouts/, components/ (дизайн-система), auth/, app/, admin/, emails/, landing/
 ├── database/
 │   ├── migrations/              # 2026_10_04_000001_create_users.php (up/down)
 │   └── seeds/                   # dev-сиды (тестовый пользователь, план-лимиты)
@@ -193,8 +202,10 @@
 │   ├── adr/                     # записи архитектурных решений
 │   ├── api/                     # публичный API (OpenAPI, этап 18)
 │   ├── user/                    # база знаний для пользователей (исходники статей)
+│   ├── design/                  # дизайн-система, UX-тексты, варианты стиля, референсы
 │   ├── deploy.md  runbook.md  CHANGELOG.md
 │   └── reference/               # генерируемый phpDocumentor справочник (в .gitignore)
+├── tools/ui-snap/               # Playwright + axe-core в отдельном контейнере: скриншоты и проверка доступности
 ├── scripts/agent-loop.sh        # автозапуск этапов агентом
 ├── .github/workflows/ci.yml
 ├── compose.yaml  compose.prod.yaml  Makefile  .env.example
@@ -313,6 +324,7 @@ interface PlatformAdapter {
 |---|---|---|---|
 | 00 | Инфраструктура, Docker, CI, удаление legacy | [stages/00-bootstrap.md](stages/00-bootstrap.md) | да (название, домен, юрлицо) |
 | 01 | Ядро: роутер, DI, middleware, БД, сессии, Twig, безопасность | [stages/01-kernel.md](stages/01-kernel.md) | нет |
+| 21 | Дизайн-система и UX-основа (идёт сразу после 01) | [stages/21-design-system.md](stages/21-design-system.md) | да (выбор стиля, прототипы) |
 | 02 | Регистрация и вход по email, 2FA, сессии | [stages/02-auth-email.md](stages/02-auth-email.md) | да (UX входа) |
 | 03 | Вход через соцсети: VK ID, Яндекс, Telegram, Google | [stages/03-auth-social.md](stages/03-auth-social.md) | да (ключи приложений) |
 | 04 | Workspace, команда, роли, аудит | [stages/04-workspaces.md](stages/04-workspaces.md) | нет |
@@ -333,7 +345,7 @@ interface PlatformAdapter {
 | 18 | Публичный API и вебхуки | [stages/18-public-api.md](stages/18-public-api.md) | нет |
 | 19 | Hardening, нагрузка, prod-деплой | [stages/19-hardening-prod.md](stages/19-hardening-prod.md) | да |
 
-После этапа 11 продукт можно запускать (MVP). Этап 20 номером последний, но в очереди стоит сразу после 11: порядок выполнения задаёт таблица в PROGRESS.md, а не номер. Этапы 12–18 в основном независимы, их порядок может поменять владелец.
+После этапа 11 продукт можно запускать (MVP). Этапы 20 и 21 добавлены позже, поэтому номера у них последние, но в очереди они стоят сразу после 11 и 01 соответственно: порядок выполнения задаёт таблица в PROGRESS.md, а не номер. Этапы 12–18 в основном независимы, их порядок может поменять владелец.
 
 ---
 
@@ -354,6 +366,7 @@ interface PlatformAdapter {
 | PHPDoc | в коде: класс-уровень у всех классов `src/`, у публичных методов `Domain`, `Integrations`, `Kernel`, где сигнатуры недостаточно (исключения, побочные эффекты, единицы измерения) | всегда; проверяет PHPStan-правило |
 | Справочник API кода | `make docs` → phpDocumentor (docker-образ `phpdoc/phpdoc`) → `docs/reference/` | генерируется, не коммитится |
 | Публичный REST API | `docs/api/openapi.yaml` + Redoc | этап 18 |
+| Дизайн-система и UX-тексты | `docs/design/design-system.md`, `ux-writing.md` + витрина `/dev/ui` | этап 21, далее при добавлении компонентов |
 | Деплой, эксплуатация, инциденты | `docs/deploy.md`, `docs/runbook.md` | этапы 11, 19 |
 | История изменений | `docs/CHANGELOG.md` (Keep a Changelog) | каждый этап |
 | База знаний для пользователей | `docs/user/*.md` → страницы `/help` | этапы с пользовательскими функциями |

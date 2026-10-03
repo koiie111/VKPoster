@@ -26,7 +26,7 @@
 - [ ] `Queue`: таблица `jobs`/`failed_jobs`, `dispatch(Job, delay)`, `queue:work` (SKIP LOCKED, graceful shutdown по SIGTERM, `max_attempts`, backoff), `schedule:run` (регистрация периодических задач в коде).
 - [ ] PHPStan-правило `RequireClassDocblockRule` (`tests/PHPStan/` или `tools/phpstan/`): у каждого класса в `src/` есть docblock с описанием назначения.
 - [ ] Документация: `docs/architecture/overview.md` и `request-lifecycle.md` (путь запроса от nginx до ответа, middleware, DI, обработка ошибок), `docs/architecture/security.md` (сессии, CSRF, CSP, шифрование, ротация ключей), `docs/architecture/queue.md`.
-- [ ] Базовый layout в Twig (Bootstrap 5 + Alpine + htmx из `public/assets/vendor`, без CDN), страницы ошибок 403/404/419/429/500.
+- [ ] Минимальный layout в Twig (Alpine + htmx из `public/assets/vendor`, без CDN) и страницы ошибок 403/404/419/429/500. Внешний вид здесь не важен: дизайн-система делается на этапе 21 и заменит эти шаблоны.
 
 ## Тесты
 - Router (параметры, 404/405, группы), Container, Validator, Crypto (шифрование/расшифровка/ротация/подмена шифртекста → исключение), Csrf (нет токена → 419, чужой Origin → 419), SecurityHeaders (CSP с nonce присутствует), RateLimiter, SsrfGuard (127.0.0.1, 10.x, 169.254.169.254, `[::1]`, редирект на приватный IP → запрещено), Queue (две параллельные выборки не берут одну задачу), Migrator (up/down).

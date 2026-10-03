@@ -12,6 +12,7 @@
 - [ ] `composer.json`: `php: ^8.3`, PSR-4 `App\\` → `src/`, `App\\Tests\\` → `tests/`, dev-зависимости из белого списка, скрипты `test`, `stan`, `cs`.
 - [ ] `docker/php/Dockerfile` (multi-stage: `base` → `dev` с pcov и composer → `prod` с opcache preload, без dev-зависимостей), пользователь `app` (uid 1000), расширения из мастер-плана §4.2.
 - [ ] `docker/php/php.ini` (prod: `expose_php=Off`, `display_errors=Off`, `session.use_strict_mode=1`, `upload_max_filesize=50M`, `memory_limit=256M`, `opcache.validate_timestamps=0`) и `php-dev.ini`.
+- [ ] В dev- и prod-образ добавить Tailwind CSS standalone CLI (фиксированная версия, проверка SHA-256); сама настройка — этап 21.
 - [ ] `docker/nginx/default.conf`: root `public/`, всё → `index.php`, запрет `/\.`, `client_max_body_size 55m`, отдача `assets/` с кэшем, `server_tokens off`.
 - [ ] `compose.yaml`: nginx, app, worker, scheduler, mysql (healthcheck, `docker/mysql/init/01-test-db.sql` создаёт `app_test`), redis, mailpit, профили `s3` (minio) и `tunnel` (cloudflared). Порты только на `127.0.0.1`.
 - [ ] `.env.example` со всеми переменными (APP_ENV, APP_URL, APP_NAME, APP_KEY, DB_*, REDIS_*, MAIL_*), `make init` копирует в `.env` и генерирует `APP_KEY` (`sodium_crypto_secretbox_keygen` → base64).
