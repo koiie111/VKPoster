@@ -7,7 +7,7 @@ if(isset($User)){
 }
 
 $oauth = new \VK\OAuth\VKOAuth();
-$client_id = 51785244;
+$client_id = getenv('VK_CLIENT_ID') ?: 51785244;
 $redirect_uri = $Core->url. '/auth_callback';
 $display = \VK\OAuth\VKOAuthDisplay::PAGE;
 $scope = array(VK\OAuth\Scopes\VKOAuthUserScope::OFFLINE);

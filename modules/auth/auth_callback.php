@@ -7,8 +7,8 @@ if(isset($User)){
 }
 
 $oauth = new VK\OAuth\VKOAuth();
-$client_id = 51785244;
-$client_secret = 'wbp4xtuz2NPqXl22PVOH';
+$client_id = getenv('VK_CLIENT_ID') ?: 51785244;
+$client_secret = getenv('VK_CLIENT_SECRET') ?: 'wbp4xtuz2NPqXl22PVOH';
 $redirect_uri = $Core->url. '/auth_callback';
 $code = $_GET['code'];
 

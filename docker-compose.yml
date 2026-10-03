@@ -1,0 +1,49 @@
+services:
+  web:
+    build: .
+    ports:
+      - "${APP_PORT:-8080}:80"
+    environment:
+      DB_HOST: db
+      DB_USER: vkposter
+      DB_PASSWORD: vkposter
+      DB_NAME: vkposter
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      # Локальный вход без VK OAuth (только для разработки/тестов): /dev_login
+      DEV_LOGIN: ${DEV_LOGIN:-1}
+      VK_CLIENT_ID: ${VK_CLIENT_ID:-51785244}
+      VK_CLIENT_SECRET: ${VK_CLIENT_SECRET:-}
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: vkposter
+      MYSQL_USER: vkposter
+      MYSQL_PASSWORD: vkposter
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  phpmyadmin:
+    image: phpmyadmin:5
+    profiles: ["tools"]
+    environment:
+      PMA_HOST: db
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+
+volumes:
+  db_data:
