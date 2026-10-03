@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: app
+          MYSQL_USER: app
+          MYSQL_PASSWORD: app
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=3s --health-retries=20
+    env:
+      APP_ENV: testing
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_DATABASE: app_test
+      DB_USERNAME: app
+      DB_PASSWORD: app
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: "6379"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/php/Dockerfile
+          target: dev
+          load: true
+          tags: vkposter-app-dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create test database
+        run: |
+          docker exec "$(docker ps -qf ancestor=mysql:8.0)" \
+            mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS app_test; GRANT ALL ON app_test.* TO 'app'@'%';"
+
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Run checks in the dev image
+        run: |
+          mkdir -p ~/.cache/composer
+          sudo chown -R 1000:1000 ~/.cache/composer . 2>/dev/null || true
+          docker run --rm --network host \
+            -e APP_ENV -e DB_HOST -e DB_PORT -e DB_DATABASE -e DB_USERNAME -e DB_PASSWORD -e REDIS_HOST -e REDIS_PORT \
+            -e COMPOSER_CACHE_DIR=/composer-cache \
+            -v "$PWD:/var/www/html" -v "$HOME/.cache/composer:/composer-cache" \
+            vkposter-app-dev bash -euo pipefail -c '
+              composer install --no-interaction --prefer-dist
+              composer cs
+              composer stan
+              composer test
+              composer audit
+            '
+
+      - name: Build API reference (phpDocumentor)
+        run: docker run --rm -v "$PWD:/data" phpdoc/phpdoc:3 run -d src -t docs/reference

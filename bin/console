@@ -1,0 +1,28 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Temporary stub of the CLI entry point; the real console arrives with the kernel (stage 01).
+ * Long-running commands only idle so that `worker` and `scheduler` containers stay healthy.
+ */
+
+$command = $argv[1] ?? 'list';
+
+switch ($command) {
+    case 'queue:work':
+    case 'schedule:run':
+        fwrite(STDOUT, "[$command] kernel not built yet (stage 01), idling\n");
+        while (true) {
+            sleep(60);
+        }
+        // no break
+    case 'migrate':
+    case 'seed':
+        fwrite(STDOUT, "[$command] nothing to do yet\n");
+        exit(0);
+    default:
+        fwrite(STDOUT, "Commands: migrate, seed, queue:work, schedule:run\n");
+        exit($command === 'list' ? 0 : 1);
+}

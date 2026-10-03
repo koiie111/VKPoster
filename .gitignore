@@ -1,5 +1,16 @@
 .idea/
 .env
 *.log
+/vendor/
+/.phpunit.cache/
+/.php-cs-fixer.cache
+/.phpstan.cache/
+/coverage/
+/docs/reference/
+/storage/*/*
+!/storage/*/.gitkeep
+/.phpdoc/
 storage/agent-logs/
 storage/ui-review/
+/public/assets/build/*
+!/public/assets/build/.gitkeep
