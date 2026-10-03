@@ -2,32 +2,20 @@
 
 declare(strict_types=1);
 
-// Temporary front controller (stage 00). Replaced by the kernel Application in stage 01.
-
-use App\Kernel\HealthCheck;
+use App\Kernel\Application;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
-$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
-
-header('X-Content-Type-Options: nosniff');
-
-if ($path === '/healthz') {
-    $env = [];
-    foreach (['DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD', 'REDIS_HOST', 'REDIS_PORT'] as $key) {
-        $value = getenv($key);
-        if ($value !== false) {
-            $env[$key] = $value;
-        }
-    }
-    $result = (new HealthCheck($env))->run();
-    http_response_code(HealthCheck::isHealthy($result) ? 200 : 503);
-    header('Content-Type: application/json');
-    header('Cache-Control: no-store');
-    echo json_encode($result, JSON_THROW_ON_ERROR);
+try {
+    $app = Application::create(dirname(__DIR__));
+} catch (Throwable $e) {
+    // Boot failed (bad configuration): log the reason, show nothing about it.
+    error_log('boot failure: ' . $e::class . ': ' . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'Server error';
 
     return;
 }
 
-header('Content-Type: text/plain; charset=utf-8');
-echo 'OK';
+$app->run();

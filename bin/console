@@ -3,26 +3,39 @@
 
 declare(strict_types=1);
 
-/**
- * Temporary stub of the CLI entry point; the real console arrives with the kernel (stage 01).
- * Long-running commands only idle so that `worker` and `scheduler` containers stay healthy.
- */
+use App\Kernel\Application;
+use App\Kernel\Console\Command\KeyGenerateCommand;
+use App\Kernel\Console\Command\MigrateCommand;
+use App\Kernel\Console\Command\MigrateFreshCommand;
+use App\Kernel\Console\Command\MigrateRollbackCommand;
+use App\Kernel\Console\Command\MigrateStatusCommand;
+use App\Kernel\Console\Command\QueueWorkCommand;
+use App\Kernel\Console\Command\ScheduleRunCommand;
+use App\Kernel\Console\Command\SeedCommand;
+use App\Kernel\Console\Console;
+use App\Kernel\Console\Output;
 
-$command = $argv[1] ?? 'list';
+require dirname(__DIR__) . '/vendor/autoload.php';
 
-switch ($command) {
-    case 'queue:work':
-    case 'schedule:run':
-        fwrite(STDOUT, "[$command] kernel not built yet (stage 01), idling\n");
-        while (true) {
-            sleep(60);
-        }
-        // no break
-    case 'migrate':
-    case 'seed':
-        fwrite(STDOUT, "[$command] nothing to do yet\n");
-        exit(0);
-    default:
-        fwrite(STDOUT, "Commands: migrate, seed, queue:work, schedule:run\n");
-        exit($command === 'list' ? 0 : 1);
+if (PHP_SAPI !== 'cli') {
+    exit(1);
 }
+
+try {
+    $app = Application::create(dirname(__DIR__));
+    $console = new Console($app->container(), [
+        MigrateCommand::class,
+        MigrateRollbackCommand::class,
+        MigrateStatusCommand::class,
+        MigrateFreshCommand::class,
+        SeedCommand::class,
+        QueueWorkCommand::class,
+        ScheduleRunCommand::class,
+        KeyGenerateCommand::class,
+    ]);
+} catch (Throwable $e) {
+    fwrite(STDERR, 'Cannot start: ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
+exit($console->run($argv, Output::stdout()));

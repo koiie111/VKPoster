@@ -1,0 +1,6 @@
+/* Minimal stage-01 styles; the design system (stage 21) replaces this file. */
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; line-height: 1.5; }
+main { max-width: 40rem; margin: 4rem auto; padding: 0 1rem; }
+a { color: inherit; }
+pre { overflow-x: auto; padding: 1rem; background: rgba(127, 127, 127, 0.15); }
