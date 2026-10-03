@@ -1,0 +1,15 @@
+{% extends 'layouts/base.twig' %}
+
+{% block title %}{{ title }} · {{ app_name }}{% endblock %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+    <p>{% block message %}{% endblock %}</p>
+    <p><a href="/">{{ t('Вернуться на главную') }}</a></p>
+    {% if error_id %}
+        <p><small>{{ t('Код ошибки для поддержки: :id', {id: error_id}) }}</small></p>
+    {% endif %}
+    {% if debug %}
+        <pre>{{ debug }}</pre>
+    {% endif %}
+{% endblock %}

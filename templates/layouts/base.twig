@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>
+    {{ csrf_meta() }}
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ asset('css/kernel.css') }}">
+    <script src="{{ asset('vendor/htmx.min.js') }}" nonce="{{ csp_nonce() }}" defer></script>
+    <script src="{{ asset('js/app.js') }}" nonce="{{ csp_nonce() }}" defer></script>
+    <script src="{{ asset('vendor/alpine-csp.min.js') }}" nonce="{{ csp_nonce() }}" defer></script>
+</head>
+<body>
+<main>
+    {% block content %}{% endblock %}
+</main>
+</body>
+</html>

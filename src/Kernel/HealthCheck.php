@@ -11,7 +11,7 @@ use Throwable;
 /**
  * Liveness probe for `/healthz`: checks that MySQL and Redis answer.
  *
- * Temporary stage-00 implementation; the real kernel (stage 01) wires it through the container.
+ * Opens its own short-timeout connections (not the pooled `Connection`) so a hung dependency cannot stall the probe.
  * Never exposes error details: only "ok" or "fail" per dependency.
  */
 final class HealthCheck

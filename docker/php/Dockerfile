@@ -12,7 +12,7 @@ RUN apt-get update \
         libicu-dev libzip-dev libpng-dev libjpeg-dev libwebp-dev libfreetype-dev \
         libmagickwand-dev libsodium-dev unzip git curl ca-certificates \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
-    && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd exif zip opcache sodium \
+    && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd exif zip opcache sodium pcntl \
     && pecl install redis imagick \
     && docker-php-ext-enable redis imagick \
     && rm -rf /var/lib/apt/lists/* /tmp/pear

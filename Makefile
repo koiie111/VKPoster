@@ -8,7 +8,7 @@ CMD     ?=
 
 init: ## create .env and generate APP_KEY
 	@test -f .env || cp .env.example .env
-	@if ! grep -qE '^APP_KEY=.+' .env; then \
+	@if ! grep -qE '^APP_KEY=[A-Za-z0-9+/=]{40,}' .env; then \
 		key=$$(openssl rand -base64 32 | tr -d '\n'); \
 		sed -i.bak "s|^APP_KEY=.*|APP_KEY=$$key|" .env && rm -f .env.bak; \
 		echo "APP_KEY generated"; \

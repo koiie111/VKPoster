@@ -40,7 +40,7 @@ make check  # cs + stan + test + audit + docs
 ## Документация
 
 - [docs/plans/](docs/plans/): мастер-план, этапы, прогресс, правила разработки, промт агента
-- [docs/architecture/](docs/architecture/): архитектура, конфигурация, схема БД
+- [docs/architecture/](docs/architecture/): [обзор](docs/architecture/overview.md), [путь запроса](docs/architecture/request-lifecycle.md), [безопасность](docs/architecture/security.md), [очередь](docs/architecture/queue.md), конфигурация, схема БД
 - [docs/adr/](docs/adr/): архитектурные решения
 - [docs/CHANGELOG.md](docs/CHANGELOG.md)
 

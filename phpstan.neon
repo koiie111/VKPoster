@@ -8,4 +8,15 @@ parameters:
         - tests
         - public
         - bin
+        - config
+        - database
+        - tools
+    excludePaths:
+        - tests/PHPStan/data
     tmpDir: .phpstan.cache
+
+services:
+    -
+        class: App\Tools\PHPStan\RequireClassDocblockRule
+        tags:
+            - phpstan.rules.rule
