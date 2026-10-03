@@ -14,7 +14,7 @@ docker compose down -v         # reset DB (schema is loaded from docker/init.sql
 docker compose --profile tools up   # adds phpMyAdmin at :8081
 ```
 
-- `/dev_login` logs in without VK OAuth (enabled when `DEV_LOGIN=1`, the default in docker-compose).
+- `/dev_login` logs in without VK OAuth (enabled only when `DEV_LOGIN=1`; off by default — run `DEV_LOGIN=1 docker compose up`).
 - Real VK auth needs `VK_CLIENT_ID` / `VK_CLIENT_SECRET`; `APP_URL` is used as the OAuth redirect base.
 - Any VK API call for groups needs a real token stored in `users.private_tocken` (the column/method names deliberately use the misspelling "tocken" — keep it).
 - DB config comes from env vars `DB_HOST/DB_USER/DB_PASSWORD/DB_NAME` (see `system/db.php`); the repo is bind-mounted into the container, so edits are live.
@@ -29,6 +29,6 @@ docker compose --profile tools up   # adds phpMyAdmin at :8081
 
 ## Gotchas
 
-- Much of the code is work in progress: several `User` getters are empty stubs, and `get_groups.php` currently lists all groups (not filtered by the current user) with placeholder admin/action fields.
-- Existing queries mix prepared statements and string-interpolated SQL (with `intval`); prefer prepared statements for new code.
-- `auth_callback.php` contains a fallback hard-coded VK client secret; don't copy that pattern — use the env var.
+- Much of the code is work in progress: several `User` getters are empty stubs, and `get_groups.php` returns only the current user's groups, with a placeholder admin field.
+- All SQL uses prepared statements; keep it that way. State-changing endpoints must check `csrf_check()`, and redirects must use `redirect()` (it exits).
+- `VK_CLIENT_SECRET` comes only from the environment; never hard-code secrets. The old leaked secret must be rotated in VK.
