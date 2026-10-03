@@ -39,7 +39,8 @@ final class GuzzleHttpClient implements HttpClientInterface
                 $target = $this->guard->assertSafe($url);
                 // Pin the connection to the address we validated (no second DNS lookup, no rebinding).
                 $curl = is_array($hopOptions['curl'] ?? null) ? $hopOptions['curl'] : [];
-                $curl[CURLOPT_RESOLVE] = [sprintf('%s:%d:%s', $target['host'], $target['port'], $target['ip'])];
+                $address = str_contains($target['ip'], ':') ? '[' . $target['ip'] . ']' : $target['ip'];
+                $curl[CURLOPT_RESOLVE] = [sprintf('%s:%d:%s', $target['host'], $target['port'], $address)];
                 $hopOptions['curl'] = $curl;
             }
             $started = microtime(true);

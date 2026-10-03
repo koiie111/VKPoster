@@ -1,11 +1,39 @@
-# Архитектура: обзор (черновик)
+# Архитектура: обзор
 
-> Статус: этап 00. Полное описание появится на этапе 01 вместе с каркасом (`docs/architecture/request-lifecycle.md`).
+Чистый PHP 8.3 без фреймворков (ADR 0001). Свой небольшой каркас лежит в `src/Kernel`; бизнес-логика будет жить в `src/Domain`, внешние API в `src/Integrations` (появляются со следующих этапов). Всё запускается в Docker.
 
-## Что есть сейчас
-- `public/index.php` — единственная точка входа nginx; пока заглушка `OK` и `/healthz`.
-- `src/Kernel/HealthCheck.php` — проверка MySQL и Redis для `/healthz` (временная реализация).
-- `bin/console` — заглушка CLI (`migrate`, `seed`, `queue:work`, `schedule:run`); настоящий консольный каркас — этап 01.
+## Слои
+
+| Слой | Каталог | Что внутри |
+|---|---|---|
+| Точки входа | `public/index.php`, `bin/console` | собирают `Application` и передают управление |
+| Каркас | `src/Kernel` | контейнер, конфиг, HTTP, роутер, middleware, сессии, БД, очередь, консоль, безопасность, валидация, шаблоны, логи |
+| HTTP | `src/Http` | тонкие контроллеры и прикладные middleware (`SecurityHeaders`, `StartSession`, `VerifyCsrf`, `RateLimit`, `Authenticate`) |
+| Общее | `src/Support` | `Clock` (время только через него), `Fs` |
+| Конфигурация | `config/` | `app`, `database`, `security`, `session` читают env; `routes`, `services`, `schedule` пишутся кодом |
+| Шаблоны | `templates/` | Twig; ошибки в `templates/errors/` |
+
+Правила слоёв: контроллер валидирует вход, вызывает сервис и отвечает; к `$_GET/$_POST/$_SESSION` обращается только `Kernel\Http\Request` и `Kernel\Session`; время берётся из `Clock`; зависимости приходят через конструктор.
+
+## Модули каркаса
+
+| Модуль | Классы | Назначение |
+|---|---|---|
+| Конфигурация | `Env`, `Config` | типизированные геттеры, падение при отсутствии обязательных переменных, запрет `APP_DEBUG` и `DEV_*` в production |
+| DI | `Container` | autowiring по типам конструктора, синглтоны, фабрики из `config/services.php`, `make()` с именованными параметрами, `call()` |
+| HTTP | `Request`, `Response`, `Router`, `Route`, `UploadedFile`, `RequestContext` | неизменяемые Request/Response, доверенные прокси для IP и схемы, защита от open redirect |
+| Middleware | `MiddlewareInterface`, `Pipeline`, `ErrorHandler` | конвейер с собственным интерфейсом |
+| Сессии | `Session`, `SessionStore`, `RedisSessionStore` | Redis, ключ — SHA-256 от id, flash, `regenerate()`, idle и absolute таймауты |
+| БД | `Connection`, `QueryBuilder`, `Migrator` | PDO с настоящими prepared statements, UTC, вложенные транзакции через savepoint, обратимые миграции |
+| Безопасность | `Csrf`, `Csp`, `Crypto`, `Signer`, `RateLimiter`, `PasswordHasher` | см. [security.md](security.md) |
+| Сеть | `HttpClientInterface`, `GuzzleHttpClient`, `SsrfGuard` | таймауты 5/20 с, ручные редиректы, SSRF-проверка пользовательских URL |
+| Валидация | `Validator`, `Validation`, `Translator` | правила строкой, сообщения на русском, `t()` |
+| Шаблоны | `View` | Twig, автоэкранирование, функции `csrf_field`, `csrf_meta`, `csp_nonce`, `asset`, `url`, `t`, `old`, `errors` |
+| Логи | `LoggerFactory`, `SecretRedactor` | JSON в `storage/logs/app.log` и stderr, секреты маскируются |
+| Очередь | `Queue`, `Worker`, `Job`, `Schedule` | см. [queue.md](queue.md) |
+| Консоль | `Console`, `Command` | `bin/console list` |
+
+Как запрос проходит через эти модули, описано в [request-lifecycle.md](request-lifecycle.md).
 
 ## Сервисы Docker (dev)
 | Сервис | Назначение |
@@ -22,4 +50,11 @@
 Целевая структура каталогов, схема данных и конвейер публикации — в `docs/plans/00-master-plan.md` §4.
 
 ## Образы
-`docker/php/Dockerfile`: `base` → `dev` (pcov, composer) и `vendor` → `prod` (без dev-зависимостей, `opcache.validate_timestamps=0`). Решение про Debian вместо Alpine — `docs/adr/0002-debian-php-image.md`.
+`docker/php/Dockerfile`: `base` → `dev` (pcov, composer) и `vendor` → `prod` (без dev-зависимостей, `opcache.validate_timestamps=0`). Расширения: `pdo_mysql`, `redis`, `sodium`, `intl`, `gd`, `imagick`, `exif`, `zip`, `opcache`, `pcntl` (graceful shutdown воркера). Решение про Debian вместо Alpine: `docs/adr/0002-debian-php-image.md`.
+
+## Тесты
+- `tests/Unit` — чистая логика без внешних сервисов (роутер, контейнер, валидатор, Crypto, SsrfGuard…).
+- `tests/Integration` — настоящие MySQL (`app_test`) и Redis: миграции, очередь, rate limit, транзакции. `tests/bootstrap.php` один раз за прогон накатывает миграции на `app_test`.
+- `tests/Feature` — HTTP через `Application` в одном процессе (`HttpTestCase`: cookie-jar, тестовые маршруты).
+- `tests/Support` — `FakeClock`, `MockHttpClient` (падает на незапланированный запрос), `ArraySessionStore`, `TestEnv`.
+- Правило PHPStan `RequireClassDocblockRule` (`tools/phpstan/`) требует docblock у каждого класса в `src/`.
