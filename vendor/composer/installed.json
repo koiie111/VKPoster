@@ -761,6 +761,6 @@
             "install-path": "../vkcom/vk-php-sdk"
         }
     ],
-    "dev": true,
+    "dev": false,
     "dev-package-names": []
 }
