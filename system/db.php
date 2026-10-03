@@ -7,7 +7,9 @@ $db = new mysqli(
 );
 
 if($db->connect_errno){
-    die('Ошибка подключения к БД: '.$db->connect_error);
+    error_log('DB connection error: '.$db->connect_error);
+    http_response_code(500);
+    die('Ошибка подключения к БД');
 }
 $db->set_charset('utf8mb4');
 ?>

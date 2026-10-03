@@ -2,15 +2,16 @@ services:
   web:
     build: .
     ports:
-      - "${APP_PORT:-8080}:80"
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:80"
     environment:
       DB_HOST: db
-      DB_USER: vkposter
-      DB_PASSWORD: vkposter
+      DB_USER: ${DB_USER:-vkposter}
+      DB_PASSWORD: ${DB_PASSWORD:-vkposter}
       DB_NAME: vkposter
       APP_URL: ${APP_URL:-http://localhost:8080}
-      # Локальный вход без VK OAuth (только для разработки/тестов): /dev_login
-      DEV_LOGIN: ${DEV_LOGIN:-1}
+      # Локальный вход без VK OAuth (ТОЛЬКО для разработки/тестов): /dev_login
+      # По умолчанию выключен. Включать явно: DEV_LOGIN=1 docker compose up
+      DEV_LOGIN: ${DEV_LOGIN:-0}
       VK_CLIENT_ID: ${VK_CLIENT_ID:-51785244}
       VK_CLIENT_SECRET: ${VK_CLIENT_SECRET:-}
     volumes:
@@ -22,15 +23,15 @@ services:
   db:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: vkposter
-      MYSQL_USER: vkposter
-      MYSQL_PASSWORD: vkposter
+      MYSQL_USER: ${DB_USER:-vkposter}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-vkposter}
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -41,7 +42,7 @@ services:
     environment:
       PMA_HOST: db
     ports:
-      - "8081:80"
+      - "127.0.0.1:8081:80"
     depends_on:
       - db
 

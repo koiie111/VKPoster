@@ -1,16 +1,29 @@
 <?php
 include_once($_SERVER["DOCUMENT_ROOT"].'/system/extensions.php');
 
+header("Content-Type: application/json");
+
 if(!isset($User)){
-    header('location:/');
+    http_response_code(401);
+    echo json_encode(array('status' => 'error', 'errors' => array('Вы не авторизованы!')));
+    exit;
 }
 
-$query = $db->query("SELECT `id` FROM `groups`");
+// Только группы, администратором которых является текущий пользователь
+$stmt = $db->prepare("SELECT `id` FROM `groups` WHERE `id_admin`=?");
+$stmt->bind_param("i", $User->vkId);
+$stmt->execute();
+$result = $stmt->get_result();
 $data = array();
 
-while ($group = $query->fetch_assoc()) {
-    $groupObj = new Groups($group['id'], $User);
-    // Добавляем данные в массив
+while ($group = $result->fetch_assoc()) {
+    try {
+        $groupObj = new Groups($group['id'], $User);
+    } catch (Exception $e) {
+        // Сообщение исключения Guzzle содержит URL с access_token — не логируем его
+        error_log('Groups load error: '.get_class($e));
+        continue;
+    }
     $data[] = array(
         "id" => $groupObj->id,
         "screen_name" => $groupObj->screen_name,
@@ -18,14 +31,9 @@ while ($group = $query->fetch_assoc()) {
         "admins" => null,
         "name" => $groupObj->name,
         "members" => $groupObj->members,
-        "type" => $groupObj->type,
-        "Action" => '<button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modalDel" data-bs-target="#confirmModal" data-group-id="" data-group-name="">
-                      <i class="bi bi-trash3"></i>
-                    </button>'
+        "type" => $groupObj->type
     );
 }
+$stmt->close();
 
-// Возвращаем данные в формате JSON
-header("Content-Type: application/json");
 echo json_encode($data);
-?>

@@ -8,14 +8,20 @@ if(getenv('DEV_LOGIN') !== '1'){
 }
 
 $id_vk = 1;
-$row = $db->query("SELECT `id` FROM `users` WHERE `id_vk`=$id_vk")->fetch_assoc();
+$stmt = $db->prepare("SELECT `id` FROM `users` WHERE `id_vk`=?");
+$stmt->bind_param("i", $id_vk);
+$stmt->execute();
+$row = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 if(!$row){
     $stmt = $db->prepare("INSERT INTO users (id_vk, first_name, last_name, avatar, access_tocken) VALUES (?, 'Dev', 'User', '', '')");
     $stmt->bind_param("i", $id_vk);
     $stmt->execute();
     $stmt->close();
-    $_SESSION['id'] = $db->insert_id;
+    $user_id = $db->insert_id;
 }else{
-    $_SESSION['id'] = $row['id'];
+    $user_id = $row['id'];
 }
-header('location:/');
+session_regenerate_id(true);
+$_SESSION['id'] = $user_id;
+redirect('/');

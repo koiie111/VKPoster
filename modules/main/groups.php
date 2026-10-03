@@ -1,10 +1,12 @@
 <?php
 $title = 'Подключенные группы';
+include_once($_SERVER["DOCUMENT_ROOT"].'/system/extensions.php');
+if(!isset($User)){
+    redirect('/');
+}
 include_once($_SERVER["DOCUMENT_ROOT"].'/style/head.php');
 
-if(!isset($User)){
-    header('location:/');
-}
+
 ?>
     <style>
         /* Стиль анимации для появления строк таблицы */
@@ -47,7 +49,6 @@ if(!isset($User)){
                                     </div>
                                     <?php
                                 }else{
-                                    $scifacts = new Groups(1, $User);
                                     ?>
                                         <table class="table table-sm table-striped table-hover">
                                             <thead>
@@ -103,14 +104,24 @@ if(!isset($User)){
                         var adminsCell = row.insertCell(2);
                         var membersCell = row.insertCell(3);
                         var typeCell = row.insertCell(4);
-                        var actionCell = row.insertCell(5);
+                        row.insertCell(5);
 
-                        avaCell.innerHTML = "<a href='https://vk.com/" + data[i].screen_name + "'><img width='25px' height='25px' src='" + data[i].avatar + "'></a>";
+                        // Данные из VK вставляются только через DOM API (без innerHTML)
+                        var link = document.createElement("a");
+                        link.href = "https://vk.com/" + encodeURIComponent(data[i].screen_name);
+                        link.rel = "noopener noreferrer";
+                        var img = document.createElement("img");
+                        img.width = 25;
+                        img.height = 25;
+                        if (/^https:\/\//.test(data[i].avatar)) {
+                            img.src = data[i].avatar;
+                        }
+                        link.appendChild(img);
+                        avaCell.appendChild(link);
                         nameCell.textContent = data[i].name;
                         adminsCell.textContent = data[i].admins; //Админы, нужно добавить потом
                         membersCell.textContent = data[i].members;
                         typeCell.textContent = data[i].type;
-                        actionCell.innerHTML = data[i].Action;
                         row.classList.add("fadeIn");
                     }
                     //setupButtonHandlers();

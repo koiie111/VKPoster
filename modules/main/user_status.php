@@ -1,9 +1,11 @@
 <?php
 $title = 'Статус пользователя';
-include_once($_SERVER["DOCUMENT_ROOT"].'/style/head.php');
+include_once($_SERVER["DOCUMENT_ROOT"].'/system/extensions.php');
 if(!isset($User)){
-    header('location:/');
+    redirect('/');
 }
+include_once($_SERVER["DOCUMENT_ROOT"].'/style/head.php');
+
 ?>
     <!-- Модальное окно обновления доступа-->
     <div class="modal fade" id="giveAccess" tabindex="-1" aria-labelledby="giveAccessLabel" aria-hidden="true">
@@ -14,8 +16,9 @@ if(!isset($User)){
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
                 <div class="modal-body">
-                    <a href="http://oauth.vk.com/oauth/authorize?client_id=51785306&scope=wall,groups,photos,audio,video,offline,pages&display=popup&redirect_uri=https://api.vk.com/blank.html&response_type=token" target="_blank">Кликните здесь</a> для получения доступа.
+                    <a href="https://oauth.vk.com/oauth/authorize?client_id=51785306&scope=wall,groups,photos,audio,video,offline,pages&display=popup&redirect_uri=https://api.vk.com/blank.html&response_type=token" target="_blank" rel="noopener noreferrer">Кликните здесь</a> для получения доступа.
                     <form class="row g-3 needs-validation" id="urlForm">
+                        <input type="hidden" name="csrf" value="<?=Core::outputText(csrf_token())?>">
                         <div class="mb-3">
                             <label for="inputUrl" class="form-label">URL:</label>
                             <input type="text" class="form-control" id="inputUrl" name="inputUrl" aria-describedby="urlHelp" placeholder="https://api.vk.com/blank.html#access_token=vk1.a.MxkO38wy74-uwQ5mF5aDUZ5KB-hOmg9tVJNk2ekuscbjG6454BmdTyS0cvBECiyczECf-oPHgSukSzXfbujM61eaHN-vvGmeFI7LMQIA4rISOzED7F32-PGL6Y4j7VDF8ZpJJWRTy_9Z9Gs9wqciFOGHRF7Seap4wqFX2wr3wAVgMUYzsrMcZVNE-_uDns5tDDdf_xQ4XuJMQ3uLLfy7V4rw&expires_in=0&user_id=646341532">
@@ -116,7 +119,7 @@ if(!isset($User)){
                 xhr.open("POST", "/modules/main/update_user_status.php", true);
 
                 xhr.onreadystatechange = function () {
-                    if (xhr.readyState === 4 && xhr.status === 200) {
+                    if (xhr.readyState === 4) {
                         try {
                             const response = JSON.parse(xhr.responseText);
 
@@ -129,7 +132,7 @@ if(!isset($User)){
                                 setTimeout(() => { location.href = '/main' }, 2000);
                             } else if (response.status === "error" && response.errors) {
                                 // Отобразить уведомление ошибках
-                                showShortErrorToast(response.errors);
+                                showShortErrorToast(response.errors.join(" "));
                             }
                         } catch (error) {
                             console.error("Ошибка при обработке ответа:", error);

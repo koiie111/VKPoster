@@ -14,8 +14,18 @@ class User
     function __construct($id)
     {
         global $db;
+        $id = abs(intval($id));
         $this->id = $id;
-        $user = $db->query("SELECT * FROM `users` WHERE `id`=".abs(intval($id)))->fetch_assoc();
+        $stmt = $db->prepare("SELECT * FROM `users` WHERE `id`=?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $user = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if(!$user){
+            // Пользователь удалён — сессия недействительна
+            unset($_SESSION['id']);
+            throw new RuntimeException('User not found');
+        }
         $this->vkId = $user['id_vk'];
         $this->firstName = $user['first_name'];
         $this->lastName = $user['last_name'];
@@ -42,7 +52,7 @@ class User
     }
 
     function getPrivateTocken(){
-        return Core::outputText($this->private_token);
+        return Core::outputText((string)$this->private_token);
     }
 
     function setPrivateTocken($tocken){
