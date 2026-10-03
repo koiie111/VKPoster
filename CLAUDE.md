@@ -32,3 +32,7 @@ docker compose --profile tools up   # adds phpMyAdmin at :8081
 - Much of the code is work in progress: several `User` getters are empty stubs, and `get_groups.php` returns only the current user's groups, with a placeholder admin field.
 - All SQL uses prepared statements; keep it that way. State-changing endpoints must check `csrf_check()`, and redirects must use `redirect()` (it exits).
 - `VK_CLIENT_SECRET` comes only from the environment; never hard-code secrets. The old leaked secret must be rotated in VK.
+
+## Workflow rules
+
+- After every approved and tested update, make a commit and push it to `main` (`git push origin main`). Do not commit untested or unapproved changes.
