@@ -14,6 +14,8 @@ use App\Kernel\Env;
  */
 final class TestEnv
 {
+    public const TELEGRAM_TOKEN = '123456789:TEST-token-not-real';
+
     public const KEY = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
 
     private static function process(string $name, string $default): string
@@ -48,7 +50,16 @@ final class TestEnv
             'LOG_DISABLE_STDERR' => '1',
             'ARGON_MEMORY_KIB' => '1024',
             'ARGON_TIME_COST' => '1',
+            // Social sign-in: the fake provider and a test Telegram bot (the token is not a real one).
+            'DEV_OAUTH_FAKE' => '1',
+            'TELEGRAM_LOGIN_BOT_TOKEN' => self::TELEGRAM_TOKEN,
+            'TELEGRAM_LOGIN_BOT_NAME' => 'ezposter_test_bot',
         ];
+
+        // The fake provider is refused in production, so tests that boot a production app get it switched off.
+        if (($overrides['APP_ENV'] ?? '') === 'production') {
+            $vars['DEV_OAUTH_FAKE'] = '0';
+        }
 
         return new Env($overrides + $vars);
     }

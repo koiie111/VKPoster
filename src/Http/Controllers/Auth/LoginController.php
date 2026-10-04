@@ -10,6 +10,9 @@ use App\Domain\Auth\RememberMe;
 use App\Domain\Auth\SessionRegistry;
 use App\Domain\User\User;
 use App\Http\Auth\SessionAuth;
+use App\Http\Auth\SocialFlow;
+use App\Integrations\OAuth\ProviderRegistry;
+use App\Domain\Auth\Social\SocialAuthService;
 use App\Http\FormFlash;
 use App\Kernel\Http\Request;
 use App\Kernel\Http\Response;
@@ -27,12 +30,17 @@ final class LoginController
         private readonly FormFlash $flash,
         private readonly SessionRegistry $sessions,
         private readonly RememberMe $remember,
+        private readonly SocialFlow $social,
+        private readonly SocialAuthService $socialAuth,
+        private readonly ProviderRegistry $providers,
     ) {
     }
 
     public function show(): Response
     {
-        return $this->view->response('auth/login.twig');
+        return $this->view->response('auth/login.twig', [
+            'social' => ['buttons' => $this->social->buttons(), 'telegram' => $this->social->telegramWidget('login', null)],
+        ]);
     }
 
     public function store(Request $request): Response
@@ -125,8 +133,14 @@ final class LoginController
     {
         $session = $this->flash->session();
         $intended = $session->get('auth.intended');
+        // A provider account held back because its verified email matched this account: now that the
+        // password is proven, attach it.
+        $pending = $this->social->takePendingLink();
         $cookie = $this->auth->signIn($request, $session, $user, $remember);
         $session->forget('auth.intended');
+        if ($pending !== null && $this->socialAuth->linkAfterPassword($user, $pending)) {
+            $this->flash->toast($this->providers->label($pending->provider) . ' привязан: теперь им можно входить в аккаунт.');
+        }
         $target = is_string($intended) && Response::isRelativeUrl($intended) ? $intended : '/app';
         $response = Response::redirect($target);
 

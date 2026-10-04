@@ -1,0 +1,25 @@
+{#- Last step of sign-up through a social network: confirm the name and agree to personal data processing. Variables: profile, provider_label. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% block title %}Создание аккаунта · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Почти готово</h1>
+<p class="mt-1 text-muted">Мы создадим аккаунт на основе вашего профиля {{ provider_label }}. Осталось проверить имя и согласиться на обработку данных.</p>
+{% if errors() %}<div class="mt-5">{{ d.alert('error', 'Не получилось создать аккаунт', 'Проверьте поля, отмеченные красным.') }}</div>{% endif %}
+<form class="mt-6 flex flex-col gap-4" method="post" action="/auth/social/consent">
+    {{ csrf_field() }}
+    {{ f.input('name', 'Как вас зовут', value = old('name') ?? profile.name, required = true, autocomplete = 'name', error = errors('name')|first, attrs = {autofocus: ''}) }}
+    {% if profile.trustedEmail() %}
+    <p class="text-sm text-muted">Почта для входа: <strong class="break-all text-fg">{{ profile.trustedEmail() }}</strong>. {{ provider_label }} подтвердил этот адрес.</p>
+    {% else %}
+    <p class="text-sm text-muted">{{ provider_label }} не передал подтверждённую почту. Добавить её можно позже в разделе «Способы входа».</p>
+    {% endif %}
+    <div class="flex flex-col gap-1.5">
+        {{ f.checkbox('consent', 'Я согласен(на) на обработку персональных данных', checked = old('consent') == '1', hint = 'Подробности в политике конфиденциальности.') }}
+        {% if errors('consent') %}<p class="flex items-start gap-1.5 text-sm font-medium text-bad-fg" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ errors('consent')|first }}</span></p>{% endif %}
+    </div>
+    {{ f.button('Создать аккаунт', type = 'submit', block = true) }}
+</form>
+{% endblock %}
+{% block auth_footer %}<a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('login') }}">Вернуться ко входу</a>{% endblock %}

@@ -111,14 +111,16 @@ final class TwoFactorController
         $password = $this->string($request->input('disable_password'));
         $code = $this->string($request->input('disable_code'));
         $errors = [];
-        if ($password === '') {
+        // Accounts made through a social network have no password: the code alone proves ownership.
+        $needsPassword = $user->passwordHash !== null;
+        if ($needsPassword && $password === '') {
             $errors['disable_password'] = ['Введите пароль.'];
         }
         if ($code === '') {
             $errors['disable_code'] = ['Введите код из приложения или резервный код.'];
         }
         if ($errors === []) {
-            $check = $this->passwords->confirmPassword($user, $password);
+            $check = $needsPassword ? $this->passwords->confirmPassword($user, $password) : 'ok';
             if ($check !== 'ok') {
                 $errors['disable_password'] = [$check === 'throttled' ? 'Слишком много попыток. Подождите 10 минут и повторите.' : 'Пароль указан неверно.'];
             } elseif (!$this->limiter->attempt('2fa:' . $user->id, 5, 600)->allowed || !$this->twoFactor->verifyAny($user, $code)) {
@@ -141,11 +143,24 @@ final class TwoFactorController
     public function regenerateCodes(Request $request): Response
     {
         $user = $this->fresh($request);
-        $check = $user->hasTwoFactor() ? $this->passwords->confirmPassword($user, $this->string($request->input('codes_password'))) : 'wrong_password';
-        if ($check !== 'ok') {
-            $this->flash->invalid([], ['codes_password' => [$check === 'throttled' ? 'Слишком много попыток. Подождите 10 минут и повторите.' : 'Пароль указан неверно.']]);
-
+        if (!$user->hasTwoFactor()) {
             return Response::redirect('/account/security#two-factor');
+        }
+        if ($user->passwordHash === null) {
+            // No password on this account: ask for a current code from the app instead.
+            $code = $this->string($request->input('codes_code'));
+            if ($code === '' || !$this->limiter->attempt('2fa:' . $user->id, 5, 600)->allowed || !$this->twoFactor->verifyAny($user, $code)) {
+                $this->flash->invalid([], ['codes_code' => ['Код не подошёл. Проверьте код в приложении или введите резервный код.']]);
+
+                return Response::redirect('/account/security#two-factor');
+            }
+        } else {
+            $check = $this->passwords->confirmPassword($user, $this->string($request->input('codes_password')));
+            if ($check !== 'ok') {
+                $this->flash->invalid([], ['codes_password' => [$check === 'throttled' ? 'Слишком много попыток. Подождите 10 минут и повторите.' : 'Пароль указан неверно.']]);
+
+                return Response::redirect('/account/security#two-factor');
+            }
         }
         $codes = $this->twoFactor->generateRecoveryCodes($user->id);
         $this->audit->record('auth.2fa.recovery_regenerated', $user->id, 'user', (string) $user->id);

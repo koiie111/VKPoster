@@ -31,6 +31,7 @@ final class RouteAuditTest extends AuthTestCase
             static fn (array $m): string => match ($m[1]) {
                 'token' => str_repeat('a', 43),
                 'id' => str_repeat('0', 26),
+                'provider' => 'fake',
                 default => '1',
             },
             $route->pattern,

@@ -2,6 +2,7 @@
 {% extends 'layouts/auth.twig' %}
 {% import 'components/forms.twig' as f %}
 {% import 'components/display.twig' as d %}
+{% import 'components/social.twig' as soc %}
 {% block title %}Вход · {{ app_name }}{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold">С возвращением!</h1>
@@ -15,5 +16,9 @@
     {{ f.button('Войти', type = 'submit', block = true) }}
 </form>
 <p class="mt-4 text-center text-sm"><a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('auth.forgot') }}">Забыли пароль?</a></p>
+{% if social.buttons|length %}
+{{ soc.divider('или войдите через') }}
+{{ soc.sign_in_buttons(social) }}
+{% endif %}
 {% endblock %}
 {% block auth_footer %}Нет аккаунта? <a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('register') }}">Зарегистрируйтесь</a>{% endblock %}

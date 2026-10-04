@@ -17,11 +17,15 @@ final class RequestContext
     private string $nonce = '';
     private ?object $user = null;
 
+    /** @var array<string, list<string>> */
+    private array $cspExtras = [];
+
     public function begin(Request $request): void
     {
         $this->request = $request;
         $this->session = null;
         $this->user = null;
+        $this->cspExtras = [];
         $this->nonce = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
     }
 
@@ -56,5 +60,22 @@ final class RequestContext
     public function setUser(?object $user): void
     {
         $this->user = $user;
+    }
+
+    /**
+     * Allow one more source in a Content-Security-Policy directive for this response only (for a
+     * third-party widget on a single page). Pass exact origins, never wildcards.
+     */
+    public function allowCsp(string $directive, string $source): void
+    {
+        $this->cspExtras[$directive][] = $source;
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function cspExtras(): array
+    {
+        return $this->cspExtras;
     }
 }

@@ -31,7 +31,9 @@ final class EmailChangeService
     public function request(User $user, string $newEmail): void
     {
         $newEmail = UserRepository::normalizeEmail($newEmail);
-        if ($user->email === null || $newEmail === $user->email) {
+        // An account made through social sign-in has no email yet: the first address is added the same way,
+        // there is just no old address to warn.
+        if ($newEmail === $user->email) {
             return;
         }
         if (!$this->limiter->attempt('email-change:' . $user->id, 5, 3600)->allowed) {
@@ -42,7 +44,9 @@ final class EmailChangeService
         } else {
             $this->mailer->emailChangeConfirm($newEmail, $user, $this->tokens->issue($user->id, TokenType::EmailChange, self::TTL, ['email' => $newEmail]));
         }
-        $this->mailer->emailChangeRequested($user, $newEmail);
+        if ($user->email !== null) {
+            $this->mailer->emailChangeRequested($user, $newEmail);
+        }
         $this->audit->record('auth.email.change_requested', $user->id, 'user', (string) $user->id);
     }
 
@@ -65,14 +69,16 @@ final class EmailChangeService
         $consumed = $this->tokens->consume($token, TokenType::EmailChange);
         $newEmail = $consumed?->payload['email'] ?? null;
         $user = $consumed === null ? null : $this->users->find($consumed->userId);
-        if ($user === null || !is_string($newEmail) || $user->email === null) {
+        if ($user === null || !is_string($newEmail)) {
             return null;
         }
         $oldEmail = $user->email;
         if (!$this->users->changeEmail($user->id, $newEmail)) {
             return null;
         }
-        $this->mailer->emailChanged($oldEmail, $newEmail, $user);
+        if ($oldEmail !== null) {
+            $this->mailer->emailChanged($oldEmail, $newEmail, $user);
+        }
         $this->audit->record('auth.email.changed', $user->id, 'user', (string) $user->id);
 
         return $this->users->find($user->id);

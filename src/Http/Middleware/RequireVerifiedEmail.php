@@ -20,7 +20,8 @@ final class RequireVerifiedEmail implements MiddlewareInterface
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->attribute('user');
-        if (!$user instanceof User || $user->isVerified()) {
+        // An account without an email (made through a social network) has nothing to confirm.
+        if (!$user instanceof User || $user->isVerified() || $user->email === null) {
             return $next($request);
         }
         if ($request->wantsJson()) {

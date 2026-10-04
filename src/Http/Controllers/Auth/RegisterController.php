@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Auth;
 use App\Domain\Auth\PasswordPolicy;
 use App\Domain\Auth\RegistrationService;
 use App\Domain\User\UserRepository;
+use App\Http\Auth\SocialFlow;
 use App\Http\FormFlash;
 use App\Kernel\Http\Request;
 use App\Kernel\Http\Response;
@@ -24,12 +25,14 @@ final class RegisterController
         private readonly PasswordPolicy $policy,
         private readonly RegistrationService $registration,
         private readonly FormFlash $flash,
+        private readonly SocialFlow $social,
     ) {
     }
 
     public function show(): Response
     {
-        return $this->view->response('auth/register.twig');
+        // Telegram's widget is loaded on the sign-in page only; here its button leads there.
+        return $this->view->response('auth/register.twig', ['social' => ['buttons' => $this->social->buttons(), 'telegram' => null]]);
     }
 
     public function store(Request $request): Response

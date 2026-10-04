@@ -1,0 +1,88 @@
+{#- Sign-in methods: linked social accounts, Telegram widget, password. Variables: user, rows, telegram, method_count, has_password_login, has_password. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'settings' %}
+{% block title %}Способы входа · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Способы входа', 'Войти в аккаунт можно по почте и паролю или через соцсети. Привяжите несколько способов, чтобы не потерять доступ.') }}
+<p class="mb-6 text-sm"><a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('account.security') }}">← Безопасность</a></p>
+
+<div class="flex flex-col gap-6">
+    <section class="card" id="social" aria-labelledby="social-title">
+        <h2 class="text-lg font-semibold" id="social-title">Соцсети</h2>
+        <p class="mt-1 text-sm text-muted">Привязанной соцсетью можно входить без пароля. Мы получаем только имя и, если соцсеть разрешает, подтверждённую почту. Права на публикации здесь не запрашиваются.</p>
+        {% if rows %}
+        <ul class="mt-4 divide-y divide-line">
+            {% for row in rows %}
+            <li class="flex flex-wrap items-center justify-between gap-3 py-3" id="method-{{ row.id }}">
+                <div class="min-w-0">
+                    <p class="flex flex-wrap items-center gap-2 font-medium">{{ row.label }} {% if row.identity %}{{ d.badge('Привязан', 'ok') }}{% endif %}</p>
+                    {% if row.identity %}
+                    <p class="break-all text-sm text-muted">{{ row.identity.displayName ?: 'Профиль без имени' }}{% if row.identity.email %} · {{ row.identity.email }}{% endif %} · с {{ row.identity.linkedAt|date('d.m.Y', user.timezone) }}</p>
+                    {% else %}
+                    <p class="text-sm text-muted">Не привязан.</p>
+                    {% endif %}
+                </div>
+                {% if row.identity %}
+                    {% if method_count > 1 %}
+                    <button type="button" class="btn btn-secondary btn-sm" data-dialog-open="unlink-{{ row.id }}" aria-label="Отвязать {{ row.label }}">Отвязать</button>
+                    {% else %}
+                    <span class="text-sm text-muted">Единственный способ входа</span>
+                    {% endif %}
+                {% elseif row.id == 'telegram' %}
+                    {% if telegram %}
+                    <div class="flex min-h-11 items-center" id="telegram-login">
+                        <script async src="https://telegram.org/js/telegram-widget.js?22" data-telegram-login="{{ telegram.bot }}" data-size="medium" data-radius="12" data-userpic="false" data-auth-url="{{ telegram.auth_url }}"></script>
+                    </div>
+                    {% endif %}
+                {% else %}
+                <form method="post" action="/account/login-methods/{{ row.id }}/link">
+                    {{ csrf_field() }}
+                    {{ f.button('Привязать', type = 'submit', variant = 'secondary', size = 'sm', attrs = {'aria-label': 'Привязать ' ~ row.label}) }}
+                </form>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="mt-4">{{ d.empty_state('Входа через соцсети пока нет', 'Он появится здесь, как только мы подключим ключи соцсетей. Войти по почте и паролю можно уже сейчас.', icon = 'shield') }}</div>
+        {% endif %}
+    </section>
+
+    <section class="card" id="password" aria-labelledby="password-title">
+        <h2 class="text-lg font-semibold" id="password-title">Почта и пароль</h2>
+        {% if has_password %}
+        <p class="mt-1 text-sm text-muted">Вход по почте и паролю {{ has_password_login ? 'включён' : 'ждёт подтверждения почты' }}. Сменить пароль или почту можно в разделе «<a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('account.security') }}">Безопасность</a>».</p>
+        {% else %}
+        <p class="mt-1 text-sm text-muted">{{ user.email ? 'Задайте пароль, чтобы входить по почте ' ~ user.email ~ ' и не зависеть от соцсети.' : 'Укажите почту и пароль, чтобы входить без соцсетей. Мы отправим письмо, чтобы подтвердить адрес.' }}</p>
+        {% if errors('form') %}<div class="mt-4">{{ d.alert('error', 'Не получилось задать пароль', errors('form')|first) }}</div>{% endif %}
+        <form class="mt-4 grid gap-4 sm:grid-cols-2" method="post" action="/account/login-methods/password">
+            {{ csrf_field() }}
+            {% if not user.email %}
+            <div class="sm:col-span-2">{{ f.input('email', 'Почта', type = 'email', value = old('email'), required = true, autocomplete = 'email', placeholder = 'anna@example.com', error = errors('email')|first, hint = 'Сюда придёт письмо для подтверждения.') }}</div>
+            {% endif %}
+            {{ f.input('password', 'Новый пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 10 символов.', attrs = {minlength: 10, maxlength: 128}) }}
+            {{ f.input('password_confirmation', 'Повторите пароль', type = 'password', required = true, autocomplete = 'new-password') }}
+            {% if user.hasTwoFactor() %}
+            <div class="sm:col-span-2">{{ f.input('code', 'Код из приложения или резервный код', required = true, autocomplete = 'one-time-code', error = errors('code')|first, hint = 'Двухфакторная защита включена, поэтому нужен код.') }}</div>
+            {% endif %}
+            <div class="sm:col-span-2">{{ f.button('Задать пароль', type = 'submit', variant = 'secondary') }}</div>
+        </form>
+        {% endif %}
+    </section>
+</div>
+
+{% for row in rows %}{% if row.identity and method_count > 1 %}
+{% set unlink_body %}
+<form method="post" action="/account/login-methods/{{ row.id }}/unlink">
+    {{ csrf_field() }}
+    <p class="text-sm text-muted">После этого войти через {{ row.label }} будет нельзя. Другие способы входа останутся.</p>
+    {% set footer %}<button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button><button type="submit" class="btn btn-danger">Отвязать</button>{% endset %}
+    {{ o.modal_footer(footer) }}
+</form>
+{% endset %}
+{{ o.modal('unlink-' ~ row.id, 'Отвязать ' ~ row.label ~ '?', null, 'md', unlink_body) }}
+{% endif %}{% endfor %}
+{% endblock %}
