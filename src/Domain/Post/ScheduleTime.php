@@ -41,6 +41,11 @@ final class ScheduleTime
         if ($local->format('Y-m-d H:i') !== $date . ' ' . $time) {
             throw new PostException('В этот день часы переводятся, и такого времени не существует. Выберите другое.');
         }
+        // The autumn hour that happens twice: PHP picks the second occurrence, the first (summer time) is the one people mean.
+        $earlier = $local->setTimestamp($local->getTimestamp() - 3600);
+        if ($earlier->format('Y-m-d H:i') === $date . ' ' . $time) {
+            $local = $earlier;
+        }
         $utc = $local->setTimezone(new DateTimeZone('UTC'));
         if ($utc <= $now) {
             throw new PostException('Это время уже прошло. Выберите время в будущем.');

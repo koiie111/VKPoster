@@ -68,7 +68,8 @@ final class PostService
 
     public function canSee(WorkspaceContext $context, Post $post): bool
     {
-        return $this->posts->visibleTo($context, $post, $this->allowedChannels($context));
+        // A post of another workspace is never visible, even if somebody hands the object over (defence in depth: lookups are scoped already).
+        return $post->workspaceId === $context->workspaceId && $this->posts->visibleTo($context, $post, $this->allowedChannels($context));
     }
 
     /**
@@ -121,6 +122,9 @@ final class PostService
     public function schedule(WorkspaceContext $context, ?Post $existing, PostDraft $draft, DateTimeImmutable $at, bool $now = false): Post
     {
         $this->requirePermission($context, 'posts.publish');
+        if (!$now && $at <= $this->clock->now()) {
+            throw new PostException('Это время уже прошло. Выберите время в будущем.');
+        }
         $channels = $this->resolveChannels($context, $draft);
         if ($channels === []) {
             throw new PostException('Выберите хотя бы один канал, куда опубликовать пост.', ['*' => ['Выберите хотя бы один канал.']]);
@@ -153,6 +157,9 @@ final class PostService
     public function reschedule(WorkspaceContext $context, Post $post, DateTimeImmutable $at): Post
     {
         $this->requirePermission($context, 'posts.publish');
+        if ($at <= $this->clock->now()) {
+            throw new PostException('Это время уже прошло. Выберите время в будущем.');
+        }
         $this->assertEditable($context, $post);
         if ($post->status !== PostStatus::Scheduled) {
             throw new PostException('Перенести можно только запланированный пост.');

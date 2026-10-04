@@ -17,7 +17,7 @@ use App\Support\DbTime;
 use Symfony\Component\Uid\Ulid;
 
 /**
- * Tells people what happened to their posts and channels: a row in `notifications` (the history), an email and a Telegram
+ * Tells people what happened to their posts and channels: an email and a Telegram
  * message, each only if the person has it switched on (`NotificationSettings`). Failures of publishing go to the author and to the
  * owner and administrators; "published" goes to the author only, so a busy workspace is not flooded. Delivery is queued: neither a
  * slow mail server nor Telegram can delay or break the publishing pipeline.
@@ -104,6 +104,9 @@ final class Notifier
         }
         if ($chat !== null) {
             $this->queue->dispatch(new SendTelegramNotificationJob($chat['chat_id'], $title . "\n" . $body . ($url !== null ? "\n" . $url : '')));
+        }
+        if (!$email && $chat === null) {
+            return; // switched off: nothing was said, so there is nothing to keep
         }
         $this->db->table('notifications')->insert([
             'public_id' => (string) new Ulid(),
