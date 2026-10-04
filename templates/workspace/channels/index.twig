@@ -1,0 +1,84 @@
+{#- Channels. Variables: workspace (context), channels (list of presented rows), platforms (enabled, connectable), base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'channels' %}
+{% set can_manage = can('channels.manage') %}
+{% block title %}Каналы · {{ app_name }}{% endblock %}
+{% block content %}
+{% set head %}
+    {% if can_manage and platforms %}
+        {% set menu %}{% for p in platforms %}{{ o.menu_item(p.label, href = base ~ '/connect/' ~ p.id, icon = p.icon) }}{% endfor %}{% endset %}
+        {{ o.dropdown('add-channel', 'Подключить канал', icon = 'plus', variant = 'primary', body = menu) }}
+    {% endif %}
+{% endset %}
+{{ d.page_header('Каналы', 'Здесь соцсети, в которые мы публикуем ваши посты.', body = head) }}
+
+{% if channels is empty %}
+<div class="card">
+    {% if can_manage %}
+        {% set first = platforms|first %}
+        {{ d.empty_state('Пока нет подключённых каналов', 'Подключите канал, чтобы планировать в него посты. Это займёт пару минут.', 'share-2', first ? 'Подключить ' ~ first.label : null, first ? base ~ '/connect/' ~ first.id : null) }}
+    {% else %}
+        {{ d.empty_state('Пока нет подключённых каналов', 'Каналы подключает владелец или администратор пространства. Если вам нужен доступ к каналу, попросите его об этом.', 'share-2') }}
+    {% endif %}
+</div>
+{% else %}
+    {% for ch in channels|filter(c => c.attention) %}
+        <div class="mb-5">{{ d.alert(ch.status == 'needs_reauth' ? 'warning' : 'error', 'Канал «' ~ ch.name ~ '» не работает', ch.note ~ ' Пока это не исправлено, посты в него не уйдут.') }}</div>
+    {% endfor %}
+    <ul class="grid gap-4">
+        {% for ch in channels %}
+        <li class="card flex flex-wrap items-center gap-x-4 gap-y-3">
+            {{ d.avatar(ch.name, src = ch.avatar, size = 'lg') }}
+            <div class="min-w-0 flex-1 basis-40">
+                <p class="flex flex-wrap items-center gap-2 font-semibold"><span class="break-words">{{ ch.name }}</span>{{ d.status_badge(ch.status) }}</p>
+                <p class="text-sm text-muted">{{ ch.platform_label }} · {{ ch.handle }}{% if ch.own_bot %} · свой бот{% endif %}</p>
+                {#- A broken channel's reason is in the alert above the list; repeating it here only adds noise. -#}
+                {% if ch.note and not ch.attention %}<p class="mt-1 break-words text-sm text-muted">{{ ch.note }}</p>{% endif %}
+            </div>
+            {% if can_manage %}
+            {#- Phone: the menu stays beside the name, the repair buttons get their own row below. -#}
+            {% if ch.attention %}
+            <div class="order-3 flex basis-full flex-wrap items-center gap-2 sm:order-2 sm:ml-auto sm:basis-auto">
+                <form method="post" action="{{ base }}/{{ ch.id }}/check">{{ csrf_field() }}{{ f.button('Проверить сейчас', size = 'sm', type = 'submit') }}</form>
+                {{ f.button('Переподключить', size = 'sm', variant = 'secondary', href = base ~ '/connect/' ~ ch.platform) }}
+            </div>
+            {% endif %}
+            <div class="order-2 ml-auto sm:order-3{{ ch.attention ? ' sm:ml-0' : '' }}">
+                {% set m %}
+                    {{ o.menu_item('Переименовать', icon = 'pencil', attrs = {'data-dialog-open': 'rename-' ~ ch.id}) }}
+                    {% if not ch.attention %}{{ o.menu_item('Проверить сейчас', icon = 'refresh-cw', type = 'submit', attrs = {'form': 'check-' ~ ch.id}) }}{% endif %}
+                    {% if ch.is_paused %}{{ o.menu_item('Возобновить', icon = 'play', type = 'submit', attrs = {'form': 'resume-' ~ ch.id}) }}
+                    {% else %}{{ o.menu_item('Приостановить', icon = 'pause', type = 'submit', attrs = {'form': 'pause-' ~ ch.id}) }}{% endif %}
+                    {{ o.menu_item('Отключить', icon = 'trash-2', danger = true, attrs = {'data-dialog-open': 'disc-' ~ ch.id}) }}
+                {% endset %}
+                {{ o.dropdown('menu-' ~ ch.id, 'Действия с каналом ' ~ ch.name, icon = 'ellipsis', variant = 'ghost', icon_only = true, body = m) }}
+            </div>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% if can_manage %}
+    {% for ch in channels %}
+        <form id="check-{{ ch.id }}" method="post" action="{{ base }}/{{ ch.id }}/check" hidden>{{ csrf_field() }}</form>
+        <form id="pause-{{ ch.id }}" method="post" action="{{ base }}/{{ ch.id }}/pause" hidden>{{ csrf_field() }}</form>
+        <form id="resume-{{ ch.id }}" method="post" action="{{ base }}/{{ ch.id }}/resume" hidden>{{ csrf_field() }}</form>
+        <dialog class="dlg" id="rename-{{ ch.id }}" aria-labelledby="rename-{{ ch.id }}-title" data-dialog-light-dismiss>
+            <form method="post" action="{{ base }}/{{ ch.id }}/rename" class="p-5">
+                {{ csrf_field() }}
+                <h2 class="text-lg font-semibold" id="rename-{{ ch.id }}-title">Как назвать канал у нас?</h2>
+                <p class="mt-1 text-sm text-muted">Это название видно только вашей команде. Название в {{ ch.platform_label }} не изменится. Оставьте пустым, чтобы вернуть «{{ ch.title }}».</p>
+                <div class="mt-4">{{ f.input('name', 'Название', value = ch.alias, id = 'rename-' ~ ch.id ~ '-name', attrs = {maxlength: 100}) }}</div>
+                <div class="mt-6 flex flex-wrap justify-end gap-3">
+                    <button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </dialog>
+        {{ o.confirm_dialog('disc-' ~ ch.id, 'Отключить канал?', ch.name, 'Запланированные в него посты не уйдут. Сам канал в соцсети не пострадает, мы только перестанем в него писать.', base ~ '/' ~ ch.id ~ '/delete', 'Отключить канал') }}
+    {% endfor %}
+    {% endif %}
+{% endif %}
+{% endblock %}

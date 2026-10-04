@@ -92,6 +92,9 @@ final class WorkspaceNav
         }
         $base = '/w/' . $workspace->workspacePublicId;
         $items = [['id' => 'dashboard', 'label' => 'Обзор', 'icon' => 'layout-dashboard', 'href' => $base]];
+        if ($this->permissions->allows($workspace->role, 'channels.view')) {
+            $items[] = ['id' => 'channels', 'label' => 'Каналы', 'icon' => 'share-2', 'href' => $base . '/channels'];
+        }
         if ($this->permissions->allows($workspace->role, 'media.view')) {
             $items[] = ['id' => 'media', 'label' => 'Медиатека', 'icon' => 'images', 'href' => $base . '/media'];
         }

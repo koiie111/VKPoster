@@ -48,8 +48,8 @@
 {#- Round avatar: image when `src` is set, otherwise initials on a tinted background. size: sm | md | lg -#}
 {% macro avatar(name, src = null, size = 'md') -%}
 {%- set sizes = {sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-14 w-14 text-lg'} -%}
-{%- set parts = name|replace({'«': '', '»': '', '"': ''})|trim|split(' ') -%}
-{%- set initials = (parts[0]|slice(0, 1) ~ (parts[1] is defined ? parts[1]|slice(0, 1) : ''))|upper -%}
+{%- set parts = name|replace({'«': '', '»': '', '"': ''})|trim|split(' ')|filter(w => w matches '/\\p{L}|\\d/u')|slice(0) -%}
+{%- set initials = ((parts[0] ?? '')|slice(0, 1) ~ (parts[1] is defined ? parts[1]|slice(0, 1) : ''))|upper -%}
 {% if src %}<img class="{{ sizes[size] }} shrink-0 rounded-full object-cover" src="{{ src }}" alt="{{ name }}">
 {% else %}<span class="{{ sizes[size] }} inline-flex shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary-softfg" role="img" aria-label="{{ name }}">{{ initials }}</span>{% endif %}
 {%- endmacro %}

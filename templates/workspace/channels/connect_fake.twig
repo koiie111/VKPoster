@@ -1,0 +1,15 @@
+{#- Test network for local development. Variables: workspace (context), base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'channels' %}
+{% block title %}Подключить тестовый канал · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Каналы', href: base}, {label: 'Тестовый канал'}]) }}
+<div class="mt-3">{{ d.page_header('Тестовый канал', 'Канал несуществующей сети для разработки: «публикации» уходят в журнал, наружу ничего не отправляется.') }}</div>
+<form class="card grid max-w-lg gap-4" method="post" action="{{ base }}/connect/fake">
+    {{ csrf_field() }}
+    {{ f.input('name', 'Название', value = 'Тестовый канал', attrs = {maxlength: 100}) }}
+    <div>{{ f.button('Подключить', type = 'submit') }}</div>
+</form>
+{% endblock %}
