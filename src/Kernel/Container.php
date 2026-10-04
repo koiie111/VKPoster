@@ -54,7 +54,13 @@ final class Container
 
     public function has(string $id): bool
     {
-        return isset($this->instances[$id]) || isset($this->factories[$id]) || class_exists($id);
+        if (isset($this->instances[$id]) || isset($this->factories[$id])) {
+            return true;
+        }
+
+        // Closure, abstract classes and the like exist but cannot be built: a parameter of such a type
+        // must fall back to its default value instead of failing.
+        return class_exists($id) && (new ReflectionClass($id))->isInstantiable();
     }
 
     /**

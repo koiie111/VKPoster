@@ -1,0 +1,19 @@
+{#- Shared HTML shell of transactional emails. Inline styles only: mail clients ignore stylesheets. Blocks: preheader, content. -#}
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ subject }}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f8;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1c1b29;">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">{% block preheader %}{% endblock %}</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f8;padding:24px 12px;"><tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+        <tr><td style="padding:0 4px 16px;font-size:18px;font-weight:700;color:#4f46e5;">{{ app_name }}</td></tr>
+        <tr><td style="background:#ffffff;border-radius:12px;padding:28px 24px;font-size:16px;line-height:1.55;">
+            {% block content %}{% endblock %}
+        </td></tr>
+        <tr><td style="padding:16px 4px;font-size:13px;line-height:1.5;color:#6b6a7c;">
+            Это автоматическое письмо от сервиса {{ app_name }}. Отвечать на него не нужно.
+        </td></tr>
+    </table>
+</td></tr></table>
+</body>
+</html>

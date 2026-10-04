@@ -44,6 +44,7 @@ final class TestEnv
             'DB_PASSWORD' => self::process('DB_PASSWORD', 'app'),
             'REDIS_HOST' => self::process('REDIS_HOST', 'redis'),
             'REDIS_PORT' => self::process('REDIS_PORT', '6379'),
+            'REDIS_DB' => '15', // dev data (sessions, rate limits) lives in db 0 and must survive test runs
             'LOG_DISABLE_STDERR' => '1',
             'ARGON_MEMORY_KIB' => '1024',
             'ARGON_TIME_COST' => '1',
@@ -89,6 +90,7 @@ final class TestEnv
         $config = self::config();
         $redis = new \Redis();
         $redis->connect($config->string('database.redis.host'), $config->int('database.redis.port'), 2.0);
+        $redis->select($config->int('database.redis.db'));
 
         return $redis;
     }

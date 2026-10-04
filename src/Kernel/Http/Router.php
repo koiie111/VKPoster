@@ -150,6 +150,16 @@ final class Router
     }
 
     /**
+     * Every registered route, in registration order (used by tests that audit the whole route table).
+     *
+     * @return list<Route>
+     */
+    public function routes(): array
+    {
+        return $this->routes;
+    }
+
+    /**
      * Register names for `url()`. Call after all routes are defined.
      */
     public function indexNames(): void

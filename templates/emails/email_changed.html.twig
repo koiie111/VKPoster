@@ -1,0 +1,7 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Адрес входа в аккаунт изменён.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Адрес почты изменён</h1>
+<p style="margin:0;">{{ name }}, адрес входа в {{ app_name }} заменён на <strong>{{ new_email }}</strong>. Это письмо приходит на прежний адрес, чтобы вы были в курсе.</p>
+<p style="margin:16px 0 0;">Если вы этого не делали, срочно напишите в поддержку.</p>
+{% endblock %}

@@ -1,0 +1,12 @@
+{#- Start page after sign-in. Placeholder until workspaces and the calendar exist (stages 04 and 07). -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'dashboard' %}
+{% block title %}Обзор · {{ app_name }}{% endblock %}
+{% block content %}
+{% set user = current_user() %}
+{{ d.page_header('Здравствуйте, ' ~ user.name ~ '!', 'Здесь появится обзор ваших публикаций.') }}
+<div class="card">
+    {{ d.empty_state('Пока здесь пусто', 'Подключите каналы и запланируйте первый пост: мы опубликуем его сами в нужное время. Эти возможности появятся в ближайших обновлениях.', 'rocket', 'Настроить безопасность аккаунта', url('account.security')) }}
+</div>
+{% endblock %}

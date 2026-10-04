@@ -43,6 +43,13 @@ final class ContainerTestCycleA
     }
 }
 
+final class ContainerTestOptionalClosure
+{
+    public function __construct(public readonly ?\Closure $resolver = null)
+    {
+    }
+}
+
 final class ContainerTestCycleB
 {
     public function __construct(public readonly ContainerTestCycleA $a)
@@ -122,5 +129,13 @@ final class ContainerTest extends TestCase
 
         self::assertSame('hello bob', $result);
         self::assertSame('hello', $viaMethod);
+    }
+
+    public function testNonInstantiableTypesFallBackToTheParameterDefault(): void
+    {
+        $c = new Container();
+
+        self::assertFalse($c->has(\Closure::class));
+        self::assertNull($c->get(ContainerTestOptionalClosure::class)->resolver);
     }
 }

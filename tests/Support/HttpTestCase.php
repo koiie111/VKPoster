@@ -21,7 +21,7 @@ abstract class HttpTestCase extends TestCase
     protected Application $app;
 
     /** @var array<string, string> */
-    private array $cookies = [];
+    protected array $cookies = [];
 
     protected function setUp(): void
     {
@@ -100,6 +100,20 @@ abstract class HttpTestCase extends TestCase
         }
 
         return $m[1];
+    }
+
+    /**
+     * Switch to another "browser" (cookie jar). Returns the jar that was active, to switch back later.
+     *
+     * @param array<string, string> $jar
+     * @return array<string, string>
+     */
+    protected function useBrowser(array $jar = []): array
+    {
+        $previous = $this->cookies;
+        $this->cookies = $jar;
+
+        return $previous;
     }
 
     protected function cookie(string $name): ?string

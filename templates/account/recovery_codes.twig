@@ -1,0 +1,16 @@
+{#- One-time display of recovery codes (rendered in the POST response, never stored). Variables: codes, just_enabled. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'settings' %}
+{% block title %}Резервные коды · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header(just_enabled ? 'Защита включена' : 'Новые резервные коды', 'Сохраните эти коды: они понадобятся, если вы потеряете телефон.') }}
+<section class="card max-w-2xl">
+    {{ d.alert('warning', 'Покажем их только один раз', 'Сохраните коды в менеджере паролей или распечатайте. Каждый код работает один раз.') }}
+    <ul class="mt-5 grid grid-cols-2 gap-3 font-mono text-lg" aria-label="Резервные коды">
+        {% for code in codes %}<li class="rounded-ctl bg-sunken px-3 py-2 text-center">{{ code }}</li>{% endfor %}
+    </ul>
+    <div class="mt-6">{{ f.button('Я сохранил(а) коды', href = url('account.security')) }}</div>
+</section>
+{% endblock %}

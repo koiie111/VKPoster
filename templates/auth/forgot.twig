@@ -1,0 +1,14 @@
+{#- Ask for a password reset link. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% block title %}Восстановление пароля · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Забыли пароль?</h1>
+<p class="mt-1 text-muted">Укажите почту, на которую вы регистрировались. Мы пришлём ссылку для создания нового пароля.</p>
+<form class="mt-6 flex flex-col gap-4" method="post" action="/password/forgot">
+    {{ csrf_field() }}
+    {{ f.input('email', 'Почта', type = 'email', value = old('email'), required = true, autocomplete = 'email', placeholder = 'anna@example.com', error = errors('email')|first, attrs = {autofocus: ''}) }}
+    {{ f.button('Отправить ссылку', type = 'submit', block = true) }}
+</form>
+{% endblock %}
+{% block auth_footer %}<a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('login') }}">Вернуться ко входу</a>{% endblock %}

@@ -15,11 +15,13 @@ final class RequestContext
     private ?Request $request = null;
     private ?Session $session = null;
     private string $nonce = '';
+    private ?object $user = null;
 
     public function begin(Request $request): void
     {
         $this->request = $request;
         $this->session = null;
+        $this->user = null;
         $this->nonce = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
     }
 
@@ -41,5 +43,18 @@ final class RequestContext
     public function setSession(Session $session): void
     {
         $this->session = $session;
+    }
+
+    /**
+     * Signed-in user of this request (set by the `Authenticate` middleware), for templates.
+     */
+    public function user(): ?object
+    {
+        return $this->user;
+    }
+
+    public function setUser(?object $user): void
+    {
+        $this->user = $user;
     }
 }

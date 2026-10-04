@@ -4,6 +4,8 @@
 declare(strict_types=1);
 
 use App\Kernel\Application;
+use App\Kernel\Console\Command\AuthPruneCommand;
+use App\Kernel\Console\Command\CreateAdminCommand;
 use App\Kernel\Console\Command\KeyGenerateCommand;
 use App\Kernel\Console\Command\MigrateCommand;
 use App\Kernel\Console\Command\MigrateFreshCommand;
@@ -32,6 +34,8 @@ try {
         QueueWorkCommand::class,
         ScheduleRunCommand::class,
         KeyGenerateCommand::class,
+        CreateAdminCommand::class,
+        AuthPruneCommand::class,
     ]);
 } catch (Throwable $e) {
     fwrite(STDERR, 'Cannot start: ' . $e->getMessage() . "\n");

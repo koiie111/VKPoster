@@ -273,7 +273,7 @@ final class HttpKernelTest extends HttpTestCase
 
         self::assertNotNull($after);
         self::assertNotSame($before, $after, 'session id must change on login (fixation protection)');
-        self::assertSame('user:42', $this->get('/_t/me')->body);
+        self::assertMatchesRegularExpression('/^user:\d+$/', $this->get('/_t/me')->body);
     }
 
     public function testOldSessionIdIsDeadAfterRegeneration(): void

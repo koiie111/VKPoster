@@ -1,0 +1,7 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Двухфакторная защита отключена.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Двухфакторная защита отключена</h1>
+<p style="margin:0;">{{ name }}, для вашего аккаунта больше не требуется код из приложения при входе.</p>
+<p style="margin:16px 0 0;">Если это были не вы, <a href="{{ reset_link }}" style="color:#4f46e5;">смените пароль</a> и напишите в поддержку.</p>
+{% endblock %}

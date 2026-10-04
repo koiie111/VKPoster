@@ -28,4 +28,13 @@ final class ArraySessionStore implements SessionStore
     {
         unset($this->items[$id]);
     }
+
+    public function destroyHashed(string $idHash): void
+    {
+        foreach (array_keys($this->items) as $id) {
+            if (hash('sha256', $id) === $idHash) {
+                unset($this->items[$id]);
+            }
+        }
+    }
 }

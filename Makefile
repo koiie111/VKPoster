@@ -6,11 +6,12 @@ CMD     ?=
 
 .PHONY: init up down build sh logs console migrate seed test stan cs cs-fix audit docs check css css-watch css-check ui-snap a11y ui-behavior
 
-init: ## create .env and generate APP_KEY
+init: ## create .env and (re)generate APP_KEY unless it is a valid base64 32-byte key
 	@test -f .env || cp .env.example .env
-	@if ! grep -qE '^APP_KEY=[A-Za-z0-9+/=]{40,}' .env; then \
+	@current=$$(grep -E '^APP_KEY=' .env | head -1 | cut -d= -f2- | tr -d ' \t\r'); \
+	if [ "$$(printf '%s' "$$current" | openssl base64 -d -A 2>/dev/null | wc -c | tr -d ' ')" != "32" ]; then \
 		key=$$(openssl rand -base64 32 | tr -d '\n'); \
-		sed -i.bak "s|^APP_KEY=.*|APP_KEY=$$key|" .env && rm -f .env.bak; \
+		if grep -qE '^APP_KEY=' .env; then sed -i.bak "s|^APP_KEY=.*|APP_KEY=$$key|" .env && rm -f .env.bak; else echo "APP_KEY=$$key" >> .env; fi; \
 		echo "APP_KEY generated"; \
 	fi
 

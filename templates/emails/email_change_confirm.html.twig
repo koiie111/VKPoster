@@ -1,0 +1,8 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Подтвердите, что этот адрес принадлежит вам.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Подтвердите новый адрес</h1>
+<p style="margin:0;">{{ name }}, вы попросили использовать этот адрес для входа в {{ app_name }}. Нажмите кнопку, чтобы подтвердить смену.</p>
+{% include 'emails/_button.html.twig' with {link: link, label: 'Подтвердить адрес'} only %}
+<p style="margin:20px 0 0;">Ссылка действует 24 часа. Если вы ничего не меняли, проигнорируйте письмо: адрес останется прежним.</p>
+{% endblock %}

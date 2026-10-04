@@ -1,5 +1,6 @@
 // Screenshots (375/768/1440 px x light/dark) and an axe-core audit for the URLs of one stage.
-// Usage: node snap.mjs <stage> [--a11y-only]   (URL list: tools/ui-snap/urls/stage-<stage>.json)
+// Usage: node snap.mjs <stage> [--a11y-only]   (URL list: tools/ui-snap/urls/stage-<stage>.json;
+// an item may have `login_as` (user id or email) and `actions` to reach a state)
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -34,7 +35,19 @@ for (const item of list) {
         reducedMotion: 'reduce',
       });
       const page = await ctx.newPage();
+      if (item.login_as) {
+        // Signed-in screens: local-only dev login (a user id or an email), see DevLoginController.
+        await page.goto(`${base}/dev/login-as/${encodeURIComponent(item.login_as)}`, { waitUntil: 'networkidle' });
+      }
       await page.goto(url, { waitUntil: 'networkidle' });
+      // Optional scripted steps to reach a state: [{fill: [selector, value]}, {click: selector}].
+      for (const step of item.actions ?? []) {
+        if (step.fill) {
+          await page.fill(step.fill[0], step.fill[1]);
+        } else if (step.click) {
+          await Promise.all([page.waitForLoadState('networkidle'), page.click(step.click)]);
+        }
+      }
       await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
       await page.waitForTimeout(150);
 

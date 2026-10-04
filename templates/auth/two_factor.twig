@@ -1,0 +1,14 @@
+{#- Second step of sign-in. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% block title %}Код подтверждения · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Введите код</h1>
+<p class="mt-1 text-muted">Откройте приложение-аутентификатор (Google Authenticator, Яндекс Ключ) и введите шестизначный код. Потеряли телефон? Подойдёт резервный код.</p>
+<form class="mt-6 flex flex-col gap-4" method="post" action="/login/2fa">
+    {{ csrf_field() }}
+    {{ f.input('code', 'Код из приложения или резервный код', required = true, autocomplete = 'one-time-code', error = errors('code')|first, attrs = {autofocus: '', inputmode: 'text', autocapitalize: 'none', spellcheck: 'false'}) }}
+    {{ f.button('Войти', type = 'submit', block = true) }}
+</form>
+{% endblock %}
+{% block auth_footer %}<a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('login') }}">Вернуться ко входу</a>{% endblock %}

@@ -22,4 +22,9 @@ interface SessionStore
     public function write(string $id, array $data, int $ttl): void;
 
     public function destroy(string $id): void;
+
+    /**
+     * End a session knowing only the SHA-256 hash of its id (what `user_sessions.session_id_hash` holds).
+     */
+    public function destroyHashed(string $idHash): void;
 }

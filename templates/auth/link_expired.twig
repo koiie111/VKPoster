@@ -1,0 +1,21 @@
+{#- A one-time link that is expired, used or unknown. `what`: reset | verify | email. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% block title %}Ссылка не работает · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="text-center">
+    <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-warn-soft text-warn-fg">{{ icon('triangle-alert', 'h-7 w-7') }}</span>
+    <h1 class="mt-4 text-2xl font-bold">Ссылка больше не работает</h1>
+    {% if what == 'reset' %}
+    <p class="mt-2 text-muted">Она устарела или уже использована. Запросите новую ссылку для смены пароля.</p>
+    <div class="mt-6">{{ f.button('Запросить новую ссылку', href = url('auth.forgot')) }}</div>
+    {% elseif what == 'verify' %}
+    <p class="mt-2 text-muted">Она устарела или уже использована. Войдите в аккаунт: если почта ещё не подтверждена, мы предложим отправить новое письмо.</p>
+    <div class="mt-6">{{ f.button('Войти', href = url('login')) }}</div>
+    {% else %}
+    <p class="mt-2 text-muted">Она устарела, уже использована, или адрес успел занять другой аккаунт. Запросите смену адреса ещё раз в настройках безопасности.</p>
+    <div class="mt-6">{{ f.button('Открыть настройки безопасности', href = url('account.security')) }}</div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block auth_footer %}{% endblock %}

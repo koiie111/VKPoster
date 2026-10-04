@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Domain\Auth\PasswordPolicy;
+use App\Domain\Auth\RegistrationService;
+use App\Domain\Auth\RememberMe;
 use App\Kernel\Config;
 use App\Kernel\Console\Command\SeedCommand;
 use App\Kernel\Container;
@@ -13,6 +16,8 @@ use App\Kernel\Http\Router;
 use App\Kernel\HttpClient\GuzzleHttpClient;
 use App\Kernel\HttpClient\HttpClientInterface;
 use App\Kernel\Log\LoggerFactory;
+use App\Kernel\Mail\Mailer;
+use App\Kernel\Mail\SymfonyMailer;
 use App\Kernel\Queue\Schedule;
 use App\Kernel\Security\Crypto;
 use App\Kernel\Security\Csrf;
@@ -60,6 +65,7 @@ return static function (Container $c, string $base): void {
         $config = $c->get(Config::class);
         $redis = new \Redis();
         $redis->connect($config->string('database.redis.host'), $config->int('database.redis.port', 6379), 2.0);
+        $redis->select($config->int('database.redis.db', 0));
 
         return $redis;
     });
@@ -81,6 +87,37 @@ return static function (Container $c, string $base): void {
 
         return new PasswordHasher($config->int('security.argon.memory_kib', 65536), $config->int('security.argon.time_cost', 4));
     });
+
+    $c->factory(Mailer::class, static function (Container $c): Mailer {
+        $config = $c->get(Config::class);
+
+        return new SymfonyMailer($config->string('mail.dsn'), $config->string('mail.from'), $config->string('mail.from_name'));
+    });
+
+    $c->factory(PasswordPolicy::class, static function (Container $c) use ($base): PasswordPolicy {
+        return new PasswordPolicy(
+            $c->get(HttpClientInterface::class),
+            $c->get(LoggerInterface::class),
+            $c->get(Config::class)->bool('auth.hibp_enabled'),
+            $base . '/resources/data/common-passwords.txt',
+        );
+    });
+
+    $c->factory(RememberMe::class, static fn (Container $c): RememberMe => new RememberMe(
+        $c->get(Connection::class),
+        $c->get(Clock::class),
+        $c->get(Config::class)->int('auth.remember_days', 30),
+    ));
+
+    $c->factory(RegistrationService::class, static fn (Container $c): RegistrationService => new RegistrationService(
+        $c->get(\App\Domain\User\UserRepository::class),
+        $c->get(PasswordHasher::class),
+        $c->get(\App\Domain\Auth\AuthTokens::class),
+        $c->get(\App\Domain\Auth\AuthMailer::class),
+        $c->get(\App\Kernel\Security\RateLimiter::class),
+        $c->get(\App\Domain\Audit\AuditLog::class),
+        $c->get(Config::class)->string('auth.consent_version'),
+    ));
 
     $c->factory(HttpClientInterface::class, static fn (Container $c): HttpClientInterface => $c->get(GuzzleHttpClient::class));
 
