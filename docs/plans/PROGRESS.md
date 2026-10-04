@@ -8,7 +8,7 @@
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
 - **Текущий этап:** 03
 - **Статус:** NEEDS_OWNER
-- **Ветка / PR:** stage-03-auth-social / PR_URL
+- **Ветка / PR:** stage-03-auth-social / https://github.com/koiie111/VKPoster/pull/8
 - **Последнее обновление:** 2026-10-04 (этап 02 завершён)
 
 ## Этапы
@@ -19,7 +19,7 @@
 | 01 | Ядро приложения | DONE | [#5](https://github.com/koiie111/VKPoster/pull/5) | 2026-10-04 | Для 21: `templates/layouts/base.twig`, `templates/errors/*` и `public/assets/css/kernel.css` временные, дизайн-система их заменяет; тесты страниц ищут тексты ошибок («Страница не найдена» и т. п.). Тестовые маршруты и cookie-jar: `tests/Support/HttpTestCase.php`. Для 02: используйте `Session::regenerate()` при входе, `Csrf`, `RateLimit`, `Authenticate` (читает `auth.user_id`), `PasswordHasher`, `Validator` |
 | 21 | Дизайн-система и UX-основа | DONE | [#6](https://github.com/koiie111/VKPoster/pull/6) | 2026-10-04 | Вариант A «Индиго», Inter, временный логотип-иконка. Для 02+: экраны только из `templates/components/` (импорт `forms/display/overlay`), макеты `layouts/auth|app|landing|admin`, тексты по `docs/design/ux-writing.md`, эталон — прототипы `/dev/proto/*`; динамические имена классов добавлять в `safelist`; новые экраны добавлять в `tools/ui-snap/urls/stage-NN.json` |
 | 02 | Регистрация и вход по email, 2FA | DONE | [#7](https://github.com/koiie111/VKPoster/pull/7) | 2026-10-04 | Для 03: `SessionAuth::signIn()` (вход любым способом), `Authenticate` проверяет `user_sessions`, пользователи без email/пароля допустимы (`users.email`, `password_hash` NULL). Домашняя страница после входа `/app`. Тесты входа: `tests/Support/AuthTestCase.php`; `make ui-snap` умеет `login_as` и `actions`. Нужен валидный `APP_KEY` (`make init`) |
-| 03 | Вход через соцсети | NEEDS_OWNER | PR_URL | | Код и тесты готовы (Fake), ждём ключи и живую проверку VK ID + Telegram |
+| 03 | Вход через соцсети | NEEDS_OWNER | https://github.com/koiie111/VKPoster/pull/8 | | Код и тесты готовы (Fake), ждём ключи и живую проверку VK ID + Telegram |
 | 04 | Workspace, команда, роли, аудит | TODO | | | |
 | 05 | Медиатека | TODO | | | |
 | 06 | Каналы + Telegram | TODO | | | |
@@ -57,7 +57,7 @@
 -->
 
 ### Этап 03 — Вход через соцсети (запрошено 2026-10-04)
-**Что сделано:** PR_URL. Вход и регистрация через VK ID, Яндекс, Google, Telegram; привязка нескольких способов к одному аккаунту (страница «Способы входа»); 2FA после соц.входа; тестовый провайдер для локальной разработки. `make check` зелёный (567 тестов), `make ui-snap STAGE=03` и `make a11y STAGE=03` без нарушений; скриншоты: `storage/ui-review/stage-03/`. Все четыре провайдера проверены в автотестах на записанных ответах; вживую их ещё не пробовали (нужны ваши ключи).
+**Что сделано:** https://github.com/koiie111/VKPoster/pull/8. Вход и регистрация через VK ID, Яндекс, Google, Telegram; привязка нескольких способов к одному аккаунту (страница «Способы входа»); 2FA после соц.входа; тестовый провайдер для локальной разработки. `make check` зелёный (567 тестов), `make ui-snap STAGE=03` и `make a11y STAGE=03` без нарушений; скриншоты: `storage/ui-review/stage-03/`. Все четыре провайдера проверены в автотестах на записанных ответах; вживую их ещё не пробовали (нужны ваши ключи).
 **Как проверить руками:**
 1. `git fetch && git checkout stage-03-auth-social && make up && make migrate seed css`
 2. Сначала без ключей, на тестовом провайдере: добавьте в `.env` строку `DEV_OAUTH_FAKE=1` (я уже добавил её в ваш локальный `.env`), `docker compose up -d app`. Откройте http://localhost:8080/login, нажмите «Войти через Тестовый вход», на странице провайдера нажмите «Разрешить вход», на шаге «Почти готово» согласитесь и создайте аккаунт. Затем «Безопасность» → «Способы входа»: задайте пароль и почту, выйдите, войдите паролем.
