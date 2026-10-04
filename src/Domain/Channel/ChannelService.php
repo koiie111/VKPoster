@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Channel;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Billing\Entitlements;
+use App\Domain\Billing\PlanLimitException;
 use App\Domain\Post\PublicationSystem;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Social\Contracts\ChannelInfo;
@@ -13,7 +15,6 @@ use App\Integrations\Social\Contracts\Platform;
 use App\Integrations\Social\Contracts\PlatformError;
 use App\Integrations\Social\PlatformRegistry;
 use App\Integrations\Social\Telegram\TelegramClientFactory;
-use App\Kernel\Config;
 use App\Kernel\Database\Connection;
 use SensitiveParameter;
 
@@ -37,8 +38,8 @@ final class ChannelService
         private readonly ChannelAvatars $avatars,
         private readonly TelegramClientFactory $telegram,
         private readonly AuditLog $audit,
-        private readonly Config $config,
         private readonly PublicationSystem $publications,
+        private readonly Entitlements $entitlements,
     ) {
     }
 
@@ -145,13 +146,14 @@ final class ChannelService
     }
 
     /**
-     * @throws ChannelException when the workspace has reached its channel limit
+     * @throws ChannelException when the plan (or the global ceiling) allows no more channels in the workspace
      */
     public function assertRoom(WorkspaceContext $context): void
     {
-        $max = $this->config->int('platforms.channels.max_per_workspace', 100);
-        if ($this->channels->count($context) >= $max) {
-            throw new ChannelException(sprintf('Достигнут лимит каналов в пространстве: %d. Отключите ненужный канал, чтобы подключить новый.', $max));
+        try {
+            $this->entitlements->assertCanAddChannel($context->workspaceId);
+        } catch (PlanLimitException $e) {
+            throw new ChannelException($e->getMessage(), true);
         }
     }
 
@@ -166,6 +168,10 @@ final class ChannelService
      */
     public function resume(WorkspaceContext $context, Channel $channel): Channel
     {
+        // A paused channel gives its place back, so taking it again needs room under the plan.
+        if ($channel->status === ChannelStatus::Paused) {
+            $this->assertRoom($context);
+        }
         $this->channels->setStatus($context, $channel, ChannelStatus::Active);
         $this->audit->record('channel.resumed', $context->userId, 'channel', $channel->publicId, ['name' => $channel->displayName()], $context->workspaceId);
 

@@ -6,7 +6,7 @@ use App\Kernel\Env;
 
 /**
  * Media library settings, read as `media` in `Config`. Size limits live here until plans arrive (stage 10),
- * which will override `quota_bytes` and `max_file_bytes` per workspace.
+ * where the plan decides the library size (`quota_bytes` is only an optional global cap).
  *
  * `platforms` holds what each network accepts, as data: stages 06-12 read it to validate posts and to build
  * variants. Only the keys that exist for a platform are checked.
@@ -26,7 +26,8 @@ return static function (Env $env): array {
             'path_style' => $env->bool('S3_PATH_STYLE', true),
         ],
         'max_file_bytes' => $env->int('MEDIA_MAX_FILE_MB', 50) * $mb,
-        'quota_bytes' => $env->int('MEDIA_QUOTA_MB', 500) * $mb,
+        // The library size comes from the plan (stage 10); this is only an optional hard cap on top of it (0 = no cap).
+        'quota_bytes' => $env->int('MEDIA_QUOTA_MB', 0) * $mb,
         'max_side' => 10000,
         'max_video_seconds' => $env->int('MEDIA_MAX_VIDEO_SECONDS', 900),
         'url_timeout' => $env->int('MEDIA_URL_TIMEOUT', 30),

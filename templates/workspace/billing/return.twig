@@ -1,0 +1,18 @@
+{#- Where the customer lands after paying. Variables: workspace (context), state (paid|pending|failed), invoice, plan, invoice_paid, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'billing' %}
+{% block title %}Оплата · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Оплата тарифа', invoice.description) }}
+<div class="card max-w-2xl" id="return-status"{% if state == 'pending' %} hx-get="{{ base }}/return?payment={{ invoice_payment }}" hx-trigger="every 5s" hx-select="#return-status" hx-target="#return-status" hx-swap="outerHTML"{% endif %}>
+    {% if state == 'paid' %}
+        {{ d.empty_state('Спасибо, оплата прошла', 'Тариф «' ~ (plan ? plan.name : '') ~ '» подключён. Квитанцию можно скачать на странице оплаты, а чек придёт на почту ' ~ invoice.customerEmail ~ '.', 'circle-check', 'К тарифу и оплате', base) }}
+    {% elseif state == 'failed' %}
+        {{ d.empty_state('Оплата не прошла', 'Деньги не списаны. Попробуйте ещё раз или выберите другой способ оплаты.', 'circle-alert', 'Попробовать снова', base ~ '/plans') }}
+    {% else %}
+        {{ d.empty_state('Ждём подтверждение от банка', 'Обычно это занимает несколько секунд. Страница обновится сама. Если вы уже оплатили, ничего повторно делать не нужно.', 'clock', 'К тарифу и оплате', base) }}
+    {% endif %}
+</div>
+{% endblock %}

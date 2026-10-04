@@ -74,6 +74,15 @@ final class TestEnv
             'MAX_BOT_TOKEN' => self::MAX_BOT_TOKEN,
             'MAX_BOT_USERNAME' => 'ezposter_max_bot',
             'MAX_WEBHOOK_SECRET' => self::MAX_WEBHOOK_SECRET,
+            // Billing: both providers configured with made-up credentials (the HTTP client is a mock), the test provider is always available.
+            'YOOKASSA_SHOP_ID' => '100500',
+            'YOOKASSA_SECRET_KEY' => 'test_yookassa_secret_not_real',
+            'TBANK_TERMINAL_KEY' => BillingFixtures::TBANK_TERMINAL,
+            'TBANK_PASSWORD' => BillingFixtures::TBANK_PASSWORD,
+            'BILLING_TAX_SYSTEM' => 'usn_income',
+            'BILLING_VAT' => 'none',
+            'BILLING_SELLER_NAME' => 'ИП Тестов Т. Т.',
+            'BILLING_SELLER_INN' => '500100732259',
         ];
 
         // The fake provider is refused in production, so tests that boot a production app get it switched off.

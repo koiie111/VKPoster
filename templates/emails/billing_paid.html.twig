@@ -1,0 +1,9 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Оплата {{ amount }} получена, тариф «{{ plan }}» действует до {{ until }}.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Спасибо, оплата получена</h1>
+<p style="margin:0;">Тариф «{{ plan }}» в пространстве «{{ workspace }}» оплачен и действует до {{ until }}.</p>
+<p style="margin:12px 0 0;"><strong>{{ description }}</strong><br>Счёт {{ number }} на {{ amount }}.</p>
+{% include 'emails/_button.html.twig' with {link: link, label: 'Открыть оплату и квитанции'} only %}
+<p style="margin:20px 0 0;">Чек по 54-ФЗ придёт отдельным письмом от платёжной системы. Квитанцию можно скачать на странице оплаты.</p>
+{% endblock %}

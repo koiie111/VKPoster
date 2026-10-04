@@ -1,0 +1,16 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Пространство «{{ workspace }}» теперь на тарифе Free. Данные сохранены.{% endblock %}
+{% block content %}
+{% if reason == 'trial' %}
+<h1 style="margin:0 0 12px;font-size:22px;">Пробный период закончился</h1>
+<p style="margin:0;">Пространство «{{ workspace }}» теперь на тарифе Free. Всё, что вы сделали, сохранено.</p>
+{% elseif reason == 'canceled' %}
+<h1 style="margin:0 0 12px;font-size:22px;">Подписка закончилась</h1>
+<p style="margin:0;">Вы отключили автопродление, и оплаченный срок закончился. Пространство «{{ workspace }}» теперь на тарифе Free. Данные сохранены.</p>
+{% else %}
+<h1 style="margin:0 0 12px;font-size:22px;">Тариф отключён</h1>
+<p style="margin:0;">Нам так и не удалось получить оплату, поэтому пространство «{{ workspace }}» перешло на тариф Free. Данные сохранены.</p>
+{% endif %}
+{% if paused > 0 %}<p style="margin:12px 0 0;">На Free доступно меньше каналов, поэтому каналов на паузе: {{ paused }}. Их можно вернуть, оформив тариф: ничего не удалено, а запланированные в них посты отменены.</p>{% endif %}
+{% include 'emails/_button.html.twig' with {link: link, label: 'Выбрать тариф'} only %}
+{% endblock %}

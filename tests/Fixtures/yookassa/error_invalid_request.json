@@ -1,0 +1,7 @@
+{
+    "type": "error",
+    "id": "ef3b1f0e-7c8a-4a0a-9a39-0f6bd41f3a11",
+    "code": "invalid_request",
+    "description": "Receipt is missing or illegal",
+    "parameter": "receipt"
+}

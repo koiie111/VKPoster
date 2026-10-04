@@ -63,6 +63,46 @@ final class ChannelSystem
     }
 
     /**
+     * Channels that use up the plan's channel allowance: everything that is not paused.
+     */
+    public function countOccupying(int $workspaceId): int
+    {
+        return $this->db->table('channels')->where('workspace_id', '=', $workspaceId)->where('status', '!=', ChannelStatus::Paused->value)->count();
+    }
+
+    public function countAll(int $workspaceId): int
+    {
+        return $this->db->table('channels')->where('workspace_id', '=', $workspaceId)->count();
+    }
+
+    /**
+     * Channels that use up the plan's allowance, oldest first (the newest are the first to be paused when the allowance shrinks).
+     *
+     * @return list<Channel>
+     */
+    public function occupying(int $workspaceId): array
+    {
+        $rows = $this->db->select(
+            'SELECT * FROM channels WHERE workspace_id = ? AND status <> ? ORDER BY created_at ASC, id ASC',
+            [$workspaceId, ChannelStatus::Paused->value],
+        );
+
+        return array_map(ChannelRepository::hydrate(...), $rows);
+    }
+
+    /**
+     * Pause a channel on the system's initiative (a plan change). Nothing is deleted; the reason is shown next to the channel.
+     */
+    public function pause(Channel $channel, string $reason): void
+    {
+        $this->db->table('channels')->where('id', '=', $channel->id)->update([
+            'status' => ChannelStatus::Paused->value,
+            'last_error' => mb_substr($reason, 0, 500),
+            'updated_at' => DbTime::format($this->clock->now()),
+        ]);
+    }
+
+    /**
      * @param array<string, bool> $rights
      */
     public function recordHealthy(Channel $channel, array $rights, ?string $title): void

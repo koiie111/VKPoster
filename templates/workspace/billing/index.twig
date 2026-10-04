@@ -1,0 +1,108 @@
+{#- Plan and payment of a workspace. Variables: workspace (context), plan, status_label, status_tone, is_trial, is_free, ends, days_left, past_due, grace_until, cancel_at_end, has_paid_period, pending, next_charge, last_failure, method, usage, invoices. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'billing' %}
+{% set base = '/w/' ~ workspace.workspacePublicId ~ '/billing' %}
+{% block title %}Тариф и оплата · {{ app_name }}{% endblock %}
+{% block content %}
+{% set head %}{{ f.button('Сравнить тарифы', href = base ~ '/plans', icon = 'list') }}{% endset %}
+{{ d.page_header('Тариф и оплата', 'Ваш тариф, сколько вы уже использовали и все платежи.', body = head) }}
+
+<div class="flex flex-col gap-6">
+    {% if past_due %}
+    {% set pay_now %}{{ f.button('Продлить тариф', size = 'sm', href = base ~ '/plans') }}{% endset %}
+    {{ d.alert('warning', 'Тариф нужно продлить', 'Оплаченный срок закончился. Всё работает ещё до ' ~ grace_until ~ ', потом пространство перейдёт на Free: данные сохранятся, а лишние каналы встанут на паузу.', pay_now) }}
+    {% elseif last_failure and not is_free and not cancel_at_end %}
+    {{ d.alert('warning', 'Не удалось продлить тариф', last_failure ~ ' Мы попробуем ещё раз, а вы можете продлить тариф вручную.') }}
+    {% endif %}
+
+    <section class="card" aria-labelledby="plan-title">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="text-sm text-muted">Текущий тариф</p>
+                <h2 class="mt-1 flex flex-wrap items-center gap-3 text-2xl font-bold" id="plan-title">{{ plan.name }} {{ d.badge(status_label, status_tone) }}</h2>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {{ f.button(is_free or is_trial ? 'Выбрать тариф' : 'Сменить тариф', href = base ~ '/plans', variant = 'primary') }}
+            </div>
+        </div>
+        <dl class="mt-5 grid gap-4 sm:grid-cols-2">
+            {% if is_trial %}
+            <div><dt class="text-sm text-muted">Пробный период</dt><dd class="font-medium">до {{ ends }}, осталось дней: {{ days_left }}</dd></div>
+            <div><dt class="text-sm text-muted">Что дальше</dt><dd class="font-medium">Если не выбрать тариф, пространство перейдёт на Free. Данные сохранятся.</dd></div>
+            {% elseif is_free %}
+            <div><dt class="text-sm text-muted">Срок</dt><dd class="font-medium">Бесплатный тариф без срока</dd></div>
+            <div><dt class="text-sm text-muted">Что дальше</dt><dd class="font-medium">Когда понадобится больше каналов и постов, выберите платный тариф.</dd></div>
+            {% else %}
+            <div><dt class="text-sm text-muted">Оплачено до</dt><dd class="font-medium">{{ ends }}{% if period_label %} · оплата за {{ period_label }}{% endif %}</dd></div>
+            <div>
+                <dt class="text-sm text-muted">Продление</dt>
+                <dd class="font-medium">
+                    {% if cancel_at_end %}Автопродление выключено: {{ ends }} пространство перейдёт на Free
+                    {% elseif next_charge %}{{ next_charge.date }} спишем {{ next_charge.amount }} за тариф «{{ next_charge.plan }}»
+                    {% else %}Автопродления нет: карта не сохранена, продлите тариф вручную{% endif %}
+                </dd>
+            </div>
+            {% endif %}
+        </dl>
+        {% if pending %}
+        <div class="mt-5">
+            {% set undo %}<form method="post" action="{{ base }}/change/cancel">{{ csrf_field() }}{{ f.button('Отменить переход', size = 'sm', variant = 'secondary', type = 'submit') }}</form>{% endset %}
+            {{ d.alert('info', 'Тариф сменится ' ~ ends, 'После оплаченного срока вы перейдёте на тариф «' ~ pending.name ~ '» (' ~ pending.period ~ ').', undo) }}
+        </div>
+        {% endif %}
+        {% if has_paid_period %}
+        <div class="mt-5 flex flex-wrap gap-2">
+            {% if cancel_at_end %}
+            <form method="post" action="{{ base }}/renewal/resume">{{ csrf_field() }}{{ f.button('Включить автопродление', variant = 'secondary', type = 'submit') }}</form>
+            {% else %}
+            {{ f.button('Отключить автопродление', variant = 'ghost', attrs = {'data-dialog-open': 'cancel-renewal'}) }}
+            {% endif %}
+        </div>
+        {{ o.confirm_dialog('cancel-renewal', 'Отключить автопродление?', plan.name, 'Тариф будет работать до ' ~ ends ~ ', потом пространство перейдёт на Free. Данные сохранятся.', base ~ '/renewal/cancel', 'Отключить автопродление') }}
+        {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="usage-title">
+        <h2 class="text-lg font-semibold" id="usage-title">Что вы используете</h2>
+        <ul class="mt-4 grid gap-5 sm:grid-cols-2">
+            {% for u in usage %}
+            <li>
+                <div class="mb-1.5 flex justify-between gap-3 text-sm"><span>{{ u.label }}</span><span class="text-muted">{{ u.unlimited ? u.used ~ ', без ограничений' : u.used ~ ' из ' ~ u.limit }}</span></div>
+                {% if not u.unlimited %}<progress class="progress" value="{{ u.percent }}" max="100" aria-label="{{ u.label }}" aria-valuetext="{{ u.used }} из {{ u.limit }}">{{ u.percent }}%</progress>{% endif %}
+                {% if u.over %}<p class="mt-1 text-sm text-warn-fg">Это больше, чем входит в тариф. Новое добавить нельзя, а то, что уже есть, мы не удаляем.</p>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="card" aria-labelledby="method-title">
+        <h2 class="text-lg font-semibold" id="method-title">Способ оплаты</h2>
+        {% if method %}
+        <p class="mt-2">{{ method }}. С этой карты мы спишем оплату за продление.</p>
+        <div class="mt-4">{{ f.button('Удалить карту', variant = 'ghost', attrs = {'data-dialog-open': 'remove-card'}) }}</div>
+        {{ o.confirm_dialog('remove-card', 'Удалить карту?', method, 'Автоматических списаний больше не будет, тариф придётся продлевать вручную.', base ~ '/card/remove', 'Удалить карту') }}
+        {% else %}
+        <p class="mt-2 text-muted">Карта не сохранена. Когда вы оплатите тариф и оставите отметку «Продлевать автоматически», карта появится здесь.</p>
+        {% endif %}
+    </section>
+
+    <section class="card !p-0" aria-labelledby="invoices-title">
+        <h2 class="p-5 pb-3 text-lg font-semibold" id="invoices-title">История платежей</h2>
+        {% set rows %}
+            {% for i in invoices %}
+            <tr>
+                <td>{{ i.date }}</td>
+                <td><span class="font-medium">{{ i.description }}</span><br><span class="text-sm text-muted">Счёт {{ i.number }}</span></td>
+                <td class="whitespace-nowrap">{{ i.amount }}</td>
+                <td>{{ d.badge(i.status, i.tone) }}</td>
+                <td class="text-right">{% if i.pay_url %}<a class="btn btn-secondary btn-sm" href="{{ i.pay_url }}">Оплатить</a>{% endif %}{% if i.paid %}<a class="btn btn-ghost btn-sm" href="{{ base }}/invoices/{{ i.id }}/receipt" aria-label="Скачать квитанцию {{ i.number }} (PDF)">{{ icon('download', 'h-4 w-4') }}Квитанция</a>{% endif %}</td>
+            </tr>
+            {% endfor %}
+        {% endset %}
+        {{ d.table([{label: 'Дата'}, {label: 'За что'}, {label: 'Сумма'}, {label: 'Статус'}, {label: 'Квитанция', class: 'text-right'}], empty = invoices is empty, empty_title = 'Платежей пока нет', empty_text = 'Когда вы оплатите тариф, платёж появится здесь вместе с квитанцией.', empty_action = 'Выбрать тариф', empty_href = base ~ '/plans', caption = 'История платежей', body = rows) }}
+    </section>
+</div>
+{% endblock %}

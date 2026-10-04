@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Post;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Billing\Entitlements;
+use App\Domain\Billing\PlanLimitException;
 use App\Domain\Channel\Channel;
 use App\Domain\Channel\ChannelCredentials;
 use App\Domain\Channel\ChannelRepository;
@@ -51,6 +53,7 @@ final class PostService
         private readonly PlatformRegistry $registry,
         private readonly ChannelCredentials $credentials,
         private readonly PublicationDeleter $deleter,
+        private readonly Entitlements $entitlements,
     ) {
     }
 
@@ -153,6 +156,7 @@ final class PostService
         if ($existing !== null) {
             $this->assertEditable($context, $existing);
         }
+        $this->assertPlanRoom($context, $at, $existing);
 
         $created = [];
         $post = $this->db->transaction(function () use ($context, $existing, $draft, $channels, $at, &$created): Post {
@@ -200,6 +204,7 @@ final class PostService
             throw new PostException('Пост нельзя перенести: ' . $this->firstProblem($problems), $problems);
         }
         $this->assertDailyLimits($context, array_values(array_filter(array_map(fn (PostVariant $v): ?Channel => $v->channelId === null ? null : $this->channelById($context, $v->channelId), $variants))), $at, $post->id);
+        $this->assertPlanRoom($context, $at, $post);
         $this->db->transaction(function () use ($context, $post, $at): void {
             if ($this->posts->lock($context, $post) === null) {
                 throw new PostException('Пост не найден.');
@@ -573,6 +578,22 @@ final class PostService
             throw new PostException('К посту можно прикрепить не больше ' . self::MAX_MEDIA . ' файлов.');
         }
         $this->builder->mediaFor($context, array_values(array_unique($ids)));
+    }
+
+    /**
+     * The plan allows a number of posts per month. A post that is already counted (it is being edited or moved) costs nothing again
+     * unless it moves into a month that is full.
+     *
+     * @throws PostException
+     */
+    private function assertPlanRoom(WorkspaceContext $context, DateTimeImmutable $at, ?Post $existing): void
+    {
+        $counted = $existing !== null && Entitlements::countsTowardMonthlyLimit($existing->status->value) ? $existing->scheduledAt : null;
+        try {
+            $this->entitlements->assertCanPlanPost($context->workspaceId, $at, $counted);
+        } catch (PlanLimitException $e) {
+            throw new PostException($e->getMessage(), planLimit: true);
+        }
     }
 
     /**

@@ -1,0 +1,20 @@
+{
+    "id": "2c3a1f0e-000f-5000-8000-1d1f0a5a7b11",
+    "status": "succeeded",
+    "paid": true,
+    "amount": {"value": "990.00", "currency": "RUB"},
+    "captured_at": "2026-10-04T12:01:10.000Z",
+    "created_at": "2026-10-04T12:00:00.000Z",
+    "description": "Тариф «Про» за месяц",
+    "metadata": {"payment": "01JTESTPAYMENT000000000000", "invoice": "EZ-000001"},
+    "payment_method": {
+        "type": "bank_card",
+        "id": "2c3a1f0e-000f-5000-8000-1d1f0a5a7b11",
+        "saved": true,
+        "title": "Bank card *4477",
+        "card": {"first6": "555555", "last4": "4477", "expiry_month": "07", "expiry_year": "2030", "card_type": "MasterCard"}
+    },
+    "recipient": {"account_id": "100500", "gateway_id": "100700"},
+    "refundable": true,
+    "test": true
+}

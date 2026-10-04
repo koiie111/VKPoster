@@ -37,7 +37,7 @@
     <form class="flex min-w-0 flex-col gap-6" method="post" action="{{ action }}" data-composer-form novalidate>
         {{ csrf_field() }}
         <div data-form-error>
-        {% if errors.form is defined and errors.form %}{{ d.alert('error', 'Пост пока нельзя запланировать', errors.form) }}{% endif %}
+        {% if errors.form is defined and errors.form %}{% set upgrade_action %}{% if errors.upgrade is defined and errors.upgrade %}<a class="btn btn-primary btn-sm" href="{{ errors.upgrade }}">Перейти на тариф</a>{% endif %}{% endset %}{{ d.alert('error', 'Пост пока нельзя запланировать', errors.form, upgrade_action) }}{% endif %}
         </div>
 
         <fieldset>

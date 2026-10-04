@@ -189,6 +189,7 @@ final class TeamTest extends WorkspaceTestCase
     public function testInvitationsAreRateLimitedPerWorkspace(): void
     {
         [$owner, $workspace] = $this->ownerWithWorkspace();
+        $this->givePlan($workspace, 'agency', ['members' => null]);
         $this->actAs($owner);
         for ($i = 1; $i <= 20; ++$i) {
             $this->post($this->base($workspace) . '/team/invitations', ['email' => 'p' . $i . '@example.com', 'role' => 'viewer']);

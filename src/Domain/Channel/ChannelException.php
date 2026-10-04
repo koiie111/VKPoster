@@ -11,4 +11,11 @@ use RuntimeException;
  */
 final class ChannelException extends RuntimeException
 {
+    /**
+     * @param bool $planLimit the refusal comes from the plan, so the page can offer a better one
+     */
+    public function __construct(string $message, public readonly bool $planLimit = false)
+    {
+        parent::__construct($message);
+    }
 }

@@ -1,0 +1,8 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Пробный период в «{{ workspace }}» заканчивается {{ until }}.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Пробный период заканчивается</h1>
+<p style="margin:0;">Пробный тариф в пространстве «{{ workspace }}» действует до {{ until }}. Потом пространство перейдёт на Free: данные сохранятся, а каналы сверх лимита Free встанут на паузу.</p>
+<p style="margin:12px 0 0;">Чтобы ничего не менялось, выберите тариф до этой даты.</p>
+{% include 'emails/_button.html.twig' with {link: link, label: 'Выбрать тариф'} only %}
+{% endblock %}

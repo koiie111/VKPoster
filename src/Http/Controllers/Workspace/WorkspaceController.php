@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Workspace;
 
+use App\Domain\Billing\PlanLimitException;
 use App\Domain\Channel\ChannelRepository;
 use App\Domain\Post\CalendarItem;
 use App\Domain\Post\CalendarRepository;
@@ -75,8 +76,18 @@ final class WorkspaceController
         $user = WorkspaceRequest::user($request);
         $name = WorkspaceRequest::text($request->input('name'));
         $errors = $this->validator->make(['name' => $name], ['name' => 'required|string|min:2|max:100'], ['name' => 'Название'])->errors();
-        $workspace = $errors === [] ? $this->service->create($user, $name) : null;
-        if ($errors === [] && $workspace === null) {
+        $workspace = null;
+        $planLimit = null;
+        if ($errors === []) {
+            try {
+                $workspace = $this->service->create($user, $name);
+            } catch (PlanLimitException $e) {
+                $planLimit = $e;
+            }
+        }
+        if ($planLimit !== null) {
+            $errors['name'] = [$planLimit->getMessage()];
+        } elseif ($errors === [] && $workspace === null) {
             $errors['name'] = ['Можно создать не больше ' . WorkspaceService::OWNED_LIMIT . ' пространств. Удалите ненужное или напишите нам.'];
         }
         if ($workspace === null) {

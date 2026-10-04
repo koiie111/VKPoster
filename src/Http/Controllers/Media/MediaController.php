@@ -57,6 +57,7 @@ final class MediaController
         $query = array_filter(['folder' => $folder?->publicId, 'kind' => $kind?->value, 'q' => $search], static fn (?string $v): bool => $v !== null && $v !== '');
         $base = '/w/' . $context->workspacePublicId . '/media';
         $used = $this->media->usedBytes($context);
+        $quota = $this->service->quotaFor($context);
 
         return $this->view->response('workspace/media/index.twig', [
             'workspace' => $context,
@@ -70,10 +71,10 @@ final class MediaController
             'page_base' => $base . ($query === [] ? '' : '?' . http_build_query($query)),
             'usage' => [
                 'used' => MediaPresenter::size($used),
-                'quota' => MediaPresenter::size($this->limits->quotaBytes),
-                'percent' => $this->limits->quotaBytes > 0 ? min(100, (int) round($used * 100 / $this->limits->quotaBytes)) : 0,
+                'quota' => $quota === null ? 'без ограничений' : MediaPresenter::size($quota),
+                'percent' => $quota !== null && $quota > 0 ? min(100, (int) round($used * 100 / $quota)) : 0,
                 'used_bytes' => $used,
-                'quota_bytes' => $this->limits->quotaBytes,
+                'quota_bytes' => $quota,
             ],
             'max_file' => $this->limits->maxFileBytes,
             'max_file_text' => MediaPresenter::size($this->limits->maxFileBytes),

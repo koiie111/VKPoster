@@ -99,7 +99,8 @@ final class PersonalWorkspaceTest extends WorkspaceTestCase
 
     public function testOwnedWorkspacesAreLimited(): void
     {
-        [$owner] = $this->ownerWithWorkspace();
+        [$owner, $personal] = $this->ownerWithWorkspace();
+        $this->givePlan($personal, 'agency');
         $service = $this->app->container()->get(WorkspaceService::class);
         for ($i = 1; $i < WorkspaceService::OWNED_LIMIT; ++$i) {
             self::assertNotNull($service->create($owner, 'Проект ' . $i));

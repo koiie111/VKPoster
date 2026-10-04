@@ -115,7 +115,7 @@ final class VkConnectController
         try {
             $credential = $this->connections->complete($context, $code, is_string($flow['verifier'] ?? null) ? $flow['verifier'] : '', $this->redirectUri(), $deviceId, $state);
         } catch (ChannelException $e) {
-            $this->flash->toast($e->getMessage(), 'error');
+            $this->flash->refusal($e->getMessage(), $e->planLimit, $context->workspacePublicId);
 
             return Response::redirect($base . '/connect/vk');
         }
@@ -139,7 +139,7 @@ final class VkConnectController
             $communities = $this->connections->communities($context, $credential);
         } catch (ChannelException $e) {
             $this->flash->session()->forget(self::PENDING_KEY);
-            $this->flash->toast($e->getMessage(), 'error');
+            $this->flash->refusal($e->getMessage(), $e->planLimit, $context->workspacePublicId);
 
             return Response::redirect($base . '/connect/vk');
         }
@@ -162,7 +162,7 @@ final class VkConnectController
         try {
             $channels = $this->connections->connect($context, $credential, is_array($ids) ? array_values(array_filter($ids, 'is_string')) : []);
         } catch (ChannelException $e) {
-            $this->flash->toast($e->getMessage(), 'error');
+            $this->flash->refusal($e->getMessage(), $e->planLimit, $context->workspacePublicId);
 
             return Response::redirect($base . '/connect/vk/choose');
         }

@@ -79,7 +79,7 @@ final class MaxConnectController
         try {
             $this->service->assertRoom($context);
         } catch (ChannelException $e) {
-            $this->flash->toast($e->getMessage(), 'error');
+            $this->flash->refusal($e->getMessage(), $e->planLimit, $context->workspacePublicId);
 
             return Response::redirect($back);
         }
@@ -114,7 +114,11 @@ final class MaxConnectController
             $channel = $this->service->connectOwnMaxBot($context, $token, $reference);
         } catch (ChannelException $e) {
             // The token is not sent back to the page: only the channel the person typed.
-            $this->flash->invalid(['reference' => $reference], ['form' => $e->getMessage()]);
+            if ($e->planLimit) {
+                $this->flash->refusal($e->getMessage(), true, $context->workspacePublicId);
+            } else {
+                $this->flash->invalid(['reference' => $reference], ['form' => $e->getMessage()]);
+            }
 
             return Response::redirect($back);
         }

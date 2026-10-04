@@ -1,0 +1,13 @@
+{
+    "TerminalKey": "TestTerminalDEMO",
+    "OrderId": "01JTESTPAYMENT000000000000",
+    "Success": true,
+    "Status": "CONFIRMED",
+    "PaymentId": 2304884,
+    "ErrorCode": "0",
+    "Amount": 99000,
+    "RebillId": 1700000000001,
+    "CardId": 4000001,
+    "Pan": "430000******0777",
+    "ExpDate": "1230"
+}

@@ -244,6 +244,7 @@ final class MediaUploadTest extends MediaTestCase
     public function testQuotaStopsUploadsThatDoNotFit(): void
     {
         [, $workspace] = $this->ownerSession();
+        $this->givePlan($workspace, 'free');
         $quota = 40 * 1024 * 1024;
         $this->db->execute(
             'INSERT INTO media (public_id, workspace_id, kind, original_name, storage_key, mime, size, sha256, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(6))',

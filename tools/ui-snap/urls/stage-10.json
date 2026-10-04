@@ -1,0 +1,11 @@
+[
+  { "name": "billing-paid", "url": "/w/{ws}/billing", "login_as": "demo@ezposter.local" },
+  { "name": "billing-trial", "url": "/w/{ws}/billing", "login_as": "social@ezposter.local" },
+  { "name": "plans-month", "url": "/w/{ws}/billing/plans", "login_as": "demo@ezposter.local" },
+  { "name": "plans-year-trial", "url": "/w/{ws}/billing/plans?period=year", "login_as": "social@ezposter.local" },
+  { "name": "return-paid", "url": "/w/{ws}/billing/return?payment=01JZZZZZZZZZZZZZZZZZZZZZP0", "login_as": "demo@ezposter.local" },
+  { "name": "return-pending", "url": "/w/{ws}/billing/return?payment=01JZZZZZZZZZZZZZZZZZZZZZP1", "login_as": "demo@ezposter.local" },
+  { "name": "return-declined", "url": "/w/{ws}/billing/return?payment=01JZZZZZZZZZZZZZZZZZZZZZP2", "login_as": "demo@ezposter.local" },
+  { "name": "test-provider-page", "url": "/dev/billing/pay/01JZZZZZZZZZZZZZZZZZZZZZP1?return=%2Fapp" },
+  { "name": "channels-allowance", "url": "/w/{ws}/channels", "login_as": "demo@ezposter.local" }
+]

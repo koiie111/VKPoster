@@ -114,7 +114,7 @@ final class PostController
             if ($e->forbidden && $existing !== null && !$this->service->canEdit($context, $existing)) {
                 throw new HttpException(403, 'Forbidden');
             }
-            $errors = ['form' => $e->getMessage(), 'channels' => $e->channelProblems, 'date' => $this->dateError($e)];
+            $errors = ['form' => $e->getMessage(), 'channels' => $e->channelProblems, 'date' => $this->dateError($e), 'upgrade' => $e->planLimit ? '/w/' . $context->workspacePublicId . '/billing/plans' : null];
 
             return $this->editorResponse($context, $form->draft, $existing, $form->date, $form->time, $errors, 422);
         }

@@ -10,7 +10,7 @@ ARG TARGETARCH
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libicu-dev libzip-dev libpng-dev libjpeg-dev libwebp-dev libfreetype-dev \
-        libmagickwand-dev libsodium-dev ffmpeg unzip git curl ca-certificates \
+        libmagickwand-dev libsodium-dev ffmpeg fonts-dejavu-core unzip git curl ca-certificates \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd exif zip opcache sodium pcntl \
     && pecl install redis imagick \

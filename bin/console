@@ -6,6 +6,9 @@ declare(strict_types=1);
 use App\Kernel\Application;
 use App\Kernel\Console\Command\AuthPruneCommand;
 use App\Kernel\Console\Command\BenchPublishCommand;
+use App\Kernel\Console\Command\BillingGrantCommand;
+use App\Kernel\Console\Command\BillingPlansCommand;
+use App\Kernel\Console\Command\BillingRenewCommand;
 use App\Kernel\Console\Command\ChannelsCheckCommand;
 use App\Kernel\Console\Command\CreateAdminCommand;
 use App\Kernel\Console\Command\CryptoRotateCommand;
@@ -44,6 +47,9 @@ try {
         CreateAdminCommand::class,
         AuthPruneCommand::class,
         BenchPublishCommand::class,
+        BillingGrantCommand::class,
+        BillingPlansCommand::class,
+        BillingRenewCommand::class,
         ChannelsCheckCommand::class,
         CryptoRotateCommand::class,
         MaxPollCommand::class,
