@@ -120,6 +120,10 @@ final class WorkspaceAccessTest extends WorkspaceTestCase
                 $label = $roleName . ' ' . $route->methods[0] . ' ' . $path;
                 if ($permission !== null && !$matrix->allows(Role::from($roleName), $permission)) {
                     self::assertSame(403, $status, $label . ' must be forbidden (needs ' . $permission . ')');
+                } elseif (preg_match('/\{(?!workspaceId\b)\w+/', $route->pattern) === 1 && !str_contains($route->pattern, '/team/')) {
+                    // A route about one specific object (a file, a folder): the dummy id names nothing, so 404 is the
+                    // right answer here. It must never be 403 (the role is allowed) or an error.
+                    self::assertNotContains($status, [403, 500], $label . ' must be reachable');
                 } else {
                     self::assertNotContains($status, [403, 404, 500], $label . ' must be reachable');
                 }

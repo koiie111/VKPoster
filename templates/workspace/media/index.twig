@@ -1,0 +1,126 @@
+{#- Media library. Variables: workspace (context), files, result {total,pages,page}, folders, folder, filters, kinds, base, page_base, usage, max_file, max_file_text. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'media' %}
+{% block title %}Медиатека · {{ app_name }}{% endblock %}
+{% block head %}<script src="{{ asset('js/media.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
+{% block content %}
+{% set can_upload = can('media.upload') %}
+{% set can_manage = can('media.manage') %}
+{% set filtered = filters.q or filters.kind %}
+{% set actions %}
+    {% if can_manage %}{{ f.button('Новая папка', variant = 'secondary', icon = 'folder-plus', attrs = {'data-dialog-open': 'folder-new'}) }}{{ f.button('Водяной знак', variant = 'secondary', href = base ~ '/watermarks', icon = 'image') }}{% endif %}
+{% endset %}
+{{ d.page_header('Медиатека', 'Фото, видео и документы для постов. Всё проверяется при загрузке, фото сжимаются и очищаются от лишних данных.', actions) }}
+
+{% if can_upload %}
+<section class="card mb-6" aria-labelledby="upload-title"
+         x-data="mediaUploader" data-upload-url="{{ base }}/upload" data-folder="{{ folder ? folder.publicId : '' }}" data-max-bytes="{{ max_file }}">
+    <h2 class="sr-only" id="upload-title">Загрузка файлов</h2>
+    <label class="drop" for="media-files" data-dropzone>
+        {{ icon('cloud-upload', 'h-8 w-8') }}
+        <span class="font-semibold text-fg">Перетащите файлы сюда или нажмите, чтобы выбрать</span>
+        <span class="text-sm">JPG, PNG, WebP, GIF, MP4, MOV и PDF, до {{ max_file_text }} каждый{% if folder %}. Файлы попадут в папку «{{ folder.name }}»{% endif %}</span>
+        <input class="sr-only" type="file" id="media-files" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,application/pdf" data-upload-input>
+    </label>
+    <p class="mt-3 text-sm text-muted" data-upload-summary aria-live="polite"></p>
+    <ul class="mt-2 flex flex-col gap-2" data-upload-list></ul>
+
+    <details class="mt-4">
+        <summary class="cursor-pointer text-sm font-medium text-primary-text">Или добавьте файл по ссылке</summary>
+        <form class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start" method="post" action="{{ base }}/upload-url">
+            {{ csrf_field() }}
+            <input type="hidden" name="folder" value="{{ folder ? folder.publicId : '' }}">
+            {{ f.input('url', 'Ссылка на файл', type = 'url', placeholder = 'https://example.com/photo.jpg', required = true, autocomplete = 'off', hint = 'Нужна прямая ссылка на картинку, видео или PDF. Мы скачаем файл и сохраним копию.') }}
+            <div class="sm:pt-7">{{ f.button('Скачать', type = 'submit') }}</div>
+        </form>
+    </details>
+</section>
+{% endif %}
+
+<nav class="mb-4 flex flex-wrap items-center gap-2" aria-label="Папки">
+    <a class="btn btn-sm {{ folder is null ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}"{% if folder is null %} aria-current="page"{% endif %}>{{ icon('images', 'h-4 w-4') }}Все файлы</a>
+    {% for fl in folders %}
+    <a class="btn btn-sm {{ folder and folder.publicId == fl.publicId ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}?folder={{ fl.publicId }}"{% if folder and folder.publicId == fl.publicId %} aria-current="page"{% endif %}>{{ icon('folder', 'h-4 w-4') }}<span class="max-w-[12rem] truncate">{{ fl.name }}</span> <span class="opacity-75">{{ fl.count }}</span></a>
+    {% endfor %}
+    {% if folder and can_manage %}
+    {{ f.button('Переименовать', variant = 'ghost', size = 'sm', icon = 'pencil', attrs = {'data-dialog-open': 'folder-rename'}) }}
+    {{ f.button('Удалить папку', variant = 'ghost', size = 'sm', icon = 'trash-2', attrs = {'data-dialog-open': 'folder-delete'}) }}
+    {% endif %}
+</nav>
+
+<form class="mb-6 grid gap-3 sm:grid-cols-[1fr_12rem_auto] sm:items-end" method="get" action="{{ base }}" role="search">
+    {% if folder %}<input type="hidden" name="folder" value="{{ folder.publicId }}">{% endif %}
+    {{ f.input('q', 'Поиск по названию', type = 'search', value = filters.q, placeholder = 'Например, баннер') }}
+    {{ f.select('kind', 'Тип', kinds, value = filters.kind) }}
+    <div class="flex gap-2">{{ f.button('Найти', type = 'submit', icon = 'search') }}{% if filtered %}{{ f.button('Сбросить', variant = 'secondary', href = base ~ (folder ? '?folder=' ~ folder.publicId : '')) }}{% endif %}</div>
+</form>
+
+{% if files %}
+<section aria-label="Файлы">
+    <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        {% for file in files %}
+        <li class="group relative overflow-hidden rounded-card border border-line bg-surface">
+            <a class="block focus-visible:outline-none" href="{{ base }}/{{ file.id }}" aria-label="{{ file.kind_label }}: {{ file.name }}">
+                <div class="relative flex aspect-square items-center justify-center bg-sunken">
+                    {% if file.thumb %}
+                    <img class="h-full w-full object-cover" src="{{ file.thumb }}" alt="" loading="lazy" decoding="async">
+                    {% else %}
+                    <span class="text-muted">{{ icon(file.kind == 'video' ? 'video' : 'file-text', 'h-10 w-10') }}</span>
+                    {% endif %}
+                    {% if file.kind == 'video' %}<span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-pill bg-black/70 px-2 py-0.5 text-xs font-medium text-white">{{ icon('play', 'h-3 w-3') }}{{ file.duration }}</span>{% endif %}
+                    {% if file.animated %}<span class="absolute left-2 top-2 rounded-pill bg-black/70 px-2 py-0.5 text-xs font-medium text-white">GIF</span>{% endif %}
+                    {% if file.mime == 'application/pdf' %}<span class="absolute left-2 top-2 rounded-pill bg-black/70 px-2 py-0.5 text-xs font-medium text-white">PDF</span>{% endif %}
+                </div>
+                <div class="p-3">
+                    <p class="truncate text-sm font-medium" title="{{ file.name }}">{{ file.name }}</p>
+                    <p class="text-xs text-muted">{{ file.size }}{% if file.dimensions %} · {{ file.dimensions }}{% endif %}</p>
+                </div>
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    <div class="mt-6">{{ d.pagination(result.page, result.pages, page_base) }}</div>
+</section>
+{% else %}
+<section class="card" aria-label="Файлы">
+    {% if filtered %}
+    {{ d.empty_state('Ничего не нашли', 'Попробуйте другое название или сбросьте фильтры.', 'search', 'Сбросить фильтры', base ~ (folder ? '?folder=' ~ folder.publicId : '')) }}
+    {% elseif folder %}
+    {{ d.empty_state('В этой папке пока пусто', can_upload ? 'Перетащите сюда файлы: они попадут в папку «' ~ folder.name ~ '».' : 'Файлов в этой папке пока нет.', 'folder') }}
+    {% else %}
+    {{ d.empty_state('Медиатека пуста', can_upload ? 'Перетащите фото или видео в рамку выше, и они появятся здесь. Потом их можно прикреплять к постам.' : 'Файлов пока нет. Их добавляют авторы и редакторы.', 'images') }}
+    {% endif %}
+</section>
+{% endif %}
+
+<section class="mt-8 max-w-md" aria-label="Место в медиатеке">
+    {{ d.progress(usage.percent, 100, 'Занято ' ~ usage.used ~ ' из ' ~ usage.quota, 'Занятое место в медиатеке') }}
+</section>
+
+{% if can_manage %}
+{% set new_body %}
+<form method="post" action="{{ base }}/folders">
+    {{ csrf_field() }}
+    {{ f.input('name', 'Название папки', required = true, autocomplete = 'off', placeholder = 'Например, Весенняя акция', id = 'folder-new-name') }}
+    {% set footer %}{{ f.button('Отмена', variant = 'secondary', attrs = {'data-dialog-close': ''}) }}{{ f.button('Создать папку', type = 'submit') }}{% endset %}
+    {{ o.modal_footer(footer) }}
+</form>
+{% endset %}
+{{ o.modal('folder-new', 'Новая папка', 'Папки помогают держать файлы по клиентам или кампаниям.', 'md', new_body) }}
+{% if folder %}
+{% set rename_body %}
+<form method="post" action="{{ base }}/folders/{{ folder.publicId }}/rename">
+    {{ csrf_field() }}
+    {{ f.input('name', 'Название папки', value = folder.name, required = true, autocomplete = 'off', id = 'folder-rename-name') }}
+    {% set footer %}{{ f.button('Отмена', variant = 'secondary', attrs = {'data-dialog-close': ''}) }}{{ f.button('Сохранить', type = 'submit') }}{% endset %}
+    {{ o.modal_footer(footer) }}
+</form>
+{% endset %}
+{{ o.modal('folder-rename', 'Переименовать папку', null, 'md', rename_body) }}
+{{ o.confirm_dialog('folder-delete', 'Удалить папку?', folder.name, 'Файлы из неё не удалятся, они останутся в общей медиатеке.', base ~ '/folders/' ~ folder.publicId ~ '/delete', 'Удалить папку') }}
+{% endif %}
+{% endif %}
+{% endblock %}

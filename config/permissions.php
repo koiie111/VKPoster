@@ -28,6 +28,11 @@ return static fn (Env $env): array => [
     'posts.publish' => ['owner', 'admin', 'editor'],
     'posts.draft' => ['owner', 'admin', 'editor', 'author'],
 
+    // Media library: everyone who works on posts may look and upload; deleting and watermarks are for editors and up.
+    'media.view' => ['owner', 'admin', 'editor', 'author', 'viewer'],
+    'media.upload' => ['owner', 'admin', 'editor', 'author'],
+    'media.manage' => ['owner', 'admin', 'editor'],
+
     // Looking, without touching.
     'calendar.view' => ['owner', 'admin', 'editor', 'author', 'viewer', 'client'],
     'analytics.view' => ['owner', 'admin', 'editor', 'author', 'viewer', 'client'],

@@ -27,8 +27,12 @@ final class SecurityHeaders implements MiddlewareInterface
 
     public function handle(Request $request, Closure $next): Response
     {
-        $response = $next($request)
-            ->withHeader('Content-Security-Policy', $this->csp->header($this->context->nonce(), $this->context->cspExtras()))
+        $response = $next($request);
+        // A response may bring its own, stricter policy (user files are served with `sandbox`).
+        if ($response->header('Content-Security-Policy') === null) {
+            $response = $response->withHeader('Content-Security-Policy', $this->csp->header($this->context->nonce(), $this->context->cspExtras()));
+        }
+        $response = $response
             ->withHeader('X-Content-Type-Options', 'nosniff')
             ->withHeader('X-Frame-Options', 'DENY')
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')

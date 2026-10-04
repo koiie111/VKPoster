@@ -1,0 +1,76 @@
+{#- Watermarks. Variables: workspace, watermarks, positions, base, max. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'media' %}
+{% block title %}Водяной знак · {{ app_name }}{% endblock %}
+{% block head %}<script src="{{ asset('js/media.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
+{% block content %}
+<p class="mb-3"><a class="inline-flex items-center gap-1 text-sm font-medium text-primary-text hover:underline" href="{{ base }}">{{ icon('chevron-left', 'h-4 w-4') }}К медиатеке</a></p>
+{{ d.page_header('Водяной знак', 'Логотип, который накладывается на фото при публикации. Исходные файлы в медиатеке не меняются.') }}
+
+<div class="flex flex-col gap-6">
+    {% for w in watermarks %}
+    <section class="card" aria-labelledby="wm-{{ w.publicId }}-title" x-data="watermarkPreview" data-preview-url="{{ base }}/watermarks/{{ w.publicId }}/preview">
+        <div class="flex flex-wrap items-center gap-3">
+            <h2 class="text-lg font-semibold" id="wm-{{ w.publicId }}-title">{{ w.name }}</h2>
+            {% if w.isDefault %}{{ d.badge('Используется по умолчанию', 'info') }}{% endif %}
+        </div>
+        <div class="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div class="overflow-hidden rounded-card bg-sunken">
+                <img class="w-full" data-preview-img src="{{ base }}/watermarks/{{ w.publicId }}/preview" alt="Предпросмотр: так водяной знак «{{ w.name }}» выглядит на фото" width="800" height="500">
+            </div>
+            <form class="flex flex-col gap-4" method="post" action="{{ base }}/watermarks/{{ w.publicId }}/update">
+                {{ csrf_field() }}
+                {{ f.input('name', 'Название', value = w.name, required = true, id = 'wm-' ~ w.publicId ~ '-name', autocomplete = 'off') }}
+                <fieldset>
+                    <legend class="label">Положение</legend>
+                    <div class="grid w-44 grid-cols-3 gap-1.5" role="radiogroup">
+                        {% for code, label in positions %}
+                        <label class="relative flex h-11 items-center justify-center rounded-ctl border border-line bg-surface has-[:checked]:border-primary has-[:checked]:bg-primary-soft has-[:focus-visible]:ring-2" title="{{ label }}">
+                            <input class="peer sr-only" type="radio" name="position" value="{{ code }}"{% if code == w.position %} checked{% endif %} aria-label="{{ label }}">
+                            <span class="h-2.5 w-2.5 rounded-full bg-muted peer-checked:bg-primary" aria-hidden="true"></span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <div>
+                    <label class="label flex justify-between" for="wm-{{ w.publicId }}-opacity"><span>Непрозрачность</span><span class="font-normal text-muted" data-range-out="opacity">{{ w.opacity }} %</span></label>
+                    <input class="w-full accent-[rgb(var(--p))]" type="range" min="5" max="100" step="5" id="wm-{{ w.publicId }}-opacity" name="opacity" value="{{ w.opacity }}">
+                </div>
+                <div>
+                    <label class="label flex justify-between" for="wm-{{ w.publicId }}-scale"><span>Размер (доля ширины фото)</span><span class="font-normal text-muted" data-range-out="scale">{{ w.scale }} %</span></label>
+                    <input class="w-full accent-[rgb(var(--p))]" type="range" min="5" max="60" step="1" id="wm-{{ w.publicId }}-scale" name="scale" value="{{ w.scale }}">
+                </div>
+                <div>
+                    <label class="label flex justify-between" for="wm-{{ w.publicId }}-margin"><span>Отступ от края</span><span class="font-normal text-muted" data-range-out="margin">{{ w.margin }} %</span></label>
+                    <input class="w-full accent-[rgb(var(--p))]" type="range" min="0" max="20" step="1" id="wm-{{ w.publicId }}-margin" name="margin" value="{{ w.margin }}">
+                </div>
+                {% if not w.isDefault %}{{ f.checkbox('make_default', 'Использовать по умолчанию', value = '1', id = 'wm-' ~ w.publicId ~ '-default') }}{% endif %}
+                <div class="flex flex-wrap gap-3">
+                    {{ f.button('Сохранить', type = 'submit') }}
+                    {{ f.button('Удалить', variant = 'ghost', attrs = {'data-dialog-open': 'wm-delete-' ~ w.publicId}) }}
+                </div>
+            </form>
+        </div>
+    </section>
+    {{ o.confirm_dialog('wm-delete-' ~ w.publicId, 'Удалить водяной знак?', w.name, 'Уже опубликованные посты не изменятся.', base ~ '/watermarks/' ~ w.publicId ~ '/delete', 'Удалить') }}
+    {% endfor %}
+
+    {% if watermarks|length < max %}
+    <section class="card" aria-labelledby="wm-new-title">
+        <h2 class="text-lg font-semibold" id="wm-new-title">{{ watermarks ? 'Добавить ещё один' : 'Загрузите логотип' }}</h2>
+        <p class="mt-1 text-sm text-muted">Подойдёт PNG с прозрачным фоном, не больше 2000×2000 пикселей и 2 МБ.</p>
+        {% if not watermarks %}{{ d.empty_state('Водяного знака пока нет', 'Загрузите логотип, настройте положение и прозрачность, и его можно будет накладывать на фото одной галочкой.', 'image') }}{% endif %}
+        <form class="mt-4 grid gap-4 sm:grid-cols-2 sm:items-start" method="post" action="{{ base }}/watermarks" enctype="multipart/form-data">
+            {{ csrf_field() }}
+            {{ f.input('name', 'Название', placeholder = 'Например, Логотип', autocomplete = 'off', id = 'wm-new-name') }}
+            {% set logo_input %}<input class="field" type="file" id="wm-new-logo" name="logo" accept="image/png" required>{% endset %}
+            {{ f.form_field('wm-new-logo', 'Файл PNG', required = true, body = logo_input) }}
+            <div>{{ f.button('Загрузить', type = 'submit', icon = 'upload') }}</div>
+        </form>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
