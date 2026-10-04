@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 use App\Domain\Auth\PasswordPolicy;
+use App\Domain\Channel\ConnectCodes;
+use App\Integrations\Social\Fake\FakeAdapter;
+use App\Integrations\Social\PlatformRegistry;
+use App\Integrations\Social\Telegram\TelegramAdapter;
+use App\Integrations\Social\Telegram\TelegramClientFactory;
 use App\Domain\Media\FfprobeVideoProbe;
 use App\Domain\Media\FolderRepository;
 use App\Domain\Media\ImageProcessor;
@@ -193,6 +198,24 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Domain\Audit\AuditLog::class),
         $c->get(Clock::class),
         $base . '/storage/tmp',
+    ));
+
+    // Social platforms: one adapter class per network. A new network = one more line in the list below (and its flag in PLATFORMS_ENABLED).
+    $c->factory(TelegramClientFactory::class, static fn (Container $c): TelegramClientFactory => new TelegramClientFactory($c->get(HttpClientInterface::class)));
+    $c->factory(FakeAdapter::class, static fn (Container $c): FakeAdapter => new FakeAdapter($c->get(LoggerInterface::class)));
+    $c->factory(PlatformRegistry::class, static function (Container $c): PlatformRegistry {
+        $config = $c->get(Config::class);
+
+        return new PlatformRegistry(
+            [$c->get(TelegramAdapter::class), $c->get(FakeAdapter::class)],
+            array_values(array_filter(array_map('strval', $config->array('platforms.enabled')), static fn (string $v): bool => $v !== '')),
+            !$config->isProduction(),
+        );
+    });
+    $c->factory(ConnectCodes::class, static fn (Container $c): ConnectCodes => new ConnectCodes(
+        $c->get(Connection::class),
+        $c->get(Clock::class),
+        $c->get(Config::class)->int('platforms.channels.connect_code_ttl', 900),
     ));
 
     $c->factory(HealthCheck::class, static fn (Container $c): HealthCheck => new HealthCheck($c->get(Config::class)->env()->all()));

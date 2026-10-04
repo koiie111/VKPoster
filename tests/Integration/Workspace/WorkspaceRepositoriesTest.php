@@ -6,7 +6,10 @@ namespace App\Tests\Integration\Workspace;
 
 use App\Domain\User\User;
 use App\Domain\User\UserRepository;
+use App\Domain\Channel\ChannelMode;
+use App\Domain\Channel\ChannelRepository;
 use App\Domain\Workspace\ChannelAccessRepository;
+use App\Integrations\Social\Contracts\Platform;
 use App\Domain\Workspace\InvitationLookup;
 use App\Domain\Workspace\InvitationRepository;
 use App\Domain\Workspace\MemberRepository;
@@ -180,6 +183,16 @@ final class WorkspaceRepositoriesTest extends TestCase
         self::assertSame($other->id, $this->workspaces->findByPublicId($workspace->publicId)?->ownerId);
     }
 
+    /**
+     * A real channel row: the access list refers to channels by a foreign key.
+     */
+    private function channel(WorkspaceContext $ctx, string $externalId): int
+    {
+        $repository = new ChannelRepository($this->db, $this->clock);
+
+        return $repository->connect($ctx, Platform::Telegram, $externalId, ChannelMode::SharedBot, 'Канал ' . $externalId, null, 'channel', null, [], $ctx->userId)['channel']->id;
+    }
+
     public function testChannelAccessDefaultsAndRestrictions(): void
     {
         [$owner, $workspace, $ctx] = $this->owned('a@example.com');
@@ -191,8 +204,10 @@ final class WorkspaceRepositoriesTest extends TestCase
         self::assertNull($this->access->allowed($ctx, $author->id), 'authors see every channel by default');
         self::assertSame([], $this->access->allowed($ctx, $client->id), 'a client sees nothing until channels are assigned');
 
-        self::assertTrue($this->access->set($ctx, $author->id, [7, 9, 7]));
-        self::assertSame([7, 9], $this->access->allowed($ctx, $author->id));
+        $first = $this->channel($ctx, '-1001');
+        $second = $this->channel($ctx, '-1002');
+        self::assertTrue($this->access->set($ctx, $author->id, [$first, $second, $first]));
+        self::assertSame([$first, $second], $this->access->allowed($ctx, $author->id));
         self::assertTrue($this->access->set($ctx, $author->id, []));
         self::assertSame([], $this->access->allowed($ctx, $author->id), 'restricted to nothing');
         self::assertTrue($this->access->set($ctx, $author->id, null));
@@ -200,7 +215,7 @@ final class WorkspaceRepositoriesTest extends TestCase
 
         self::assertTrue($this->access->set($ctx, $client->id, null));
         self::assertSame([], $this->access->allowed($ctx, $client->id), 'a client can never be unrestricted');
-        $this->access->set($ctx, $client->id, [3]);
+        $this->access->set($ctx, $client->id, [$first]);
         $this->members->setRole($ctx, $this->members->findByEmail($ctx, 'client@example.com') ?? self::fail('client missing'), Role::Viewer);
         self::assertNull($this->access->allowed($ctx, $client->id), 'leaving the client role lifts the limit');
         self::assertSame(0, (int) $this->db->select('SELECT COUNT(*) AS c FROM member_channel_access')[0]['c']);
@@ -212,7 +227,7 @@ final class WorkspaceRepositoriesTest extends TestCase
         [, , $ctxB] = $this->owned('b@example.com');
         $member = $this->user('m@example.com');
         $this->workspaces->addMember($a->id, $member->id, Role::Author, $ownerA->id);
-        $this->access->set($ctxA, $member->id, [1, 2]);
+        $this->access->set($ctxA, $member->id, [$this->channel($ctxA, '-1001')]);
 
         self::assertFalse($this->access->set($ctxB, $member->id, [5]), 'not a member of B');
         self::assertNull($this->access->allowed($ctxB, $member->id));

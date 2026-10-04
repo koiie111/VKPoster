@@ -22,6 +22,8 @@ return static fn (Env $env): array => [
     'workspace.settings' => ['owner', 'admin'],
     'members.manage' => ['owner', 'admin'],
     'channels.manage' => ['owner', 'admin'],
+    // The channel list (a restricted member sees only the channels assigned to them); clients work through the calendar only.
+    'channels.view' => ['owner', 'admin', 'editor', 'author', 'viewer'],
     'audit.view' => ['owner', 'admin'],
 
     // Content.

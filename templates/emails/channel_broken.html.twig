@@ -1,0 +1,9 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Канал «{{ channel }}» ({{ platform }}) перестал принимать посты.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Канал «{{ channel }}» перестал работать</h1>
+<p style="margin:0;">В пространстве «{{ workspace }}» мы не можем публиковать в канал «{{ channel }}» ({{ platform }}). Пока это не исправлено, запланированные в него посты не уйдут.</p>
+<p style="margin:12px 0 0;"><strong>Что случилось:</strong> {{ reason }}</p>
+{% include 'emails/_button.html.twig' with {link: link, label: 'Открыть каналы'} only %}
+<p style="margin:20px 0 0;">Когда исправите, нажмите «Проверить сейчас» у канала: проверка запускается автоматически и раз в несколько часов.</p>
+{% endblock %}

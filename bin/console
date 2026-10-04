@@ -5,7 +5,9 @@ declare(strict_types=1);
 
 use App\Kernel\Application;
 use App\Kernel\Console\Command\AuthPruneCommand;
+use App\Kernel\Console\Command\ChannelsCheckCommand;
 use App\Kernel\Console\Command\CreateAdminCommand;
+use App\Kernel\Console\Command\CryptoRotateCommand;
 use App\Kernel\Console\Command\KeyGenerateCommand;
 use App\Kernel\Console\Command\MigrateCommand;
 use App\Kernel\Console\Command\MigrateFreshCommand;
@@ -14,6 +16,8 @@ use App\Kernel\Console\Command\MigrateStatusCommand;
 use App\Kernel\Console\Command\QueueWorkCommand;
 use App\Kernel\Console\Command\ScheduleRunCommand;
 use App\Kernel\Console\Command\SeedCommand;
+use App\Kernel\Console\Command\TelegramPollCommand;
+use App\Kernel\Console\Command\TelegramWebhookCommand;
 use App\Kernel\Console\Console;
 use App\Kernel\Console\Output;
 
@@ -36,6 +40,10 @@ try {
         KeyGenerateCommand::class,
         CreateAdminCommand::class,
         AuthPruneCommand::class,
+        ChannelsCheckCommand::class,
+        CryptoRotateCommand::class,
+        TelegramPollCommand::class,
+        TelegramWebhookCommand::class,
     ]);
 } catch (Throwable $e) {
     fwrite(STDERR, 'Cannot start: ' . $e->getMessage() . "\n");
