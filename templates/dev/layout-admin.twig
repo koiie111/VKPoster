@@ -1,0 +1,22 @@
+{#- Layout sample: back office. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'users' %}
+{% block title %}Пользователи · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Пользователи', 'Поиск, блокировка и подписки.') }}
+<form class="mb-4 flex flex-wrap items-end gap-3" method="get" action="/dev/layouts/admin" role="search">
+    <div class="min-w-[16rem] flex-1">{{ f.input('q', 'Найти пользователя', placeholder = 'Почта или имя') }}</div>
+    {{ f.button('Найти', type = 'submit', variant = 'secondary', icon = 'search') }}
+</form>
+<div class="card !p-0 overflow-hidden">
+{% set rows %}
+    {% for u in [{n: 'Анна Смирнова', e: 'anna@example.com', s: 'connected', p: 'Профи'}, {n: 'Иван Петров', e: 'ivan@example.com', s: 'paused', p: 'Старт'}, {n: 'Мария Орлова', e: 'maria@example.com', s: 'connected', p: 'Старт'}] %}
+    <tr><td><div class="flex items-center gap-3">{{ d.avatar(u.n, size = 'sm') }}<div><p class="font-medium">{{ u.n }}</p><p class="text-xs text-muted">{{ u.e }}</p></div></div></td><td>{{ u.p }}</td><td>{{ d.status_badge(u.s) }}</td></tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Пользователь', sort_href: '#', sorted: 'asc'}, {label: 'Тариф'}, {label: 'Статус'}], caption = 'Пользователи', body = rows) }}
+</div>
+<div class="mt-4">{{ d.pagination(1, 3, '/dev/layouts/admin') }}</div>
+{% endblock %}

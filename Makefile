@@ -4,7 +4,7 @@ EXEC    ?= $(COMPOSE) exec -T app
 RUN     ?= $(COMPOSE) run --rm --no-deps -T app
 CMD     ?=
 
-.PHONY: init up down build sh logs console migrate seed test stan cs cs-fix audit docs check
+.PHONY: init up down build sh logs console migrate seed test stan cs cs-fix audit docs check css css-watch css-check ui-snap a11y ui-behavior
 
 init: ## create .env and generate APP_KEY
 	@test -f .env || cp .env.example .env
@@ -57,4 +57,25 @@ audit:
 docs: ## phpDocumentor reference into docs/reference/
 	docker run --rm -v "$(CURDIR):/data" phpdoc/phpdoc:3 run -d src -t docs/reference
 
-check: cs stan test audit docs
+check: css cs stan test audit docs
+
+css: ## build Tailwind CSS -> public/assets/build/app.<hash>.css
+	$(EXEC) sh scripts/build-css.sh
+
+css-check: ## fail if the built CSS is missing or stale
+	$(EXEC) sh scripts/build-css.sh --check
+
+css-watch: ## rebuild CSS on changes (Ctrl+C to stop)
+	$(COMPOSE) exec app tailwindcss -c tailwind.config.js -i resources/css/app.css -o public/assets/build/app.css --watch
+
+STAGE ?=
+
+ui-snap: ## screenshots (375/768/1440 x light/dark) + axe audit: make ui-snap STAGE=NN -> storage/ui-review/stage-NN/
+	@test -n "$(STAGE)" || { echo "usage: make ui-snap STAGE=NN"; exit 2; }
+	$(COMPOSE) --profile tools run --rm ui-snap $(STAGE)
+
+a11y: ## axe-core only (no screenshots): make a11y [STAGE=NN]
+	$(COMPOSE) --profile tools run --rm ui-snap $(or $(STAGE),21) --a11y-only
+
+ui-behavior: ## browser smoke test of component behavior (dropdown, tabs, dialogs, theme, editor) and CSP errors
+	$(COMPOSE) --profile tools run --rm --entrypoint node ui-snap /opt/ui-snap/behaviors.mjs

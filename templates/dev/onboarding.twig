@@ -1,0 +1,55 @@
+{#- Prototype: first-run onboarding, 4 screens (?step=1..4). -#}
+{% extends 'layouts/base.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+
+{% block title %}Первые шаги · {{ app_name }}{% endblock %}
+{% block body %}
+<header class="border-b border-line bg-surface"><div class="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+    <a href="/" aria-label="{{ app_name }}: на главную">{{ d.logo() }}</a>
+    <a class="btn btn-ghost btn-sm" href="/dev/proto/dashboard">Пропустить</a>
+</div></header>
+<main id="main" class="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+    {% if step < 4 %}<div class="mb-8">{{ d.stepper(['Подключите канал', 'Напишите пост', 'Выберите время'], step) }}</div>{% endif %}
+
+    {% if step == 1 %}
+    <h1 class="text-2xl font-bold sm:text-3xl">Подключите первый канал</h1>
+    <p class="mt-2 text-muted">Выберите, где будут выходить ваши посты. Остальные каналы можно добавить позже.</p>
+    <div class="mt-6 grid gap-4 sm:grid-cols-2">
+        {% for item in [{p: 'tg', name: 'Telegram', text: 'Канал или группа. Нужно добавить нашего бота администратором.'}, {p: 'vk', name: 'ВКонтакте', text: 'Сообщество или личная страница. Войдите через ВК.'}, {p: 'max', name: 'MAX', text: 'Канал в MAX. Потребуется бот.'}, {p: 'ig', name: 'Instagram', text: 'Профессиональный аккаунт, связанный со страницей Facebook.'}] %}
+        <a class="card flex flex-col gap-2 transition hover:border-primary" href="?step=2">
+            <span>{{ d.platform_badge(item.p) }}</span>
+            <span class="text-lg font-semibold">{{ item.name }}</span>
+            <span class="text-sm text-muted">{{ item.text }}</span>
+            <span class="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary-text">Подключить{{ icon('chevron-right', 'h-4 w-4') }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% elseif step == 2 %}
+    <h1 class="text-2xl font-bold sm:text-3xl">Напишите первый пост</h1>
+    <p class="mt-2 text-muted">Можно что угодно: мы покажем, как он будет выглядеть, и опубликуем в нужное время.</p>
+    <form class="mt-6 flex flex-col gap-5" action="?step=3" method="get">
+        <input type="hidden" name="step" value="3">
+        {{ f.textarea('text', 'Текст поста', 'Привет! Мы открылись и ждём вас на кофе.', max = 4096, hint = 'Первые строки видны в ленте.') }}
+        {{ f.dropzone('media', 'Фото или видео (по желанию)') }}
+        <div class="flex flex-wrap justify-between gap-3">{{ f.button('Назад', variant = 'ghost', href = '?step=1') }}{{ f.button('Дальше', type = 'submit') }}</div>
+    </form>
+    {% elseif step == 3 %}
+    <h1 class="text-2xl font-bold sm:text-3xl">Когда опубликовать?</h1>
+    <p class="mt-2 text-muted">Выберите дату и время. Мы покажем часовой пояс, чтобы пост вышел вовремя.</p>
+    <form class="mt-6 flex flex-col gap-5" action="?step=4" method="get">
+        <input type="hidden" name="step" value="4">
+        {{ f.datetime('publish', 'Дата и время публикации', '2026-10-09', '12:30', required = true) }}
+        {{ f.switch('later', 'Публиковать в лучшее время автоматически', false, hint = 'Мы подберём время, когда ваши подписчики активнее всего.') }}
+        <div class="flex flex-wrap justify-between gap-3">{{ f.button('Назад', variant = 'ghost', href = '?step=2') }}{{ f.button('Запланировать пост', type = 'submit', icon = 'calendar-days') }}</div>
+    </form>
+    {% else %}
+    <div class="card"><div class="flex flex-col items-center px-4 py-10 text-center">
+        <span class="flex h-20 w-20 items-center justify-center rounded-full bg-ok-soft text-ok-fg">{{ icon('circle-check', 'h-10 w-10') }}</span>
+        <h1 class="mt-5 text-2xl font-bold">Готово! Пост запланирован</h1>
+        <p class="mt-2 max-w-md text-muted">Он выйдет в Telegram 9 октября в 12:30 (МСК). Мы напомним вам заранее.</p>
+        <div class="mt-6 flex flex-wrap justify-center gap-3">{{ f.button('Открыть календарь', href = '/dev/proto/calendar', icon = 'calendar-days') }}{{ f.button('Запланировать ещё один', variant = 'secondary', href = '/dev/proto/editor') }}</div>
+    </div></div>
+    {% endif %}
+</main>
+{% endblock %}

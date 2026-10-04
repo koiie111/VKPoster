@@ -1,19 +1,25 @@
+{#- HTML shell shared by every layout. Blocks: title, head, body_class, body. Scripts are external files (CSP). -#}
+{% import 'components/overlay.twig' as o %}
 <!doctype html>
 <html lang="ru">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
     <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>
     {{ csrf_meta() }}
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
-    <link rel="stylesheet" href="{{ asset('css/kernel.css') }}">
+    <script src="{{ asset('js/theme.js') }}"></script>
+    <link rel="stylesheet" href="{{ asset('app.css') }}">
+    {% block head %}{% endblock %}
     <script src="{{ asset('vendor/htmx.min.js') }}" nonce="{{ csp_nonce() }}" defer></script>
     <script src="{{ asset('js/app.js') }}" nonce="{{ csp_nonce() }}" defer></script>
+    <script src="{{ asset('js/components.js') }}" nonce="{{ csp_nonce() }}" defer></script>
     <script src="{{ asset('vendor/alpine-csp.min.js') }}" nonce="{{ csp_nonce() }}" defer></script>
 </head>
-<body>
-<main>
-    {% block content %}{% endblock %}
-</main>
+<body class="min-h-screen {% block body_class %}{% endblock %}" x-data="dialogs">
+    <a class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-toast focus:rounded-ctl focus:bg-surface focus:px-4 focus:py-2 focus:shadow-pop" href="#main">Перейти к содержимому</a>
+    {% block body %}{% endblock %}
+    {{ o.toast_region(flash is defined ? flash : []) }}
 </body>
 </html>

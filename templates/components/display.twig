@@ -1,0 +1,178 @@
+{#- Display components: card, badges, avatar, empty state, skeleton, progress, stepper, breadcrumbs, page header, alert, table, pagination. -#}
+
+{% macro card(title = null, padded = true, class = '', body = '') -%}
+<section class="card{{ padded ? '' : ' !p-0 overflow-hidden' }} {{ class }}">
+    {% if title %}<h2 class="mb-4 text-lg font-semibold">{{ title }}</h2>{% endif %}
+    {{ body }}
+</section>
+{%- endmacro %}
+
+{#- tone: neutral | primary | ok | warn | bad | info -#}
+{% macro badge(text, tone = 'neutral', dot = false, icon = null) -%}
+{%- set tones = {
+    neutral: 'bg-sunken text-fg',
+    primary: 'bg-primary-soft text-primary-softfg',
+    ok: 'bg-ok-soft text-ok-fg',
+    warn: 'bg-warn-soft text-warn-fg',
+    bad: 'bg-bad-soft text-bad-fg',
+    info: 'bg-info-soft text-info-fg'
+} -%}
+<span class="badge{{ dot ? ' badge-dot' : '' }} {{ tones[tone] ?? tones.neutral }}">{% if icon %}{{ icon(icon, 'h-3.5 w-3.5') }}{% endif %}{{ text }}</span>
+{%- endmacro %}
+
+{#- Post and channel statuses -> label + tone. Unknown status renders as neutral with the raw text. -#}
+{% macro status_badge(status) -%}
+{%- set map = {
+    draft: ['Черновик', 'neutral'],
+    scheduled: ['Запланирован', 'info'],
+    publishing: ['Публикуется', 'info'],
+    published: ['Опубликован', 'ok'],
+    partial: ['Опубликован частично', 'warn'],
+    failed: ['Не удалось', 'bad'],
+    canceled: ['Отменён', 'neutral'],
+    connected: ['Подключён', 'ok'],
+    needs_reauth: ['Нужно переподключить', 'warn'],
+    error: ['Ошибка', 'bad'],
+    paused: ['На паузе', 'neutral']
+} -%}
+{%- set item = map[status] ?? [status, 'neutral'] -%}
+{%- set tones = {neutral: 'bg-sunken text-fg', ok: 'bg-ok-soft text-ok-fg', warn: 'bg-warn-soft text-warn-fg', bad: 'bg-bad-soft text-bad-fg', info: 'bg-info-soft text-info-fg'} -%}
+<span class="badge badge-dot {{ tones[item[1]] }}">{{ item[0] }}</span>
+{%- endmacro %}
+
+{% macro platform_badge(platform, label = null) -%}
+{%- set names = {vk: 'ВКонтакте', tg: 'Telegram', max: 'MAX', ig: 'Instagram'} -%}
+<span class="badge plat plat-{{ names[platform] is defined ? platform : 'vk' }}">{{ label ?? names[platform] ?? platform }}</span>
+{%- endmacro %}
+
+{#- Round avatar: image when `src` is set, otherwise initials on a tinted background. size: sm | md | lg -#}
+{% macro avatar(name, src = null, size = 'md') -%}
+{%- set sizes = {sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-14 w-14 text-lg'} -%}
+{%- set parts = name|replace({'«': '', '»': '', '"': ''})|trim|split(' ') -%}
+{%- set initials = (parts[0]|slice(0, 1) ~ (parts[1] is defined ? parts[1]|slice(0, 1) : ''))|upper -%}
+{% if src %}<img class="{{ sizes[size] }} shrink-0 rounded-full object-cover" src="{{ src }}" alt="{{ name }}">
+{% else %}<span class="{{ sizes[size] }} inline-flex shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary-softfg" role="img" aria-label="{{ name }}">{{ initials }}</span>{% endif %}
+{%- endmacro %}
+
+{#- Empty state: icon + what is empty + what to do. `action_*` is the main action, `secondary_*` an optional second one. -#}
+{% macro empty_state(title, text, icon = 'calendar-days', action_label = null, action_href = null, secondary_label = null, secondary_href = null) -%}
+<div class="flex flex-col items-center px-4 py-10 text-center">
+    <span class="flex h-20 w-20 items-center justify-center rounded-full bg-primary-soft text-primary-text">{{ icon(icon, 'h-9 w-9') }}</span>
+    <p class="mt-5 text-xl font-semibold">{{ title }}</p>
+    <p class="mt-2 max-w-md text-muted">{{ text }}</p>
+    {% if action_label or secondary_label %}
+    <div class="mt-6 flex flex-wrap justify-center gap-3">
+        {% if action_label %}<a class="btn btn-primary" href="{{ action_href ?? '#' }}">{{ action_label }}</a>{% endif %}
+        {% if secondary_label %}<a class="btn btn-secondary" href="{{ secondary_href ?? '#' }}">{{ secondary_label }}</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro skeleton(lines = 3, class = '') -%}
+<div class="flex flex-col gap-2.5 {{ class }}" role="status" aria-label="Загрузка">
+    {% for i in 1..lines %}<div class="skeleton h-4 {{ loop.last and lines > 1 ? 'w-2/3' : 'w-full' }}"></div>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro progress(value, max = 100, label = null, aria_label = null) -%}
+<div>
+    {% if label %}<div class="mb-1.5 flex justify-between text-sm"><span>{{ label }}</span><span class="text-muted">{{ value }} из {{ max }}</span></div>{% endif %}
+    <progress class="progress" value="{{ value }}" max="{{ max }}" aria-label="{{ label ?? aria_label ?? 'Прогресс' }}">{{ value }} из {{ max }}</progress>
+</div>
+{%- endmacro %}
+
+{#- Stepper for onboarding. steps: list of labels; current: 1-based index of the active step. -#}
+{% macro stepper(steps, current) -%}
+<ol class="flex items-start gap-2" aria-label="Шаги">
+    {% for label in steps %}
+    {% set n = loop.index %}
+    <li class="flex min-w-0 flex-1 flex-col gap-2" {% if n == current %}aria-current="step"{% endif %}>
+        <span class="h-1.5 rounded-full {{ n <= current ? 'bg-primary' : 'bg-line' }}"></span>
+        <span class="flex items-center gap-2 text-sm {{ n == current ? 'font-semibold' : 'text-muted' }}">
+            <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold {{ n < current ? 'bg-primary text-primary-fg' : (n == current ? 'bg-primary-soft text-primary-softfg' : 'bg-sunken text-muted') }}">{% if n < current %}{{ icon('check', 'h-3.5 w-3.5') }}{% else %}{{ n }}{% endif %}</span>
+            <span class="truncate">{{ label }}</span>
+        </span>
+    </li>
+    {% endfor %}
+</ol>
+{%- endmacro %}
+
+{#- items: list of {label, href?}; the last one is the current page. -#}
+{% macro breadcrumbs(items) -%}
+<nav aria-label="Навигационная цепочка">
+    <ol class="flex flex-wrap items-center gap-1.5 text-sm text-muted">
+        {% for item in items %}
+        <li class="flex items-center gap-1.5">
+            {% if loop.last %}<span aria-current="page" class="font-medium text-fg">{{ item.label }}</span>
+            {% else %}<a class="hover:text-fg hover:underline" href="{{ item.href }}">{{ item.label }}</a>{{ icon('chevron-right', 'h-4 w-4') }}{% endif %}
+        </li>
+        {% endfor %}
+    </ol>
+</nav>
+{%- endmacro %}
+
+{#- Page title row; body renders the actions on the right. -#}
+{% macro page_header(title, subtitle = null, body = '') -%}
+<header class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0">
+        <h1 class="text-2xl font-bold sm:text-3xl">{{ title }}</h1>
+        {% if subtitle %}<p class="mt-1 text-muted">{{ subtitle }}</p>{% endif %}
+    </div>
+    {% if body %}<div class="flex flex-wrap items-center gap-3">{{ body }}</div>{% endif %}
+</header>
+{%- endmacro %}
+
+{#- kind: info | success | warning | error. Errors use role=alert, the rest role=status. -#}
+{% macro alert(kind, title, text = null, body = '') -%}
+{%- set styles = {info: 'bg-info-soft text-info-fg', success: 'bg-ok-soft text-ok-fg', warning: 'bg-warn-soft text-warn-fg', error: 'bg-bad-soft text-bad-fg'} -%}
+{%- set icons = {info: 'info', success: 'circle-check', warning: 'triangle-alert', error: 'circle-alert'} -%}
+<div class="flex gap-3 rounded-ctl p-4 {{ styles[kind] ?? styles.info }}" role="{{ kind == 'error' ? 'alert' : 'status' }}">
+    {{ icon(icons[kind] ?? 'info', 'mt-0.5 h-5 w-5') }}
+    <div><p class="font-semibold">{{ title }}</p>{% if text %}<p class="mt-0.5 text-sm">{{ text }}</p>{% endif %}{% if body %}<div class="mt-2">{{ body }}</div>{% endif %}</div>
+</div>
+{%- endmacro %}
+
+{#- Tooltip around body content (a focusable element). Text is also read by screen readers via aria-describedby. -#}
+{% macro tooltip(id, text, body = '') -%}
+<span class="tip inline-flex" aria-describedby="{{ id }}">{{ body }}<span class="tip-body" role="tooltip" id="{{ id }}">{{ text }}</span></span>
+{%- endmacro %}
+
+{#- Table. columns: list of {label, sort_href?, sorted?: 'asc'|'desc', class?}. Rows come from body as <tr>…</tr>.
+    When `empty` is true the empty-state block is shown instead of the rows. -#}
+{% macro table(columns, empty = false, empty_title = 'Здесь пока пусто', empty_text = '', empty_action = null, empty_href = null, caption = null, body = '') -%}
+{% import _self as d %}
+<div class="overflow-x-auto">
+    <table class="tbl">
+        {% if caption %}<caption class="sr-only">{{ caption }}</caption>{% endif %}
+        <thead><tr>
+            {% for col in columns %}
+            <th scope="col" class="{{ col.class ?? '' }}"{% if col.sorted is defined and col.sorted %} aria-sort="{{ col.sorted == 'asc' ? 'ascending' : 'descending' }}"{% endif %}>
+                {% if col.sort_href is defined and col.sort_href %}<a class="inline-flex items-center gap-1 hover:text-fg" href="{{ col.sort_href }}">{{ col.label }}{{ icon(col.sorted is defined and col.sorted ? (col.sorted == 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down', 'h-3.5 w-3.5') }}</a>{% else %}{{ col.label }}{% endif %}
+            </th>
+            {% endfor %}
+        </tr></thead>
+        {% if not empty %}<tbody>{{ body }}</tbody>{% endif %}
+    </table>
+</div>
+{% if empty %}{{ d.empty_state(empty_title, empty_text, action_label = empty_action, action_href = empty_href) }}{% endif %}
+{%- endmacro %}
+
+{#- Pagination links: `base` is the URL (may already contain ?query), the page goes into `page=`. -#}
+{% macro pagination(page, pages, base) -%}
+{% if pages > 1 %}
+{%- set sep = '?' in base ? '&' : '?' -%}
+<nav class="flex items-center justify-between gap-3" aria-label="Страницы">
+    <a class="btn btn-secondary btn-sm {{ page <= 1 ? 'pointer-events-none opacity-50' : '' }}" href="{{ base }}{{ sep }}page={{ max(page - 1, 1) }}" {% if page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %} rel="prev">{{ icon('chevron-left', 'h-4 w-4') }}Назад</a>
+    <p class="text-sm text-muted">Страница {{ page }} из {{ pages }}</p>
+    <a class="btn btn-secondary btn-sm {{ page >= pages ? 'pointer-events-none opacity-50' : '' }}" href="{{ base }}{{ sep }}page={{ min(page + 1, pages) }}" {% if page >= pages %}aria-disabled="true" tabindex="-1"{% endif %} rel="next">Вперёд{{ icon('chevron-right', 'h-4 w-4') }}</a>
+</nav>
+{% endif %}
+{%- endmacro %}
+
+{#- compact: below `sm` only the mark is visible (the name stays for screen readers). -#}
+{% macro logo(class = '', compact = false) -%}
+<span class="inline-flex items-center gap-2 text-lg font-bold {{ class }}">
+    <span class="flex h-8 w-8 items-center justify-center rounded-ctl bg-primary text-primary-fg">{{ icon('send', 'h-4 w-4') }}</span><span{% if compact %} class="max-sm:sr-only"{% endif %}>{{ app_name }}</span>
+</span>
+{%- endmacro %}

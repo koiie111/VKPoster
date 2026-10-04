@@ -31,6 +31,8 @@ make check  # cs + stan + test + audit + docs
 | `make test` | PHPUnit (Unit, Integration, Feature) |
 | `make stan` | PHPStan level 8 + strict-rules |
 | `make cs` / `make cs-fix` | проверка / исправление стиля (PSR-12) |
+| `make css` / `css-watch` / `css-check` | сборка Tailwind CSS, пересборка на лету, проверка актуальности |
+| `make ui-snap STAGE=NN` / `make a11y` / `make ui-behavior` | скриншоты и axe-core / только axe / проверка поведения компонентов |
 | `make audit` | `composer audit` |
 | `make docs` | справочник API кода (phpDocumentor) в `docs/reference/` |
 | `make check` | всё вместе: `cs` + `stan` + `test` + `audit` + `docs` |

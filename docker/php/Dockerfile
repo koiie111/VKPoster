@@ -56,4 +56,5 @@ COPY docker/php/php.ini /usr/local/etc/php/conf.d/50-app.ini
 COPY docker/php/php-prod.ini /usr/local/etc/php/conf.d/60-app-prod.ini
 COPY --chown=app:www-data . /var/www/html
 COPY --from=vendor --chown=app:www-data /app/vendor /var/www/html/vendor
+RUN sh scripts/build-css.sh
 USER app

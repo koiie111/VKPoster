@@ -50,9 +50,18 @@ abstract class HttpTestCase extends TestCase
     protected function request(string $method, string $path, array $body = [], array $headers = []): Response
     {
         $headers += ['Host' => 'localhost'];
+        $query = [];
+        if (str_contains($path, '?')) {
+            [$path, $queryString] = explode('?', $path, 2);
+            parse_str($queryString, $parsed);
+            foreach ($parsed as $key => $value) {
+                $query[(string) $key] = $value;
+            }
+        }
         $request = Request::create(
             $method,
             $path,
+            query: $query,
             body: $body,
             headers: $headers,
             cookies: $this->cookies,

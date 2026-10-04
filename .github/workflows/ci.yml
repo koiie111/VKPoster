@@ -76,6 +76,8 @@ jobs:
             -v "$PWD:/var/www/html" -v "$HOME/.cache/composer:/composer-cache" \
             vkposter-app-dev bash -euo pipefail -c '
               composer install --no-interaction --prefer-dist
+              sh scripts/build-css.sh
+              sh scripts/build-css.sh --check
               composer cs
               composer stan
               composer test

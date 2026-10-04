@@ -1,0 +1,50 @@
+{#- Prototype: user dashboard. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/post.twig' as p %}
+
+{% set nav_current = 'dashboard' %}
+{% block title %}Обзор · {{ app_name }}{% endblock %}
+{% block content %}
+{% set actions %}{{ f.button('Создать пост', href = '/dev/proto/editor', icon = 'plus') }}{% endset %}
+{{ d.page_header('Добрый день, Анна', 'Вот что происходит с вашими публикациями.', body = actions) }}
+
+{% for ch in channels|filter(c => c.status == 'needs_reauth') %}
+<div class="mb-6">{{ d.alert('warning', 'Канал «' ~ ch.name ~ '» нужно переподключить', 'Пока доступ не обновлён, посты в этот канал не уходят.') }}</div>
+{% endfor %}
+
+<section aria-label="Сводка" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    {% for s in [{label: 'Запланировано', value: 12, icon: 'calendar-days', hint: 'на ближайшие 7 дней'}, {label: 'Опубликовано', value: 18, icon: 'check-check', hint: 'за эту неделю'}, {label: 'С ошибкой', value: 1, icon: 'circle-alert', hint: 'нужно посмотреть'}, {label: 'Каналы', value: 4, icon: 'share-2', hint: 'один нужно переподключить'}] %}
+    <div class="card !p-4">
+        <p class="flex items-center gap-2 text-sm text-muted">{{ icon(s.icon, 'h-4 w-4') }}{{ s.label }}</p>
+        <p class="mt-2 text-3xl font-bold tabular-nums">{{ s.value }}</p>
+        <p class="mt-1 text-xs text-muted">{{ s.hint }}</p>
+    </div>
+    {% endfor %}
+</section>
+
+<div class="mt-8 grid gap-8 lg:grid-cols-[1fr_20rem]">
+    <section aria-labelledby="next-h">
+        <div class="mb-3 flex items-center justify-between"><h2 class="text-lg font-semibold" id="next-h">Ближайшие посты</h2><a class="text-sm font-semibold text-primary-text hover:underline" href="/dev/proto/calendar">Весь календарь</a></div>
+        <div class="grid gap-4 md:grid-cols-2">
+            {% for post in posts|slice(0, 4) %}{{ p.post_card(post) }}{% endfor %}
+        </div>
+    </section>
+    <aside class="flex flex-col gap-6">
+        <section class="card" aria-labelledby="week-h">
+            <h2 class="mb-4 text-lg font-semibold" id="week-h">Публикации за неделю</h2>
+            <div class="flex h-28 items-end gap-2" role="img" aria-label="Публикаций по дням: 2, 3, 1, 4, 5, 2, 1">
+                {% for h in ['h-8', 'h-12', 'h-4', 'h-16', 'h-20', 'h-8', 'h-4'] %}<div class="flex-1 rounded-t-sm bg-primary {{ h }}"></div>{% endfor %}
+            </div>
+            <div class="mt-2 flex gap-2 text-center text-xs text-muted" aria-hidden="true">{% for dd in ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] %}<span class="flex-1">{{ dd }}</span>{% endfor %}</div>
+        </section>
+        <section class="card" aria-labelledby="ch-h">
+            <h2 class="mb-4 text-lg font-semibold" id="ch-h">Каналы</h2>
+            <ul class="flex flex-col gap-3">
+                {% for ch in channels %}<li class="flex items-center justify-between gap-2"><span class="min-w-0 truncate text-sm font-medium">{{ ch.name }}</span>{{ d.status_badge(ch.status) }}</li>{% endfor %}
+            </ul>
+        </section>
+    </aside>
+</div>
+{% endblock %}

@@ -27,6 +27,10 @@ make stan      # PHPStan level 8 + strict-rules
 make cs | cs-fix   # php-cs-fixer (PSR-12 + strict_types)
 make audit     # composer audit
 make docs      # phpDocumentor -> docs/reference (gitignored)
+make css | css-watch | css-check   # Tailwind build -> public/assets/build/app.<hash>.css
+make ui-behavior         # browser smoke test of component behavior and CSP errors
+make ui-snap STAGE=NN   # screenshots 375/768/1440 x light/dark + axe -> storage/ui-review/stage-NN/
+make a11y [STAGE=NN]     # axe-core only
 make check     # cs + stan + test + audit + docs; must be green before a PR
 ```
 
@@ -34,7 +38,7 @@ Config comes from env vars (see `.env.example`, `docs/architecture/configuration
 
 ## Layout (current)
 
-`public/index.php` (front controller → `App\Kernel\Application`), `src/Kernel` (own mini-framework: container, router, middleware, session, DB, queue, console), `src/Http` (controllers, middleware), `src/Support`, `bin/console`, `config/` (`app/database/security/session` read env; `routes`, `services`, `schedule` are code), `templates/`, `database/`, `resources/lang`, `tests/{Unit,Integration,Feature}` (helpers in `tests/Support`), `tools/phpstan`, `docker/`, `docs/`. Target structure: master plan §4.1.
+`public/index.php` (front controller → `App\Kernel\Application`), `src/Kernel` (own mini-framework: container, router, middleware, session, DB, queue, console), `src/Http` (controllers, middleware), `src/Support`, `bin/console`, `config/` (`app/database/security/session` read env; `routes`, `services`, `schedule` are code), `templates/{layouts,components,dev,errors}` (design system: `docs/design/design-system.md`, showcase `/dev/ui` locally), `database/`, `resources/lang`, `tests/{Unit,Integration,Feature}` (helpers in `tests/Support`), `tools/phpstan`, `docker/`, `docs/`. Target structure: master plan §4.1.
 
 ## Rules in short
 

@@ -1,0 +1,47 @@
+{#- Prototype: channel list. States: default, ?state=empty, ?state=loading, ?connected=1 (success toast). -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+
+{% set nav_current = 'channels' %}
+{% block title %}Каналы · {{ app_name }}{% endblock %}
+{% block content %}
+{% set head %}
+    {% set menu %}
+        {{ o.menu_item('Telegram', href = '#', icon = 'send') }}{{ o.menu_item('ВКонтакте', href = '#', icon = 'share-2') }}{{ o.menu_item('MAX', href = '#', icon = 'message-circle') }}{{ o.menu_item('Instagram', href = '#', icon = 'image') }}
+    {% endset %}
+    {{ o.dropdown('add-channel', 'Подключить канал', icon = 'plus', variant = 'primary', body = menu) }}
+{% endset %}
+{{ d.page_header('Каналы', 'Здесь соцсети, в которые мы публикуем ваши посты.', body = head) }}
+
+{% if state == 'loading' %}
+    <div class="grid gap-4">{% for i in 1..3 %}<div class="card">{{ d.skeleton(3) }}</div>{% endfor %}</div>
+{% elseif state == 'empty' %}
+    <div class="card">{{ d.empty_state('Пока нет подключённых каналов', 'Подключите Telegram, ВКонтакте, MAX или Instagram, чтобы планировать посты.', 'share-2', 'Подключить канал', '#') }}</div>
+{% else %}
+    {% for ch in channels|filter(c => c.status == 'needs_reauth') %}
+        <div class="mb-5">{{ d.alert('warning', 'Канал «' ~ ch.name ~ '» нужно переподключить', 'Доступ истёк. Пока вы не переподключите канал, посты в него не уйдут.') }}</div>
+    {% endfor %}
+    <ul class="grid gap-4">
+        {% for ch in channels %}
+        <li class="card flex flex-wrap items-center gap-x-4 gap-y-3">
+            <span class="flex h-12 w-12 shrink-0 flex-col items-center justify-center gap-1 rounded-ctl bg-sunken text-xs font-bold" aria-hidden="true"><span class="plat plat-{{ ch.platform }}"></span>{{ ch.platform|upper }}</span>
+            <div class="min-w-0 flex-1 basis-40">
+                <p class="flex flex-wrap items-center gap-2 font-semibold"><span class="truncate">{{ ch.name }}</span>{{ d.status_badge(ch.status) }}</p>
+                <p class="text-sm text-muted">{{ ch.handle }}</p>
+                <p class="mt-1 text-sm {{ ch.status == 'needs_reauth' ? 'text-warn-fg' : 'text-muted' }}">{{ ch.note }}</p>
+            </div>
+            <div class="ml-auto flex items-center gap-2">
+                {% if ch.status == 'needs_reauth' %}{{ f.button('Переподключить', size = 'sm', href = '#') }}{% endif %}
+                {% set m %}{{ o.menu_item('Переименовать', href = '#', icon = 'pencil') }}{{ o.menu_item(ch.status == 'paused' ? 'Возобновить' : 'Приостановить', href = '#', icon = ch.status == 'paused' ? 'play' : 'pause') }}{{ o.menu_item('Отключить', icon = 'trash-2', danger = true, attrs = {'data-dialog-open': 'disc-' ~ ch.id}) }}{% endset %}
+                {{ o.dropdown('menu-' ~ ch.id, 'Действия с каналом ' ~ ch.name, icon = 'ellipsis', variant = 'ghost', icon_only = true, body = m) }}
+            </div>
+        </li>
+        {{ o.confirm_dialog('disc-' ~ ch.id, 'Отключить канал?', ch.name, 'Запланированные в него посты будут отменены. Сам канал в соцсети не пострадает.', '/dev/proto/channels', 'Отключить канал', true) }}
+        {% endfor %}
+    </ul>
+{% endif %}
+{% if connected %}<span hidden data-toast-now="Канал подключён. Теперь в него можно планировать посты." data-toast-kind="success"></span>{% endif %}
+<p class="mt-6 text-sm text-muted">Состояния этого экрана: <a class="underline" href="?">обычное</a>, <a class="underline" href="?state=loading">загрузка</a>, <a class="underline" href="?state=empty">пусто</a>, <a class="underline" href="?connected=1">успех</a>.</p>
+{% endblock %}

@@ -1,6 +1,9 @@
-{% extends 'layouts/base.twig' %}
+{% extends 'layouts/landing.twig' %}
+{% import 'components/display.twig' as d %}
 
 {% block content %}
-    <h1>{{ app_name }}</h1>
-    <p>{{ t('Сервис запущен.') }}</p>
+<section class="mx-auto max-w-3xl px-4 py-24 text-center">
+    <h1 class="text-4xl font-bold">{{ app_name }}</h1>
+    <p class="mt-4 text-lg text-muted">{{ t('Сервис запущен.') }}</p>
+</section>
 {% endblock %}

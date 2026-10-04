@@ -1,0 +1,11 @@
+{#- Owner/staff back office: the app shell with its own navigation and an "Админка" mark. -#}
+{% extends 'layouts/app.twig' %}
+{% set shell_badge = 'Админка' %}
+{% set nav_items = [
+    {id: 'overview', label: 'Обзор', icon: 'layout-dashboard', href: '/admin'},
+    {id: 'users', label: 'Пользователи', icon: 'users', href: '/admin/users'},
+    {id: 'payments', label: 'Платежи', icon: 'credit-card', href: '/admin/payments'},
+    {id: 'queues', label: 'Очереди', icon: 'refresh-cw', href: '/admin/queues'},
+    {id: 'content', label: 'Контент', icon: 'file-text', href: '/admin/content'},
+    {id: 'support', label: 'Поддержка', icon: 'life-buoy', href: '/admin/support'}
+] %}
