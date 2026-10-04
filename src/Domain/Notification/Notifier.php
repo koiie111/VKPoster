@@ -123,6 +123,16 @@ final class Notifier
     }
 
     /**
+     * Housekeeping: the history of what was sent is kept for 90 days.
+     *
+     * @return int deleted rows
+     */
+    public function prune(): int
+    {
+        return $this->db->table('notifications')->where('created_at', '<', DbTime::format($this->clock->now()->modify('-90 days')))->delete();
+    }
+
+    /**
      * Owner and administrators of the workspace plus an extra person (the author), each once.
      *
      * @return list<int>

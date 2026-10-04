@@ -60,7 +60,7 @@
         {% endif %}
     </div>
 {% elseif view == 'month' %}
-    {{ c.month(weeks, can_create ? base ~ '/posts/new' : null) }}
+    {{ c.month(weeks, can_create ? base ~ '/posts/new' : null, view_urls.week|split('date=')|first ~ 'date=') }}
 {% elseif view == 'week' %}
     {{ c.week(days, can_create ? base ~ '/posts/new' : null) }}
 {% else %}

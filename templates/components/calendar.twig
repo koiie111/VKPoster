@@ -24,7 +24,7 @@
 {%- endmacro %}
 
 {#- weeks: list of 7-cell lists {num, other?, today?, items}. Small screens show colored dots instead of chips. -#}
-{% macro month(weeks, new_base = null) -%}
+{% macro month(weeks, new_base = null, more_base = null) -%}
 {% import _self as c %}
 <div class="overflow-hidden rounded-card border border-line bg-surface shadow-card">
     <div class="grid grid-cols-7 border-b border-line bg-sunken/50 text-center text-xs font-semibold text-muted" aria-hidden="true">
@@ -38,7 +38,7 @@
             {% else %}<span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full text-xs font-semibold {{ cell.today is defined and cell.today ? 'bg-primary text-primary-fg' : '' }}">{{ cell.num }}</span>{% endif %}
             <ul class="mt-1 hidden flex-col gap-1 md:flex">
                 {% for it in cell.items|slice(0, 2) %}{{ c.item(it) }}{% endfor %}
-                {% if cell.items|length > 2 %}<li class="px-1 text-xs text-muted">ещё {{ cell.items|length - 2 }}</li>{% endif %}
+                {% if cell.items|length > 2 %}<li class="px-1 text-xs">{% if more_base and cell.date is defined %}<a class="inline-flex min-h-6 items-center font-medium text-primary-text hover:underline" href="{{ more_base }}{{ cell.date }}">ещё {{ cell.items|length - 2 }}</a>{% else %}<span class="text-muted">ещё {{ cell.items|length - 2 }}</span>{% endif %}</li>{% endif %}
             </ul>
             {% if cell.items %}<a class="mt-1 flex flex-wrap gap-0.5 md:hidden" href="{{ cell.items[0].href ?? '#' }}" aria-label="Постов в этот день: {{ cell.items|length }}">{% for it in cell.items %}<span class="plat plat-{{ it.platform }} inline-flex"></span>{% endfor %}</a>{% endif %}
         </div>

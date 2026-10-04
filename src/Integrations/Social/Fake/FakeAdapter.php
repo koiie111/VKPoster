@@ -73,7 +73,7 @@ final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingA
      */
     public function failNext(ErrorKind $kind, string $message = 'Scripted failure', ?int $retryAfter = null): void
     {
-        $this->nextFailure = new PlatformError($kind, $message, 'Тестовая ошибка: ' . $message, $retryAfter);
+        $this->nextFailure = new PlatformError($kind, $message, 'Тестовая ошибка сети.', $retryAfter);
     }
 
     public function publish(PublishRequest $request, string $externalChannelId, Credential $credential, string $idempotencyKey): PublishResult
