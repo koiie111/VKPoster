@@ -110,6 +110,7 @@ final class PostValueObjectsTest extends TestCase
             'html is escaped' => ['<script>alert(1)</script> & "q"', '&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;q&quot;', '<script>alert(1)</script> & "q"', '<script>alert(1)</script> & "q"'],
             'unmatched markers stay' => ['2 * 3 = 6, a * b', '2 * 3 = 6, a * b', '2 * 3 = 6, a * b', '2 * 3 = 6, a * b'],
             'underscores inside words stay' => ['snake_case_name', 'snake_case_name', 'snake_case_name', 'snake_case_name'],
+            'italic touching the next word' => ['_курсив_слово', '<i>курсив</i>слово', 'курсивслово', 'курсивслово'],
             'escaped marker' => ['\\*не курсив\\*', '*не курсив*', '*не курсив*', '*не курсив*'],
             'markup never crosses a line' => ["**раз\nдва**", "**раз\nдва**", "**раз\nдва**", "**раз\nдва**", ''],
             'only http links' => ['[x](javascript:alert(1))', '[x](javascript:alert(1))', '[x](javascript:alert(1))', '[x](javascript:alert(1))'],
