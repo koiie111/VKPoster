@@ -97,13 +97,24 @@ final class MigratorTest extends TestCase
     public function testRealMigrationsAreReversible(): void
     {
         $migrator = new Migrator($this->db, TestEnv::basePath() . '/database/migrations');
+        $tables = ['jobs', 'failed_jobs', 'users', 'auth_tokens', 'user_sessions', 'recovery_codes', 'login_attempts', 'audit_log'];
 
         $migrator->migrate();
-        self::assertTrue($this->tableExists('jobs'));
-        $reverted = $migrator->rollback();
+        foreach ($tables as $table) {
+            self::assertTrue($this->tableExists($table), $table);
+        }
+        // Revert batch after batch (a database that was migrated in several steps has several batches).
+        $reverted = [];
+        while (($batch = $migrator->rollback()) !== []) {
+            $reverted = [...$reverted, ...$batch];
+        }
         self::assertNotSame([], $reverted);
-        self::assertFalse($this->tableExists('jobs'));
+        foreach ($tables as $table) {
+            self::assertFalse($this->tableExists($table), $table);
+        }
         self::assertNotSame([], $migrator->migrate());
-        self::assertTrue($this->tableExists('jobs') && $this->tableExists('failed_jobs'));
+        foreach ($tables as $table) {
+            self::assertTrue($this->tableExists($table), $table);
+        }
     }
 }

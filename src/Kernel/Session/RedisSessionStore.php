@@ -43,6 +43,13 @@ final class RedisSessionStore implements SessionStore
         $this->redis->del($this->key($id));
     }
 
+    public function destroyHashed(string $idHash): void
+    {
+        if (preg_match('/^[0-9a-f]{64}$/', $idHash) === 1) {
+            $this->redis->del($this->prefix . $idHash);
+        }
+    }
+
     private function key(string $id): string
     {
         return $this->prefix . hash('sha256', $id);

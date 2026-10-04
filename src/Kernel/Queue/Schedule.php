@@ -24,11 +24,12 @@ final class Schedule
     }
 
     /**
-     * Run a callback (autowired) on a cron schedule.
+     * Run a callback on a cron schedule. Its parameters are autowired from the container, so a task can be
+     * a closure with typed parameters or `[Service::class, 'method']`.
      *
-     * @param callable(): mixed $callback
+     * @param callable|array{0: object|string, 1: string} $callback
      */
-    public function call(string $name, string $cron, callable $callback): void
+    public function call(string $name, string $cron, callable|array $callback): void
     {
         $container = $this->container;
         $this->tasks[] = new ScheduledTask($name, $cron, static function () use ($container, $callback): void {

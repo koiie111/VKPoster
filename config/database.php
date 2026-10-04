@@ -13,5 +13,6 @@ return static fn (Env $env): array => [
     'redis' => [
         'host' => $env->required('REDIS_HOST'),
         'port' => $env->int('REDIS_PORT', 6379),
+        'db' => $env->int('REDIS_DB', 0),
     ],
 ];
