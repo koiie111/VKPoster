@@ -48,7 +48,7 @@ final class RegistrationTest extends AuthTestCase
 
         $login = $this->signIn('new@example.com', 'a-long-unusual-passphrase');
         self::assertSame('/app', $login->header('Location'));
-        self::assertStringContainsString('Здравствуйте, Мария!', $this->get('/app')->body);
+        self::assertStringContainsString('Здравствуйте, Мария!', $this->getApp()->body);
     }
 
     public function testConsentVersionAndTimeAreStoredAndPasswordIsArgon2id(): void

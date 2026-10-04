@@ -1,4 +1,4 @@
-{#- A one-time link that is expired, used or unknown. `what`: reset | verify | email. -#}
+{#- A one-time link that is expired, used or unknown. `what`: reset | verify | email | invitation. -#}
 {% extends 'layouts/auth.twig' %}
 {% import 'components/forms.twig' as f %}
 {% block title %}Ссылка не работает · {{ app_name }}{% endblock %}
@@ -12,6 +12,9 @@
     {% elseif what == 'verify' %}
     <p class="mt-2 text-muted">Она устарела или уже использована. Войдите в аккаунт: если почта ещё не подтверждена, мы предложим отправить новое письмо.</p>
     <div class="mt-6">{{ f.button('Войти', href = url('login')) }}</div>
+    {% elseif what == 'invitation' %}
+    <p class="mt-2 text-muted">Приглашение устарело, уже принято или отозвано. Попросите администратора пространства прислать новое.</p>
+    <div class="mt-6">{{ f.button('Перейти в сервис', href = '/app') }}</div>
     {% else %}
     <p class="mt-2 text-muted">Она устарела, уже использована, или адрес успел занять другой аккаунт. Запросите смену адреса ещё раз в настройках безопасности.</p>
     <div class="mt-6">{{ f.button('Открыть настройки безопасности', href = url('account.security')) }}</div>

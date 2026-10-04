@@ -7,6 +7,7 @@ namespace App\Domain\Auth;
 use App\Domain\Audit\AuditLog;
 use App\Domain\User\User;
 use App\Domain\User\UserRepository;
+use App\Domain\Workspace\WorkspaceService;
 use App\Kernel\Security\PasswordHasher;
 use App\Kernel\Security\RateLimiter;
 
@@ -28,6 +29,7 @@ final class RegistrationService
         private readonly AuthMailer $mailer,
         private readonly RateLimiter $limiter,
         private readonly AuditLog $audit,
+        private readonly WorkspaceService $workspaces,
         private readonly string $consentVersion,
     ) {
     }
@@ -50,6 +52,7 @@ final class RegistrationService
             return;
         }
         $this->audit->record('auth.register', $user->id, 'user', (string) $user->id);
+        $this->workspaces->createPersonal($user);
         $this->sendVerification($user);
     }
 

@@ -131,7 +131,7 @@ final class SocialProviderFlowTest extends SocialTestCase
         $response = $this->get('/auth/yandex/callback?' . http_build_query(['code' => 'c', 'state' => $q['state']]));
 
         self::assertSame('/login', $response->header('Location'));
-        self::assertSame(302, $this->get('/app')->status);
+        self::assertSame('/login', $this->get('/app')->header('Location'));
         self::assertSame([], $this->linkedProviders($existing->id));
         $this->signIn('ivan.petrov@yandex.ru');
         self::assertSame(['yandex'], $this->linkedProviders($existing->id));

@@ -15,11 +15,18 @@ use App\Http\Controllers\Dev\DevOAuthController;
 use App\Http\Controllers\Dev\DevLoginController;
 use App\Http\Controllers\Dev\DevUiController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\Workspace\AuditController;
+use App\Http\Controllers\Workspace\InvitationController;
+use App\Http\Controllers\Workspace\SettingsController;
+use App\Http\Controllers\Workspace\TeamController;
+use App\Http\Controllers\Workspace\WorkspaceController;
 use App\Http\Controllers\HomeController;
 use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\Authorize;
 use App\Http\Middleware\Guest;
 use App\Http\Middleware\RateLimit;
 use App\Http\Middleware\RequireVerifiedEmail;
+use App\Http\Middleware\ResolveWorkspace;
 use App\Kernel\Http\Router;
 
 return static function (Router $router): void {
@@ -82,9 +89,38 @@ return static function (Router $router): void {
         $r->post('/account/2fa/recovery-codes', [TwoFactorController::class, 'regenerateCodes']);
     });
 
+    // The invitation page is public: the link in the email is the secret. Accepting needs an account (see below).
+    $router->get('/invitations/' . $token, [InvitationController::class, 'show'])->name('invitation.show');
+
     // The application itself needs a confirmed email.
-    $router->group('', [Authenticate::class, RequireVerifiedEmail::class], static function (Router $r): void {
+    $ulid = '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}';
+    $router->group('', [Authenticate::class, RequireVerifiedEmail::class], static function (Router $r) use ($token, $ulid): void {
         $r->get('/app', [AppController::class, 'dashboard'])->name('app');
+        $r->get('/workspaces/new', [WorkspaceController::class, 'create'])->name('workspace.new');
+        $r->post('/workspaces', [WorkspaceController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'workspace-create', 'max' => 10, 'seconds' => 3600]]);
+        $r->post('/invitations/' . $token . '/accept', [InvitationController::class, 'accept'])->middleware([RateLimit::class, ['bucket' => 'invitation-accept', 'max' => 20, 'seconds' => 3600]]);
+
+        // Everything inside a workspace: `ResolveWorkspace` answers 404 unless the user is a member; `Authorize` checks the role.
+        $r->group('/w/{workspaceId:' . $ulid . '}', [ResolveWorkspace::class], static function (Router $w) use ($ulid): void {
+            $w->get('', [WorkspaceController::class, 'home'])->name('workspace.home');
+            $w->post('/leave', [TeamController::class, 'leave']);
+
+            $w->group('', [[Authorize::class, ['permission' => 'members.manage']]], static function (Router $t) use ($ulid): void {
+                $t->get('/team', [TeamController::class, 'show'])->name('workspace.team');
+                $t->post('/team/invitations', [TeamController::class, 'invite'])->middleware([RateLimit::class, ['bucket' => 'invite', 'max' => 30, 'seconds' => 3600]]);
+                $t->post('/team/invitations/{invitationId:' . $ulid . '}/revoke', [TeamController::class, 'revokeInvitation']);
+                $t->post('/team/members/{memberId:' . $ulid . '}/role', [TeamController::class, 'changeRole']);
+                $t->post('/team/members/{memberId:' . $ulid . '}/remove', [TeamController::class, 'remove']);
+            });
+            $w->post('/team/transfer', [TeamController::class, 'transfer'])->middleware([Authorize::class, ['permission' => 'workspace.transfer']]);
+
+            $w->group('', [[Authorize::class, ['permission' => 'workspace.settings']]], static function (Router $t): void {
+                $t->get('/settings', [SettingsController::class, 'show'])->name('workspace.settings');
+                $t->post('/settings', [SettingsController::class, 'update']);
+            });
+            $w->post('/delete', [SettingsController::class, 'delete'])->middleware([Authorize::class, ['permission' => 'workspace.delete']]);
+            $w->get('/audit', [AuditController::class, 'show'])->name('workspace.audit')->middleware([Authorize::class, ['permission' => 'audit.view']]);
+        });
     });
 
     $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);

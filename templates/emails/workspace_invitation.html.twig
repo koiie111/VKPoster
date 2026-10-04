@@ -1,0 +1,8 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}{{ inviter }} приглашает вас в пространство «{{ workspace }}».{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Вас приглашают в команду</h1>
+<p style="margin:0;">{{ inviter }} приглашает вас в пространство «{{ workspace }}» с ролью «{{ role }}».</p>
+{% include 'emails/_button.html.twig' with {link: link, label: 'Принять приглашение'} only %}
+<p style="margin:20px 0 0;">Ссылка действует {{ days }} дней и подходит только для этого адреса. Если вы не ждали приглашения, просто проигнорируйте письмо.</p>
+{% endblock %}

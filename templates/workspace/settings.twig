@@ -1,0 +1,43 @@
+{#- Workspace settings and danger zone. Variables: workspace (context), timezones, locales. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'workspace' %}
+{% block title %}Пространство · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Настройки пространства', 'Название, часовой пояс и язык. От часового пояса зависит время публикаций.') }}
+<div class="flex flex-col gap-6">
+    <section class="card" aria-labelledby="general-title">
+        <h2 class="text-lg font-semibold" id="general-title">Основное</h2>
+        <form class="mt-4 grid max-w-2xl gap-4 sm:grid-cols-2" method="post" action="/w/{{ workspace.workspacePublicId }}/settings">
+            {{ csrf_field() }}
+            <div class="sm:col-span-2">{{ f.input('name', 'Название', value = old('name', workspace.workspaceName), required = true, error = errors('name')|first, attrs = {maxlength: 100}) }}</div>
+            {{ f.select('timezone', 'Часовой пояс', timezones, value = old('timezone', workspace.timezone), required = true, error = errors('timezone')|first, hint = 'Время постов показываем и принимаем в этом поясе.') }}
+            {{ f.select('locale', 'Язык', locales, value = old('locale', workspace.locale), required = true, error = errors('locale')|first) }}
+            <div class="sm:col-span-2">{{ f.button('Сохранить настройки', type = 'submit') }}</div>
+        </form>
+    </section>
+
+    <section class="card" id="leave" aria-labelledby="leave-title">
+        <h2 class="text-lg font-semibold" id="leave-title">Выйти из пространства</h2>
+        {% if workspace.role.value == 'owner' %}
+        <p class="mt-1 text-sm text-muted">Вы владелец, поэтому выйти нельзя. Сначала передайте пространство другому участнику на странице «<a class="font-medium text-primary-text underline underline-offset-2" href="/w/{{ workspace.workspacePublicId }}/team#transfer">Команда</a>».</p>
+        {% else %}
+        <p class="mt-1 text-sm text-muted">Вы потеряете доступ к постам и каналам этого пространства. Вернуться можно только по новому приглашению.</p>
+        <div class="mt-4">{{ f.button('Выйти из пространства', variant = 'secondary', attrs = {'data-dialog-open': 'leave-dialog'}) }}</div>
+        {{ o.confirm_dialog('leave-dialog', 'Выйти из пространства?', workspace.workspaceName, 'Вы потеряете к нему доступ.', '/w/' ~ workspace.workspacePublicId ~ '/leave', 'Выйти из пространства') }}
+        {% endif %}
+    </section>
+
+    {% if can('workspace.delete') %}
+    <section class="card border-bad-fg/40" id="delete" aria-labelledby="delete-title">
+        <h2 class="text-lg font-semibold" id="delete-title">Удалить пространство</h2>
+        <p class="mt-1 text-sm text-muted">Вместе с пространством исчезнут команда, каналы и посты. Это нельзя отменить.</p>
+        {% if errors('delete') %}<div class="mt-4">{{ d.alert('error', 'Пространство не удалено', errors('delete')|first) }}</div>{% endif %}
+        <div class="mt-4">{{ f.button('Удалить пространство', variant = 'danger', attrs = {'data-dialog-open': 'delete-dialog'}) }}</div>
+        {{ o.confirm_dialog('delete-dialog', 'Удалить пространство?', workspace.workspaceName, 'Команда, каналы и посты будут удалены. Это нельзя отменить.', '/w/' ~ workspace.workspacePublicId ~ '/delete', 'Удалить пространство', require_name = true) }}
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

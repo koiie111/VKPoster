@@ -133,7 +133,7 @@ final class TelegramLoginTest extends SocialTestCase
 
         self::assertSame('/login', $replay->header('Location'));
         self::assertStringContainsString('уже использована', $this->follow($replay)->body);
-        self::assertSame(302, $this->get('/app')->status);
+        self::assertSame('/login', $this->get('/app')->header('Location'));
     }
 
     public function testStateCannotBeReused(): void

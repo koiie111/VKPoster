@@ -182,7 +182,7 @@ final class PasswordResetTest extends AuthTestCase
 
         $ok = $this->post('/account/password', ['current_password' => self::PASSWORD, 'password' => self::NEW_PASSWORD, 'password_confirmation' => self::NEW_PASSWORD]);
         self::assertSame('/account/security', $ok->header('Location'));
-        self::assertSame(200, $this->get('/app')->status, 'this device stays signed in');
+        self::assertSame(200, $this->getApp()->status, 'this device stays signed in');
         $this->drainQueue();
         self::assertSame('Пароль изменён', $this->mailer->lastTo('anna@example.com')?->subject);
     }

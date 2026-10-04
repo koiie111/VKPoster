@@ -11,8 +11,8 @@
 </nav>
 {%- endmacro %}
 
-{#- Workspace switcher in the top bar. workspaces: list of {name, href, current?}. -#}
-{% macro workspace_switcher(current, workspaces) -%}
+{#- Workspace switcher in the top bar. workspaces: list of {name, href, current?}; new_href: link of the "create" entry. -#}
+{% macro workspace_switcher(current, workspaces, new_href = '#') -%}
 {% import 'components/overlay.twig' as o %}
 {% import 'components/display.twig' as d %}
 {% set label = current %}
@@ -23,8 +23,8 @@
     </button>
     <div class="menu absolute left-0 mt-1" id="ws-menu" role="menu" data-dropdown-menu hidden>
         <p class="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">Рабочие пространства</p>
-        {% for ws in workspaces %}{{ o.menu_item(ws.name, href = ws.href, icon = (ws.name == current ? 'check' : null)) }}{% endfor %}
-        {{ o.menu_item('Создать пространство', href = '#', icon = 'plus') }}
+        {% for ws in workspaces %}{{ o.menu_item(ws.name, href = ws.href, icon = ((ws.current is defined ? ws.current : ws.name == current) ? 'check' : null)) }}{% endfor %}
+        {{ o.menu_item('Создать пространство', href = new_href, icon = 'plus') }}
     </div>
 </div>
 {%- endmacro %}

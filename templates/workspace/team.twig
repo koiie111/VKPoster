@@ -1,0 +1,106 @@
+{#- Team: members, open invitations, invite form, ownership transfer. Variables: workspace (context), user, members, invitations, invite_roles, role_labels, role_descriptions, policy. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'team' %}
+{% set base = '/w/' ~ workspace.workspacePublicId %}
+{% block title %}Команда · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Команда', 'Кто работает в пространстве «' ~ workspace.workspaceName ~ '» и что им разрешено.') }}
+
+<div class="flex flex-col gap-6">
+    <section class="card" id="invite" aria-labelledby="invite-title">
+        <h2 class="text-lg font-semibold" id="invite-title">Пригласить в команду</h2>
+        <p class="mt-1 text-sm text-muted">Мы отправим письмо со ссылкой. Она действует 7 дней и подходит только для этого адреса.</p>
+        <form class="mt-4 grid gap-4 sm:grid-cols-[1fr_14rem_auto] sm:items-start" method="post" action="{{ base }}/team/invitations">
+            {{ csrf_field() }}
+            {{ f.input('email', 'Почта', type = 'email', value = old('email'), required = true, autocomplete = 'off', placeholder = 'kolleg@example.com', error = errors('email')|first) }}
+            {{ f.select('role', 'Роль', invite_roles, value = old('role', 'editor'), required = true, error = errors('role')|first) }}
+            <div class="sm:pt-7">{{ f.button('Пригласить', type = 'submit') }}</div>
+        </form>
+        <dl class="mt-4 grid gap-x-6 gap-y-1 text-sm text-muted sm:grid-cols-2">
+            {% for value, label in invite_roles %}<div><dt class="inline font-medium text-fg">{{ label }}.</dt> <dd class="inline">{{ role_descriptions[value] }}</dd></div>{% endfor %}
+        </dl>
+    </section>
+
+    <section class="card !p-0" aria-labelledby="members-title">
+        <h2 class="p-5 pb-3 text-lg font-semibold" id="members-title">Участники ({{ members|length }})</h2>
+        {% set body %}
+        {% for m in members %}
+        {% set manageable = m.userId != user.id and policy.canRemove(workspace.role, m.role) %}
+        <tr>
+            <td><div class="flex items-center gap-3">{{ d.avatar(m.name, size = 'sm') }}<div class="min-w-0"><p class="truncate font-medium">{{ m.name }}{% if m.userId == user.id %} <span class="text-muted">(вы)</span>{% endif %}</p><p class="truncate text-sm text-muted">{{ m.email ?? 'Без почты' }}</p></div></div></td>
+            <td>
+                {% if manageable %}
+                <form class="flex items-center gap-2" method="post" action="{{ base }}/team/members/{{ m.publicId }}/role">
+                    {{ csrf_field() }}
+                    <label class="sr-only" for="role-{{ m.publicId }}">Роль участника {{ m.name }}</label>
+                    <select class="field !w-auto" id="role-{{ m.publicId }}" name="role">
+                        {% for value, label in invite_roles %}<option value="{{ value }}"{% if value == m.role.value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                    </select>
+                    {{ f.button('Сменить', variant = 'secondary', size = 'sm', type = 'submit', attrs = {'aria-label': 'Сменить роль: ' ~ m.name}) }}
+                </form>
+                {% else %}
+                {{ d.badge(role_labels[m.role.value], m.role.value == 'owner' ? 'info' : 'neutral') }}
+                {% endif %}
+            </td>
+            <td class="whitespace-nowrap text-muted">{{ m.joinedAt|date('d.m.Y', workspace.timezone) }}</td>
+            <td class="text-right">
+                {% if manageable %}
+                {{ f.button('Исключить', variant = 'ghost', size = 'sm', attrs = {'data-dialog-open': 'remove-' ~ m.publicId, 'aria-label': 'Исключить: ' ~ m.name}) }}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        {% endset %}
+        {{ d.table([{label: 'Участник'}, {label: 'Роль'}, {label: 'В команде с'}, {label: 'Действия', class: 'text-right'}], caption = 'Участники пространства', body = body) }}
+    </section>
+
+    <section class="card !p-0" aria-labelledby="invitations-title">
+        <h2 class="p-5 pb-3 text-lg font-semibold" id="invitations-title">Ждут ответа ({{ invitations|length }})</h2>
+        {% if invitations %}
+        {% set inv_body %}
+        {% for i in invitations %}
+        <tr>
+            <td class="break-all font-medium">{{ i.email }}</td>
+            <td>{{ d.badge(role_labels[i.role.value], 'neutral') }}</td>
+            <td class="whitespace-nowrap text-muted">до {{ i.expiresAt|date('d.m.Y H:i', workspace.timezone) }}</td>
+            <td class="text-right">
+                {% if policy.canRevokeInvitation(workspace.role, i.role) %}
+                <form method="post" action="{{ base }}/team/invitations/{{ i.publicId }}/revoke">{{ csrf_field() }}{{ f.button('Отозвать', variant = 'ghost', size = 'sm', type = 'submit', attrs = {'aria-label': 'Отозвать приглашение: ' ~ i.email}) }}</form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        {% endset %}
+        {{ d.table([{label: 'Почта'}, {label: 'Роль'}, {label: 'Действует'}, {label: 'Действия', class: 'text-right'}], caption = 'Открытые приглашения', body = inv_body) }}
+        {% else %}
+        <div class="p-5 pt-0">{{ d.empty_state('Открытых приглашений нет', 'Пригласите коллегу или клиента по почте: он появится здесь, пока не примет приглашение.', 'mail') }}</div>
+        {% endif %}
+    </section>
+
+    {% if can('workspace.transfer') %}
+    <section class="card" id="transfer" aria-labelledby="transfer-title">
+        <h2 class="text-lg font-semibold" id="transfer-title">Передать владение</h2>
+        <p class="mt-1 text-sm text-muted">Новый владелец получит доступ к оплате и удалению пространства. Вы станете администратором.</p>
+        {% set candidates = {} %}
+        {% for m in members %}{% if m.userId != user.id and m.role.value != 'client' %}{% set candidates = candidates|merge({(m.publicId): m.name ~ (m.email ? ' · ' ~ m.email : '')}) %}{% endif %}{% endfor %}
+        {% if candidates %}
+        <form class="mt-4 grid max-w-2xl gap-4 sm:grid-cols-2" method="post" action="{{ base }}/team/transfer">
+            {{ csrf_field() }}
+            {{ f.select('member', 'Новый владелец', candidates, required = true) }}
+            {{ f.input('confirm_name', 'Название пространства', required = true, autocomplete = 'off', hint = 'Введите «' ~ workspace.workspaceName ~ '», чтобы подтвердить.') }}
+            <div class="sm:col-span-2">{{ f.button('Передать владение', variant = 'danger', type = 'submit') }}</div>
+        </form>
+        {% else %}
+        <p class="mt-3 text-sm text-muted">Сначала пригласите в команду человека, которому хотите передать пространство (не клиента).</p>
+        {% endif %}
+    </section>
+    {% endif %}
+</div>
+
+{% for m in members %}{% if m.userId != user.id and policy.canRemove(workspace.role, m.role) %}
+{{ o.confirm_dialog('remove-' ~ m.publicId, 'Исключить участника?', m.name, 'Он потеряет доступ к пространству «' ~ workspace.workspaceName ~ '». Вернуться можно только по новому приглашению.', base ~ '/team/members/' ~ m.publicId ~ '/remove', 'Исключить ' ~ m.name) }}
+{% endif %}{% endfor %}
+{% endblock %}

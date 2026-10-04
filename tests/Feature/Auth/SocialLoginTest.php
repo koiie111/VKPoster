@@ -49,7 +49,7 @@ final class SocialLoginTest extends SocialTestCase
         $done = $this->consent('Иван');
 
         self::assertSame('/app', $done->header('Location'));
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
         $user = $this->db->select('SELECT * FROM users')[0];
         self::assertSame('ivan@example.com', $user['email']);
         self::assertNotNull($user['email_verified_at'], 'a provider-verified email is trusted');
@@ -97,7 +97,7 @@ final class SocialLoginTest extends SocialTestCase
         $response = $this->socialLogin($this->profile());
 
         self::assertSame('/app', $response->header('Location'));
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
         self::assertSame(1, $this->userCount());
     }
 
@@ -110,7 +110,7 @@ final class SocialLoginTest extends SocialTestCase
         self::assertNull($user['email']);
         self::assertNull($user['email_verified_at']);
         // The account is usable even though it has no email to confirm.
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
     }
 
     public function testUnverifiedProviderEmailNeverMatchesAnExistingAccount(): void
@@ -134,7 +134,7 @@ final class SocialLoginTest extends SocialTestCase
         self::assertSame('/login', $response->header('Location'));
         $page = $this->follow($response)->body;
         self::assertStringContainsString('Аккаунт с почтой IVAN@example.com уже есть', $page);
-        self::assertSame(302, $this->get('/app')->status, 'not signed in');
+        self::assertSame('/login', $this->get('/app')->header('Location'), 'not signed in');
         self::assertSame([], $this->linkedProviders($existing->id), 'not linked yet');
         self::assertSame(1, $this->userCount());
 
@@ -142,7 +142,7 @@ final class SocialLoginTest extends SocialTestCase
         $signedIn = $this->signIn('ivan@example.com');
         self::assertSame('/app', $signedIn->header('Location'));
         self::assertSame(['fake'], $this->linkedProviders($existing->id));
-        self::assertStringContainsString('привязан', $this->get('/app')->body);
+        self::assertStringContainsString('привязан', $this->getApp()->body);
 
         $this->post('/logout');
         self::assertSame('/app', $this->socialLogin($this->profile(email: 'ivan@example.com'))->header('Location'));
@@ -184,10 +184,10 @@ final class SocialLoginTest extends SocialTestCase
         $response = $this->socialLogin($this->profile());
 
         self::assertSame('/login/2fa', $response->header('Location'));
-        self::assertSame(302, $this->get('/app')->status, 'not signed in before the code');
+        self::assertSame('/login', $this->get('/app')->header('Location'), 'not signed in before the code');
         $second = $this->post('/login/2fa', ['code' => $this->totpCode($account->id)]);
         self::assertSame('/app', $second->header('Location'));
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
     }
 
     public function testBlockedAccountCannotSignInSocially(): void
@@ -200,7 +200,7 @@ final class SocialLoginTest extends SocialTestCase
 
         self::assertSame('/login', $response->header('Location'));
         self::assertStringContainsString('заблокирован', $this->follow($response)->body);
-        self::assertSame(302, $this->get('/app')->status);
+        self::assertSame('/login', $this->get('/app')->header('Location'));
         self::assertSame('blocked', $this->db->select('SELECT outcome FROM login_attempts ORDER BY id DESC LIMIT 1')[0]['outcome']);
     }
 
@@ -208,7 +208,7 @@ final class SocialLoginTest extends SocialTestCase
     {
         $this->registerViaSocial($this->profile(email: null));
 
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
         self::assertSame(200, $this->get('/account/security')->status);
     }
 

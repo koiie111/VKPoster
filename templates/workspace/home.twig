@@ -1,0 +1,13 @@
+{#- Workspace start page. Placeholder until channels and the calendar exist (stages 06 and 07). Variables: user, workspace. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'dashboard' %}
+{% block title %}Обзор · {{ workspace.workspaceName }} · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Здравствуйте, ' ~ user.name ~ '!', 'Пространство «' ~ workspace.workspaceName ~ '». Здесь появится обзор ваших публикаций.') }}
+<div class="card">
+    {{ d.empty_state('Пока здесь пусто', 'Подключите каналы и запланируйте первый пост: мы опубликуем его сами в нужное время. Эти возможности появятся в ближайших обновлениях.', 'rocket',
+        can('members.manage') ? 'Пригласить коллегу' : 'Настроить безопасность аккаунта',
+        can('members.manage') ? url('workspace.team', {workspaceId: workspace.workspacePublicId}) : url('account.security')) }}
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{#- Workspace journal. Variables: workspace (context), result {rows,total,pages,page}, groups, actors, filters, base, zone. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'audit' %}
+{% block title %}Журнал действий · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Журнал действий', 'Кто и что менял в пространстве «' ~ workspace.workspaceName ~ '». Время показано по поясу пространства: ' ~ zone ~ '.') }}
+
+<form class="card mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_10rem_10rem_auto] lg:items-end" method="get" action="/w/{{ workspace.workspacePublicId }}/audit">
+    {{ f.select('group', 'Что произошло', {'': 'Все события'}|merge(groups), value = filters.group) }}
+    {{ f.select('actor', 'Кто', {'': 'Все участники'} + actors, value = filters.actor) }}
+    {{ f.input('from', 'С даты', type = 'date', value = filters.from) }}
+    {{ f.input('to', 'По дату', type = 'date', value = filters.to) }}
+    <div class="flex gap-2">{{ f.button('Показать', type = 'submit') }}{{ f.button('Сбросить', variant = 'secondary', href = '/w/' ~ workspace.workspacePublicId ~ '/audit') }}</div>
+</form>
+
+<section class="card !p-0" aria-label="События">
+    {% set body %}
+    {% for row in result.rows %}
+    <tr>
+        <td class="whitespace-nowrap text-muted">{{ row.created_at|date('d.m.Y H:i:s', workspace.timezone) }}</td>
+        <td class="font-medium">{{ row.label }}</td>
+        <td>{{ row.actor_name ?? (row.actor_id ? 'Участник удалён' : 'Система') }}</td>
+        <td class="text-sm text-muted">
+            {% if row.meta.email is defined %}{{ row.meta.email }}{% endif %}
+            {% if row.meta.from is defined and row.meta.to is defined %}{{ row.meta.from }} → {{ row.meta.to }}{% elseif row.meta.role is defined %} {{ row.meta.role }}{% endif %}
+            {% if row.meta.name is defined %}«{{ row.meta.name }}»{% endif %}
+        </td>
+        <td class="whitespace-nowrap text-sm text-muted">{{ row.ip ?? '' }}</td>
+    </tr>
+    {% endfor %}
+    {% endset %}
+    {{ d.table([{label: 'Когда'}, {label: 'Событие'}, {label: 'Кто'}, {label: 'Подробности'}, {label: 'IP'}], empty = (result.rows|length == 0),
+        empty_title = filters.group or filters.actor or filters.from or filters.to ? 'Ничего не нашли' : 'Журнал пока пуст',
+        empty_text = filters.group or filters.actor or filters.from or filters.to ? 'Попробуйте другой период или сбросьте фильтры.' : 'Здесь появятся приглашения, смены ролей и другие действия команды.',
+        caption = 'События пространства', body = body) }}
+</section>
+<div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
+{% endblock %}

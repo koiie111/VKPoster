@@ -72,6 +72,15 @@ final class View
         return Response::html($this->render($template, $data), $status);
     }
 
+    /**
+     * Add a Twig function after construction (for helpers that depend on the domain layer, such as `can()`).
+     * Must be called before the first render.
+     */
+    public function registerFunction(string $name, callable $callable): void
+    {
+        $this->twig->addFunction(new TwigFunction($name, $callable));
+    }
+
     private function extension(): AbstractExtension
     {
         $view = $this;

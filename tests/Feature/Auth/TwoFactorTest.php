@@ -48,7 +48,7 @@ final class TwoFactorTest extends AuthTestCase
 
         $second = $this->post('/login/2fa', ['code' => $this->totpCode($user->id)]);
         self::assertSame('/app', $second->header('Location'));
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
         self::assertCount(10, $codes);
         $this->drainQueue();
         self::assertNotNull(array_values(array_filter($this->mailer->to('anna@example.com'), static fn ($m): bool => $m->subject === 'Двухфакторная защита включена'))[0] ?? null);
