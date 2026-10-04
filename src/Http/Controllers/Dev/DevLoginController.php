@@ -13,7 +13,7 @@ use App\Kernel\Http\Request;
 use App\Kernel\Http\Response;
 
 /**
- * `/dev/login-as/{id}`: sign in as any user without a password, for agents and smoke tests.
+ * `/dev/login-as/{id|email}`: sign in as any user without a password, for agents and smoke tests.
  * Works only when APP_ENV is `local` (or `testing`) and DEV_LOGIN is not switched off; in production
  * the route answers 404 and the application refuses to boot with a DEV_* flag enabled.
  */
@@ -33,7 +33,9 @@ final class DevLoginController
         if (($env !== 'local' && $env !== 'testing') || !$this->config->bool('auth.dev_login')) {
             throw new HttpException(404, 'Not found');
         }
-        $user = $this->users->find((int) $id);
+        // The id is a number, or an email address for convenience (`/dev/login-as/demo@ezposter.local`, possibly percent-encoded).
+        $id = rawurldecode($id);
+        $user = ctype_digit($id) ? $this->users->find((int) $id) : (str_contains($id, '@') ? $this->users->findByEmail($id) : null);
         if ($user === null) {
             throw new HttpException(404, 'Not found');
         }

@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- Этап 02: регистрация и вход по почте, подтверждение почты, сброс и смена пароля, смена почты, «запомнить меня» с защитой от кражи cookie, двухфакторная защита TOTP с QR на сервере и резервными кодами, список устройств с отзывом, журнал входов, страница «Безопасность», письма (HTML и текст) через очередь, `/dev/login-as`, команды `user:create-admin` и `auth:prune`; таблицы `users`, `auth_tokens`, `user_sessions`, `recovery_codes`, `login_attempts`, `audit_log`; ADR 0003 (bacon-qr-code); `docs/architecture/modules/auth.md`.
 - Этап 21 (часть B): дизайн-система направления «Индиго»: токены и темы (светлая, тёмная, как в системе), Tailwind-сборка с хэшем (`make css`, `css-watch`, `css-check`), 45 Twig-компонентов, макеты `base/app/auth/landing/admin`, витрина `/dev/ui`, прототипы онбординга, каналов, редактора с превью, календаря (месяц, неделя, список) и дашборда, Lucide-спрайт, `make ui-behavior`, страницы ошибок и главная на новых макетах; документация `docs/design/design-system.md`, `ux-writing.md`.
 - Этап 21 (часть A): три варианта стиля `docs/design/directions/{a,b,c}.html`, референсы `docs/design/references.md`, `tailwind.config.js`, шрифт Inter (self-hosted), инструмент `tools/ui-snap` (Playwright + axe-core, `make ui-snap STAGE=NN`, `make a11y`).
 - Этап 00: Docker-стек (nginx, php-fpm, worker, scheduler, mysql, redis, mailpit; профили `s3`, `tunnel`), `Makefile`, CI на GitHub Actions, PHPUnit, PHPStan (level 8 + strict-rules), php-cs-fixer, `/healthz`.
@@ -15,6 +16,10 @@
 - Документация: `request-lifecycle.md`, `security.md`, `queue.md`, обновлены `overview.md`, `configuration.md`, `database.md`.
 
 ### Changed
+- `make init` пересоздаёт `APP_KEY`, если он не раскодируется в ровно 32 байта (раньше проверялась только длина строки).
+- `Container::has()` больше не считает автосоздаваемыми классы без возможности создания (например, `Closure`); раньше это ломало автосборку `HttpClientInterface`.
+- В тестах используется Redis db 15 (`REDIS_DB`), чтобы не затирать данные разработки.
+- Layout приложения показывает демо-данные (рабочие пространства, тариф) только на прототипах; у вошедшего пользователя только существующие разделы.
 - `make init` теперь определяет, что `APP_KEY` уже задан, по самому значению (раньше комментарий в строке `.env` считался значением).
 - Образ PHP: добавлено расширение `pcntl`.
 - `/healthz` и главная страница обслуживаются через `Application`; заглушки `bin/console` и `public/index.php` удалены.

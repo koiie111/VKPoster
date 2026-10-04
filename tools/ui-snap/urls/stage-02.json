@@ -1,0 +1,26 @@
+[
+  { "name": "login", "url": "/login" },
+  { "name": "login-error", "url": "/login", "actions": [
+    { "fill": ["#f-email", "anna@example.com"] },
+    { "fill": ["#f-password", "definitely wrong password"] },
+    { "click": "form[action=\"/login\"] button[type=submit]" }
+  ] },
+  { "name": "register", "url": "/register" },
+  { "name": "register-error", "url": "/register", "actions": [
+    { "fill": ["#f-name", "A"] },
+    { "fill": ["#f-email", "not-an-email"] },
+    { "fill": ["#f-password", "short"] },
+    { "click": "form[action=\"/register\"] button[type=submit]" }
+  ] },
+  { "name": "forgot", "url": "/password/forgot" },
+  { "name": "forgot-sent", "url": "/password/forgot", "actions": [
+    { "fill": ["#f-email", "anna@example.com"] },
+    { "click": "form[action=\"/password/forgot\"] button[type=submit]" }
+  ] },
+  { "name": "link-expired", "url": "/password/reset/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+  { "name": "security", "url": "/account/security", "login_as": "demo@ezposter.local" },
+  { "name": "two-factor-setup", "url": "/account/security", "login_as": "demo@ezposter.local", "actions": [
+    { "click": "form[action=\"/account/2fa/start\"] button[type=submit]" }
+  ] },
+  { "name": "dashboard", "url": "/app", "login_as": "demo@ezposter.local" }
+]

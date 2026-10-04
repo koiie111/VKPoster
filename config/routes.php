@@ -72,7 +72,7 @@ return static function (Router $router): void {
         $r->get('/app', [AppController::class, 'dashboard'])->name('app');
     });
 
-    $router->get('/dev/login-as/{id:[0-9]+}', [DevLoginController::class, 'loginAs']);
+    $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);
 
     // Design-system showcase and prototypes: the controller answers 404 outside APP_ENV=local|testing.
     $router->get('/dev/ui', [DevUiController::class, 'showcase'])->name('dev.ui');

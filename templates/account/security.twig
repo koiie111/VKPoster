@@ -53,7 +53,7 @@
         {% else %}
         <form class="mt-4" method="post" action="/account/2fa/start">
             {{ csrf_field() }}
-            {{ f.button('Включить двухфакторную защиту', type = 'submit', icon = 'shield') }}
+            {{ f.button('Включить защиту', type = 'submit', icon = 'shield') }}
         </form>
         {% endif %}
     </section>

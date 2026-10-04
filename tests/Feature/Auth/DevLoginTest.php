@@ -27,6 +27,16 @@ final class DevLoginTest extends AuthTestCase
         self::assertSame(200, $this->get('/app')->status);
     }
 
+    public function testAcceptsAnEmailAddressToo(): void
+    {
+        $this->createUser('demo@example.com');
+
+        self::assertSame('/app', $this->get('/dev/login-as/demo@example.com')->header('Location'));
+        self::assertSame('/app', $this->get('/dev/login-as/demo%40example.com')->header('Location'));
+        self::assertSame(404, $this->get('/dev/login-as/nobody@example.com')->status);
+        self::assertSame(404, $this->get('/dev/login-as/not-an-id')->status);
+    }
+
     public function testUnknownUsersAre404(): void
     {
         self::assertSame(404, $this->get('/dev/login-as/999999')->status);
