@@ -1,0 +1,1 @@
+{"update_id":1004,"my_chat_member":{"chat":{"id":-1001234567890,"title":"Мой канал","type":"channel"},"from":{"id":42,"is_bot":false,"first_name":"Иван"},"date":1790000000,"old_chat_member":{"user":{"id":987654321,"is_bot":true},"status":"administrator"},"new_chat_member":{"user":{"id":987654321,"is_bot":true},"status":"kicked"}}}

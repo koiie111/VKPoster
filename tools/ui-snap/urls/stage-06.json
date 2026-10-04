@@ -1,0 +1,37 @@
+[
+  {
+    "name": "channels-empty",
+    "url": "/w/{ws}/channels",
+    "login_as": "social@ezposter.local"
+  },
+  {
+    "name": "channels-list",
+    "url": "/w/{ws}/channels",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "channels-viewer",
+    "url": "/w/{ws}/channels",
+    "login_as": "editor@ezposter.local"
+  },
+  {
+    "name": "channels-connect-telegram",
+    "url": "/w/{ws}/channels/connect/telegram",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "channels-connect-code",
+    "url": "/w/{ws}/channels/connect/telegram",
+    "login_as": "demo@ezposter.local",
+    "actions": [
+      {
+        "click": "form[action$=\"/connect/telegram/code\"] button[type=\"submit\"]"
+      }
+    ]
+  },
+  {
+    "name": "channels-connect-own",
+    "url": "/w/{ws}/channels/connect/telegram?tab=own",
+    "login_as": "demo@ezposter.local"
+  }
+]

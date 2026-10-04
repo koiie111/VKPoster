@@ -16,6 +16,11 @@ final class TestEnv
 {
     public const TELEGRAM_TOKEN = '123456789:TEST-token-not-real';
 
+    /** The shared bot of the channels stage (not a real token); its id is the part before the colon. */
+    public const SHARED_BOT_TOKEN = '987654321:SHARED-bot-token-not-real-0123456789';
+
+    public const WEBHOOK_SECRET = 'test-webhook-secret-0123456789';
+
     public const KEY = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
 
     private static function process(string $name, string $default): string
@@ -54,6 +59,11 @@ final class TestEnv
             'DEV_OAUTH_FAKE' => '1',
             'TELEGRAM_LOGIN_BOT_TOKEN' => self::TELEGRAM_TOKEN,
             'TELEGRAM_LOGIN_BOT_NAME' => 'ezposter_test_bot',
+            // Channels: Telegram plus the test network, the shared bot, and a webhook secret.
+            'PLATFORMS_ENABLED' => 'telegram,fake',
+            'TELEGRAM_BOT_TOKEN' => self::SHARED_BOT_TOKEN,
+            'TELEGRAM_BOT_USERNAME' => 'ezposter_bot',
+            'TELEGRAM_WEBHOOK_SECRET' => self::WEBHOOK_SECRET,
         ];
 
         // The fake provider is refused in production, so tests that boot a production app get it switched off.

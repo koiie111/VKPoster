@@ -14,7 +14,9 @@ use App\Http\Controllers\Auth\SocialController;
 use App\Http\Controllers\Dev\DevOAuthController;
 use App\Http\Controllers\Dev\DevLoginController;
 use App\Http\Controllers\Dev\DevUiController;
+use App\Http\Controllers\Channels\ChannelController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\Webhooks\TelegramWebhookController;
 use App\Http\Controllers\Workspace\AuditController;
 use App\Http\Controllers\Workspace\InvitationController;
 use App\Http\Controllers\Workspace\SettingsController;
@@ -149,12 +151,33 @@ return static function (Router $router): void {
                 $m->post($mark . '/update', [WatermarkController::class, 'update']);
                 $m->post($mark . '/delete', [WatermarkController::class, 'delete']);
             });
+            // Channels. Everyone who works on posts may look; connecting and changing is for owners and administrators.
+            $w->get('/channels', [ChannelController::class, 'index'])->name('workspace.channels')->middleware([Authorize::class, ['permission' => 'channels.view']]);
+            $w->get('/channels/{channelId:' . $ulid . '}/avatar', [ChannelController::class, 'avatar'])->middleware([Authorize::class, ['permission' => 'channels.view']]);
+            $w->group('/channels', [[Authorize::class, ['permission' => 'channels.manage']]], static function (Router $c) use ($ulid): void {
+                $c->get('/connect/telegram', [ChannelController::class, 'connectTelegram']);
+                $c->post('/connect/telegram/code', [ChannelController::class, 'issueCode'])->middleware([RateLimit::class, ['bucket' => 'channel-code', 'max' => 20, 'seconds' => 3600]]);
+                $c->get('/connect/telegram/status/{codeId:' . $ulid . '}', [ChannelController::class, 'codeStatus'])->middleware([RateLimit::class, ['bucket' => 'channel-code-status', 'max' => 600, 'seconds' => 600]]);
+                $c->post('/connect/telegram/own', [ChannelController::class, 'connectOwn'])->middleware([RateLimit::class, ['bucket' => 'channel-own-bot', 'max' => 15, 'seconds' => 3600]]);
+                // The test network: the controller answers 404 unless it is enabled (never in production).
+                $c->get('/connect/fake', [ChannelController::class, 'fakeForm']);
+                $c->post('/connect/fake', [ChannelController::class, 'connectFake']);
+                $item = '/{channelId:' . $ulid . '}';
+                $c->post($item . '/check', [ChannelController::class, 'check'])->middleware([RateLimit::class, ['bucket' => 'channel-check', 'max' => 60, 'seconds' => 600]]);
+                $c->post($item . '/pause', [ChannelController::class, 'pause']);
+                $c->post($item . '/resume', [ChannelController::class, 'resume']);
+                $c->post($item . '/rename', [ChannelController::class, 'rename']);
+                $c->post($item . '/delete', [ChannelController::class, 'delete']);
+            });
             $w->get('/audit', [AuditController::class, 'show'])->name('workspace.audit')->middleware([Authorize::class, ['permission' => 'audit.view']]);
         });
     });
 
     // Library files: a signed-in member of the owning workspace, or a signed expiring link (checked in the controller).
     $router->get('/media/{id:' . $ulid . '}/{variant:[a-z0-9-]{1,20}}', [MediaFileController::class, 'show'])->name('media.file')->middleware(AuthenticateOrSigned::class);
+
+    // Telegram calls this for every update of the shared bot: authenticity is the secret in the path plus a header (see TelegramWebhook).
+    $router->post('/webhooks/telegram/{secret:[A-Za-z0-9_-]{16,128}}', [TelegramWebhookController::class, 'receive'])->withoutCsrf();
 
     $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);
     // Fake social sign-in provider (404 unless DEV_OAUTH_FAKE is on outside production).

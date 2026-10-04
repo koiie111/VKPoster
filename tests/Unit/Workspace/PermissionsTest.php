@@ -31,6 +31,7 @@ final class PermissionsTest extends TestCase
         'audit.view' => ['owner' => true, 'admin' => true, 'editor' => false, 'author' => false, 'viewer' => false, 'client' => false],
         'posts.publish' => ['owner' => true, 'admin' => true, 'editor' => true, 'author' => false, 'viewer' => false, 'client' => false],
         'posts.draft' => ['owner' => true, 'admin' => true, 'editor' => true, 'author' => true, 'viewer' => false, 'client' => false],
+        'channels.view' => ['owner' => true, 'admin' => true, 'editor' => true, 'author' => true, 'viewer' => true, 'client' => false],
         'media.view' => ['owner' => true, 'admin' => true, 'editor' => true, 'author' => true, 'viewer' => true, 'client' => false],
         'media.upload' => ['owner' => true, 'admin' => true, 'editor' => true, 'author' => true, 'viewer' => false, 'client' => false],
         'media.manage' => ['owner' => true, 'admin' => true, 'editor' => true, 'author' => false, 'viewer' => false, 'client' => false],

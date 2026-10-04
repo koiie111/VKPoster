@@ -59,6 +59,12 @@ erDiagram
     workspaces ||--o{ media : owns
     workspaces ||--o{ watermarks : has
     media_folders |o--o{ media : holds
+    workspaces ||--o{ channels : connects
+    workspaces ||--o{ platform_credentials : stores
+    workspaces ||--o{ channel_connect_codes : issues
+    platform_credentials |o--o{ channels : publishes_with
+    channels ||--o{ member_channel_access : restricts
+    channels |o--o{ channel_connect_codes : created_by
     users {
         bigint id PK
         varchar email UK "NULL для входа через соцсети"
@@ -137,7 +143,7 @@ erDiagram
     member_channel_access {
         bigint workspace_id PK
         bigint user_id PK
-        bigint channel_id PK "FK on channels from stage 06"
+        bigint channel_id PK "FK to channels, CASCADE"
     }
     media_folders {
         bigint id PK
@@ -179,6 +185,49 @@ erDiagram
         tinyint margin
         bool is_default
     }
+    channels {
+        bigint id PK
+        char26 public_id UK "ULID in URLs"
+        bigint workspace_id FK
+        varchar platform "telegram | vk | max | instagram | fake"
+        varchar external_id "chat id on the platform, UK with workspace_id and platform"
+        varchar mode "shared_bot | own_bot"
+        varchar title "from the platform"
+        varchar alias "name for the team only"
+        varchar username
+        varchar kind "channel | group"
+        varchar avatar_key "our copy of the picture"
+        varchar status "active | paused | error | revoked"
+        bigint credential_id FK "SET NULL, empty for the shared bot"
+        text settings_json "rights the bot has: post edit delete pin"
+        datetime6 last_health_at
+        varchar last_error
+        bigint created_by FK "SET NULL"
+    }
+    platform_credentials {
+        bigint id PK
+        char26 public_id UK
+        bigint workspace_id FK
+        varchar platform
+        varchar kind "bot_token | oauth"
+        text secret_enc "Crypto ciphertext only"
+        text refresh_enc "Crypto ciphertext only"
+        datetime6 expires_at
+        varchar scopes
+        varchar hint "masked token for display"
+    }
+    channel_connect_codes {
+        bigint id PK
+        char26 public_id UK
+        bigint workspace_id FK
+        bigint user_id FK
+        varchar platform
+        char64 code_hash "SHA-256, UK"
+        bigint channel_id FK "SET NULL"
+        varchar failure "why the last attempt did not connect"
+        datetime6 expires_at "15 minutes"
+        datetime6 used_at
+    }
     audit_log {
         bigint id PK
         bigint workspace_id
@@ -192,6 +241,6 @@ erDiagram
     }
 ```
 
-Медиатека (`media_folders`, `media`, `watermarks`) принадлежит пространству и удаляется вместе с ним; подробности и правила хранения файлов: [modules/media.md](modules/media.md). Связанные таблицы удаляются каскадом вместе с пользователем (в том числе его пространства и членства; см. [modules/workspaces.md](modules/workspaces.md)). `audit_log` без внешних ключей: журнал переживает удаление пользователей. Счётчики неудачных входов хранятся в Redis (`auth:fail:*`, `auth:lock:*`), а не в БД.
+Медиатека (`media_folders`, `media`, `watermarks`) принадлежит пространству и удаляется вместе с ним; подробности и правила хранения файлов: [modules/media.md](modules/media.md). Каналы (`channels`, `platform_credentials`, `channel_connect_codes`) принадлежат пространству и удаляются вместе с ним; секреты лежат только в шифрованных столбцах `*_enc`, подробности: [modules/channels.md](modules/channels.md). Связанные таблицы удаляются каскадом вместе с пользователем (в том числе его пространства и членства; см. [modules/workspaces.md](modules/workspaces.md)). `audit_log` без внешних ключей: журнал переживает удаление пользователей. Счётчики неудачных входов хранятся в Redis (`auth:fail:*`, `auth:lock:*`), а не в БД.
 
 Команды: `make migrate`, `make console CMD="migrate:status"`, `migrate:rollback` (последний batch), `migrate:fresh` (удаляет все таблицы; в production отключена), `seed` (dev-данные из `database/seeds/`; в production отключена).
