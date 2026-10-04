@@ -1,0 +1,63 @@
+// Screenshots (375/768/1440 px x light/dark) and an axe-core audit for the URLs of one stage.
+// Usage: node snap.mjs <stage> [--a11y-only]   (URL list: tools/ui-snap/urls/stage-<stage>.json)
+import { chromium } from 'playwright';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+
+const stage = process.argv[2];
+const a11yOnly = process.argv.includes('--a11y-only');
+if (!stage) {
+  console.error('usage: snap.mjs <stage> [--a11y-only]');
+  process.exit(2);
+}
+
+const base = process.env.UI_SNAP_BASE_URL ?? 'http://nginx';
+const list = JSON.parse(readFileSync(`/work/tools/ui-snap/urls/stage-${stage}.json`, 'utf8'));
+const out = `/work/storage/ui-review/stage-${stage}`;
+const widths = [360, 375, 768, 1440];
+const shotWidths = [375, 768, 1440];
+const themes = ['light', 'dark'];
+const blocking = new Set(['serious', 'critical']);
+
+mkdirSync(out, { recursive: true });
+const browser = await chromium.launch();
+const report = [];
+let failed = false;
+
+for (const item of list) {
+  const url = item.url.startsWith('file:') || item.url.startsWith('http') ? item.url : base + item.url;
+  for (const theme of themes) {
+    for (const width of widths) {
+      const ctx = await browser.newContext({
+        viewport: { width, height: 900 },
+        colorScheme: theme,
+        reducedMotion: 'reduce',
+      });
+      const page = await ctx.newPage();
+      await page.goto(url, { waitUntil: 'networkidle' });
+      await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
+      await page.waitForTimeout(150);
+
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      if (width <= 375 && overflow > 0) {
+        report.push(`FAIL ${item.name} ${theme} ${width}px: horizontal scroll (${overflow}px)`);
+        failed = true;
+      }
+      if (!a11yOnly && shotWidths.includes(width)) {
+        await page.screenshot({ path: `${out}/${item.name}-${width}-${theme}.png`, fullPage: true });
+      }
+      if (width === 1440 || width === 360) {
+        const res = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+        for (const v of res.violations.filter((x) => blocking.has(x.impact))) {
+          failed = true;
+          report.push(`FAIL ${item.name} ${theme} ${width}px: axe ${v.id} (${v.impact}) x${v.nodes.length}: ${v.nodes[0].target.join(' ')}`);
+        }
+      }
+      await ctx.close();
+    }
+  }
+}
+await browser.close();
+writeFileSync(`${out}/report.txt`, report.join('\n') + (report.length ? '\n' : ''));
+console.log(report.length ? report.join('\n') : `ui-snap stage ${stage}: ${list.length} pages, no blocking issues`);
+process.exit(failed ? 1 : 0);

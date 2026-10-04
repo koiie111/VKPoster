@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- Этап 21 (часть A): три варианта стиля `docs/design/directions/{a,b,c}.html`, референсы `docs/design/references.md`, `tailwind.config.js`, шрифт Inter (self-hosted), инструмент `tools/ui-snap` (Playwright + axe-core, `make ui-snap STAGE=NN`, `make a11y`).
 - Этап 00: Docker-стек (nginx, php-fpm, worker, scheduler, mysql, redis, mailpit; профили `s3`, `tunnel`), `Makefile`, CI на GitHub Actions, PHPUnit, PHPStan (level 8 + strict-rules), php-cs-fixer, `/healthz`.
 - Скелет документации и ADR 0001–0002.
 - Этап 01: каркас приложения в `src/Kernel`: конфиг с проверками для production, DI-контейнер, Request/Response, роутер, конвейер middleware, обработка ошибок, заголовки безопасности и CSP с nonce, сессии в Redis, CSRF, PDO и QueryBuilder, миграции, консоль, валидатор с русскими сообщениями, Twig, шифрование (secretbox, ротация ключей), подписанные ссылки, rate limit, Argon2id, HTTP-клиент с защитой от SSRF, логи без секретов, очередь на MySQL (SKIP LOCKED) и планировщик.

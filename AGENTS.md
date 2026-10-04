@@ -27,6 +27,8 @@ make stan      # PHPStan level 8 + strict-rules
 make cs | cs-fix   # php-cs-fixer (PSR-12 + strict_types)
 make audit     # composer audit
 make docs      # phpDocumentor -> docs/reference (gitignored)
+make ui-snap STAGE=NN   # screenshots 375/768/1440 x light/dark + axe -> storage/ui-review/stage-NN/
+make a11y [STAGE=NN]     # axe-core only
 make check     # cs + stan + test + audit + docs; must be green before a PR
 ```
 

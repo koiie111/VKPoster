@@ -78,6 +78,13 @@ services:
     volumes: [minio-data:/data]
     ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
 
+  ui-snap:
+    build: tools/ui-snap
+    image: vkposter-ui-snap
+    profiles: [tools]
+    volumes: [".:/work"]
+    depends_on: [nginx]
+
   tunnel:
     image: cloudflare/cloudflared
     profiles: [tunnel]

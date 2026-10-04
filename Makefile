@@ -4,7 +4,7 @@ EXEC    ?= $(COMPOSE) exec -T app
 RUN     ?= $(COMPOSE) run --rm --no-deps -T app
 CMD     ?=
 
-.PHONY: init up down build sh logs console migrate seed test stan cs cs-fix audit docs check
+.PHONY: init up down build sh logs console migrate seed test stan cs cs-fix audit docs check ui-snap a11y
 
 init: ## create .env and generate APP_KEY
 	@test -f .env || cp .env.example .env
@@ -58,3 +58,12 @@ docs: ## phpDocumentor reference into docs/reference/
 	docker run --rm -v "$(CURDIR):/data" phpdoc/phpdoc:3 run -d src -t docs/reference
 
 check: cs stan test audit docs
+
+STAGE ?=
+
+ui-snap: ## screenshots (375/768/1440 x light/dark) + axe audit: make ui-snap STAGE=NN -> storage/ui-review/stage-NN/
+	@test -n "$(STAGE)" || { echo "usage: make ui-snap STAGE=NN"; exit 2; }
+	$(COMPOSE) --profile tools run --rm ui-snap $(STAGE)
+
+a11y: ## axe-core only (no screenshots): make a11y [STAGE=NN]
+	$(COMPOSE) --profile tools run --rm ui-snap $(or $(STAGE),21) --a11y-only
