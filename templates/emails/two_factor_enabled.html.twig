@@ -1,0 +1,7 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Двухфакторная защита включена.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Двухфакторная защита включена</h1>
+<p style="margin:0;">{{ name }}, теперь при входе мы будем просить код из приложения-аутентификатора. Храните резервные коды в надёжном месте.</p>
+<p style="margin:16px 0 0;">Если это были не вы, <a href="{{ reset_link }}" style="color:#4f46e5;">смените пароль</a> и напишите в поддержку.</p>
+{% endblock %}

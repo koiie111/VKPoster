@@ -1,0 +1,8 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Подтвердите адрес почты, чтобы начать работу.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Здравствуйте, {{ name }}!</h1>
+<p style="margin:0;">Осталось подтвердить адрес почты. Это нужно, чтобы мы могли присылать вам важные уведомления и помогли восстановить доступ, если вы забудете пароль.</p>
+{% include 'emails/_button.html.twig' with {link: link, label: 'Подтвердить почту'} only %}
+<p style="margin:20px 0 0;">Ссылка действует 24 часа. Если вы не регистрировались, просто проигнорируйте это письмо.</p>
+{% endblock %}

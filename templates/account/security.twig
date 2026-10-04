@@ -1,0 +1,143 @@
+{#- Security settings: email, password, two-factor, devices, sign-in journal. Variables: user, devices, journal, recovery_left, has_password. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'settings' %}
+{% block title %}Безопасность · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Безопасность', 'Пароль, почта, двухфакторная защита и устройства, с которых вы вошли.') }}
+{% if not user.isVerified() %}
+<div class="mb-6">{{ d.alert('warning', 'Почта ещё не подтверждена', 'Мы отправили письмо на ' ~ user.email ~ '. Пока адрес не подтверждён, часть возможностей закрыта.', body = f.button('Отправить письмо ещё раз', variant = 'secondary', size = 'sm', type = 'submit', attrs = {form: 'resend-form'})) }}</div>
+<form id="resend-form" method="post" action="/email/verification/resend" class="hidden">{{ csrf_field() }}</form>
+{% endif %}
+
+<div class="flex flex-col gap-6">
+    <section class="card" id="email" aria-labelledby="email-title">
+        <h2 class="text-lg font-semibold" id="email-title">Почта для входа</h2>
+        <p class="mt-1 text-sm text-muted">Сейчас: <strong class="break-all text-fg">{{ user.email }}</strong> {{ user.isVerified() ? d.badge('Подтверждена', 'ok') : d.badge('Не подтверждена', 'warn') }}</p>
+        <form class="mt-4 grid gap-4 sm:grid-cols-2" method="post" action="/account/email">
+            {{ csrf_field() }}
+            {{ f.input('new_email', 'Новый адрес', type = 'email', value = old('new_email'), required = true, autocomplete = 'email', error = errors('new_email')|first, hint = 'Мы отправим на него ссылку для подтверждения.') }}
+            {{ f.input('email_password', 'Пароль', type = 'password', required = true, autocomplete = 'current-password', error = errors('email_password')|first, hint = 'Пароль нужен, чтобы никто не заменил почту за вас.') }}
+            <div class="sm:col-span-2">{{ f.button('Сменить адрес', type = 'submit', variant = 'secondary') }}</div>
+        </form>
+    </section>
+
+    <section class="card" id="password" aria-labelledby="password-title">
+        <h2 class="text-lg font-semibold" id="password-title">Пароль</h2>
+        <p class="mt-1 text-sm text-muted">После смены пароля мы выйдем из аккаунта на всех остальных устройствах.</p>
+        <form class="mt-4 grid gap-4 sm:grid-cols-2" method="post" action="/account/password">
+            {{ csrf_field() }}
+            <div class="sm:col-span-2">{{ f.input('current_password', 'Текущий пароль', type = 'password', required = true, autocomplete = 'current-password', error = errors('current_password')|first) }}</div>
+            {{ f.input('password', 'Новый пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 10 символов.', attrs = {minlength: 10, maxlength: 128}) }}
+            {{ f.input('password_confirmation', 'Повторите новый пароль', type = 'password', required = true, autocomplete = 'new-password') }}
+            <div class="sm:col-span-2">{{ f.button('Сменить пароль', type = 'submit', variant = 'secondary') }}</div>
+        </form>
+    </section>
+
+    <section class="card" id="two-factor" aria-labelledby="two-factor-title">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-semibold" id="two-factor-title">Двухфакторная защита</h2>
+                <p class="mt-1 max-w-xl text-sm text-muted">При входе мы просим код из приложения-аутентификатора. Даже если пароль узнают, зайти в аккаунт не получится.</p>
+            </div>
+            {{ user.hasTwoFactor() ? d.badge('Включена', 'ok', true) : d.badge('Выключена', 'neutral', true) }}
+        </div>
+        {% if user.hasTwoFactor() %}
+        <p class="mt-4 text-sm">Резервных кодов осталось: <strong>{{ recovery_left }}</strong>.{% if recovery_left <= 3 %} Создайте новые, пока коды не закончились.{% endif %}</p>
+        <div class="mt-4 flex flex-wrap gap-3">
+            <button type="button" class="btn btn-secondary" data-dialog-open="codes-dialog">Создать новые резервные коды</button>
+            <button type="button" class="btn btn-danger" data-dialog-open="disable-2fa-dialog">Отключить защиту</button>
+        </div>
+        {% else %}
+        <form class="mt-4" method="post" action="/account/2fa/start">
+            {{ csrf_field() }}
+            {{ f.button('Включить двухфакторную защиту', type = 'submit', icon = 'shield') }}
+        </form>
+        {% endif %}
+    </section>
+
+    <section class="card" id="devices" aria-labelledby="devices-title">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-semibold" id="devices-title">Устройства, где вы вошли</h2>
+                <p class="mt-1 text-sm text-muted">Не узнаёте устройство? Отключите его и смените пароль.</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" data-dialog-open="logout-all-dialog">Выйти на всех устройствах</button>
+        </div>
+        <ul class="mt-4 divide-y divide-line">
+            {% for device in devices %}
+            <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div class="min-w-0">
+                    <p class="flex flex-wrap items-center gap-2 font-medium">{{ device.label }}{% if device.current %} {{ d.badge('Это устройство', 'primary') }}{% endif %}</p>
+                    <p class="text-sm text-muted">IP {{ device.ip }} · был активен {{ device.last_seen_at|date('d.m.Y, H:i', user.timezone) }}</p>
+                </div>
+                {% if not device.current %}
+                <form method="post" action="/account/sessions/{{ device.public_id }}/revoke">
+                    {{ csrf_field() }}
+                    <button type="submit" class="btn btn-ghost btn-sm" aria-label="Отключить устройство: {{ device.label }}, IP {{ device.ip }}">Отключить</button>
+                </form>
+                {% endif %}
+            </li>
+            {% else %}
+            <li class="py-3 text-sm text-muted">Пока нет данных об устройствах.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="card" id="journal" aria-labelledby="journal-title">
+        <h2 class="text-lg font-semibold" id="journal-title">Последние попытки входа</h2>
+        <p class="mt-1 text-sm text-muted">Время указано в вашем часовом поясе ({{ user.timezone }}).</p>
+        <ul class="mt-4 divide-y divide-line">
+            {% for row in journal %}
+            <li class="flex flex-wrap items-center justify-between gap-2 py-3">
+                <div class="min-w-0">
+                    <p class="font-medium">{{ row.label }}</p>
+                    <p class="text-sm text-muted">IP {{ row.ip }} · {{ row.at|date('d.m.Y, H:i', user.timezone) }}</p>
+                </div>
+                {% if row.outcome == 'success' %}{{ d.badge('Вход выполнен', 'ok') }}
+                {% elseif row.outcome == 'bad_2fa' %}{{ d.badge('Неверный код', 'bad') }}
+                {% elseif row.outcome == 'blocked' %}{{ d.badge('Аккаунт заблокирован', 'bad') }}
+                {% else %}{{ d.badge('Неверный пароль', 'bad') }}{% endif %}
+            </li>
+            {% else %}
+            <li class="py-3 text-sm text-muted">Здесь появятся ваши входы.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</div>
+
+{% set logout_all_body %}
+<form method="post" action="/logout/all">
+    {{ csrf_field() }}
+    <p class="text-sm text-muted">Мы закроем все сессии, включая эту. Придётся войти заново.</p>
+    {% set f1 %}<button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button><button type="submit" class="btn btn-danger">Выйти везде</button>{% endset %}
+    {{ o.modal_footer(f1) }}
+</form>
+{% endset %}
+{{ o.modal('logout-all-dialog', 'Выйти на всех устройствах?', null, 'md', logout_all_body) }}
+
+{% if user.hasTwoFactor() %}
+{% set codes_body %}
+<form class="flex flex-col gap-4" method="post" action="/account/2fa/recovery-codes">
+    {{ csrf_field() }}
+    {{ f.input('codes_password', 'Пароль', type = 'password', required = true, autocomplete = 'current-password', error = errors('codes_password')|first, hint = 'Старые резервные коды перестанут работать.') }}
+    {% set f2 %}<button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button><button type="submit" class="btn btn-primary">Создать коды</button>{% endset %}
+    {{ o.modal_footer(f2) }}
+</form>
+{% endset %}
+{{ o.modal('codes-dialog', 'Создать новые резервные коды', null, 'md', codes_body) }}
+
+{% set disable_body %}
+<form class="flex flex-col gap-4" method="post" action="/account/2fa/disable">
+    {{ csrf_field() }}
+    {{ f.input('disable_password', 'Пароль', type = 'password', required = true, autocomplete = 'current-password', error = errors('disable_password')|first) }}
+    {{ f.input('disable_code', 'Код из приложения или резервный код', required = true, autocomplete = 'one-time-code', error = errors('disable_code')|first) }}
+    {% set f3 %}<button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button><button type="submit" class="btn btn-danger">Отключить защиту</button>{% endset %}
+    {{ o.modal_footer(f3) }}
+</form>
+{% endset %}
+{{ o.modal('disable-2fa-dialog', 'Отключить двухфакторную защиту?', 'Без неё вход в аккаунт будет защищён только паролем.', 'md', disable_body) }}
+{% endif %}
+{% endblock %}

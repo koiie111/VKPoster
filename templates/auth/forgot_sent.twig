@@ -1,0 +1,14 @@
+{#- Same answer for known and unknown addresses. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% block title %}Проверьте почту · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="text-center">
+    <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-soft text-primary-text">{{ icon('mail', 'h-7 w-7') }}</span>
+    <h1 class="mt-4 text-2xl font-bold">Проверьте почту</h1>
+    <p class="mt-2 text-muted">Если на адрес <strong class="break-all text-fg">{{ email }}</strong> зарегистрирован аккаунт, мы отправили на него письмо со ссылкой. Она действует один час.</p>
+    <p class="mt-4 text-sm text-muted">Письма нет? Загляните в «Спам» и проверьте, что адрес написан правильно.</p>
+    <div class="mt-6">{{ f.button('Вернуться ко входу', variant = 'secondary', href = url('login')) }}</div>
+</div>
+{% endblock %}
+{% block auth_footer %}{% endblock %}

@@ -1,0 +1,15 @@
+{#- New password form behind the emailed link. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% block title %}Новый пароль · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Придумайте новый пароль</h1>
+<p class="mt-1 text-muted">После смены мы выйдем из аккаунта на всех устройствах, и вы войдёте уже с новым паролем.</p>
+<form class="mt-6 flex flex-col gap-4" method="post" action="{{ url('auth.reset.show', {token: token}) }}">
+    {{ csrf_field() }}
+    {{ f.input('password', 'Новый пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 10 символов.', attrs = {autofocus: '', minlength: 10, maxlength: 128}) }}
+    {{ f.input('password_confirmation', 'Повторите пароль', type = 'password', required = true, autocomplete = 'new-password') }}
+    {{ f.button('Сохранить пароль', type = 'submit', block = true) }}
+</form>
+{% endblock %}
+{% block auth_footer %}{% endblock %}

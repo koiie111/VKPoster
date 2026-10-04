@@ -94,6 +94,8 @@ final class View
                     new TwigFunction('t', $this->view->translate(...)),
                     new TwigFunction('old', $this->view->old(...)),
                     new TwigFunction('errors', $this->view->errors(...)),
+                    new TwigFunction('toasts', $this->view->toasts(...)),
+                    new TwigFunction('current_user', $this->view->currentUser(...)),
                 ];
             }
         };
@@ -252,6 +254,35 @@ final class View
         $old = $this->context->session()?->getFlash('_old');
 
         return is_array($old) ? ($old[$key] ?? $default) : $default;
+    }
+
+    /**
+     * Toast notifications flashed by the previous request: a list of `{text, kind}`.
+     *
+     * @return list<array{text: string, kind: string}>
+     * @internal Twig function.
+     */
+    public function toasts(): array
+    {
+        $items = $this->context->session()?->getFlash('_toasts');
+        $out = [];
+        foreach (is_array($items) ? $items : [] as $item) {
+            if (is_array($item) && is_string($item['text'] ?? null) && is_string($item['kind'] ?? null)) {
+                $out[] = ['text' => $item['text'], 'kind' => $item['kind']];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * The signed-in user of this request, or null for guests.
+     *
+     * @internal Twig function.
+     */
+    public function currentUser(): ?object
+    {
+        return $this->context->user();
     }
 
     /**

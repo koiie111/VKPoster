@@ -1,0 +1,8 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Для этого адреса уже есть аккаунт.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">У вас уже есть аккаунт</h1>
+<p style="margin:0;">Кто-то (возможно, вы) пытался зарегистрироваться на этот адрес, но аккаунт с ним у нас уже есть. Войдите в него, новый создавать не нужно.</p>
+{% include 'emails/_button.html.twig' with {link: login_link, label: 'Войти в аккаунт'} only %}
+<p style="margin:20px 0 0;">Забыли пароль? <a href="{{ reset_link }}" style="color:#4f46e5;">Задайте новый</a>. Если это были не вы, ничего делать не нужно.</p>
+{% endblock %}

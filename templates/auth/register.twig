@@ -1,0 +1,22 @@
+{#- Sign-up form. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% block title %}Регистрация · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Создайте аккаунт</h1>
+<p class="mt-1 text-muted">Это займёт минуту. Карта не нужна.</p>
+{% if errors() %}<div class="mt-5">{{ d.alert('error', 'Не получилось создать аккаунт', 'Проверьте поля, отмеченные красным.') }}</div>{% endif %}
+<form class="mt-6 flex flex-col gap-4" method="post" action="/register">
+    {{ csrf_field() }}
+    {{ f.input('name', 'Как вас зовут', value = old('name'), required = true, autocomplete = 'name', placeholder = 'Анна', error = errors('name')|first, attrs = {autofocus: ''}) }}
+    {{ f.input('email', 'Почта', type = 'email', value = old('email'), required = true, autocomplete = 'email', placeholder = 'anna@example.com', error = errors('email')|first, hint = 'Сюда придёт письмо для подтверждения.') }}
+    {{ f.input('password', 'Пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 10 символов. Лучше длинная фраза, чем сложное слово.', attrs = {minlength: 10, maxlength: 128}) }}
+    <div class="flex flex-col gap-1.5">
+        {{ f.checkbox('consent', 'Я согласен(на) на обработку персональных данных', checked = old('consent') == '1', hint = 'Подробности в политике конфиденциальности.') }}
+        {% if errors('consent') %}<p class="flex items-start gap-1.5 text-sm font-medium text-bad-fg" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ errors('consent')|first }}</span></p>{% endif %}
+    </div>
+    {{ f.button('Создать аккаунт', type = 'submit', block = true) }}
+</form>
+{% endblock %}
+{% block auth_footer %}Уже есть аккаунт? <a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('login') }}">Войдите</a>{% endblock %}

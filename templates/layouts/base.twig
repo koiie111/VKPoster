@@ -20,6 +20,6 @@
 <body class="min-h-screen {% block body_class %}{% endblock %}" x-data="dialogs">
     <a class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-toast focus:rounded-ctl focus:bg-surface focus:px-4 focus:py-2 focus:shadow-pop" href="#main">Перейти к содержимому</a>
     {% block body %}{% endblock %}
-    {{ o.toast_region(flash is defined ? flash : []) }}
+    {{ o.toast_region(flash is defined ? flash : toasts()) }}
 </body>
 </html>

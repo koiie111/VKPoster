@@ -1,0 +1,7 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Кто-то просит заменить адрес почты в вашем аккаунте.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Запрошена смена адреса почты</h1>
+<p style="margin:0;">{{ name }}, в вашем аккаунте попросили заменить адрес входа на <strong>{{ new_email }}</strong>. Адрес изменится только после подтверждения на новой почте.</p>
+<p style="margin:16px 0 0;">Если это были не вы, <a href="{{ reset_link }}" style="color:#4f46e5;">смените пароль</a>: тогда никто не сможет завершить замену.</p>
+{% endblock %}

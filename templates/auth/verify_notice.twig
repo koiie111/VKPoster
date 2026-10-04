@@ -1,0 +1,21 @@
+{#- Signed in but the email is not confirmed yet: the only page open to such users (besides account security). -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% block title %}Подтвердите почту · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="text-center">
+    <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-warn-soft text-warn-fg">{{ icon('mail', 'h-7 w-7') }}</span>
+    <h1 class="mt-4 text-2xl font-bold">Подтвердите почту</h1>
+    <p class="mt-2 text-muted">Мы отправили письмо на <strong class="break-all text-fg">{{ email }}</strong>. Нажмите кнопку в письме, и откроется доступ ко всем возможностям.</p>
+    <form class="mt-6" method="post" action="/email/verification/resend">
+        {{ csrf_field() }}
+        {{ f.button('Отправить письмо ещё раз', type = 'submit', variant = 'secondary', block = true) }}
+    </form>
+    <p class="mt-4 text-sm text-muted">Ошиблись в адресе? <a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('account.security') }}">Укажите правильный</a></p>
+    <form class="mt-6" method="post" action="/logout">
+        {{ csrf_field() }}
+        {{ f.button('Выйти', type = 'submit', variant = 'ghost') }}
+    </form>
+</div>
+{% endblock %}
+{% block auth_footer %}{% endblock %}

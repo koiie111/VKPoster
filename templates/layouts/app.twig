@@ -9,14 +9,14 @@
 
 {% block body %}
 {% set items = nav_items is defined ? nav_items : [
-    {id: 'dashboard', label: 'Обзор', icon: 'layout-dashboard', href: '/dev/proto/dashboard'},
+    {id: 'dashboard', label: 'Обзор', icon: 'layout-dashboard', href: '/app'},
     {id: 'calendar', label: 'Календарь', icon: 'calendar-days', href: '/dev/proto/calendar'},
     {id: 'editor', label: 'Новый пост', icon: 'pencil', href: '/dev/proto/editor'},
     {id: 'channels', label: 'Каналы', icon: 'share-2', href: '/dev/proto/channels'},
     {id: 'media', label: 'Медиатека', icon: 'images', href: '#'},
     {id: 'analytics', label: 'Аналитика', icon: 'chart-column', href: '#'},
     {id: 'team', label: 'Команда', icon: 'users', href: '#'},
-    {id: 'settings', label: 'Настройки', icon: 'settings', href: '#'}
+    {id: 'settings', label: 'Безопасность', icon: 'settings', href: '/account/security'}
 ] %}
 {% set current = nav_current is defined ? nav_current : '' %}
 <div class="lg:grid lg:min-h-screen lg:grid-cols-[16rem_1fr]">
@@ -45,7 +45,7 @@
                 <a class="btn btn-primary btn-sm max-sm:!px-0 max-sm:w-11" href="/dev/proto/editor" aria-label="Создать пост">{{ icon('plus', 'h-4 w-4') }}<span class="max-sm:sr-only">Создать пост</span></a>
                 <button type="button" class="btn btn-ghost !px-0 w-11 max-sm:hidden" aria-label="Уведомления">{{ icon('bell', 'h-5 w-5') }}</button>
                 <span class="max-sm:hidden">{{ n.theme_toggle() }}</span>
-                {{ n.user_menu('Анна Смирнова', 'anna@example.com') }}
+                {% set me = current_user() %}{{ n.user_menu(me ? me.name : 'Анна Смирнова', me ? me.email : 'anna@example.com') }}
             </div>
         </header>
         <main id="main" class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">

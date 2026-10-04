@@ -115,12 +115,19 @@ final class ConsoleTest extends TestCase
         self::assertNotSame([], $tables, 'refusal must leave the schema intact');
     }
 
-    public function testSeedWithoutSeedersIsHarmless(): void
+    public function testSeedIsIdempotent(): void
     {
-        [$code, $text] = $this->runConsole(['seed']);
+        $db = TestEnv::connection();
+        $db->execute('DELETE FROM users');
 
-        self::assertSame(0, $code);
-        self::assertStringContainsString('No seeders', $text);
+        [$first, $firstText] = $this->runConsole(['seed']);
+        [$second] = $this->runConsole(['seed']);
+
+        self::assertSame(0, $first);
+        self::assertSame(0, $second);
+        self::assertStringContainsString('seeded: ', $firstText);
+        self::assertSame(1, (int) $db->select('SELECT COUNT(*) AS c FROM users WHERE email = ?', ['demo@ezposter.local'])[0]['c']);
+        $db->execute('DELETE FROM users');
     }
 
     public function testKeyGenerateProducesValidKey(): void

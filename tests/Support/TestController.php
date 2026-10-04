@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
+use App\Domain\Auth\SessionRegistry;
+use App\Domain\User\UserRepository;
 use App\Kernel\Http\Request;
 use App\Kernel\Http\RequestContext;
 use App\Kernel\Http\Response;
@@ -14,8 +16,11 @@ use RuntimeException;
  */
 final class TestController
 {
-    public function __construct(private readonly RequestContext $context)
-    {
+    public function __construct(
+        private readonly RequestContext $context,
+        private readonly UserRepository $users,
+        private readonly SessionRegistry $sessions,
+    ) {
     }
 
     public function echo(Request $request): Response
@@ -31,8 +36,13 @@ final class TestController
     public function login(): Response
     {
         $session = $this->context->session();
-        $session?->regenerate();
-        $session?->set('auth.user_id', 42);
+        $user = $this->users->create(['email' => 'kernel-' . bin2hex(random_bytes(6)) . '@example.com', 'name' => 'Kernel Test', 'password_hash' => null]);
+        if ($session === null || $user === null) {
+            return Response::text('no session', 500);
+        }
+        $session->regenerate();
+        $session->set('auth.user_id', $user->id);
+        $this->sessions->register($user->id, $session->id(), '203.0.113.10', 'phpunit');
 
         return Response::text('logged in');
     }
