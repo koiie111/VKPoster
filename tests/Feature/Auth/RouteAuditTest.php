@@ -89,4 +89,12 @@ final class RouteAuditTest extends AuthTestCase
     {
         self::assertSame('no-store', $this->get('/login')->header('Cache-Control'));
     }
+
+    public function testLandingMenuLeadsToSignInAndSignUp(): void
+    {
+        $page = $this->get('/')->body;
+
+        self::assertStringContainsString('href="/login">Войти</a>', $page);
+        self::assertStringContainsString('href="/register">Начать</a>', $page);
+    }
 }

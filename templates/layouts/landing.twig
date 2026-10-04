@@ -10,7 +10,7 @@
         <nav class="hidden items-center gap-6 text-[0.9375rem] font-medium text-muted md:flex" aria-label="Разделы сайта">
             <a class="hover:text-fg" href="#features">Возможности</a><a class="hover:text-fg" href="#pricing">Тарифы</a><a class="hover:text-fg" href="#faq">Вопросы</a>
         </nav>
-        <div class="flex items-center gap-2"><span class="max-sm:hidden">{{ n.theme_toggle() }}</span><a class="btn btn-ghost btn-sm" href="#">Войти</a><a class="btn btn-primary btn-sm" href="#">Начать</a></div>
+        <div class="flex items-center gap-2"><span class="max-sm:hidden">{{ n.theme_toggle() }}</span><a class="btn btn-ghost btn-sm" href="{{ url('login') }}">Войти</a><a class="btn btn-primary btn-sm" href="{{ url('register') }}">Начать</a></div>
     </div>
 </header>
 <main id="main">{% block content %}{% endblock %}</main>
