@@ -90,11 +90,12 @@ final class PostService
     // ---- saving and planning ---------------------------------------------------------------------------------------
 
     /**
-     * Save as a draft (also: take a planned post back to drafts). Nothing is sent.
+     * Save as a draft (also: take a planned post back to drafts). Nothing is sent. `$audit` is off for the editor's autosave, which
+     * would otherwise fill the journal with every few seconds of typing.
      *
      * @throws PostException
      */
-    public function saveDraft(WorkspaceContext $context, ?Post $existing, PostDraft $draft): Post
+    public function saveDraft(WorkspaceContext $context, ?Post $existing, PostDraft $draft, bool $audit = true): Post
     {
         $this->requirePermission($context, 'posts.draft');
         $channels = $this->resolveChannels($context, $draft);
@@ -109,9 +110,26 @@ final class PostService
 
             return $post;
         });
-        $this->audit->record($existing === null ? 'post.created' : 'post.updated', $context->userId, 'post', $post->publicId, ['title' => $post->title(60)], $context->workspaceId);
+        if ($audit) {
+            $this->audit->record($existing === null ? 'post.created' : 'post.updated', $context->userId, 'post', $post->publicId, ['title' => $post->title(60)], $context->workspaceId);
+        }
 
         return $this->posts->find($context, $post->publicId) ?? $post;
+    }
+
+    /**
+     * What is wrong with the draft for each chosen channel (empty = it can be planned as it is). Writes nothing; the editor calls
+     * it while the person types.
+     *
+     * @return array<string, list<string>> channel public id => problems
+     * @throws PostException for a channel the member may not use or a file that is not in the library
+     */
+    public function problemsFor(WorkspaceContext $context, PostDraft $draft): array
+    {
+        $channels = $this->resolveChannels($context, $draft);
+        $this->assertContent($context, $draft);
+
+        return $this->collectProblems($context, $draft, $channels);
     }
 
     /**
@@ -561,6 +579,18 @@ final class PostService
      */
     private function assertAllValid(WorkspaceContext $context, PostDraft $draft, array $channels): void
     {
+        $problems = $this->collectProblems($context, $draft, $channels);
+        if ($problems !== []) {
+            throw new PostException('Пост пока нельзя запланировать: ' . $this->firstProblem($problems), $problems);
+        }
+    }
+
+    /**
+     * @param list<Channel> $channels
+     * @return array<string, list<string>>
+     */
+    private function collectProblems(WorkspaceContext $context, PostDraft $draft, array $channels): array
+    {
         $inputs = [];
         foreach ($draft->variants as $input) {
             $inputs[strtoupper($input->channelId)] = $input;
@@ -576,9 +606,8 @@ final class PostService
                 $problems[$channel->publicId] = $found;
             }
         }
-        if ($problems !== []) {
-            throw new PostException('Пост пока нельзя запланировать: ' . $this->firstProblem($problems), $problems);
-        }
+
+        return $problems;
     }
 
     /**

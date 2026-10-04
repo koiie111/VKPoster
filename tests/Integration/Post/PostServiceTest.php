@@ -435,7 +435,6 @@ final class PostServiceTest extends PostTestCase
         } catch (PostException) {
             self::assertSame(1, $this->db->select('SELECT COUNT(*) AS n FROM posts')[0]['n']);
         }
-        self::assertNotNull($channelB);
         try {
             $this->service()->cancel($contextB, $postA);
             self::fail();

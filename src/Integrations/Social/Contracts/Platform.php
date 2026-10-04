@@ -27,6 +27,18 @@ enum Platform: string
     }
 
     /**
+     * Short key of the platform's colour label in the design system (`plat-tg`, ...).
+     */
+    public function badgeKey(): string
+    {
+        return match ($this) {
+            self::Telegram => 'tg',
+            self::Instagram => 'ig',
+            default => $this->value,
+        };
+    }
+
+    /**
      * Icon name for the UI (Lucide).
      */
     public function icon(): string

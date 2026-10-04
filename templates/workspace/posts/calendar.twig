@@ -1,0 +1,73 @@
+{#- Calendar of a workspace. Variables: view (month|week|list), title, prev_url, next_url, today_url, view_urls, weeks|days|groups, drafts,
+    filters, channel_options, author_options, timezone_label, can_move, can_create, is_empty, new_url, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% import 'components/calendar.twig' as c %}
+
+{% set nav_current = 'calendar' %}
+{% block title %}Календарь · {{ app_name }}{% endblock %}
+{% block head %}<script src="{{ asset('js/calendar.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
+{% block content %}
+{% set actions %}
+    {{ f.button(filters.active ? 'Фильтры (включены)' : 'Фильтры', variant = 'secondary', icon = 'filter', attrs = {'data-dialog-open': 'cal-filters'}) }}
+    {% if can_create %}{{ f.button('Запланировать пост', href = new_url, icon = 'plus') }}{% endif %}
+{% endset %}
+{{ d.page_header('Календарь', 'Все запланированные и опубликованные посты в одном месте.', body = actions) }}
+
+{% set filter_form %}
+<form class="flex flex-col gap-4" method="get" action="{{ base }}/calendar">
+    {% if view != 'month' %}<input type="hidden" name="view" value="{{ view }}">{% endif %}
+    {{ f.select('channel', 'Канал', channel_options, filters.channel) }}
+    {{ f.select('author', 'Автор', author_options, filters.author) }}
+    <fieldset class="flex flex-col gap-3"><legend class="label">Какие посты показать</legend>
+        {{ f.checkbox('state[]', 'Запланированные', 'scheduled' in filters.state, 'scheduled', id = 'st-scheduled') }}
+        {{ f.checkbox('state[]', 'Опубликованные', 'published' in filters.state, 'published', id = 'st-published') }}
+        {{ f.checkbox('state[]', 'С ошибкой', 'failed' in filters.state, 'failed', id = 'st-failed') }}
+        {{ f.checkbox('state[]', 'Черновики', 'draft' in filters.state, 'draft', hint = 'Черновики показаны в режиме «Список».', id = 'st-draft') }}
+        <p class="hint !mt-0">Ничего не отмечено — показываем всё.</p>
+    </fieldset>
+    <div class="flex flex-wrap gap-3">
+        {{ f.button('Применить', type = 'submit') }}
+        {% if filters.active %}{{ f.button('Сбросить', variant = 'secondary', href = base ~ '/calendar' ~ (view != 'month' ? '?view=' ~ view : '')) }}{% endif %}
+    </div>
+</form>
+{% endset %}
+{{ o.drawer('cal-filters', 'Фильтры', body = filter_form) }}
+
+<div class="mb-4 flex flex-wrap items-center gap-2">
+    <a class="btn btn-secondary !px-0 w-11" href="{{ prev_url }}" aria-label="Предыдущий период">{{ icon('chevron-left', 'h-5 w-5') }}</a>
+    <a class="btn btn-secondary !px-0 w-11" href="{{ next_url }}" aria-label="Следующий период">{{ icon('chevron-right', 'h-5 w-5') }}</a>
+    <a class="btn btn-secondary" href="{{ today_url }}">Сегодня</a>
+    <h2 class="ml-2 text-lg font-semibold" aria-live="polite">{{ title }}</h2>
+    <p class="ml-auto hidden items-center gap-1.5 text-sm text-muted sm:flex">{{ icon('globe', 'h-4 w-4') }}Время: {{ timezone_label }}</p>
+</div>
+<div class="mb-4 flex gap-1 overflow-x-auto border-b border-line" role="navigation" aria-label="Вид календаря">
+    {% for key, label in {month: 'Месяц', week: 'Неделя', list: 'Список'} %}
+    <a class="tab" href="{{ view_urls[key] }}" aria-selected="{{ view == key ? 'true' : 'false' }}"{% if view == key %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+</div>
+<p class="mb-3 text-sm text-muted sm:hidden">{{ icon('globe', 'mr-1 inline h-4 w-4') }}Время: {{ timezone_label }}</p>
+
+<div x-data="calendarDnd" data-move-base="{{ base }}/posts" data-enabled="{{ can_move ? '1' : '0' }}" aria-label="Календарь публикаций">
+{% if is_empty %}
+    <div class="card">
+        {% if filters.active %}
+            {{ d.empty_state('Ничего не нашлось', 'Под выбранные фильтры не подошёл ни один пост. Сбросьте фильтры или выберите другой период.', 'filter', 'Сбросить фильтры', base ~ '/calendar') }}
+        {% else %}
+            {{ d.empty_state('В этом периоде нет постов', can_create ? 'Запланируйте первый пост, и он появится в календаре.' : 'Когда редактор запланирует посты, они появятся здесь.', 'calendar-days', can_create ? 'Запланировать пост' : null, can_create ? new_url : null) }}
+        {% endif %}
+    </div>
+{% elseif view == 'month' %}
+    {{ c.month(weeks, can_create ? base ~ '/posts/new' : null) }}
+{% elseif view == 'week' %}
+    {{ c.week(days, can_create ? base ~ '/posts/new' : null) }}
+{% else %}
+    {% set all_groups = groups %}
+    {% if drafts %}{% set all_groups = [{label: 'Черновики без даты', items: drafts}]|merge(groups) %}{% endif %}
+    {{ c.list(all_groups) }}
+{% endif %}
+</div>
+{% if can_move %}<p class="mt-4 text-sm text-muted">Чтобы перенести пост, перетащите его на другой день: время останется прежним. На телефоне откройте пост и измените время в редакторе.</p>{% endif %}
+{% endblock %}

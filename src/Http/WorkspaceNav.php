@@ -92,6 +92,12 @@ final class WorkspaceNav
         }
         $base = '/w/' . $workspace->workspacePublicId;
         $items = [['id' => 'dashboard', 'label' => 'Обзор', 'icon' => 'layout-dashboard', 'href' => $base]];
+        if ($this->permissions->allows($workspace->role, 'calendar.view')) {
+            $items[] = ['id' => 'calendar', 'label' => 'Календарь', 'icon' => 'calendar-days', 'href' => $base . '/calendar'];
+        }
+        if ($this->permissions->allows($workspace->role, 'posts.draft')) {
+            $items[] = ['id' => 'editor', 'label' => 'Новый пост', 'icon' => 'pencil', 'href' => $base . '/posts/new'];
+        }
         if ($this->permissions->allows($workspace->role, 'channels.view')) {
             $items[] = ['id' => 'channels', 'label' => 'Каналы', 'icon' => 'share-2', 'href' => $base . '/channels'];
         }

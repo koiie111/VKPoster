@@ -89,7 +89,7 @@ final class PublishingPipelineTest extends PostTestCase
         self::assertSame(['1'], $publication->externalIds);
         self::assertNotNull($publication->externalUrl);
         self::assertSame(PostStatus::Published, $this->posts()->find($context, $post->publicId)?->status);
-        self::assertContains('post.published', $this->auditActions($this->workspaces->findById($context->workspaceId)));
+        self::assertContains('post.published', $this->auditActions($this->workspaces->findById($context->workspaceId) ?? throw new \LogicException()));
     }
 
     public function testPublishNowGoesOutWithoutWaitingForTheScheduler(): void
@@ -448,7 +448,6 @@ final class PublishingPipelineTest extends PostTestCase
         self::assertSame('cancelled', $this->postStatus($post->id));
         $row = $this->db->select('SELECT channel_id FROM publications WHERE id = ?', [$publications[0]->id])[0];
         self::assertNull($row['channel_id'], 'the history stays, without the channel');
-        self::assertNotNull($other);
         $this->clock->advance(7200);
         $this->drain();
         self::assertSame([], $this->fake->published);

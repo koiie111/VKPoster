@@ -151,6 +151,7 @@
   .plat-tg::before { background: rgb(var(--tg)); }
   .plat-max::before { background: rgb(var(--max)); }
   .plat-ig::before { background: rgb(var(--ig)); }
+  .plat-fake::before { background: rgb(var(--muted)); }
   .plat-bar-vk { background: rgb(var(--vk)); } .plat-bar-tg { background: rgb(var(--tg)); }
   .plat-bar-max { background: rgb(var(--max)); } .plat-bar-ig { background: rgb(var(--ig)); }
   .btn-block { width: 100%; }

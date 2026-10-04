@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Account\LoginMethodsController;
+use App\Http\Controllers\Account\NotificationController;
 use App\Http\Controllers\Account\SecurityController;
 use App\Http\Controllers\Account\TwoFactorController;
 use App\Http\Controllers\AppController;
@@ -26,6 +27,10 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Media\FolderController;
 use App\Http\Controllers\Media\MediaController;
 use App\Http\Controllers\Media\MediaFileController;
+use App\Http\Controllers\Media\PickerController;
+use App\Http\Controllers\Posts\CalendarController;
+use App\Http\Controllers\Posts\PostController;
+use App\Http\Controllers\Posts\TemplateController;
 use App\Http\Controllers\Media\WatermarkController;
 use App\Http\Middleware\AuthenticateOrSigned;
 use App\Http\Middleware\Authenticate;
@@ -88,6 +93,10 @@ return static function (Router $router): void {
         $r->post('/account/login-methods/password', [LoginMethodsController::class, 'setPassword'])->middleware([RateLimit::class, ['bucket' => 'set-password', 'max' => 10, 'seconds' => 600]]);
         $r->post('/account/login-methods/' . $provider . '/link', [LoginMethodsController::class, 'link']);
         $r->post('/account/login-methods/' . $provider . '/unlink', [LoginMethodsController::class, 'unlink']);
+        $r->get('/account/notifications', [NotificationController::class, 'show'])->name('account.notifications');
+        $r->post('/account/notifications', [NotificationController::class, 'save']);
+        $r->post('/account/notifications/telegram/link', [NotificationController::class, 'linkTelegram'])->middleware([RateLimit::class, ['bucket' => 'telegram-link', 'max' => 10, 'seconds' => 3600]]);
+        $r->post('/account/notifications/telegram/unlink', [NotificationController::class, 'unlinkTelegram']);
         $r->post('/account/2fa/start', [TwoFactorController::class, 'start']);
         $r->get('/account/2fa/setup', [TwoFactorController::class, 'setup'])->name('account.2fa.setup');
         $r->get('/account/2fa/qr.svg', [TwoFactorController::class, 'qr']);
@@ -169,6 +178,37 @@ return static function (Router $router): void {
                 $c->post($item . '/rename', [ChannelController::class, 'rename']);
                 $c->post($item . '/delete', [ChannelController::class, 'delete']);
             });
+            // Posts. Looking (the calendar and a post's page): everyone with calendar access; writing drafts: authors and up;
+            // planning, moving, cancelling, retrying: editors and up (`PostService` repeats the check, and adds the per-post rules).
+            $w->group('', [[Authorize::class, ['permission' => 'calendar.view']]], static function (Router $p) use ($ulid): void {
+                $p->get('/calendar', [CalendarController::class, 'show'])->name('workspace.calendar');
+                $p->get('/posts/{postId:' . $ulid . '}', [PostController::class, 'show'])->name('workspace.post');
+            });
+            $w->group('', [[Authorize::class, ['permission' => 'posts.draft']]], static function (Router $p) use ($ulid): void {
+                $p->get('/posts/new', [PostController::class, 'create'])->name('workspace.post.new');
+                $p->post('/posts', [PostController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'post-save', 'max' => 120, 'seconds' => 600]]);
+                $p->post('/posts/autosave', [PostController::class, 'autosave'])->middleware([RateLimit::class, ['bucket' => 'post-autosave', 'max' => 600, 'seconds' => 600]]);
+                $p->post('/posts/validate', [PostController::class, 'validate'])->middleware([RateLimit::class, ['bucket' => 'post-validate', 'max' => 600, 'seconds' => 600]]);
+                $p->post('/posts/preview', [PostController::class, 'preview'])->middleware([RateLimit::class, ['bucket' => 'post-preview', 'max' => 600, 'seconds' => 600]]);
+                $item = '/posts/{postId:' . $ulid . '}';
+                $p->get($item . '/edit', [PostController::class, 'edit']);
+                $p->post($item, [PostController::class, 'update'])->middleware([RateLimit::class, ['bucket' => 'post-save', 'max' => 120, 'seconds' => 600]]);
+                $p->post($item . '/duplicate', [PostController::class, 'duplicate']);
+                $p->post($item . '/delete', [PostController::class, 'delete']);
+                $p->get('/templates', [TemplateController::class, 'index'])->name('workspace.templates');
+                $p->post('/templates', [TemplateController::class, 'store']);
+                $p->post('/templates/{templateId:' . $ulid . '}/delete', [TemplateController::class, 'delete']);
+            });
+            $w->group('', [[Authorize::class, ['permission' => 'posts.publish']]], static function (Router $p) use ($ulid): void {
+                $item = '/posts/{postId:' . $ulid . '}';
+                $p->post($item . '/move', [PostController::class, 'move'])->middleware([RateLimit::class, ['bucket' => 'post-move', 'max' => 300, 'seconds' => 600]]);
+                $p->post($item . '/cancel', [PostController::class, 'cancel']);
+                $p->post($item . '/edit-published', [PostController::class, 'editPublished']);
+                $p->post($item . '/publications/{publicationId:' . $ulid . '}/retry', [PostController::class, 'retry']);
+                $p->post($item . '/publications/{publicationId:' . $ulid . '}/settle', [PostController::class, 'settle']);
+                $p->post($item . '/publications/{publicationId:' . $ulid . '}/remove', [PostController::class, 'removeFromNetwork']);
+            });
+            $w->get('/media-picker', [PickerController::class, 'list'])->middleware([Authorize::class, ['permission' => 'posts.draft']]);
             $w->get('/audit', [AuditController::class, 'show'])->name('workspace.audit')->middleware([Authorize::class, ['permission' => 'audit.view']]);
         });
     });

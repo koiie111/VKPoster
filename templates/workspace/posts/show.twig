@@ -1,0 +1,127 @@
+{#- A post: what it says, where it goes, what happened to each publication (the journal), and what can be done with it.
+    Variables: post, title, text, html, status, status_label, when, timezone_label, created, rows (publications), planned, editable,
+    can_plan, can_duplicate, can_cancel, can_delete, can_edit_published, media_count, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+
+{% set nav_current = 'calendar' %}
+{% block title %}{{ title }} · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Календарь', href: base ~ '/calendar'}, {label: 'Пост'}]) }}
+{% set actions %}
+    {% if editable %}{{ f.button('Изменить', href = base ~ '/posts/' ~ post.publicId ~ '/edit', icon = 'pencil') }}{% endif %}
+    {% if can_duplicate %}<form method="post" action="{{ base }}/posts/{{ post.publicId }}/duplicate">{{ csrf_field() }}{{ f.button('Дублировать', variant = 'secondary', type = 'submit', icon = 'copy') }}</form>{% endif %}
+    {% if can_cancel or can_delete or can_edit_published %}
+        {% set menu %}
+            {% if can_edit_published %}{{ o.menu_item('Изменить текст', icon = 'pencil', attrs = {'data-dialog-open': 'edit-published'}) }}{% endif %}
+            {% if can_cancel %}{{ o.menu_item('Отменить публикацию', icon = 'circle-x', attrs = {'data-dialog-open': 'cancel-post'}) }}{% endif %}
+            {% if can_delete %}{{ o.menu_item('Удалить пост', icon = 'trash-2', danger = true, attrs = {'data-dialog-open': 'delete-post'}) }}{% endif %}
+        {% endset %}
+        {{ o.dropdown('post-menu', 'Другие действия', icon = 'ellipsis', variant = 'ghost', icon_only = true, body = menu) }}
+    {% endif %}
+{% endset %}
+{% set head_actions %}<div class="flex flex-wrap items-center gap-2">{{ actions }}</div>{% endset %}
+<div class="mt-3">{{ d.page_header(title, body = head_actions) }}</div>
+
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div class="flex min-w-0 flex-col gap-6">
+        <section class="card" aria-labelledby="text-title">
+            <div class="mb-3 flex flex-wrap items-center gap-3">
+                <h2 class="text-lg font-semibold" id="text-title">Текст</h2>
+                {{ d.status_badge(status) }}
+            </div>
+            {#- `html` comes from TextFormatter::toHtml(), which escapes everything and only emits <b>, <i>, <s> and <a href="http(s)://…">: it is the sanitizer (see TextFormatterTest). -#}
+            {% if text|trim %}<div class="whitespace-pre-line break-words text-[0.9375rem]">{{ html|raw }}</div>{% else %}<p class="text-muted">Текста нет{% if media_count %}, только файлы{% endif %}.</p>{% endif %}
+            {% if media_count %}<p class="mt-3 flex items-center gap-1.5 text-sm text-muted">{{ icon('images', 'h-4 w-4') }}Файлов в посте: {{ media_count }}</p>{% endif %}
+        </section>
+
+        <section class="card" aria-labelledby="pubs-title">
+            <h2 class="mb-4 text-lg font-semibold" id="pubs-title">Публикации по каналам</h2>
+            {% if rows is empty and planned is empty %}
+                {{ d.empty_state('Пост ещё не запланирован', 'Это черновик. Выберите каналы и время, и он выйдет сам.', 'calendar-days', editable ? 'Изменить пост' : null, editable ? base ~ '/posts/' ~ post.publicId ~ '/edit' : null) }}
+            {% endif %}
+            <ul class="flex flex-col gap-4">
+                {% for row in rows %}
+                <li class="rounded-card border border-line p-4">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        {{ d.platform_badge(row.platform, row.name) }}
+                        {{ d.status_badge(row.badge) }}
+                        <span class="text-sm text-muted">{{ row.status == 'sent' ? 'вышел' : (row.status == 'queued' ? 'запланирован на' : 'время') }} {{ row.at }}</span>
+                        {% if row.url %}<a class="ml-auto inline-flex items-center gap-1 text-sm font-medium text-primary-text underline underline-offset-2" href="{{ row.url }}" target="_blank" rel="noopener noreferrer">Открыть пост{{ icon('external-link', 'h-3.5 w-3.5') }}</a>{% endif %}
+                    </div>
+                    {% if row.retry_at %}<p class="mt-2 text-sm text-muted">Не получилось с первого раза. Следующая попытка: {{ row.retry_at }}.</p>{% endif %}
+                    {% if row.error %}<p class="mt-2 flex gap-2 rounded-ctl px-3 py-2 text-sm {{ row.status == 'failed' ? 'bg-bad-soft text-bad-fg' : 'bg-warn-soft text-warn-fg' }}">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ row.error }}</span></p>{% endif %}
+                    {% if row.pinned %}<p class="mt-2 text-sm text-muted">Пост закреплён.</p>{% endif %}
+                    {% if row.deleted %}<p class="mt-2 text-sm text-muted">Пост удалён из соцсети.</p>
+                    {% elseif row.delete_at %}<p class="mt-2 text-sm text-muted">Удалим из соцсети: {{ row.delete_at }}.</p>{% endif %}
+                    {% if row.delete_error %}<p class="mt-2 text-sm text-bad-fg">Удалить пост по таймеру не получилось: {{ row.delete_error }}</p>{% endif %}
+
+                    {% if can_plan %}
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        {% if row.status == 'failed' %}
+                            <form method="post" action="{{ base }}/posts/{{ post.publicId }}/publications/{{ row.id }}/retry">{{ csrf_field() }}{{ f.button('Повторить', size = 'sm', type = 'submit', icon = 'refresh-cw') }}</form>
+                        {% elseif row.status == 'unknown' %}
+                            <p class="basis-full text-sm text-muted">Мы не уверены, вышел ли пост. Откройте канал и посмотрите, затем отметьте, что произошло. Если повторить сейчас, пост может выйти дважды.</p>
+                            <form method="post" action="{{ base }}/posts/{{ post.publicId }}/publications/{{ row.id }}/settle">{{ csrf_field() }}<input type="hidden" name="outcome" value="sent">{{ f.button('Пост вышел', size = 'sm', variant = 'secondary', type = 'submit', icon = 'check') }}</form>
+                            <form method="post" action="{{ base }}/posts/{{ post.publicId }}/publications/{{ row.id }}/settle">{{ csrf_field() }}<input type="hidden" name="outcome" value="dropped">{{ f.button('Поста нет', size = 'sm', variant = 'secondary', type = 'submit', icon = 'circle-x') }}</form>
+                            <form method="post" action="{{ base }}/posts/{{ post.publicId }}/publications/{{ row.id }}/retry">{{ csrf_field() }}{{ f.button('Опубликовать ещё раз', size = 'sm', variant = 'ghost', type = 'submit', icon = 'refresh-cw') }}</form>
+                        {% elseif row.status == 'sent' and not row.deleted %}
+                            {{ f.button('Удалить из соцсети', size = 'sm', variant = 'ghost', icon = 'trash-2', attrs = {'data-dialog-open': 'remove-' ~ row.id}) }}
+                            {{ o.confirm_dialog('remove-' ~ row.id, 'Удалить пост из соцсети?', row.name, 'Пост исчезнет из канала, а в нашем календаре останется в истории.', base ~ '/posts/' ~ post.publicId ~ '/publications/' ~ row.id ~ '/remove', 'Удалить из соцсети') }}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if row.attempts %}
+                    <details class="mt-3">
+                        <summary class="flex min-h-9 cursor-pointer items-center gap-1.5 text-sm font-medium text-muted">{{ icon('list', 'h-4 w-4') }}Журнал попыток ({{ row.attempts|length }})</summary>
+                        <ol class="mt-2 flex flex-col gap-2 border-l-2 border-line pl-4">
+                            {% for a in row.attempts %}
+                            <li class="text-sm">
+                                <p><span class="font-semibold {{ a.ok ? 'text-ok-fg' : '' }}">{{ a.outcome }}</span> <span class="text-muted">· {{ a.at }}</span></p>
+                                {% if a.message %}<p class="break-words text-muted">{{ a.message }}</p>{% endif %}
+                                {% if a.detail %}<p class="mt-0.5 break-all font-mono text-xs text-muted">Технические детали: {{ a.detail }}</p>{% endif %}
+                            </li>
+                            {% endfor %}
+                        </ol>
+                    </details>
+                    {% endif %}
+                </li>
+                {% endfor %}
+                {% for p in planned %}
+                <li class="flex flex-wrap items-center gap-3 rounded-card border border-line p-4">{{ d.platform_badge(p.platform, p.name) }}<span class="text-sm text-muted">Пока без времени публикации</span></li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+
+    <aside class="flex flex-col gap-6" aria-label="Сведения о посте">
+        <section class="card">
+            <h2 class="mb-3 text-lg font-semibold">Сведения</h2>
+            <dl class="flex flex-col gap-3 text-sm">
+                <div><dt class="text-muted">Статус</dt><dd class="mt-0.5">{{ d.status_badge(status) }}</dd></div>
+                {% if when %}<div><dt class="text-muted">Время публикации</dt><dd class="mt-0.5 font-medium">{{ when }}</dd><dd class="text-xs text-muted">{{ timezone_label }}</dd></div>{% endif %}
+                <div><dt class="text-muted">Создан</dt><dd class="mt-0.5">{{ created }}</dd></div>
+            </dl>
+        </section>
+    </aside>
+</div>
+
+{% if can_cancel %}{{ o.confirm_dialog('cancel-post', 'Отменить публикацию?', title, 'Пост не выйдет в запланированное время, но останется в истории: его можно запланировать заново.', base ~ '/posts/' ~ post.publicId ~ '/cancel', 'Отменить публикацию') }}{% endif %}
+{% if can_delete %}{{ o.confirm_dialog('delete-post', 'Удалить пост?', title, 'Пост и его план исчезнут. Это нельзя отменить.', base ~ '/posts/' ~ post.publicId ~ '/delete', 'Удалить пост') }}{% endif %}
+{% if can_edit_published %}
+{% set edit_body %}
+<form method="post" action="{{ base }}/posts/{{ post.publicId }}/edit-published">
+    {{ csrf_field() }}
+    <label class="label" for="edit-published-text">Новый текст</label>
+    <textarea class="field" id="edit-published-text" name="text" rows="8" maxlength="20000" required>{{ text }}</textarea>
+    <p class="hint">Изменится текст в тех соцсетях, где это разрешено. Файлы и кнопки заменить нельзя.</p>
+    {% set footer %}<button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button><button type="submit" class="btn btn-primary">Сохранить текст</button>{% endset %}
+    {{ o.modal_footer(footer) }}
+</form>
+{% endset %}
+{{ o.modal('edit-published', 'Изменить текст опубликованного поста', body = edit_body) }}
+{% endif %}
+{% endblock %}

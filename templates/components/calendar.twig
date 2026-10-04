@@ -1,19 +1,21 @@
-{#- Calendar views over plain arrays. Items: {platform, time, title, status}. -#}
+{#- Calendar views over plain arrays. Items: {platform, time, title, status, href?, post_id?, draggable?, failed?, label?}.
+    A real calendar (the page) sets `data-day` on the cells and `data-post-id` + draggable on movable items: `calendar.js` turns that into drag and drop. -#}
 
-{% macro item(it, href = '#') -%}
-<li><a class="plat plat-{{ it.platform }} flex min-h-7 items-center gap-1.5 truncate rounded-sm border border-line bg-surface px-2 py-1 text-xs font-medium shadow-card hover:bg-sunken{{ it.status == 'failed' ? ' !border-bad text-bad-fg' : '' }}" href="{{ href }}"><span class="shrink-0 tabular-nums">{{ it.time }}</span><span class="truncate">{{ it.title }}</span></a></li>
+{% macro item(it, href = null) -%}
+<li><a class="plat plat-{{ it.platform }} flex min-h-7 items-center gap-1.5 truncate rounded-sm border border-line bg-surface px-2 py-1 text-xs font-medium shadow-card hover:bg-sunken{{ (it.failed is defined and it.failed) or it.status == 'failed' ? ' !border-bad text-bad-fg' : '' }}" href="{{ href ?? it.href ?? '#' }}"{% if it.label is defined %} title="{{ it.label }}"{% endif %}{% if it.draggable is defined and it.draggable %} draggable="true" data-post-id="{{ it.post_id }}"{% endif %}><span class="shrink-0 tabular-nums">{{ it.time }}</span><span class="truncate">{{ it.title }}</span></a></li>
 {%- endmacro %}
 
 {#- days: list of {label, num, today?, items}. Seven columns from md, a stacked list below. -#}
-{% macro week(days) -%}
+{% macro week(days, new_base = null) -%}
 {% import _self as c %}
 <div class="overflow-hidden rounded-card border border-line bg-surface shadow-card">
     <div class="grid lg:grid-cols-7">
         {% for day in days %}
-        <div class="min-w-0 border-line p-2 max-lg:border-t first:max-lg:border-t-0 lg:min-h-40 lg:border-l first:lg:border-l-0 {{ day.today is defined and day.today ? 'bg-primary-soft' : '' }}">
+        <div class="min-w-0 border-line p-2 max-lg:border-t first:max-lg:border-t-0 lg:min-h-40 lg:border-l first:lg:border-l-0 {{ day.today is defined and day.today ? 'bg-primary-soft' : '' }}"{% if day.date is defined %} data-day="{{ day.date }}"{% endif %}>
             <div class="mb-2 flex items-baseline gap-1.5 text-sm"><span class="font-semibold">{{ day.label }}</span><span class="text-muted">{{ day.num }}</span></div>
             <ul class="flex flex-col gap-1.5">
                 {% for it in day.items %}{{ c.item(it) }}{% else %}<li class="text-xs text-muted">Нет постов</li>{% endfor %}
+                {% if new_base and day.date is defined %}<li><a class="inline-flex min-h-7 items-center gap-1 text-xs font-medium text-primary-text hover:underline" href="{{ new_base }}?date={{ day.date }}">{{ icon('plus', 'h-3.5 w-3.5') }}Пост на этот день</a></li>{% endif %}
             </ul>
         </div>
         {% endfor %}
@@ -22,7 +24,7 @@
 {%- endmacro %}
 
 {#- weeks: list of 7-cell lists {num, other?, today?, items}. Small screens show colored dots instead of chips. -#}
-{% macro month(weeks) -%}
+{% macro month(weeks, new_base = null) -%}
 {% import _self as c %}
 <div class="overflow-hidden rounded-card border border-line bg-surface shadow-card">
     <div class="grid grid-cols-7 border-b border-line bg-sunken/50 text-center text-xs font-semibold text-muted" aria-hidden="true">
@@ -31,13 +33,14 @@
     {% for week in weeks %}
     <div class="grid grid-cols-7 {{ not loop.first ? 'border-t border-line' : '' }}">
         {% for cell in week %}
-        <div class="min-h-16 min-w-0 p-1 md:min-h-28 md:p-2 {{ not loop.first ? 'border-l border-line' : '' }} {{ cell.other is defined and cell.other ? 'bg-sunken/40 text-muted' : '' }}">
-            <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full text-xs font-semibold {{ cell.today is defined and cell.today ? 'bg-primary text-primary-fg' : '' }}">{{ cell.num }}</span>
+        <div class="min-h-16 min-w-0 p-1 md:min-h-28 md:p-2 {{ not loop.first ? 'border-l border-line' : '' }} {{ cell.other is defined and cell.other ? 'bg-sunken/40 text-muted' : '' }}"{% if cell.date is defined %} data-day="{{ cell.date }}"{% endif %}>
+            {% if new_base and cell.date is defined %}<a class="inline-flex h-6 min-w-6 items-center justify-center rounded-full text-xs font-semibold hover:bg-primary-soft {{ cell.today is defined and cell.today ? '!bg-primary text-primary-fg' : '' }}" href="{{ new_base }}?date={{ cell.date }}" title="Создать пост на этот день" aria-label="{{ cell.num }}: создать пост на этот день">{{ cell.num }}</a>
+            {% else %}<span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full text-xs font-semibold {{ cell.today is defined and cell.today ? 'bg-primary text-primary-fg' : '' }}">{{ cell.num }}</span>{% endif %}
             <ul class="mt-1 hidden flex-col gap-1 md:flex">
                 {% for it in cell.items|slice(0, 2) %}{{ c.item(it) }}{% endfor %}
                 {% if cell.items|length > 2 %}<li class="px-1 text-xs text-muted">ещё {{ cell.items|length - 2 }}</li>{% endif %}
             </ul>
-            {% if cell.items %}<div class="mt-1 flex flex-wrap gap-0.5 md:hidden" role="img" aria-label="Постов: {{ cell.items|length }}">{% for it in cell.items %}<span class="plat plat-{{ it.platform }} inline-flex"></span>{% endfor %}</div>{% endif %}
+            {% if cell.items %}<a class="mt-1 flex flex-wrap gap-0.5 md:hidden" href="{{ cell.items[0].href ?? '#' }}" aria-label="Постов в этот день: {{ cell.items|length }}">{% for it in cell.items %}<span class="plat plat-{{ it.platform }} inline-flex"></span>{% endfor %}</a>{% endif %}
         </div>
         {% endfor %}
     </div>
@@ -57,8 +60,8 @@
             {% for it in g.items %}
             <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 {{ not loop.first ? 'border-t border-line' : '' }}">
                 <span class="w-12 shrink-0 text-sm tabular-nums text-muted">{{ it.time }}</span>
-                {{ d.platform_badge(it.platform) }}
-                <a class="min-w-0 flex-1 truncate font-medium hover:underline" href="#">{{ it.title }}</a>
+                {{ d.platform_badge(it.platform, (it.channel is defined and it.channel) ? it.channel : null) }}
+                <a class="min-w-0 flex-1 truncate font-medium hover:underline" href="{{ it.href ?? '#' }}">{{ it.title }}</a>
                 {{ d.status_badge(it.status) }}
             </li>
             {% endfor %}
