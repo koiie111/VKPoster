@@ -43,7 +43,7 @@ return static function (Router $router): void {
         $r->post('/password/forgot', [PasswordResetController::class, 'forgotStore'])->middleware([RateLimit::class, ['bucket' => 'forgot', 'max' => 10, 'seconds' => 3600]]);
         $r->get('/password/forgot/sent', [PasswordResetController::class, 'forgotSent']);
         // Social sign-in: `provider` is checked against the enabled providers inside the controller (404 otherwise).
-        $r->get('/auth/' . $provider . '/redirect', [SocialController::class, 'redirect'])->middleware([RateLimit::class, ['bucket' => 'oauth-start', 'max' => 30, 'seconds' => 600]]);
+        $r->get('/auth/' . $provider . '/redirect', [SocialController::class, 'redirect'])->middleware([RateLimit::class, ['bucket' => 'oauth-start', 'max' => 60, 'seconds' => 600]]);
         $r->get('/auth/social/consent', [SocialController::class, 'consentShow'])->name('auth.social.consent');
         $r->post('/auth/social/consent', [SocialController::class, 'consentStore'])->middleware([RateLimit::class, ['bucket' => 'oauth-consent', 'max' => 20, 'seconds' => 600]]);
     });

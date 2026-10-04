@@ -1,0 +1,21 @@
+[
+  { "name": "login", "url": "/login" },
+  { "name": "register", "url": "/register" },
+  { "name": "fake-provider", "url": "/auth/fake/redirect" },
+  { "name": "social-consent", "url": "/auth/fake/redirect", "actions": [
+    { "click": "form[action=\"/dev/oauth/fake/approve\"] button[type=submit]" }
+  ] },
+  { "name": "social-consent-error", "url": "/auth/fake/redirect", "actions": [
+    { "click": "form[action=\"/dev/oauth/fake/approve\"] button[type=submit]" },
+    { "fill": ["#f-name", "A"] },
+    { "click": "form[action=\"/auth/social/consent\"] button[type=submit]" }
+  ] },
+  { "name": "social-email-exists", "url": "/auth/fake/redirect", "actions": [
+    { "fill": ["#f-email", "demo@ezposter.local"] },
+    { "click": "form[action=\"/dev/oauth/fake/approve\"] button[type=submit]" }
+  ] },
+  { "name": "login-methods", "url": "/account/login-methods", "login_as": "demo@ezposter.local" },
+  { "name": "login-methods-social", "url": "/account/login-methods", "login_as": "social@ezposter.local" },
+  { "name": "security-social", "url": "/account/security", "login_as": "social@ezposter.local" },
+  { "name": "security", "url": "/account/security", "login_as": "demo@ezposter.local" }
+]

@@ -9,21 +9,21 @@
 `user_identities` (UNIQUE(provider, provider_user_id)), `users.password_hash` становится NULL-able.
 
 ## Задачи
-- [ ] Интерфейс `OAuthProvider`: `authorizationUrl(state, pkce, nonce)`, `exchangeCode()`, `fetchProfile()` → `SocialProfile(provider, id, email, emailVerified, name, avatar)`.
-- [ ] **VK ID** (id.vk.com, OAuth 2.1, PKCE S256, `state`, `device_id`), получение профиля. Права на постинг здесь НЕ запрашиваем (это этап 08, отдельное подключение канала).
-- [ ] **Яндекс ID** (oauth.yandex.ru, `login:email login:info`).
-- [ ] **Google** (OIDC, проверка `id_token`: подпись по JWKS, `iss`, `aud`, `exp`, `nonce`).
-- [ ] **Telegram Login Widget**: проверка `hash` = HMAC-SHA256(data_check_string, SHA256(bot_token)), `auth_date` ≤ 24 ч, защита от повторного использования. Виджет грузится только со страницы входа, CSP для `telegram.org` разрешается точечно на этой странице.
-- [ ] Общий контроллер `/auth/{provider}/redirect` и `/auth/{provider}/callback`, белый список провайдеров, `state` в сессии, одноразовый, сравнение `hash_equals`.
-- [ ] Логика сопоставления:
+- [x] Интерфейс `OAuthProvider`: `authorizationUrl(state, pkce, nonce)`, `exchangeCode()`, `fetchProfile()` → `SocialProfile(provider, id, email, emailVerified, name, avatar)`.
+- [x] **VK ID** (id.vk.com, OAuth 2.1, PKCE S256, `state`, `device_id`), получение профиля. Права на постинг здесь НЕ запрашиваем (это этап 08, отдельное подключение канала).
+- [x] **Яндекс ID** (oauth.yandex.ru, `login:email login:info`).
+- [x] **Google** (OIDC, проверка `id_token`: подпись по JWKS, `iss`, `aud`, `exp`, `nonce`).
+- [x] **Telegram Login Widget**: проверка `hash` = HMAC-SHA256(data_check_string, SHA256(bot_token)), `auth_date` ≤ 24 ч, защита от повторного использования. Виджет грузится только со страницы входа, CSP для `telegram.org` разрешается точечно на этой странице.
+- [x] Общий контроллер `/auth/{provider}/redirect` и `/auth/{provider}/callback`, белый список провайдеров, `state` в сессии, одноразовый, сравнение `hash_equals`.
+- [x] Логика сопоставления:
   1. Есть identity → вход.
   2. Пользователь уже залогинен → привязать identity к текущему аккаунту (если она не принадлежит другому).
   3. Нет identity, провайдер дал **подтверждённый** email, совпадающий с существующим аккаунтом → **не** входим автоматически: показываем «войдите паролем, чтобы привязать» (защита от захвата аккаунта).
   4. Иначе → новый аккаунт (email из провайдера помечается подтверждённым, только если провайдер это гарантирует), согласие на обработку ПДн отдельным шагом.
-- [ ] Страница «Способы входа»: привязать или отвязать; нельзя отвязать последний способ, если нет пароля; можно задать пароль аккаунту, созданному через соцсеть.
-- [ ] Если включена 2FA — после соц.входа тоже нужен код.
-- [ ] Ключи провайдеров в env (`VKID_CLIENT_ID`, `VKID_CLIENT_SECRET`, `YANDEX_*`, `GOOGLE_*`, `TELEGRAM_LOGIN_BOT_TOKEN`, `TELEGRAM_LOGIN_BOT_NAME`); провайдер без ключей скрыт в UI.
-- [ ] Fake-провайдер для тестов и `APP_ENV=local`.
+- [x] Страница «Способы входа»: привязать или отвязать; нельзя отвязать последний способ, если нет пароля; можно задать пароль аккаунту, созданному через соцсеть.
+- [x] Если включена 2FA — после соц.входа тоже нужен код.
+- [x] Ключи провайдеров в env (`VKID_CLIENT_ID`, `VKID_CLIENT_SECRET`, `YANDEX_*`, `GOOGLE_*`, `TELEGRAM_LOGIN_BOT_TOKEN`, `TELEGRAM_LOGIN_BOT_NAME`); провайдер без ключей скрыт в UI.
+- [x] Fake-провайдер для тестов и `APP_ENV=local`.
 
 ## Тесты
 Неверный/повторный/отсутствующий `state` → отказ; подмена PKCE; Telegram: неверный hash, старый auth_date; сценарии сопоставления 1–4; отвязка последнего способа запрещена; identity чужого пользователя не привязывается; open redirect через параметр `next` невозможен.

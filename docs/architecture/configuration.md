@@ -31,6 +31,12 @@
 | `PASSWORD_HIBP` | `0` | `1` включает проверку новых паролей в Have I Been Pwned (отправляются только 5 символов SHA-1; при недоступности сервиса проверка пропускается) |
 | `REMEMBER_DAYS` | `30` | Срок жизни cookie «Запомнить меня» |
 | `CONSENT_VERSION` | `2026-10-01` | Версия текста согласия на обработку ПДн; сохраняется в `users.consent_version` при регистрации |
+| `VKID_CLIENT_ID` `VKID_CLIENT_SECRET` | — | VK ID (id.vk.com). Без `VKID_CLIENT_ID` кнопка скрыта; секрет необязателен для потока с PKCE |
+| `YANDEX_CLIENT_ID` `YANDEX_CLIENT_SECRET` | — | Яндекс ID; нужны оба значения |
+| `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | — | Google (OIDC); нужны оба значения |
+| `TELEGRAM_LOGIN_BOT_TOKEN` `TELEGRAM_LOGIN_BOT_NAME` | — | Бот для Telegram Login Widget (имя без `@`); нужны оба значения. В BotFather выполните `/setdomain` с публичным доменом |
+| `OAUTH_ORDER` | `vkid,yandex,telegram,google` | Порядок кнопок входа; не перечисленные в списке провайдеры идут в конце |
+| `DEV_OAUTH_FAKE` | `0` | `1` включает встроенного тестового провайдера `/dev/oauth/fake`. Префикс `DEV_`: при `APP_ENV=production` приложение не запустится |
 | `S3_KEY` `S3_SECRET` | `minioadmin` | Доступ к MinIO (профиль `s3`) |
 
 Обязательные переменные проверяются при старте (`Config::load`): если чего-то нет, приложение и `bin/console` не запускаются, а в журнал попадает имя переменной без значения. В `config/*.php` env читается только через `Env`; прямых `getenv()` в коде нет.

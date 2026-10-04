@@ -52,7 +52,7 @@ final class ProviderRegistry
             $all['google'] = new GoogleProvider($this->http, $jwt, $google['client_id'], $google['client_secret']);
         }
         if ($this->config->bool('oauth.fake') && !$this->config->isProduction()) {
-            $all['fake'] = new FakeProvider($this->config->string('app.url'));
+            $all['fake'] = new FakeProvider();
         }
 
         $ordered = [];
@@ -117,8 +117,12 @@ final class ProviderRegistry
 
     public function label(string $id): string
     {
+        // Static names, so a linked account of a provider that has been switched off still reads properly.
         return match ($id) {
             'telegram' => 'Telegram',
+            'vkid' => 'VK ID',
+            'yandex' => 'Яндекс',
+            'google' => 'Google',
             default => $this->get($id)?->label() ?? $id,
         };
     }

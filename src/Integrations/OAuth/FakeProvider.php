@@ -11,10 +11,6 @@ namespace App\Integrations\OAuth;
  */
 final class FakeProvider implements OAuthProvider
 {
-    public function __construct(private readonly string $appUrl)
-    {
-    }
-
     public function id(): string
     {
         return 'fake';
@@ -27,12 +23,13 @@ final class FakeProvider implements OAuthProvider
 
     public function authorizationHost(): string
     {
-        return strtolower((string) parse_url($this->appUrl, PHP_URL_HOST));
+        return '';
     }
 
     public function authorizationUrl(string $redirectUri, string $state, Pkce $pkce, string $nonce): string
     {
-        return rtrim($this->appUrl, '/') . '/dev/oauth/fake?' . http_build_query(['state' => $state, 'challenge' => $pkce->challenge, 'nonce' => $nonce], '', '&', PHP_QUERY_RFC3986);
+        // A path on this very site, so the redirect works whatever host the developer's browser uses.
+        return '/dev/oauth/fake?' . http_build_query(['state' => $state, 'challenge' => $pkce->challenge, 'nonce' => $nonce], '', '&', PHP_QUERY_RFC3986);
     }
 
     /**

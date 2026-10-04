@@ -67,10 +67,10 @@ final class SocialFlow
             'until' => $this->clock->now()->getTimestamp() + self::TTL,
         ]);
 
-        return Response::redirectToTrusted(
-            $provider->authorizationUrl($this->redirectUri($providerId), $state, $pkce, $nonce),
-            [$provider->authorizationHost()],
-        );
+        $url = $provider->authorizationUrl($this->redirectUri($providerId), $state, $pkce, $nonce);
+
+        // Real providers: an absolute URL on the provider's own host only. The fake one lives on this site.
+        return Response::isRelativeUrl($url) ? Response::redirect($url) : Response::redirectToTrusted($url, [$provider->authorizationHost()]);
     }
 
     /**

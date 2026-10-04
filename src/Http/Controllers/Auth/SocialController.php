@@ -217,12 +217,13 @@ final class SocialController
                 return $this->failure('login', 'Аккаунт заблокирован. Напишите в поддержку, и мы разберёмся.');
             case SocialStatus::EmailExists:
                 $this->flow->holdPendingLink($profile);
-
-                return $this->failure('login', sprintf(
+                $this->flash->invalid([], ['notice' => sprintf(
                     'Аккаунт с почтой %s уже есть. Войдите по почте и паролю, и мы привяжем %s. Если забыли пароль, нажмите «Забыли пароль?».',
                     $profile->email ?? '',
                     $label,
-                ));
+                )]);
+
+                return Response::redirect('/login');
             default:
                 $this->flow->holdPendingAccount($profile, $next);
 

@@ -49,7 +49,7 @@ abstract class SocialTestCase extends AuthTestCase
     {
         self::assertSame(302, $response->status);
         $location = (string) $response->header('Location');
-        self::assertStringStartsWith('http://localhost/dev/oauth/fake?', $location);
+        self::assertStringStartsWith('/dev/oauth/fake?', $location);
         parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
         self::assertIsString($query['state'] ?? null);
         self::assertIsString($query['challenge'] ?? null);
