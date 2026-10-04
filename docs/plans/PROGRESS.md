@@ -6,10 +6,10 @@
 
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
-- **Текущий этап:** 04
-- **Статус:** DONE (ждёт merge)
-- **Ветка / PR:** stage-04-workspaces
-- **Последнее обновление:** 2026-10-04 (этап 04 готов)
+- **Текущий этап:** 05
+- **Статус:** TODO
+- **Ветка / PR:** PR #9 (смержен)
+- **Последнее обновление:** 2026-10-04 (этап 04 завершён)
 
 ## Этапы
 
@@ -20,7 +20,7 @@
 | 21 | Дизайн-система и UX-основа | DONE | [#6](https://github.com/koiie111/VKPoster/pull/6) | 2026-10-04 | Вариант A «Индиго», Inter, временный логотип-иконка. Для 02+: экраны только из `templates/components/` (импорт `forms/display/overlay`), макеты `layouts/auth|app|landing|admin`, тексты по `docs/design/ux-writing.md`, эталон — прототипы `/dev/proto/*`; динамические имена классов добавлять в `safelist`; новые экраны добавлять в `tools/ui-snap/urls/stage-NN.json` |
 | 02 | Регистрация и вход по email, 2FA | DONE | [#7](https://github.com/koiie111/VKPoster/pull/7) | 2026-10-04 | Для 03: `SessionAuth::signIn()` (вход любым способом), `Authenticate` проверяет `user_sessions`, пользователи без email/пароля допустимы (`users.email`, `password_hash` NULL). Домашняя страница после входа `/app`. Тесты входа: `tests/Support/AuthTestCase.php`; `make ui-snap` умеет `login_as` и `actions`. Нужен валидный `APP_KEY` (`make init`) |
 | 03 | Вход через соцсети | DONE | [#8](https://github.com/koiie111/VKPoster/pull/8) | 2026-10-04 | Ключи провайдеров не вводились, живая проверка VK ID/Telegram/Google/Яндекс отложена владельцем (до появления ключей проверить редиректы, `device_id` VK и виджет Telegram). Для 04: `SocialAuthService::methodCount`, `users.email` может быть NULL; локально `DEV_OAUTH_FAKE=1` |
-| 04 | Workspace, команда, роли, аудит | DONE | PR | 2026-10-04 | Для 05+: данные пространства только через репозитории от `WorkspaceScopedRepository` (первый параметр `WorkspaceContext`, его даёт `ResolveWorkspace`), маршруты внутри `/w/{workspaceId}/…` в группе `config/routes.php` с `Authorize` (право из `config/permissions.php`), новые права добавлять в матрицу и в `PermissionsTest`; события в журнал через `AuditLog::record(…, workspaceId)` + подпись в `AuditActions`; пункты меню — `WorkspaceNav::items()`; для 06: FK `member_channel_access.channel_id → channels` и экран доступа к каналам |
+| 04 | Workspace, команда, роли, аудит | DONE | [#9](https://github.com/koiie111/VKPoster/pull/9) | 2026-10-04 | Для 05+: данные пространства только через репозитории от `WorkspaceScopedRepository` (первый параметр `WorkspaceContext`, его даёт `ResolveWorkspace`), маршруты внутри `/w/{workspaceId}/…` в группе `config/routes.php` с `Authorize` (право из `config/permissions.php`), новые права добавлять в матрицу и в `PermissionsTest`; события в журнал через `AuditLog::record(…, workspaceId)` + подпись в `AuditActions`; пункты меню — `WorkspaceNav::items()`; для 06: FK `member_channel_access.channel_id → channels` и экран доступа к каналам |
 | 05 | Медиатека | TODO | | | |
 | 06 | Каналы + Telegram | TODO | | | |
 | 07 | Редактор, календарь, планировщик, публикация | TODO | | | |
@@ -60,7 +60,7 @@ _Пока вопросов нет._
 
 ## Журнал запусков
 <!-- одна строка на запуск агента, новые сверху: дата · агент · этап · что сделано · итоговый статус -->
-- 2026-10-04 · Claude Sonnet 5.5 · этап 04 · пространства, роли, команда, приглашения, журнал, тест изоляции, PR · STAGE_DONE
+- 2026-10-04 · Claude Sonnet 5.5 · этап 04 · пространства, роли, команда, приглашения, журнал, тест изоляции, PR #9 · STAGE_DONE
 - 2026-10-04 · Claude Sonnet 5.5 · этап 03 · владелец одобрил, ссылки главной меню на вход/регистрацию, merge · STAGE_DONE
 - 2026-10-04 · Claude Sonnet 5.5 · этап 03 · 4 провайдера, сопоставление аккаунтов, «Способы входа», Fake, 567 тестов, PR · NEEDS_OWNER
 - 2026-10-04 · Claude Sonnet 5.5 · этап 02 · владелец одобрил, CI зелёный, merge · STAGE_DONE
