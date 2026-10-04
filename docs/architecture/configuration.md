@@ -37,6 +37,11 @@
 | `TELEGRAM_LOGIN_BOT_TOKEN` `TELEGRAM_LOGIN_BOT_NAME` | — | Бот для Telegram Login Widget (имя без `@`); нужны оба значения. В BotFather выполните `/setdomain` с публичным доменом |
 | `OAUTH_ORDER` | `vkid,yandex,telegram,google` | Порядок кнопок входа; не перечисленные в списке провайдеры идут в конце |
 | `DEV_OAUTH_FAKE` | `0` | `1` включает встроенного тестового провайдера `/dev/oauth/fake`. Префикс `DEV_`: при `APP_ENV=production` приложение не запустится |
+| `PLATFORMS_ENABLED` | `telegram` | Флаги платформ через запятую (`telegram`, `vk`, `max`, `instagram`); выключенная платформа не видна в интерфейсе. `fake` (тестовая сеть) работает только вне production |
+| `TELEGRAM_BOT_TOKEN` | — | Общий бот сервиса (создаётся в @BotFather); без него подключение «через бота сервиса» недоступно, «свой бот» работает |
+| `TELEGRAM_BOT_USERNAME` | — | Имя бота без `@` для подсказки на странице подключения; если пусто, спрашивается у Telegram и кэшируется на час |
+| `TELEGRAM_WEBHOOK_SECRET` | — | 16–128 символов `A-Za-z0-9_-`: секретная часть адреса вебхука; из него же выводится значение заголовка `X-Telegram-Bot-Api-Secret-Token`. Без него вебхук отвечает 404 |
+| `CHANNELS_MAX` | `100` | Сколько каналов можно подключить в одно пространство (с этапа 10 придёт из тарифа) |
 | `S3_KEY` `S3_SECRET` | `minioadmin` | Доступ к MinIO (профиль `s3`) и ключи S3 для `MEDIA_DISK=s3` |
 | `MEDIA_DISK` | `local` | Где хранить файлы медиатеки: `local` (`MEDIA_LOCAL_ROOT`) или `s3` |
 | `MEDIA_LOCAL_ROOT` | `storage/media` | Каталог локального хранилища (относительно проекта или абсолютный); вне docroot nginx |
