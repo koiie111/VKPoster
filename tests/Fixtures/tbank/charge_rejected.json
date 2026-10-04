@@ -1,0 +1,11 @@
+{
+    "Success": false,
+    "ErrorCode": "1051",
+    "Message": "Недостаточно средств на карте",
+    "Details": "Insufficient funds",
+    "TerminalKey": "TestTerminalDEMO",
+    "Status": "REJECTED",
+    "PaymentId": "2304885",
+    "OrderId": "01JTESTPAYMENT000000000000",
+    "Amount": 99000
+}

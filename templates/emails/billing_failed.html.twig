@@ -1,0 +1,14 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}{% if no_method %}Тариф «{{ plan }}» заканчивается {{ until }}. Продлите его, чтобы ничего не отключилось.{% else %}Мы не смогли списать оплату за тариф «{{ plan }}».{% endif %}{% endblock %}
+{% block content %}
+{% if no_method %}
+<h1 style="margin:0 0 12px;font-size:22px;">Пора продлить тариф</h1>
+<p style="margin:0;">Тариф «{{ plan }}» в пространстве «{{ workspace }}» оплачен до {{ until }}. Карта для автоматического списания не сохранена, поэтому продлите тариф вручную.</p>
+{% else %}
+<h1 style="margin:0 0 12px;font-size:22px;">Не удалось продлить тариф</h1>
+<p style="margin:0;">Мы не смогли списать оплату за тариф «{{ plan }}» в пространстве «{{ workspace }}». Обычно это значит, что на карте не хватает денег или она закончилась.</p>
+{% if next %}<p style="margin:12px 0 0;">Мы попробуем ещё раз {{ next }}. Можно не ждать и оплатить сейчас.</p>{% endif %}
+{% endif %}
+<p style="margin:12px 0 0;">Тариф работает до {{ until }}, потом ещё несколько дней, до {{ grace_until }}. Если оплаты не будет, пространство перейдёт на Free: данные сохранятся, а лишние каналы встанут на паузу.</p>
+{% include 'emails/_button.html.twig' with {link: link, label: 'Продлить тариф'} only %}
+{% endblock %}

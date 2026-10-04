@@ -60,7 +60,8 @@ final class ImageProcessorTest extends TestCase
         $limits = MediaLimits::fromConfig(TestEnv::config());
 
         self::assertSame(50 * 1024 * 1024, $limits->maxFileBytes);
-        self::assertSame(500 * 1024 * 1024, $limits->quotaBytes);
+        // The library size comes from the plan; the configured value is only an optional cap (none by default).
+        self::assertSame(0, $limits->quotaBytes);
         self::assertSame(10000, $limits->maxSide);
         self::assertArrayHasKey('telegram', $limits->platforms);
     }

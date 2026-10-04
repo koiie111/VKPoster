@@ -1,0 +1,10 @@
+{
+    "Success": true,
+    "ErrorCode": "0",
+    "TerminalKey": "TestTerminalDEMO",
+    "Status": "NEW",
+    "PaymentId": "2304884",
+    "OrderId": "01JTESTPAYMENT000000000000",
+    "Amount": 99000,
+    "PaymentURL": "https://securepay.tinkoff.ru/new/AbCdEf123"
+}

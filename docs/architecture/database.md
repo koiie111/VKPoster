@@ -241,6 +241,78 @@ erDiagram
     }
 ```
 
+### Биллинг (этап 10)
+
+Подробнее: [modules/billing.md](modules/billing.md). Деньги — `BIGINT` в копейках плюс валюта.
+
+```mermaid
+erDiagram
+    plans ||--o{ plan_prices : prices
+    plans ||--o{ subscriptions : "plan_id"
+    workspaces ||--o| subscriptions : "one per workspace"
+    workspaces ||--o{ invoices : bills
+    workspaces ||--o{ payment_methods : saves
+    workspaces ||--o{ usage_counters : meters
+    subscriptions ||--o{ invoices : for
+    invoices ||--o{ payments : "attempts"
+    payment_methods ||--o{ payments : used
+    payment_methods ||--o{ subscriptions : renews_with
+    ledger_accounts ||--o{ ledger_entries : holds
+    plans {
+        bigint id PK
+        varchar code UK "free|start|pro|agency"
+        text limits_json "null = unlimited"
+        text features_json
+    }
+    plan_prices {
+        bigint plan_id FK
+        varchar period "month|year"
+        char3 currency
+        bigint amount "kopecks, UK(plan, period, currency)"
+    }
+    subscriptions {
+        bigint workspace_id UK
+        bigint plan_id FK
+        varchar status "trialing|active|past_due"
+        bigint price_amount "full price of the current period"
+        datetime6 current_period_end
+        datetime6 trial_ends_at
+        bool cancel_at_period_end
+        bigint pending_plan_id "downgrade at period end"
+        datetime6 next_renewal_attempt_at
+    }
+    invoices {
+        char26 public_id UK
+        varchar number UK "EZ-000123"
+        varchar kind "new|upgrade|renewal"
+        bigint amount
+        bigint list_price
+        varchar status "open|paid|void"
+    }
+    payments {
+        bigint invoice_id FK
+        varchar provider
+        varchar provider_payment_id "UK(provider, id)"
+        varchar status "pending|succeeded|failed|refunded"
+        bigint refunded_amount
+    }
+    payment_methods {
+        varchar provider
+        varchar provider_method_id "UK(provider, id)"
+        varchar title "Visa •• 4242"
+    }
+    webhook_events {
+        varchar provider
+        varchar event_id "UK(provider, event_id)"
+        varchar outcome
+    }
+    ledger_entries {
+        char26 txn_id "entries of one txn sum to 0"
+        bigint account_id FK
+        bigint amount "debit +, credit -"
+    }
+```
+
 Медиатека (`media_folders`, `media`, `watermarks`) принадлежит пространству и удаляется вместе с ним; подробности и правила хранения файлов: [modules/media.md](modules/media.md). Каналы (`channels`, `platform_credentials`, `channel_connect_codes`) принадлежат пространству и удаляются вместе с ним; секреты лежат только в шифрованных столбцах `*_enc` (у OAuth-записи VK ещё `expires_at`, `device_id`, `account_id`), подробности: [modules/channels.md](modules/channels.md), [modules/vk.md](modules/vk.md). Посты (`posts`, `post_variants`, `publications`, `publication_attempts`, `post_templates`) принадлежат пространству; при отключении канала `channel_id` в вариантах и публикациях становится NULL, а история остаётся; уведомления (`notifications`, `notification_settings`, `telegram_links`, `telegram_link_tokens`) принадлежат пользователю; подробности: [modules/posts.md](modules/posts.md). Связанные таблицы удаляются каскадом вместе с пользователем (в том числе его пространства и членства; см. [modules/workspaces.md](modules/workspaces.md)). `audit_log` без внешних ключей: журнал переживает удаление пользователей. Счётчики неудачных входов хранятся в Redis (`auth:fail:*`, `auth:lock:*`), а не в БД.
 
 Команды: `make migrate`, `make console CMD="migrate:status"`, `migrate:rollback` (последний batch), `migrate:fresh` (удаляет все таблицы; в production отключена), `seed` (dev-данные из `database/seeds/`; в production отключена).

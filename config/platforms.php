@@ -35,7 +35,8 @@ return static fn (Env $env): array => [
         'api_base' => rtrim($env->string('MAX_API_BASE', 'https://platform-api2.max.ru'), '/'),
     ],
     'channels' => [
-        'max_per_workspace' => $env->int('CHANNELS_MAX', 100),
+        // A global ceiling on all channels of a workspace (paused ones included); the plan's own limit counts active channels only.
+        'max_per_workspace' => $env->int('CHANNELS_MAX', 1000),
         'connect_code_ttl' => 900,
         'health_interval_hours' => 6,
         // A channel is checked right before publishing when its last check is older than this many minutes.

@@ -3,6 +3,12 @@
 declare(strict_types=1);
 
 use App\Domain\Auth\PasswordPolicy;
+use App\Domain\Billing\Entitlements;
+use App\Domain\Billing\PriceCalculator;
+use App\Integrations\Payments\Fake\FakeGateway;
+use App\Integrations\Payments\GatewayRegistry;
+use App\Integrations\Payments\TBank\TBankGateway;
+use App\Integrations\Payments\YooKassa\YooKassaGateway;
 use App\Domain\Channel\ConnectCodes;
 use App\Integrations\Social\Fake\FakeAdapter;
 use App\Integrations\Social\PlatformRegistry;
@@ -186,6 +192,8 @@ return static function (Container $c, string $base): void {
         $view->registerFunction('current_workspace', $nav->current(...));
         $view->registerFunction('my_workspaces', $nav->mine(...));
         $view->registerFunction('workspace_nav', $nav->items(...));
+        $view->registerFunction('plan_card', $nav->planCard(...));
+        $view->registerFunction('money', \App\Support\Money::format(...));
 
         return $view;
     });
@@ -205,6 +213,7 @@ return static function (Container $c, string $base): void {
         $c->get(MediaUsageChecker::class),
         $c->get(\App\Domain\Audit\AuditLog::class),
         $c->get(Clock::class),
+        $c->get(Entitlements::class),
         $base . '/storage/tmp',
     ));
 
@@ -249,6 +258,47 @@ return static function (Container $c, string $base): void {
         $c->get(Clock::class),
         $c->get(Config::class)->int('platforms.channels.connect_code_ttl', 900),
     ));
+
+    // Billing. The price calculator needs the renewal window; every payment provider is built from its own settings.
+    $c->factory(PriceCalculator::class, static fn (Container $c): PriceCalculator => new PriceCalculator($c->get(Config::class)->int('billing.renewal.lead_days', 3)));
+    $c->factory(YooKassaGateway::class, static function (Container $c): YooKassaGateway {
+        $config = $c->get(Config::class);
+
+        return new YooKassaGateway(
+            $c->get(HttpClientInterface::class),
+            $config->string('billing.yookassa.shop_id'),
+            $config->string('billing.yookassa.secret_key'),
+            $config->string('billing.yookassa.api_base', 'https://api.yookassa.ru/v3'),
+            // The sender check cannot be switched off in production.
+            $config->bool('billing.yookassa.verify_ip', true) || $config->isProduction(),
+            $config->string('billing.tax.tax_system'),
+            $config->string('billing.tax.vat'),
+            $config->string('billing.tax.item_name'),
+        );
+    });
+    $c->factory(TBankGateway::class, static function (Container $c): TBankGateway {
+        $config = $c->get(Config::class);
+
+        return new TBankGateway(
+            $c->get(HttpClientInterface::class),
+            $config->string('billing.tbank.terminal_key'),
+            $config->string('billing.tbank.password'),
+            $config->string('billing.tbank.api_base', 'https://securepay.tinkoff.ru/v2'),
+            rtrim($config->string('app.url'), '/') . '/webhooks/billing/tbank',
+            $config->string('billing.tax.tax_system'),
+            $config->string('billing.tax.vat'),
+            $config->string('billing.tax.item_name'),
+        );
+    });
+    $c->factory(GatewayRegistry::class, static function (Container $c): GatewayRegistry {
+        $config = $c->get(Config::class);
+
+        return new GatewayRegistry(
+            [$c->get(YooKassaGateway::class), $c->get(TBankGateway::class), $c->get(FakeGateway::class)],
+            array_values(array_filter(array_map('strval', $config->array('billing.gateways')), static fn (string $v): bool => $v !== '')),
+            !$config->isProduction(),
+        );
+    });
 
     $c->factory(HealthCheck::class, static fn (Container $c): HealthCheck => new HealthCheck($c->get(Config::class)->env()->all()));
 

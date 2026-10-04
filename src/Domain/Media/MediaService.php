@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Media;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Billing\Entitlements;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Storage\MediaStorage;
 use App\Integrations\Storage\StorageException;
@@ -40,6 +41,7 @@ final class MediaService
         private readonly MediaUsageChecker $usage,
         private readonly AuditLog $audit,
         private readonly Clock $clock,
+        private readonly Entitlements $entitlements,
         private readonly string $tmpDir,
     ) {
     }
@@ -221,9 +223,18 @@ final class MediaService
      */
     private function assertQuota(WorkspaceContext $context, int $incoming): void
     {
-        if ($this->media->usedBytes($context) + $incoming > $this->limits->quotaBytes) {
-            throw new MediaException(sprintf('В медиатеке не хватает места: лимит %s МБ. Удалите ненужные файлы.', self::megabytes($this->limits->quotaBytes)));
+        $quota = $this->quotaFor($context);
+        if ($quota !== null && $this->media->usedBytes($context) + $incoming > $quota) {
+            throw new MediaException(sprintf('В медиатеке не хватает места: лимит %s. Удалите ненужные файлы или перейдите на тариф с большим местом.', MediaPresenter::size($quota)), true);
         }
+    }
+
+    /**
+     * The library size the plan allows (null = unlimited), lowered by the optional global cap from `MEDIA_QUOTA_MB`.
+     */
+    public function quotaFor(WorkspaceContext $context): ?int
+    {
+        return $this->limits->capQuota($this->entitlements->storageBytes($context->workspaceId));
     }
 
     /**

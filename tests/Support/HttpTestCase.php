@@ -23,6 +23,9 @@ abstract class HttpTestCase extends TestCase
     /** @var array<string, string> */
     protected array $cookies = [];
 
+    /** The address requests come from (a documentation address by default); webhook tests change it. */
+    protected string $remoteAddr = '203.0.113.10';
+
     protected function setUp(): void
     {
         $this->app = TestEnv::app();
@@ -67,7 +70,7 @@ abstract class HttpTestCase extends TestCase
             files: $files,
             headers: $headers,
             cookies: $this->cookies,
-            server: ['REMOTE_ADDR' => '203.0.113.10'],
+            server: ['REMOTE_ADDR' => $this->remoteAddr],
         );
         $response = $this->app->handle($request);
         foreach ($response->cookies as $cookie) {

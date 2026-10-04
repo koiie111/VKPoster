@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
+use App\Domain\Billing\BillingPeriod;
+use App\Domain\Billing\Plan;
+use App\Domain\Billing\PlanRepository;
+use App\Domain\Billing\SubscriptionService;
 use App\Domain\User\User;
 use App\Domain\User\UserRepository;
 use App\Kernel\Database\Connection;
@@ -35,6 +39,12 @@ abstract class AuthTestCase extends HttpTestCase
         $this->db->execute('DELETE FROM jobs');
         $this->db->execute('DELETE FROM failed_jobs');
         $this->db->execute('DELETE FROM audit_log');
+        // Billing leftovers: plans made by tests, notifications, the money journal.
+        $this->db->execute('DELETE FROM subscriptions');
+        $this->db->execute('DELETE FROM plans WHERE code LIKE \'test\\_%\'');
+        $this->db->execute('DELETE FROM webhook_events');
+        $this->db->execute('DELETE FROM ledger_entries');
+        $this->db->execute('DELETE FROM ledger_accounts');
         TestEnv::redis()->flushDB();
         parent::setUp();
         $this->clock = new FakeClock(gmdate('Y-m-d H:i:s'));
@@ -51,6 +61,37 @@ abstract class AuthTestCase extends HttpTestCase
     protected function post(string $path, array $body = [], array $headers = []): Response
     {
         return $this->request('POST', $path, $body + ['_token' => $this->csrfToken()], $headers);
+    }
+
+    /**
+     * Put a workspace on a plan for a test. A named existing plan (`free`, `start`, `pro`, `agency`) is used as it is; extra limits or features
+     * make a throw-away plan (`test_*`, removed before the next test) that starts from the Pro plan.
+     *
+     * @param array<string, int|null> $limits limits that replace the plan's own
+     * @param list<string>|null $features replaces the plan's features when given
+     */
+    protected function givePlan(\App\Domain\Workspace\Workspace $workspace, string $code = 'pro', array $limits = [], ?array $features = null, BillingPeriod $period = BillingPeriod::Month): Plan
+    {
+        $plans = $this->app->container()->get(PlanRepository::class);
+        $plan = $plans->findByCode($code) ?? throw new \LogicException('Unknown plan ' . $code);
+        if ($limits !== [] || $features !== null) {
+            $name = 'test_' . bin2hex(random_bytes(3));
+            $now = gmdate('Y-m-d H:i:s.u');
+            $this->db->table('plans')->insert([
+                'code' => $name,
+                'name' => 'Тест',
+                'sort' => 99,
+                'limits_json' => json_encode($limits + $plan->limits, JSON_THROW_ON_ERROR),
+                'features_json' => json_encode($features ?? $plan->features, JSON_THROW_ON_ERROR),
+                'is_public' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $plan = $plans->findByCode($name) ?? throw new \LogicException('The test plan was not saved.');
+        }
+        $this->app->container()->get(SubscriptionService::class)->grant($workspace->id, $plan, $period);
+
+        return $plan;
     }
 
     protected function createUser(string $email = 'anna@example.com', bool $verified = true, ?string $password = null, string $name = 'Анна'): User

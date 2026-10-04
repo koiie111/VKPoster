@@ -28,6 +28,7 @@ make check  # cs + stan + test + audit + docs
 | `make sh` / `make logs` | shell в контейнере `app` / логи |
 | `make console CMD="…"` | `bin/console …` в контейнере |
 | `make migrate` / `make seed` | миграции / сиды |
+| `make console CMD="billing:renew"` | биллинг сейчас (продления, пробные периоды, проверка платежей); `billing:renew --force ID_ПОДПИСКИ` списывает немедленно; `billing:plans [--sync]` прайс-лист; `billing:grant ID_ПРОСТРАНСТВА ТАРИФ [month\|year]` выдаёт тариф без оплаты |
 | `make console CMD="telegram:poll"` | (разработка) принимать апдейты общего бота долгим опросом, без публичного HTTPS; `telegram:webhook set\|delete\|info` для публичного адреса; `max:poll` и `max:webhook set\|delete\|info` то же для общего бота MAX; `crypto:rotate` перешифровывает секреты после смены `APP_KEY`; `channels:check` ставит в очередь проверку каналов; `bench:publish --fake [--count=200]` замеряет задержку публикации на тестовой сети (на время замера остановите `worker` и `scheduler`) |
 | `make test` | PHPUnit (Unit, Integration, Feature) |
 | `make stan` | PHPStan level 8 + strict-rules |

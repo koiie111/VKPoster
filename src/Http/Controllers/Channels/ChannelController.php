@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Channels;
 
+use App\Domain\Billing\Entitlements;
 use App\Domain\Channel\Channel;
 use App\Domain\Channel\ChannelAvatars;
 use App\Domain\Channel\ChannelException;
@@ -13,6 +14,7 @@ use App\Domain\Channel\ChannelStatus;
 use App\Domain\Channel\ConnectCodes;
 use App\Domain\Channel\SharedBot;
 use App\Domain\Workspace\ChannelAccessRepository;
+use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Http\FormFlash;
 use App\Http\WorkspaceRequest;
@@ -42,6 +44,8 @@ final class ChannelController
         private readonly ConnectCodes $codes,
         private readonly SharedBot $sharedBot,
         private readonly PlatformRegistry $registry,
+        private readonly Entitlements $entitlements,
+        private readonly Permissions $permissions,
     ) {
     }
 
@@ -78,7 +82,28 @@ final class ChannelController
                 static fn (Platform $p): bool => in_array($p, [Platform::Telegram, Platform::Vk, Platform::Max, Platform::Fake], true),
             ))),
             'base' => $base,
+            'allowance' => $this->allowance($context),
         ]);
+    }
+
+    /**
+     * How many channels the plan allows and how many are in use, for the hint above the list (the link is for the owner only).
+     *
+     * @return array{plan: string, used: int, limit: int|null, full: bool, upgrade: string|null}
+     */
+    private function allowance(WorkspaceContext $context): array
+    {
+        $plan = $this->entitlements->plan($context->workspaceId);
+        $limit = $plan->limit('channels');
+        $left = $this->entitlements->channelsLeft($context->workspaceId);
+
+        return [
+            'plan' => $plan->name,
+            'used' => $limit === null || $left === null ? 0 : $limit - $left,
+            'limit' => $limit,
+            'full' => $left !== null && $left <= 0,
+            'upgrade' => $this->permissions->allows($context->role, 'workspace.billing') ? '/w/' . $context->workspacePublicId . '/billing/plans' : null,
+        ];
     }
 
     public function fakeForm(Request $request): Response
@@ -132,7 +157,7 @@ final class ChannelController
         try {
             $this->service->assertRoom($context);
         } catch (ChannelException $e) {
-            $this->flash->toast($e->getMessage(), 'error');
+            $this->flash->refusal($e->getMessage(), $e->planLimit, $context->workspacePublicId);
 
             return Response::redirect($back);
         }
@@ -165,7 +190,11 @@ final class ChannelController
             $channel = $this->service->connectOwnTelegramBot($context, $token, $reference);
         } catch (ChannelException $e) {
             // The token is not sent back to the page: only the channel name the person typed.
-            $this->flash->invalid(['reference' => $reference], ['form' => $e->getMessage()]);
+            if ($e->planLimit) {
+                $this->flash->refusal($e->getMessage(), true, $context->workspacePublicId);
+            } else {
+                $this->flash->invalid(['reference' => $reference], ['form' => $e->getMessage()]);
+            }
 
             return Response::redirect($back);
         }
@@ -181,7 +210,7 @@ final class ChannelController
         try {
             $channel = $this->service->connectFake($context, WorkspaceRequest::text($request->input('name')));
         } catch (ChannelException $e) {
-            $this->flash->toast($e->getMessage(), 'error');
+            $this->flash->refusal($e->getMessage(), $e->planLimit, $context->workspacePublicId);
 
             return Response::redirect('/w/' . $context->workspacePublicId . '/channels');
         }
@@ -218,7 +247,13 @@ final class ChannelController
     {
         $context = WorkspaceRequest::context($request);
         $channel = $this->visible($request, $context);
-        $after = $this->service->resume($context, $channel);
+        try {
+            $after = $this->service->resume($context, $channel);
+        } catch (ChannelException $e) {
+            $this->flash->refusal($e->getMessage(), $e->planLimit, $context->workspacePublicId);
+
+            return Response::redirect('/w/' . $context->workspacePublicId . '/channels');
+        }
         if ($after->status === ChannelStatus::Active) {
             $this->flash->toast('Канал «' . $after->displayName() . '» снова работает.');
         } else {

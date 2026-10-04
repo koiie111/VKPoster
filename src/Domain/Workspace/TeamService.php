@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Domain\Workspace;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Billing\Entitlements;
 use App\Domain\User\User;
 use App\Domain\User\UserRepository;
 use App\Kernel\Security\RateLimiter;
+use App\Support\Clock;
 
 /**
  * Team management: invitations, role changes, removal, leaving and ownership transfer. Each action
@@ -27,12 +29,16 @@ final class TeamService
         private readonly WorkspaceMailer $mailer,
         private readonly AuditLog $audit,
         private readonly RateLimiter $limiter,
+        private readonly Entitlements $entitlements,
+        private readonly Clock $clock,
     ) {
     }
 
     /**
      * Invite a person by email. The answer does not reveal whether the address has an account.
-     * At most 20 invitations per workspace per hour.
+     * At most 20 invitations per workspace per hour, and no more people than the plan allows (members plus open invitations).
+     *
+     * @throws \App\Domain\Billing\PlanLimitException when the plan has no room for another person
      */
     public function invite(WorkspaceContext $context, User $actor, string $email, Role $role): TeamResult
     {
@@ -46,6 +52,7 @@ final class TeamService
         if (!$this->limiter->attempt('invite:' . $context->workspaceId, 20, 3600)->allowed) {
             return TeamResult::Throttled;
         }
+        $this->entitlements->assertCanAddMember($context->workspaceId, $this->clock->now());
         $token = InvitationLookup::newToken();
         $invitation = $this->invitations->create($context, $email, $role, InvitationLookup::hash($token), $context->userId, self::INVITE_TTL_DAYS * 86400);
         $this->mailer->invitation($email, $actor->name, $context->workspaceName, $role, $token, self::INVITE_TTL_DAYS);

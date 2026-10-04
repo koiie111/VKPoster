@@ -29,7 +29,7 @@ final class MediaLibraryTest extends MediaTestCase
         self::assertStringContainsString('Медиатека пуста', $text);
         self::assertStringContainsString('Перетащите файлы сюда', $text);
         self::assertStringContainsString('data-upload-url="' . $this->base($workspace) . '/media/upload"', $page->body);
-        self::assertStringContainsString('0 Б из 500 МБ', $text);
+        self::assertStringContainsString('0 Б из 20,0 ГБ', $text);
     }
 
     public function testGridListsFilesWithNamesAndThumbnails(): void

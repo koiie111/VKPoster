@@ -1,0 +1,10 @@
+{
+    "Success": true,
+    "ErrorCode": "0",
+    "TerminalKey": "TestTerminalDEMO",
+    "Status": "REFUNDED",
+    "PaymentId": "2304884",
+    "OrderId": "01JTESTPAYMENT000000000000",
+    "OriginalAmount": 99000,
+    "NewAmount": 0
+}

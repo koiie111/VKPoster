@@ -12,7 +12,9 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\SocialController;
+use App\Http\Controllers\Billing\BillingController;
 use App\Http\Controllers\Dev\DevOAuthController;
+use App\Http\Controllers\Dev\FakePaymentController;
 use App\Http\Controllers\Dev\DevLoginController;
 use App\Http\Controllers\Dev\DevUiController;
 use App\Http\Controllers\Channels\ChannelController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\Channels\MaxConnectController;
 use App\Http\Controllers\Channels\VkConnectController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Webhooks\MaxWebhookController;
+use App\Http\Controllers\Webhooks\PaymentWebhookController;
 use App\Http\Controllers\Webhooks\TelegramWebhookController;
 use App\Http\Controllers\Workspace\AuditController;
 use App\Http\Controllers\Workspace\InvitationController;
@@ -140,6 +143,19 @@ return static function (Router $router): void {
                 $t->post('/settings', [SettingsController::class, 'update']);
             });
             $w->post('/delete', [SettingsController::class, 'delete'])->middleware([Authorize::class, ['permission' => 'workspace.delete']]);
+            // Plan and payment: the owner only. `pay` sends the browser on to the provider (a plain page load, see BillingController::checkout).
+            $w->group('/billing', [[Authorize::class, ['permission' => 'workspace.billing']]], static function (Router $b) use ($ulid): void {
+                $b->get('', [BillingController::class, 'overview'])->name('workspace.billing');
+                $b->get('/plans', [BillingController::class, 'plans'])->name('workspace.billing.plans');
+                $b->post('/checkout', [BillingController::class, 'checkout'])->middleware([RateLimit::class, ['bucket' => 'billing-checkout', 'max' => 20, 'seconds' => 3600]]);
+                $b->get('/pay/{paymentId:' . $ulid . '}', [BillingController::class, 'pay'])->middleware([RateLimit::class, ['bucket' => 'billing-pay', 'max' => 60, 'seconds' => 3600]]);
+                $b->get('/return', [BillingController::class, 'returned'])->middleware([RateLimit::class, ['bucket' => 'billing-return', 'max' => 120, 'seconds' => 600]]);
+                $b->post('/renewal/cancel', [BillingController::class, 'cancelRenewal']);
+                $b->post('/renewal/resume', [BillingController::class, 'resumeRenewal']);
+                $b->post('/change/cancel', [BillingController::class, 'unschedule']);
+                $b->post('/card/remove', [BillingController::class, 'forgetCard']);
+                $b->get('/invoices/{invoiceId:' . $ulid . '}/receipt', [BillingController::class, 'receipt'])->name('workspace.billing.receipt');
+            });
             // Media library. Viewing: everyone who works on posts; uploading: authors and up; changes: editors and up.
             $w->group('', [[Authorize::class, ['permission' => 'media.view']]], static function (Router $m) use ($ulid): void {
                 $m->get('/media', [MediaController::class, 'index'])->name('workspace.media');
@@ -234,7 +250,13 @@ return static function (Router $router): void {
     // MAX calls this for every update of the shared bot: the secret in the path plus the X-Max-Bot-Api-Secret header (see MaxWebhook).
     $router->post('/webhooks/max/{secret:[A-Za-z0-9_-]{16,128}}', [MaxWebhookController::class, 'receive'])->withoutCsrf();
 
+    // Payment providers call this for every payment event: authenticity is checked by the provider's gateway before anything is read.
+    $router->post('/webhooks/billing/{provider:[a-z]{3,12}}', [PaymentWebhookController::class, 'receive'])->withoutCsrf();
+
     $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);
+    // The payment page of the test provider (404 outside local/testing).
+    $router->get('/dev/billing/pay/{paymentId:' . $ulid . '}', [FakePaymentController::class, 'show']);
+    $router->post('/dev/billing/pay/{paymentId:' . $ulid . '}', [FakePaymentController::class, 'answer']);
     // Fake social sign-in provider (404 unless DEV_OAUTH_FAKE is on outside production).
     $router->get('/dev/oauth/fake', [DevOAuthController::class, 'show']);
     $router->get('/dev/oauth/fake/approve', [DevOAuthController::class, 'approve']);

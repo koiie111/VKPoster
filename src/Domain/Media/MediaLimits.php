@@ -26,6 +26,20 @@ final class MediaLimits
     ) {
     }
 
+    /**
+     * The plan's library size, lowered by the global cap when one is set (`MEDIA_QUOTA_MB`; 0 means no cap).
+     *
+     * @param int|null $planBytes null = the plan is unlimited
+     */
+    public function capQuota(?int $planBytes): ?int
+    {
+        if ($this->quotaBytes <= 0) {
+            return $planBytes;
+        }
+
+        return $planBytes === null ? $this->quotaBytes : min($planBytes, $this->quotaBytes);
+    }
+
     public static function fromConfig(Config $config): self
     {
         /** @var array<string, array<string, mixed>> $platforms */
@@ -33,7 +47,7 @@ final class MediaLimits
 
         return new self(
             $config->int('media.max_file_bytes', 50 * 1024 * 1024),
-            $config->int('media.quota_bytes', 500 * 1024 * 1024),
+            $config->int('media.quota_bytes', 0),
             $config->int('media.max_side', 10000),
             $config->int('media.max_video_seconds', 900),
             $config->int('media.url_timeout', 30),

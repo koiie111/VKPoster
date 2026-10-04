@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http;
 
+use App\Domain\Billing\Entitlements;
 use App\Domain\User\User;
 use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Domain\Workspace\WorkspaceRepository;
 use App\Http\Middleware\ResolveWorkspace;
 use App\Kernel\Http\RequestContext;
+use App\Support\Clock;
 
 /**
  * Feeds the application shell (sidebar, workspace switcher) and the Twig helpers `can()`,
@@ -24,6 +26,8 @@ final class WorkspaceNav
         private readonly RequestContext $context,
         private readonly WorkspaceRepository $workspaces,
         private readonly Permissions $permissions,
+        private readonly Entitlements $entitlements,
+        private readonly Clock $clock,
     ) {
     }
 
@@ -77,6 +81,31 @@ final class WorkspaceNav
     }
 
     /**
+     * The plan card at the bottom of the sidebar: the plan, what is left of the trial and the month's posts. It links to the billing page
+     * for the owner only (for everyone else it is information, not a way in).
+     *
+     * @return array{name: string, trial_days: int|null, posts_used: int, posts_limit: int|null, href: string|null}|null
+     */
+    public function planCard(): ?array
+    {
+        $workspace = $this->current();
+        if ($workspace === null) {
+            return null;
+        }
+        $now = $this->clock->now();
+        $entitlement = $this->entitlements->for($workspace->workspaceId);
+        $trialEnds = $entitlement->subscription?->isTrial() === true ? $entitlement->subscription->trialEndsAt : null;
+
+        return [
+            'name' => $entitlement->plan->name,
+            'trial_days' => $trialEnds === null ? null : max(0, (int) ceil(($trialEnds->getTimestamp() - $now->getTimestamp()) / 86400)),
+            'posts_used' => $this->entitlements->postsInMonth($workspace->workspaceId, $now),
+            'posts_limit' => $entitlement->limit('posts_per_month'),
+            'href' => $this->permissions->allows($workspace->role, 'workspace.billing') ? '/w/' . $workspace->workspacePublicId . '/billing' : null,
+        ];
+    }
+
+    /**
      * Sidebar entries for the current workspace, limited to what the member may open.
      *
      * @return list<array{id: string, label: string, icon: string, href: string}>
@@ -112,6 +141,9 @@ final class WorkspaceNav
         }
         if ($this->permissions->allows($workspace->role, 'workspace.settings')) {
             $items[] = ['id' => 'workspace', 'label' => 'Пространство', 'icon' => 'building-2', 'href' => $base . '/settings'];
+        }
+        if ($this->permissions->allows($workspace->role, 'workspace.billing')) {
+            $items[] = ['id' => 'billing', 'label' => 'Тариф и оплата', 'icon' => 'credit-card', 'href' => $base . '/billing'];
         }
         $items[] = ['id' => 'settings', 'label' => 'Безопасность', 'icon' => 'shield', 'href' => '/account/security'];
 

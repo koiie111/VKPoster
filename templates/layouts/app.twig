@@ -36,6 +36,20 @@
                 <p class="mt-1">Использовано 12 из 30 постов в месяц</p>
                 <div class="mt-3">{{ d.progress(12, 30, aria_label = 'Посты в этом месяце') }}</div>
             </div>
+            {% elseif ws %}
+            {% set plan = plan_card() %}
+            {% if plan %}
+            <div class="mt-auto rounded-card bg-primary-soft p-4 text-sm text-primary-softfg">
+                <p class="font-semibold">{% if plan.href %}<a class="underline-offset-2 hover:underline" href="{{ plan.href }}">Тариф «{{ plan.name }}»</a>{% else %}Тариф «{{ plan.name }}»{% endif %}</p>
+                {% if plan.trial_days is not null %}<p class="mt-1">Пробный период: осталось дней {{ plan.trial_days }}</p>{% endif %}
+                {% if plan.posts_limit is not null %}
+                <p class="mt-1">Постов в этом месяце: {{ plan.posts_used }} из {{ plan.posts_limit }}</p>
+                <div class="mt-3">{{ d.progress(min(plan.posts_used, plan.posts_limit), max(plan.posts_limit, 1), aria_label = 'Посты в этом месяце') }}</div>
+                {% else %}
+                <p class="mt-1">Постов в этом месяце: {{ plan.posts_used }}, без ограничений</p>
+                {% endif %}
+            </div>
+            {% endif %}
             {% endif %}
         </div>
     </aside>
@@ -58,6 +72,8 @@
             </div>
         </header>
         <main id="main" class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+            {% set plan_notice = plan_limit_notice() %}
+            {% if plan_notice %}<div class="mb-6">{% set plan_notice_action %}<a class="btn btn-primary btn-sm" href="{{ plan_notice.href }}">Перейти на тариф</a>{% endset %}{{ d.alert('warning', 'Это ограничение тарифа', plan_notice.text, plan_notice_action) }}</div>{% endif %}
             {% block content %}{% endblock %}
         </main>
     </div>

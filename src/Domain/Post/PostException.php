@@ -15,8 +15,9 @@ final class PostException extends RuntimeException
     /**
      * @param array<string, list<string>> $channelProblems channel public id (or `*` for the whole post) => problems
      * @param bool $retryable the cause is passing (storage hiccup), so the pipeline may try again later
+     * @param bool $planLimit the plan's monthly allowance is used up, so the page can offer a better plan
      */
-    public function __construct(string $message, public readonly array $channelProblems = [], public readonly bool $forbidden = false, public readonly bool $retryable = false)
+    public function __construct(string $message, public readonly array $channelProblems = [], public readonly bool $forbidden = false, public readonly bool $retryable = false, public readonly bool $planLimit = false)
     {
         parent::__construct($message);
     }

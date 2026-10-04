@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Domain\Auth\AuthMaintenance;
+use App\Domain\Billing\RenewalService;
+use App\Domain\Billing\WebhookEvents;
 use App\Domain\Channel\ChannelHealthService;
 use App\Domain\Notification\Notifier;
 use App\Domain\Notification\TelegramLinks;
@@ -21,4 +23,7 @@ return static function (Schedule $schedule): void {
     // Every minute: jobs for publications that fall due within 90 seconds, lost-worker clean-up, deletion timers.
     $schedule->call('publish-due', '* * * * *', [PublicationScheduler::class, 'tick']);
     $schedule->call('channels-health', '23 * * * *', [ChannelHealthService::class, 'enqueueDue']);
+    // Hourly: trial reminders and endings, renewals and their retries, payments that stayed open, unpaid invoices. Each step is safe to repeat.
+    $schedule->call('billing-tick', '41 * * * *', [RenewalService::class, 'tick']);
+    $schedule->call('webhook-events-prune', '47 3 * * *', [WebhookEvents::class, 'prune']);
 };

@@ -42,6 +42,25 @@ final class FormFlash
     }
 
     /**
+     * Tell the person that something was refused. A refusal that comes from the plan stays on screen as a banner with a link to the plans
+     * (a toast would vanish before they could act); anything else is a toast.
+     */
+    public function refusal(string $message, bool $planLimit, string $workspacePublicId): void
+    {
+        if ($planLimit) {
+            $this->planLimit($message, $workspacePublicId);
+
+            return;
+        }
+        $this->toast($message, 'error');
+    }
+
+    public function planLimit(string $message, string $workspacePublicId): void
+    {
+        $this->session()->flash('_plan_limit', ['text' => $message, 'href' => '/w/' . $workspacePublicId . '/billing/plans']);
+    }
+
+    /**
      * @param string $kind success|error|warning|info
      */
     public function toast(string $text, string $kind = 'success'): void

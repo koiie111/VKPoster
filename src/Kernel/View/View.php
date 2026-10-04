@@ -104,6 +104,7 @@ final class View
                     new TwigFunction('old', $this->view->old(...)),
                     new TwigFunction('errors', $this->view->errors(...)),
                     new TwigFunction('toasts', $this->view->toasts(...)),
+                    new TwigFunction('plan_limit_notice', $this->view->planLimitNotice(...)),
                     new TwigFunction('current_user', $this->view->currentUser(...)),
                 ];
             }
@@ -282,6 +283,19 @@ final class View
         }
 
         return $out;
+    }
+
+    /**
+     * A refusal caused by the plan, flashed by the previous request: `{text, href}` for the banner with the link to the plans.
+     *
+     * @return array{text: string, href: string}|null
+     * @internal Twig function.
+     */
+    public function planLimitNotice(): ?array
+    {
+        $item = $this->context->session()?->getFlash('_plan_limit');
+
+        return is_array($item) && is_string($item['text'] ?? null) && is_string($item['href'] ?? null) ? ['text' => $item['text'], 'href' => $item['href']] : null;
     }
 
     /**

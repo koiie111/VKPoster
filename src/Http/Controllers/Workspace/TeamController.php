@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Workspace;
 
+use App\Domain\Billing\PlanLimitException;
 use App\Domain\Workspace\InvitationRepository;
 use App\Domain\Workspace\MemberPolicy;
 use App\Domain\Workspace\MemberRepository;
@@ -63,7 +64,15 @@ final class TeamController
         ], ['email' => 'Почта', 'role' => 'Роль'])->errors();
         $role = Role::tryFrom($input['role']);
         if ($errors === [] && $role !== null) {
-            $result = $this->team->invite($context, WorkspaceRequest::user($request), $input['email'], $role);
+            try {
+                $result = $this->team->invite($context, WorkspaceRequest::user($request), $input['email'], $role);
+            } catch (PlanLimitException $e) {
+                // The way out is the plan, so it is a banner with a link, and what the person typed stays in the form.
+                $this->flash->planLimit($e->getMessage(), $context->workspacePublicId);
+                $this->flash->invalid($input, []);
+
+                return $this->back($context->workspacePublicId, '#invite');
+            }
             $message = match ($result) {
                 TeamResult::Done => null,
                 TeamResult::AlreadyMember => 'Этот человек уже в команде.',

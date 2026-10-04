@@ -14,6 +14,9 @@
     {% endif %}
 {% endset %}
 {{ d.page_header('Каналы', 'Здесь соцсети, в которые мы публикуем ваши посты.', body = head) }}
+{% if allowance.limit is not null %}
+<p class="mb-5 text-sm text-muted">По тарифу «{{ allowance.plan }}» работают каналов: {{ allowance.used }} из {{ allowance.limit }}.{% if allowance.full %} Мест больше нет: чтобы подключить ещё, поставьте лишний канал на паузу{% if allowance.upgrade %} или <a class="font-medium text-primary-text underline underline-offset-2" href="{{ allowance.upgrade }}">перейдите на тариф выше</a>{% endif %}.{% endif %}</p>
+{% endif %}
 
 {% if channels is empty %}
 <div class="card">
