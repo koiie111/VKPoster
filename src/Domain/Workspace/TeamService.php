@@ -130,7 +130,7 @@ final class TeamService
             return TeamResult::Done;
         }
         $this->members->setRole($context, $member, $new);
-        $this->audit->record('member.role_changed', $context->userId, 'member', $member->publicId, ['user_id' => $member->userId, 'from' => $member->role->value, 'to' => $new->value], $context->workspaceId);
+        $this->audit->record('member.role_changed', $context->userId, 'member', $member->publicId, ['user_id' => $member->userId, 'email' => $member->email, 'from' => $member->role->value, 'to' => $new->value], $context->workspaceId);
 
         return TeamResult::Done;
     }
@@ -145,7 +145,7 @@ final class TeamService
             return TeamResult::Forbidden;
         }
         $this->members->remove($context, $member->userId);
-        $this->audit->record('member.removed', $context->userId, 'member', $member->publicId, ['user_id' => $member->userId, 'role' => $member->role->value], $context->workspaceId);
+        $this->audit->record('member.removed', $context->userId, 'member', $member->publicId, ['user_id' => $member->userId, 'email' => $member->email, 'role' => $member->role->value], $context->workspaceId);
 
         return TeamResult::Done;
     }
@@ -184,7 +184,7 @@ final class TeamService
         if (!$this->workspaces->transferOwnership($context, $member->userId)) {
             return TeamResult::Forbidden;
         }
-        $this->audit->record('workspace.ownership_transferred', $context->userId, 'workspace', $context->workspacePublicId, ['to_user_id' => $member->userId, 'to_member' => $member->publicId], $context->workspaceId);
+        $this->audit->record('workspace.ownership_transferred', $context->userId, 'workspace', $context->workspacePublicId, ['to_user_id' => $member->userId, 'email' => $member->email], $context->workspaceId);
 
         return TeamResult::Done;
     }

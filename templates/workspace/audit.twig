@@ -16,25 +16,24 @@
 </form>
 
 <section class="card !p-0" aria-label="События">
-    {% set body %}
-    {% for row in result.rows %}
-    <tr>
-        <td class="whitespace-nowrap text-muted">{{ row.created_at|date('d.m.Y H:i:s', workspace.timezone) }}</td>
-        <td class="font-medium">{{ row.label }}</td>
-        <td>{{ row.actor_name ?? (row.actor_id ? 'Участник удалён' : 'Система') }}</td>
-        <td class="text-sm text-muted">
-            {% if row.meta.email is defined %}{{ row.meta.email }}{% endif %}
-            {% if row.meta.from is defined and row.meta.to is defined %}{{ row.meta.from }} → {{ row.meta.to }}{% elseif row.meta.role is defined %} {{ row.meta.role }}{% endif %}
-            {% if row.meta.name is defined %}«{{ row.meta.name }}»{% endif %}
-        </td>
-        <td class="whitespace-nowrap text-sm text-muted">{{ row.ip ?? '' }}</td>
-    </tr>
-    {% endfor %}
-    {% endset %}
-    {{ d.table([{label: 'Когда'}, {label: 'Событие'}, {label: 'Кто'}, {label: 'Подробности'}, {label: 'IP'}], empty = (result.rows|length == 0),
-        empty_title = filters.group or filters.actor or filters.from or filters.to ? 'Ничего не нашли' : 'Журнал пока пуст',
-        empty_text = filters.group or filters.actor or filters.from or filters.to ? 'Попробуйте другой период или сбросьте фильтры.' : 'Здесь появятся приглашения, смены ролей и другие действия команды.',
-        caption = 'События пространства', body = body) }}
+    {% if result.rows %}
+    <ul class="divide-y divide-line">
+        {% for row in result.rows %}
+        <li class="flex flex-col gap-1 px-5 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+            <div class="min-w-0">
+                <p class="font-medium">{{ row.label }}</p>
+                <p class="break-words text-sm text-muted">{{ row.actor_name ?? (row.actor_id ? 'Участник удалён' : 'Система') }}{% if row.details %} · {{ row.details }}{% endif %}</p>
+            </div>
+            <p class="shrink-0 text-sm text-muted">{{ row.created_at|date('d.m.Y H:i', workspace.timezone) }}{% if row.ip %} · {{ row.ip }}{% endif %}</p>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    {% set filtered = filters.group or filters.actor or filters.from or filters.to %}
+    <div class="p-5">{{ d.empty_state(filtered ? 'Ничего не нашли' : 'Журнал пока пуст',
+        filtered ? 'Попробуйте другой период или сбросьте фильтры.' : 'Здесь появятся приглашения, смены ролей и другие действия команды.', 'list',
+        filtered ? 'Сбросить фильтры' : null, filtered ? '/w/' ~ workspace.workspacePublicId ~ '/audit' : null) }}</div>
+    {% endif %}
 </section>
 <div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
 {% endblock %}

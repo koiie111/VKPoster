@@ -42,7 +42,7 @@ final class AuditPageTest extends WorkspaceTestCase
         $page = $this->get($this->base($workspace) . '/audit')->body;
 
         self::assertStringContainsString('Изменена роль', $page);
-        self::assertStringContainsString('editor → author', $page);
+        self::assertStringContainsString('editor@example.com: Редактор → Автор', $page);
         self::assertStringContainsString('Приглашён участник', $page);
         self::assertStringContainsString('guest@example.com', $page);
         self::assertStringContainsString('Создано пространство', $page);

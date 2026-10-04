@@ -26,55 +26,54 @@
 
     <section class="card !p-0" aria-labelledby="members-title">
         <h2 class="p-5 pb-3 text-lg font-semibold" id="members-title">Участники ({{ members|length }})</h2>
-        {% set body %}
-        {% for m in members %}
-        {% set manageable = m.userId != user.id and policy.canRemove(workspace.role, m.role) %}
-        <tr>
-            <td><div class="flex items-center gap-3">{{ d.avatar(m.name, size = 'sm') }}<div class="min-w-0"><p class="truncate font-medium">{{ m.name }}{% if m.userId == user.id %} <span class="text-muted">(вы)</span>{% endif %}</p><p class="truncate text-sm text-muted">{{ m.email ?? 'Без почты' }}</p></div></div></td>
-            <td>
-                {% if manageable %}
-                <form class="flex items-center gap-2" method="post" action="{{ base }}/team/members/{{ m.publicId }}/role">
-                    {{ csrf_field() }}
-                    <label class="sr-only" for="role-{{ m.publicId }}">Роль участника {{ m.name }}</label>
-                    <select class="field !w-auto" id="role-{{ m.publicId }}" name="role">
-                        {% for value, label in invite_roles %}<option value="{{ value }}"{% if value == m.role.value %} selected{% endif %}>{{ label }}</option>{% endfor %}
-                    </select>
-                    {{ f.button('Сменить', variant = 'secondary', size = 'sm', type = 'submit', attrs = {'aria-label': 'Сменить роль: ' ~ m.name}) }}
-                </form>
-                {% else %}
-                {{ d.badge(role_labels[m.role.value], m.role.value == 'owner' ? 'info' : 'neutral') }}
-                {% endif %}
-            </td>
-            <td class="whitespace-nowrap text-muted">{{ m.joinedAt|date('d.m.Y', workspace.timezone) }}</td>
-            <td class="text-right">
-                {% if manageable %}
-                {{ f.button('Исключить', variant = 'ghost', size = 'sm', attrs = {'data-dialog-open': 'remove-' ~ m.publicId, 'aria-label': 'Исключить: ' ~ m.name}) }}
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        {% endset %}
-        {{ d.table([{label: 'Участник'}, {label: 'Роль'}, {label: 'В команде с'}, {label: 'Действия', class: 'text-right'}], caption = 'Участники пространства', body = body) }}
+        <ul class="divide-y divide-line border-t border-line">
+            {% for m in members %}
+            {% set manageable = m.userId != user.id and policy.canRemove(workspace.role, m.role) %}
+            <li class="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex min-w-0 items-center gap-3">
+                    {{ d.avatar(m.name, size = 'sm') }}
+                    <div class="min-w-0">
+                        <p class="break-words font-medium">{{ m.name }}{% if m.userId == user.id %} <span class="text-muted">(вы)</span>{% endif %}</p>
+                        <p class="break-all text-sm text-muted">{{ m.email ?? 'Без почты' }}</p>
+                        <p class="text-sm text-muted">В команде с&nbsp;{{ m.joinedAt|date('d.m.Y', workspace.timezone) }}</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    {% if manageable %}
+                    <form class="flex flex-wrap items-center gap-2" method="post" action="{{ base }}/team/members/{{ m.publicId }}/role">
+                        {{ csrf_field() }}
+                        <label class="sr-only" for="role-{{ m.publicId }}">Роль участника {{ m.name }}</label>
+                        <select class="field !w-auto" id="role-{{ m.publicId }}" name="role">
+                            {% for value, label in invite_roles %}<option value="{{ value }}"{% if value == m.role.value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                        {{ f.button('Сменить', variant = 'secondary', type = 'submit', attrs = {'aria-label': 'Сменить роль: ' ~ m.name}) }}
+                    </form>
+                    {{ f.button('Исключить', variant = 'ghost', attrs = {'data-dialog-open': 'remove-' ~ m.publicId, 'aria-label': 'Исключить: ' ~ m.name}) }}
+                    {% else %}
+                    {{ d.badge(role_labels[m.role.value], m.role.value == 'owner' ? 'info' : 'neutral') }}
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
     </section>
 
     <section class="card !p-0" aria-labelledby="invitations-title">
         <h2 class="p-5 pb-3 text-lg font-semibold" id="invitations-title">Ждут ответа ({{ invitations|length }})</h2>
         {% if invitations %}
-        {% set inv_body %}
-        {% for i in invitations %}
-        <tr>
-            <td class="break-all font-medium">{{ i.email }}</td>
-            <td>{{ d.badge(role_labels[i.role.value], 'neutral') }}</td>
-            <td class="whitespace-nowrap text-muted">до {{ i.expiresAt|date('d.m.Y H:i', workspace.timezone) }}</td>
-            <td class="text-right">
+        <ul class="divide-y divide-line border-t border-line">
+            {% for i in invitations %}
+            <li class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                    <p class="break-all font-medium">{{ i.email }}</p>
+                    <p class="text-sm text-muted">{{ role_labels[i.role.value] }} · ссылка действует до {{ i.expiresAt|date('d.m.Y H:i', workspace.timezone) }}</p>
+                </div>
                 {% if policy.canRevokeInvitation(workspace.role, i.role) %}
-                <form method="post" action="{{ base }}/team/invitations/{{ i.publicId }}/revoke">{{ csrf_field() }}{{ f.button('Отозвать', variant = 'ghost', size = 'sm', type = 'submit', attrs = {'aria-label': 'Отозвать приглашение: ' ~ i.email}) }}</form>
+                <form method="post" action="{{ base }}/team/invitations/{{ i.publicId }}/revoke">{{ csrf_field() }}{{ f.button('Отозвать', variant = 'ghost', type = 'submit', attrs = {'aria-label': 'Отозвать приглашение: ' ~ i.email}) }}</form>
                 {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-        {% endset %}
-        {{ d.table([{label: 'Почта'}, {label: 'Роль'}, {label: 'Действует'}, {label: 'Действия', class: 'text-right'}], caption = 'Открытые приглашения', body = inv_body) }}
+            </li>
+            {% endfor %}
+        </ul>
         {% else %}
         <div class="p-5 pt-0">{{ d.empty_state('Открытых приглашений нет', 'Пригласите коллегу или клиента по почте: он появится здесь, пока не примет приглашение.', 'mail') }}</div>
         {% endif %}
@@ -90,7 +89,7 @@
         <form class="mt-4 grid max-w-2xl gap-4 sm:grid-cols-2" method="post" action="{{ base }}/team/transfer">
             {{ csrf_field() }}
             {{ f.select('member', 'Новый владелец', candidates, required = true) }}
-            {{ f.input('confirm_name', 'Название пространства', required = true, autocomplete = 'off', hint = 'Введите «' ~ workspace.workspaceName ~ '», чтобы подтвердить.') }}
+            {{ f.input('confirm_name', 'Название пространства', required = true, autocomplete = 'off', hint = 'Чтобы подтвердить, введите точно: ' ~ workspace.workspaceName) }}
             <div class="sm:col-span-2">{{ f.button('Передать владение', variant = 'danger', type = 'submit') }}</div>
         </form>
         {% else %}

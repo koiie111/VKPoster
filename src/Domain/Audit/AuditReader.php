@@ -23,7 +23,7 @@ final class AuditReader extends WorkspaceScopedRepository
      * @param int|null $actorId user id of the person who acted
      * @param DateTimeImmutable|null $from inclusive start (UTC)
      * @param DateTimeImmutable|null $to exclusive end (UTC)
-     * @return array{rows: list<array{id: int, action: string, label: string, actor_id: ?int, actor_name: ?string, subject_type: ?string, subject_id: ?string, ip: ?string, meta: array<string, mixed>, created_at: DateTimeImmutable}>, total: int, pages: int, page: int}
+     * @return array{rows: list<array{id: int, action: string, label: string, actor_id: ?int, actor_name: ?string, subject_type: ?string, subject_id: ?string, ip: ?string, details: string, created_at: DateTimeImmutable}>, total: int, pages: int, page: int}
      */
     public function page(WorkspaceContext $context, ?string $group, ?int $actorId, ?DateTimeImmutable $from, ?DateTimeImmutable $to, int $page): array
     {
@@ -65,7 +65,7 @@ final class AuditReader extends WorkspaceScopedRepository
                 'subject_type' => is_string($row['subject_type']) ? $row['subject_type'] : null,
                 'subject_id' => is_string($row['subject_id']) ? $row['subject_id'] : null,
                 'ip' => is_string($row['ip']) ? $row['ip'] : null,
-                'meta' => is_array($meta) ? $meta : [],
+                'details' => AuditActions::describe((string) $row['action'], is_array($meta) ? $meta : []),
                 'created_at' => DbTime::parse($row['created_at']) ?? new DateTimeImmutable('@0', new DateTimeZone('UTC')),
             ];
         }

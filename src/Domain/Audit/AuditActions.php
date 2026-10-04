@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Audit;
 
+use App\Domain\Workspace\Role;
+
 /**
  * Human-readable names of audit actions for the workspace journal. Actions missing from the map are
  * shown by their technical name, so a new event is never hidden.
@@ -41,6 +43,34 @@ final class AuditActions
     public static function label(string $action): string
     {
         return self::LABELS[$action] ?? $action;
+    }
+
+    /**
+     * One-line details of an entry for the journal, built from its metadata (never the raw JSON, so nothing
+     * unexpected can leak onto the page). Empty when the action says everything itself.
+     *
+     * @param array<string, mixed> $meta
+     */
+    public static function describe(string $action, array $meta): string
+    {
+        $text = static fn (string $key): string => is_scalar($meta[$key] ?? null) ? (string) $meta[$key] : '';
+        $role = static function (string $key) use ($text): string {
+            $value = $text($key);
+
+            return Role::tryFrom($value)?->label() ?? $value;
+        };
+        $parts = match ($action) {
+            'member.invited', 'member.invitation_revoked', 'member.removed' => [$text('email'), $role('role')],
+            'member.joined', 'member.left' => [$role('role')],
+            'member.role_changed' => [($text('email') === '' ? '' : $text('email') . ': ') . $role('from') . ' → ' . $role('to')],
+            'workspace.updated' => [$text('name') === '' ? '' : '«' . $text('name') . '»', $text('timezone')],
+            'workspace.deleted' => [$text('name') === '' ? '' : '«' . $text('name') . '»'],
+            'workspace.created' => [($meta['personal'] ?? false) === true ? 'личное пространство' : ''],
+            'workspace.ownership_transferred' => [$text('email') === '' ? '' : 'новый владелец: ' . $text('email')],
+            default => [],
+        };
+
+        return implode(' · ', array_filter($parts, static fn (string $p): bool => $p !== ''));
     }
 
     /**
