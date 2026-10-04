@@ -24,6 +24,8 @@ final class Capabilities
         public readonly bool $disablePreview = false,
         /** How the editor's markup must be handed over: `plain` (markers stripped) or `html` (the platform's HTML subset). */
         public readonly string $textFormat = 'plain',
+        /** How many posts one channel may publish a day (0 = no limit known); the editor warns before it is exceeded. */
+        public readonly int $maxPostsPerDay = 0,
     ) {
     }
 }

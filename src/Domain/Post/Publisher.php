@@ -14,8 +14,10 @@ use App\Domain\Notification\Notifier;
 use App\Domain\Workspace\WorkspaceRepository;
 use App\Integrations\Social\Contracts\CommentingAdapter;
 use App\Integrations\Social\Contracts\ErrorKind;
+use App\Integrations\Social\Contracts\OutcomeVerifier;
 use App\Integrations\Social\Contracts\PlatformAdapter;
 use App\Integrations\Social\Contracts\PlatformError;
+use App\Integrations\Social\Contracts\PublishRequest;
 use App\Integrations\Social\Contracts\PublishResult;
 use App\Integrations\Social\PlatformRegistry;
 use App\Kernel\Config;
@@ -156,21 +158,51 @@ final class Publisher
         try {
             $result = $adapter->publish($built->request, $channel->externalId, $this->credentials->forChannel($channel), $publication->idempotencyKey);
         } catch (PlatformError $e) {
-            $this->onPlatformError($publication, $post, $variant, $channel, $started, $e);
+            // An unknown outcome is first checked against the channel itself (where the network allows it): a post that is there is a success.
+            $result = $e->kind === ErrorKind::UnknownOutcome ? $this->findPublished($adapter, $built->request, $channel, $started) : null;
+            if ($result === null) {
+                $this->onPlatformError($publication, $post, $variant, $channel, $started, $e);
 
-            return;
+                return;
+            }
         } catch (Throwable $e) {
             // Something broke while the request may have been on its way: the outcome is unknown, never retried by itself.
-            $this->system->recordAttempt($publication, 'unknown', ErrorKind::UnknownOutcome->value, 'Не удалось выяснить, вышел ли пост.', $e::class . ': ' . $e->getMessage(), $started);
-            $this->system->markUnknown($publication, 'internal', 'Не удалось выяснить, вышел ли пост. Проверьте канал.', $e::class . ': ' . $e->getMessage());
-            $this->afterFailure($post, $variant, 'Не удалось выяснить, вышел ли пост. Проверьте канал и отметьте результат на странице поста.', true);
+            $result = $this->findPublished($adapter, $built->request, $channel, $started);
+            if ($result === null) {
+                $this->system->recordAttempt($publication, 'unknown', ErrorKind::UnknownOutcome->value, 'Не удалось выяснить, вышел ли пост.', $e::class . ': ' . $e->getMessage(), $started);
+                $this->system->markUnknown($publication, 'internal', 'Не удалось выяснить, вышел ли пост. Проверьте канал.', $e::class . ': ' . $e->getMessage());
+                $this->afterFailure($post, $variant, 'Не удалось выяснить, вышел ли пост. Проверьте канал и отметьте результат на странице поста.', true);
 
-            return;
+                return;
+            }
         } finally {
             $built->cleanup();
         }
 
         $this->onSuccess($publication, $post, $variant, $channel, $adapter, $result, $started);
+    }
+
+    /**
+     * Look for a post whose publication ended without a clear answer, among the latest posts of the channel. Never throws: when the channel
+     * cannot be read or the network cannot tell, the outcome stays unknown and a person decides.
+     */
+    private function findPublished(PlatformAdapter $adapter, PublishRequest $request, Channel $channel, DateTimeImmutable $started): ?PublishResult
+    {
+        if (!$adapter instanceof OutcomeVerifier) {
+            return null;
+        }
+        try {
+            $found = $adapter->findPublished($request, $channel->externalId, $this->credentials->forChannel($channel), $started);
+        } catch (Throwable $e) {
+            $this->logger->info('publish.verify_failed', ['channel' => $channel->publicId, 'reason' => $e::class]);
+
+            return null;
+        }
+        if ($found !== null) {
+            $this->logger->info('publish.verified', ['channel' => $channel->publicId]);
+        }
+
+        return $found;
     }
 
     private function onSuccess(Publication $publication, Post $post, PostVariant $variant, Channel $channel, PlatformAdapter $adapter, PublishResult $result, DateTimeImmutable $started): void

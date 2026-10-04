@@ -149,6 +149,7 @@ final class PostService
         }
         $this->assertContent($context, $draft);
         $this->assertAllValid($context, $draft, $channels);
+        $this->assertDailyLimits($context, $channels, $at, $existing?->id);
         if ($existing !== null) {
             $this->assertEditable($context, $existing);
         }
@@ -198,6 +199,7 @@ final class PostService
         if ($problems !== []) {
             throw new PostException('Пост нельзя перенести: ' . $this->firstProblem($problems), $problems);
         }
+        $this->assertDailyLimits($context, array_values(array_filter(array_map(fn (PostVariant $v): ?Channel => $v->channelId === null ? null : $this->channelById($context, $v->channelId), $variants))), $at, $post->id);
         $this->db->transaction(function () use ($context, $post, $at): void {
             if ($this->posts->lock($context, $post) === null) {
                 throw new PostException('Пост не найден.');
@@ -571,6 +573,37 @@ final class PostService
             throw new PostException('К посту можно прикрепить не больше ' . self::MAX_MEDIA . ' файлов.');
         }
         $this->builder->mediaFor($context, array_values(array_unique($ids)));
+    }
+
+    /**
+     * Networks cap how many posts a channel may publish a day (VK: about 50). Planning past the cap would fail on the day, so it is refused now,
+     * counting the posts already planned for the same calendar day (in the workspace's time zone).
+     *
+     * @param list<Channel> $channels
+     * @throws PostException
+     */
+    private function assertDailyLimits(WorkspaceContext $context, array $channels, DateTimeImmutable $at, ?int $exceptPostId): void
+    {
+        $zone = new \DateTimeZone($context->timezone);
+        $start = $at->setTimezone($zone)->setTime(0, 0);
+        $end = $start->modify('+1 day');
+        $problems = [];
+        foreach ($channels as $channel) {
+            if (!$this->registry->isEnabled($channel->platform)) {
+                continue;
+            }
+            $limit = $this->registry->adapter($channel->platform)->capabilities()->maxPostsPerDay;
+            if ($limit <= 0) {
+                continue;
+            }
+            $planned = $this->publications->countForChannelBetween($context, $channel->id, $start, $end, $exceptPostId);
+            if ($planned >= $limit) {
+                $problems[$channel->publicId] = [sprintf('«%s»: на %s уже запланировано %d из %d постов, которые %s разрешает в сутки. Выберите другой день.', $channel->displayName(), $start->format('d.m.Y'), $planned, $limit, $channel->platform->label())];
+            }
+        }
+        if ($problems !== []) {
+            throw new PostException('Пост нельзя запланировать: ' . $this->firstProblem($problems), $problems);
+        }
     }
 
     /**

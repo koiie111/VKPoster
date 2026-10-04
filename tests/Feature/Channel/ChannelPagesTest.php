@@ -244,8 +244,20 @@ final class ChannelPagesTest extends ChannelTestCase
     {
         [, $workspace] = $this->ownerSession();
 
-        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/vk'))->status);
+        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/max'))->status);
         self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/bogus'))->status);
+    }
+
+    public function testVkPagesDisappearWhenTheFeatureFlagIsOff(): void
+    {
+        $this->app = \App\Tests\Support\TestEnv::app(['PLATFORMS_ENABLED' => 'telegram']);
+        $this->app->container()->instance(\App\Kernel\HttpClient\HttpClientInterface::class, $this->http);
+        $this->app->container()->instance(\App\Support\Clock::class, $this->clock);
+        [, $workspace] = $this->ownerSession();
+
+        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/vk'))->status);
+        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/vk/start'))->status);
+        self::assertSame(404, $this->get('/channels/connect/vk/callback?state=x')->status);
     }
 
     public function testTelegramPagesDisappearWhenTheFeatureFlagIsOff(): void

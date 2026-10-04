@@ -34,7 +34,7 @@
             {{ d.avatar(ch.name, src = ch.avatar, size = 'lg') }}
             <div class="min-w-0 flex-1 basis-40">
                 <p class="flex flex-wrap items-center gap-2 font-semibold"><span class="break-words">{{ ch.name }}</span>{{ d.status_badge(ch.status) }}</p>
-                <p class="text-sm text-muted">{{ ch.platform_label }} · {{ ch.handle }}{% if ch.own_bot %} · свой бот{% endif %}</p>
+                <p class="text-sm text-muted">{{ ch.platform_label }} · {{ ch.handle }}{% if ch.own_bot %} · свой бот{% elseif ch.account %} · через ваш аккаунт{% endif %}</p>
                 {#- A broken channel's reason is in the alert above the list; repeating it here only adds noise. -#}
                 {% if ch.note and not ch.attention %}<p class="mt-1 break-words text-sm text-muted">{{ ch.note }}</p>{% endif %}
             </div>

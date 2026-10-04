@@ -16,6 +16,7 @@ use App\Http\Controllers\Dev\DevOAuthController;
 use App\Http\Controllers\Dev\DevLoginController;
 use App\Http\Controllers\Dev\DevUiController;
 use App\Http\Controllers\Channels\ChannelController;
+use App\Http\Controllers\Channels\VkConnectController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Webhooks\TelegramWebhookController;
 use App\Http\Controllers\Workspace\AuditController;
@@ -113,6 +114,8 @@ return static function (Router $router): void {
     $router->group('', [Authenticate::class, RequireVerifiedEmail::class], static function (Router $r) use ($token, $ulid): void {
         $r->get('/app', [AppController::class, 'dashboard'])->name('app');
         $r->get('/workspaces/new', [WorkspaceController::class, 'create'])->name('workspace.new');
+        // VK ID sends the browser back here (a fixed address registered in the VK application); the controller checks the workspace and the right.
+        $r->get('/channels/connect/vk/callback', [VkConnectController::class, 'callback'])->middleware([RateLimit::class, ['bucket' => 'vk-callback', 'max' => 30, 'seconds' => 600]]);
         $r->post('/workspaces', [WorkspaceController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'workspace-create', 'max' => 10, 'seconds' => 3600]]);
         $r->post('/invitations/' . $token . '/accept', [InvitationController::class, 'accept'])->middleware([RateLimit::class, ['bucket' => 'invitation-accept', 'max' => 20, 'seconds' => 3600]]);
 
@@ -164,6 +167,10 @@ return static function (Router $router): void {
             $w->get('/channels', [ChannelController::class, 'index'])->name('workspace.channels')->middleware([Authorize::class, ['permission' => 'channels.view']]);
             $w->get('/channels/{channelId:' . $ulid . '}/avatar', [ChannelController::class, 'avatar'])->middleware([Authorize::class, ['permission' => 'channels.view']]);
             $w->group('/channels', [[Authorize::class, ['permission' => 'channels.manage']]], static function (Router $c) use ($ulid): void {
+                $c->get('/connect/vk', [VkConnectController::class, 'show']);
+                $c->get('/connect/vk/start', [VkConnectController::class, 'start'])->middleware([RateLimit::class, ['bucket' => 'vk-connect', 'max' => 30, 'seconds' => 3600]]);
+                $c->get('/connect/vk/choose', [VkConnectController::class, 'choose']);
+                $c->post('/connect/vk/choose', [VkConnectController::class, 'connect'])->middleware([RateLimit::class, ['bucket' => 'vk-choose', 'max' => 30, 'seconds' => 3600]]);
                 $c->get('/connect/telegram', [ChannelController::class, 'connectTelegram']);
                 $c->post('/connect/telegram/code', [ChannelController::class, 'issueCode'])->middleware([RateLimit::class, ['bucket' => 'channel-code', 'max' => 20, 'seconds' => 3600]]);
                 $c->get('/connect/telegram/status/{codeId:' . $ulid . '}', [ChannelController::class, 'codeStatus'])->middleware([RateLimit::class, ['bucket' => 'channel-code-status', 'max' => 600, 'seconds' => 600]]);

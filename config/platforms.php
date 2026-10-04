@@ -17,6 +17,15 @@ return static fn (Env $env): array => [
         // Secret part of the webhook URL; the header token Telegram echoes back is derived from it.
         'webhook_secret' => $env->string('TELEGRAM_WEBHOOK_SECRET'),
     ],
+    'vk' => [
+        // The VK ID application that asks for the right to post on community walls. Falls back to the sign-in application.
+        'client_id' => $env->string('VK_CLIENT_ID') !== '' ? $env->string('VK_CLIENT_ID') : $env->string('VKID_CLIENT_ID'),
+        'client_secret' => $env->string('VK_CLIENT_SECRET') !== '' ? $env->string('VK_CLIENT_SECRET') : $env->string('VKID_CLIENT_SECRET'),
+        'scope' => $env->string('VK_SCOPE', 'wall photos video docs groups'),
+        'api_version' => '5.199',
+        // VK lets a community publish about this many posts a day through the API; the editor warns before it is exceeded.
+        'posts_per_day' => $env->int('VK_POSTS_PER_DAY', 50),
+    ],
     'channels' => [
         'max_per_workspace' => $env->int('CHANNELS_MAX', 100),
         'connect_code_ttl' => 900,

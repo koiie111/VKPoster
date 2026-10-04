@@ -1,0 +1,11 @@
+{
+  "response": {
+    "type": "doc",
+    "doc": {
+      "id": 55,
+      "owner_id": -777,
+      "title": "file.pdf",
+      "access_key": "dk"
+    }
+  }
+}
