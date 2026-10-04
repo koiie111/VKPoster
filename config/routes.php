@@ -21,6 +21,11 @@ use App\Http\Controllers\Workspace\SettingsController;
 use App\Http\Controllers\Workspace\TeamController;
 use App\Http\Controllers\Workspace\WorkspaceController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Media\FolderController;
+use App\Http\Controllers\Media\MediaController;
+use App\Http\Controllers\Media\MediaFileController;
+use App\Http\Controllers\Media\WatermarkController;
+use App\Http\Middleware\AuthenticateOrSigned;
 use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\Authorize;
 use App\Http\Middleware\Guest;
@@ -119,9 +124,37 @@ return static function (Router $router): void {
                 $t->post('/settings', [SettingsController::class, 'update']);
             });
             $w->post('/delete', [SettingsController::class, 'delete'])->middleware([Authorize::class, ['permission' => 'workspace.delete']]);
+            // Media library. Viewing: everyone who works on posts; uploading: authors and up; changes: editors and up.
+            $w->group('', [[Authorize::class, ['permission' => 'media.view']]], static function (Router $m) use ($ulid): void {
+                $m->get('/media', [MediaController::class, 'index'])->name('workspace.media');
+                $m->get('/media/{mediaId:' . $ulid . '}', [MediaController::class, 'show'])->name('workspace.media.show');
+            });
+            $w->group('', [[Authorize::class, ['permission' => 'media.upload']]], static function (Router $m): void {
+                $m->post('/media/upload', [MediaController::class, 'upload'])->middleware([RateLimit::class, ['bucket' => 'media-upload', 'max' => 300, 'seconds' => 600]]);
+                $m->post('/media/upload-url', [MediaController::class, 'uploadUrl'])->middleware([RateLimit::class, ['bucket' => 'media-url', 'max' => 30, 'seconds' => 600]]);
+            });
+            $w->group('', [[Authorize::class, ['permission' => 'media.manage']]], static function (Router $m) use ($ulid): void {
+                $item = '/media/{mediaId:' . $ulid . '}';
+                $m->post($item . '/rename', [MediaController::class, 'rename']);
+                $m->post($item . '/move', [MediaController::class, 'move']);
+                $m->post($item . '/delete', [MediaController::class, 'delete']);
+                $m->post('/media/folders', [FolderController::class, 'create']);
+                $m->post('/media/folders/{folderId:' . $ulid . '}/rename', [FolderController::class, 'rename']);
+                $m->post('/media/folders/{folderId:' . $ulid . '}/delete', [FolderController::class, 'delete']);
+                $m->get('/media/watermarks', [WatermarkController::class, 'show'])->name('workspace.media.watermarks');
+                $m->post('/media/watermarks', [WatermarkController::class, 'create'])->middleware([RateLimit::class, ['bucket' => 'watermark-upload', 'max' => 20, 'seconds' => 600]]);
+                $mark = '/media/watermarks/{watermarkId:' . $ulid . '}';
+                $m->get($mark . '/logo', [WatermarkController::class, 'logo']);
+                $m->get($mark . '/preview', [WatermarkController::class, 'preview'])->middleware([RateLimit::class, ['bucket' => 'watermark-preview', 'max' => 120, 'seconds' => 60]]);
+                $m->post($mark . '/update', [WatermarkController::class, 'update']);
+                $m->post($mark . '/delete', [WatermarkController::class, 'delete']);
+            });
             $w->get('/audit', [AuditController::class, 'show'])->name('workspace.audit')->middleware([Authorize::class, ['permission' => 'audit.view']]);
         });
     });
+
+    // Library files: a signed-in member of the owning workspace, or a signed expiring link (checked in the controller).
+    $router->get('/media/{id:' . $ulid . '}/{variant:[a-z0-9-]{1,20}}', [MediaFileController::class, 'show'])->name('media.file')->middleware(AuthenticateOrSigned::class);
 
     $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);
     // Fake social sign-in provider (404 unless DEV_OAUTH_FAKE is on outside production).

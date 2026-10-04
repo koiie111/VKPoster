@@ -3,6 +3,17 @@
 declare(strict_types=1);
 
 use App\Domain\Auth\PasswordPolicy;
+use App\Domain\Media\FfprobeVideoProbe;
+use App\Domain\Media\FolderRepository;
+use App\Domain\Media\ImageProcessor;
+use App\Domain\Media\MediaLimits;
+use App\Domain\Media\MediaRepository;
+use App\Domain\Media\MediaService;
+use App\Domain\Media\MediaUsageChecker;
+use App\Domain\Media\NullMediaUsageChecker;
+use App\Domain\Media\VideoProbe;
+use App\Integrations\Storage\MediaStorage;
+use App\Integrations\Storage\MediaStorageFactory;
 use App\Domain\Workspace\Permissions;
 use App\Http\WorkspaceNav;
 use App\Domain\Auth\RegistrationService;
@@ -165,6 +176,24 @@ return static function (Container $c, string $base): void {
 
         return $view;
     });
+
+    $c->factory(MediaStorage::class, static fn (Container $c): MediaStorage => MediaStorageFactory::create($c->get(Config::class), $base));
+    $c->factory(MediaLimits::class, static fn (Container $c): MediaLimits => MediaLimits::fromConfig($c->get(Config::class)));
+    $c->factory(VideoProbe::class, static fn (): VideoProbe => new FfprobeVideoProbe());
+    // Stage 07 (posts) replaces this with a checker that looks at scheduled posts.
+    $c->factory(MediaUsageChecker::class, static fn (): MediaUsageChecker => new NullMediaUsageChecker());
+    $c->factory(MediaService::class, static fn (Container $c): MediaService => new MediaService(
+        $c->get(MediaRepository::class),
+        $c->get(FolderRepository::class),
+        $c->get(MediaStorage::class),
+        $c->get(ImageProcessor::class),
+        $c->get(VideoProbe::class),
+        $c->get(MediaLimits::class),
+        $c->get(MediaUsageChecker::class),
+        $c->get(\App\Domain\Audit\AuditLog::class),
+        $c->get(Clock::class),
+        $base . '/storage/tmp',
+    ));
 
     $c->factory(HealthCheck::class, static fn (Container $c): HealthCheck => new HealthCheck($c->get(Config::class)->env()->all()));
 

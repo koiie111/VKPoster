@@ -46,8 +46,9 @@ abstract class HttpTestCase extends TestCase
     /**
      * @param array<string, mixed> $body
      * @param array<string, string> $headers
+     * @param array<string, \App\Kernel\Http\UploadedFile|list<\App\Kernel\Http\UploadedFile>> $files
      */
-    protected function request(string $method, string $path, array $body = [], array $headers = []): Response
+    protected function request(string $method, string $path, array $body = [], array $headers = [], array $files = []): Response
     {
         $headers += ['Host' => 'localhost'];
         $query = [];
@@ -63,6 +64,7 @@ abstract class HttpTestCase extends TestCase
             $path,
             query: $query,
             body: $body,
+            files: $files,
             headers: $headers,
             cookies: $this->cookies,
             server: ['REMOTE_ADDR' => '203.0.113.10'],

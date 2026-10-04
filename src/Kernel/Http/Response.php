@@ -15,13 +15,30 @@ final class Response
     /**
      * @param array<string, string> $headers
      * @param list<string> $cookies raw `Set-Cookie` header values
+     * @param resource|null $stream when set, `send()` copies this stream (from `$streamStart`, `$streamLength` bytes)
+     *                              instead of echoing `$body`; used for large files
      */
     public function __construct(
         public readonly int $status = 200,
         public readonly string $body = '',
         public readonly array $headers = [],
         public readonly array $cookies = [],
+        public readonly mixed $stream = null,
+        public readonly int $streamStart = 0,
+        public readonly ?int $streamLength = null,
     ) {
+    }
+
+    /**
+     * A response whose body is read from a stream while it is sent (nothing is held in memory). The caller sets
+     * `Content-Length` and the other headers.
+     *
+     * @param resource $stream
+     * @param array<string, string> $headers
+     */
+    public static function stream(mixed $stream, array $headers = [], int $status = 200, int $start = 0, ?int $length = null): self
+    {
+        return new self($status, '', $headers, [], $stream, $start, $length);
     }
 
     public static function html(string $html, int $status = 200): self
@@ -94,12 +111,12 @@ final class Response
 
     public function withStatus(int $status): self
     {
-        return new self($status, $this->body, $this->headers, $this->cookies);
+        return new self($status, $this->body, $this->headers, $this->cookies, $this->stream, $this->streamStart, $this->streamLength);
     }
 
     public function withBody(string $body): self
     {
-        return new self($this->status, $body, $this->headers, $this->cookies);
+        return new self($this->status, $body, $this->headers, $this->cookies, $this->stream, $this->streamStart, $this->streamLength);
     }
 
     public function withHeader(string $name, string $value): self
@@ -112,7 +129,7 @@ final class Response
         }
         $headers[$name] = $value;
 
-        return new self($this->status, $this->body, $headers, $this->cookies);
+        return new self($this->status, $this->body, $headers, $this->cookies, $this->stream, $this->streamStart, $this->streamLength);
     }
 
     public function header(string $name): ?string
@@ -151,7 +168,7 @@ final class Response
             $cookie .= '; HttpOnly';
         }
 
-        return new self($this->status, $this->body, $this->headers, [...$this->cookies, $cookie]);
+        return new self($this->status, $this->body, $this->headers, [...$this->cookies, $cookie], $this->stream, $this->streamStart, $this->streamLength);
     }
 
     /**
@@ -168,8 +185,40 @@ final class Response
         foreach ($this->cookies as $cookie) {
             header('Set-Cookie: ' . $cookie, false);
         }
-        if (!$headOnly) {
-            echo $this->body;
+        if ($headOnly) {
+            return;
         }
+        if (!is_resource($this->stream)) {
+            echo $this->body;
+
+            return;
+        }
+        $this->emitStream($this->stream);
+    }
+
+    /**
+     * @param resource $stream
+     * @codeCoverageIgnore
+     */
+    private function emitStream($stream): void
+    {
+        if ($this->streamStart > 0 && @fseek($stream, $this->streamStart) !== 0) {
+            // Not seekable (some remote streams): read and drop the bytes before the start.
+            $skip = $this->streamStart;
+            while ($skip > 0 && !feof($stream)) {
+                $skip -= strlen((string) fread($stream, min(65536, $skip)));
+            }
+        }
+        $left = $this->streamLength;
+        while (!feof($stream) && ($left === null || $left > 0)) {
+            $chunk = fread($stream, $left === null ? 65536 : min(65536, $left));
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+            echo $chunk;
+            $left = $left === null ? null : $left - strlen($chunk);
+            flush();
+        }
+        fclose($stream);
     }
 }

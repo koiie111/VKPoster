@@ -1,6 +1,7 @@
 // Behavior smoke test of the design-system components in a real browser (Alpine.data components, dialogs,
 // theme, editor preview). Fails on any CSP violation or console error. Usage: node behaviors.mjs
 import { chromium } from 'playwright';
+import { deflateSync } from 'node:zlib';
 
 const base = process.env.UI_SNAP_BASE_URL ?? 'http://nginx';
 const browser = await chromium.launch();
@@ -10,7 +11,7 @@ const check = (ok, msg) => { if (!ok) { failures.push(msg); console.log('FAIL', 
 async function open(path, viewport = { width: 1280, height: 900 }) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
-  page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('Cross-Origin-Opener-Policy')) { failures.push(`console error on ${path}: ${m.text()}`); console.log('FAIL console', m.text()); } });
+  page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('Cross-Origin-Opener-Policy') && !m.text().includes('status of 422')) { failures.push(`console error on ${path}: ${m.text()}`); console.log('FAIL console', m.text()); } });
   page.on('pageerror', (e) => { failures.push(`page error on ${path}: ${e.message}`); console.log('FAIL pageerror', e.message); });
   await page.goto(base + path, { waitUntil: 'networkidle' });
   return page;
@@ -87,6 +88,55 @@ check(await page.locator('#nav-drawer').evaluate((d) => d.open), 'mobile: burger
 await page.click('#nav-drawer [data-dialog-close]');
 check(!(await page.locator('#nav-drawer').evaluate((d) => d.open)), 'mobile: drawer closes');
 await page.context().close();
+
+// ---- media library: upload widget, refusal of a fake image, delete dialog ----
+function png(width, height, [r, g, b]) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (buf) => { let c = 0xffffffff; for (const byte of buf) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => {
+    const head = Buffer.alloc(8); head.writeUInt32BE(data.length, 0); head.write(type, 4, 'ascii');
+    const tail = Buffer.alloc(4); tail.writeUInt32BE(crc(Buffer.concat([head.subarray(4), data])), 0);
+    return Buffer.concat([head, data, tail]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(width, 0); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: width }, () => [r, g, b]).flat())]);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  page = await ctx.newPage();
+  page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('Cross-Origin-Opener-Policy') && !m.text().includes('status of 422')) { failures.push(`console error on media: ${m.text()}`); console.log('FAIL console', m.text()); } });
+  page.on('pageerror', (e) => { failures.push(`page error on media: ${e.message}`); console.log('FAIL pageerror', e.message); });
+  await page.goto(`${base}/dev/login-as/demo@ezposter.local`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/app`, { waitUntil: 'networkidle' });
+  const library = `${page.url().replace(/\/$/, '')}/media`;
+  await page.goto(library, { waitUntil: 'networkidle' });
+  const name = `behavior-${Date.now()}.png`;
+  const before = await page.locator('section[aria-label="Файлы"] ul li').count();
+
+  await page.setInputFiles('[data-upload-input]', { name: 'fake.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('<?php echo 1; ?>') });
+  await page.locator('[data-upload-list] [role="alert"]').waitFor({ timeout: 10000 });
+  check((await page.locator('[data-upload-list] [role="alert"]').textContent()).includes('не поддерживается'), 'media: a fake image is refused with a readable message');
+  check(await page.locator('section[aria-label="Файлы"] ul li').count() === before, 'media: a refused upload adds nothing to the grid');
+
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'networkidle' }),
+    page.setInputFiles('[data-upload-input]', { name, mimeType: 'image/png', buffer: png(64, 48, [Math.floor(Math.random() * 255), 90, 160]) }),
+  ]);
+  check(await page.locator(`section[aria-label="Файлы"] ul li:has-text("${name}")`).count() === 1, 'media: uploaded file shows up in the grid after the page reloads');
+  const thumb = page.locator(`section[aria-label="Файлы"] ul li:has-text("${name}") img`);
+  check(await thumb.evaluate((img) => img.complete && img.naturalWidth > 0), 'media: the thumbnail loads through the protected route');
+
+  await page.click(`section[aria-label="Файлы"] ul li:has-text("${name}") a`);
+  await page.waitForLoadState('networkidle');
+  check(await page.locator('main img[alt]').first().evaluate((img) => img.complete && img.naturalWidth === 64), 'media: the original opens on the file page');
+  await page.click('[data-dialog-open="media-delete"]');
+  await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle' }), page.click('#media-delete [data-confirm-submit]')]);
+  check(await page.locator(`section[aria-label="Файлы"] ul li:has-text("${name}")`).count() === 0, 'media: deleting through the dialog removes the file');
+  await ctx.close();
+}
 
 await browser.close();
 console.log(failures.length ? `\n${failures.length} failure(s)` : '\nall behaviors ok');

@@ -1,0 +1,86 @@
+{#- One library item. Variables: workspace, item (presented), media, uploaded_at, folders, current_folder, platforms, crops, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'media' %}
+{% block title %}{{ item.name }} · Медиатека · {{ app_name }}{% endblock %}
+{% block content %}
+{% set can_manage = can('media.manage') %}
+{% set actions %}
+    {{ f.button('Скачать', variant = 'secondary', href = item.url ~ '?download=1', icon = 'download') }}
+    {% if can_manage %}{{ f.button('Удалить', variant = 'secondary', icon = 'trash-2', attrs = {'data-dialog-open': 'media-delete'}) }}{% endif %}
+{% endset %}
+<p class="mb-3"><a class="inline-flex items-center gap-1 text-sm font-medium text-primary-text hover:underline" href="{{ base }}{% if current_folder %}?folder={{ current_folder }}{% endif %}">{{ icon('chevron-left', 'h-4 w-4') }}К медиатеке</a></p>
+{{ d.page_header(item.name, item.kind_label ~ ' · ' ~ item.size ~ (item.dimensions ? ' · ' ~ item.dimensions : '') ~ (item.duration ? ' · ' ~ item.duration : ''), actions) }}
+
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <section class="card flex items-center justify-center bg-sunken !p-3" aria-label="Просмотр">
+        {% if item.kind == 'image' %}
+        <img class="max-h-[70vh] w-auto max-w-full rounded-ctl" src="{{ item.url }}" alt="{{ item.name }}"{% if media.width %} width="{{ media.width }}" height="{{ media.height }}"{% endif %}>
+        {% elseif item.kind == 'video' %}
+        <video class="max-h-[70vh] w-full rounded-ctl" controls preload="metadata"{% if item.thumb %} poster="{{ item.thumb }}"{% endif %} src="{{ item.url }}">Ваш браузер не показывает это видео. Его можно скачать по кнопке выше.</video>
+        {% else %}
+        <div class="flex flex-col items-center gap-3 py-16 text-muted">{{ icon('file-text', 'h-16 w-16') }}<p>Документ PDF. Откройте его, скачав файл.</p></div>
+        {% endif %}
+    </section>
+
+    <div class="flex flex-col gap-6">
+        <section class="card" aria-labelledby="info-title">
+            <h2 class="text-lg font-semibold" id="info-title">О файле</h2>
+            <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                <dt class="text-muted">Тип</dt><dd>{{ item.kind_label }}, {{ item.mime }}</dd>
+                <dt class="text-muted">Размер</dt><dd>{{ item.size }}</dd>
+                {% if item.dimensions %}<dt class="text-muted">Разрешение</dt><dd>{{ item.dimensions }}</dd>{% endif %}
+                {% if item.duration %}<dt class="text-muted">Длина</dt><dd>{{ item.duration }}</dd>{% endif %}
+                {% if media.codec %}<dt class="text-muted">Видеокодек</dt><dd>{{ media.codec }}</dd>{% endif %}
+                <dt class="text-muted">Загружен</dt><dd>{{ uploaded_at|date('d.m.Y H:i', workspace.timezone) }}</dd>
+            </dl>
+        </section>
+
+        <section class="card" aria-labelledby="fit-title">
+            <h2 class="text-lg font-semibold" id="fit-title">Подходит ли для сетей</h2>
+            <ul class="mt-3 flex flex-col gap-2 text-sm">
+                {% for key, p in platforms %}
+                <li class="flex items-start gap-2">
+                    {% if p.issues %}<span class="mt-0.5 text-warn-fg">{{ icon('triangle-alert', 'h-4 w-4') }}</span>{% else %}<span class="mt-0.5 text-ok-fg">{{ icon('circle-check', 'h-4 w-4') }}</span>{% endif %}
+                    <div><span class="font-medium">{{ p.label }}</span>{% if p.issues %}{% for issue in p.issues %}<p class="text-muted">{{ issue }}</p>{% endfor %}{% else %}<span class="text-muted"> — подходит</span>{% endif %}</div>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        {% if crops %}
+        <section class="card" aria-labelledby="crops-title">
+            <h2 class="text-lg font-semibold" id="crops-title">Кадрирование</h2>
+            <p class="mt-1 text-sm text-muted">Под нужную сеть фото обрезается по центру автоматически при публикации. Посмотреть заранее:</p>
+            <ul class="mt-3 flex flex-wrap gap-2">
+                {% for slug, label in crops %}<li><a class="btn btn-secondary btn-sm" href="{{ item.url|replace({'/original': ''}) }}/{{ slug }}" target="_blank" rel="noopener">{{ label }}</a></li>{% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        {% if can_manage %}
+        <section class="card" aria-labelledby="edit-title">
+            <h2 class="text-lg font-semibold" id="edit-title">Название и папка</h2>
+            <form class="mt-3 flex flex-col gap-4" method="post" action="{{ base }}/{{ item.id }}/rename">
+                {{ csrf_field() }}
+                {{ f.input('name', 'Название', value = item.name, required = true, autocomplete = 'off', error = errors('name')|first) }}
+                {{ f.button('Сохранить название', variant = 'secondary', type = 'submit') }}
+            </form>
+            <form class="mt-5 flex flex-col gap-4 border-t border-line pt-5" method="post" action="{{ base }}/{{ item.id }}/move">
+                {{ csrf_field() }}
+                {% set folder_options = {'': 'Без папки'} %}
+                {% for fl in folders %}{% set folder_options = folder_options|merge({(fl.publicId): fl.name}) %}{% endfor %}
+                {{ f.select('folder', 'Папка', folder_options, value = current_folder, error = errors('folder')|first) }}
+                {{ f.button('Переместить', variant = 'secondary', type = 'submit') }}
+            </form>
+        </section>
+        {% endif %}
+    </div>
+</div>
+
+{% if can_manage %}
+{{ o.confirm_dialog('media-delete', 'Удалить файл?', item.name, 'Он исчезнет из медиатеки. Если файл прикреплён к запланированному посту, удалить его не получится.', base ~ '/' ~ item.id ~ '/delete', 'Удалить файл') }}
+{% endif %}
+{% endblock %}

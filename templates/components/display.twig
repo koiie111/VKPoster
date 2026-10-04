@@ -75,9 +75,9 @@
 </div>
 {%- endmacro %}
 
-{% macro progress(value, max = 100, label = null, aria_label = null) -%}
+{% macro progress(value, max = 100, label = null, aria_label = null, value_text = null) -%}
 <div>
-    {% if label %}<div class="mb-1.5 flex justify-between text-sm"><span>{{ label }}</span><span class="text-muted">{{ value }} из {{ max }}</span></div>{% endif %}
+    {% if label %}<div class="mb-1.5 flex justify-between text-sm"><span>{{ label }}</span><span class="text-muted">{{ value_text ?? (value ~ ' из ' ~ max) }}</span></div>{% endif %}
     <progress class="progress" value="{{ value }}" max="{{ max }}" aria-label="{{ label ?? aria_label ?? 'Прогресс' }}">{{ value }} из {{ max }}</progress>
 </div>
 {%- endmacro %}
