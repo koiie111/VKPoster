@@ -1,6 +1,6 @@
 # Каналы и Telegram (этап 06)
 
-> VK (этап 08): [vk.md](vk.md). Режим канала `account` публикует аккаунт человека (OAuth-токены в `platform_credentials`, обновляет `OAuthRefresher`); новые столбцы `device_id`, `account_id`.
+> MAX (этап 09): [max.md](max.md). VK (этап 08): [vk.md](vk.md). Режим канала `account` публикует аккаунт человека (OAuth-токены в `platform_credentials`, обновляет `OAuthRefresher`); новые столбцы `device_id`, `account_id`.
 
 Общая модель «канал + учётные данные + адаптер платформы» и первая настоящая платформа, Telegram. Код: `src/Domain/Channel`, `src/Integrations/Social`, `src/Http/Controllers/Channels`, `src/Http/Controllers/Webhooks`, шаблоны `templates/workspace/channels/`, скрипт `public/assets/js/channels.js`.
 

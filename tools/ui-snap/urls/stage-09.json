@@ -1,0 +1,12 @@
+[
+  {
+    "name": "max-connect",
+    "url": "/w/{ws}/channels/connect/max",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "max-connect-own",
+    "url": "/w/{ws}/channels/connect/max?tab=own",
+    "login_as": "demo@ezposter.local"
+  }
+]
