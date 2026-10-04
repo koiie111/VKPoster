@@ -157,6 +157,14 @@ final class UserRepository
         ) === 1;
     }
 
+    /**
+     * Remove a user row (used only to roll back a half-finished sign-up; its dependants cascade).
+     */
+    public function delete(int $id): void
+    {
+        $this->db->execute('DELETE FROM users WHERE id = ?', [$id]);
+    }
+
     public function setSuperadmin(int $id, bool $value): void
     {
         $this->db->table('users')->where('id', '=', $id)->update(['is_superadmin' => $value ? 1 : 0, 'updated_at' => DbTime::format($this->clock->now())]);

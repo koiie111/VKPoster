@@ -95,6 +95,25 @@ final class PasswordService
     }
 
     /**
+     * Give an account that has no password (created through social sign-in) its first one. The caller has
+     * checked the policy and, for accounts with 2FA, the second factor. Other devices are signed out.
+     *
+     * @return bool false when the account already has a password
+     */
+    public function setInitial(User $user, string $newPassword, string $currentSessionId): bool
+    {
+        if ($user->passwordHash !== null) {
+            return false;
+        }
+        $this->users->setPassword($user->id, $this->hasher->hash($newPassword));
+        $this->endAllSessions($user->id, $currentSessionId);
+        $this->mailer->passwordChanged($user);
+        $this->audit->record('auth.password.set', $user->id, 'user', (string) $user->id);
+
+        return true;
+    }
+
+    /**
      * Check a password for a sensitive action (email change, disabling 2FA), with the same attempt limit.
      *
      * @return 'ok'|'wrong_password'|'throttled'

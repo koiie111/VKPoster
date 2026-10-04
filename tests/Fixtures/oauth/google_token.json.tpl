@@ -1,0 +1,1 @@
+{"access_token":"google-access","expires_in":3599,"scope":"openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile","token_type":"Bearer","id_token":"__ID_TOKEN__"}

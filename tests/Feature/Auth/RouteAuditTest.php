@@ -31,6 +31,7 @@ final class RouteAuditTest extends AuthTestCase
             static fn (array $m): string => match ($m[1]) {
                 'token' => str_repeat('a', 43),
                 'id' => str_repeat('0', 26),
+                'provider' => 'fake',
                 default => '1',
             },
             $route->pattern,
@@ -87,5 +88,13 @@ final class RouteAuditTest extends AuthTestCase
     public function testAuthPagesAreNeverCached(): void
     {
         self::assertSame('no-store', $this->get('/login')->header('Cache-Control'));
+    }
+
+    public function testLandingMenuLeadsToSignInAndSignUp(): void
+    {
+        $page = $this->get('/')->body;
+
+        self::assertStringContainsString('href="/login">Войти</a>', $page);
+        self::assertStringContainsString('href="/register">Начать</a>', $page);
     }
 }

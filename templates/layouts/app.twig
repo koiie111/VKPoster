@@ -55,7 +55,7 @@
                 <button type="button" class="btn btn-ghost !px-0 w-11 max-sm:hidden" aria-label="Уведомления">{{ icon('bell', 'h-5 w-5') }}</button>
                 {% endif %}
                 <span class="max-sm:hidden">{{ n.theme_toggle() }}</span>
-                {{ n.user_menu(me ? me.name : 'Анна Смирнова', me ? me.email : 'anna@example.com') }}
+                {{ n.user_menu(me ? me.name : 'Анна Смирнова', me ? (me.email ?? '') : 'anna@example.com') }}
             </div>
         </header>
         <main id="main" class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">

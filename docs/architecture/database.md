@@ -34,6 +34,16 @@ erDiagram
         text error
         datetime6 failed_at
     }
+    user_identities {
+        bigint id PK
+        bigint user_id FK "ON DELETE CASCADE"
+        varchar provider "vkid | yandex | google | telegram"
+        varchar provider_user_id "UNIQUE вместе с provider"
+        varchar email "что сообщил провайдер, справочно"
+        varchar display_name
+        datetime6 linked_at
+        datetime6 last_login_at
+    }
 ```
 
 ### Аутентификация (этап 02)
@@ -44,6 +54,7 @@ erDiagram
     users ||--o{ user_sessions : has
     users ||--o{ recovery_codes : has
     users ||--o{ login_attempts : has
+    users ||--o{ user_identities : has
     users {
         bigint id PK
         varchar email UK "NULL для входа через соцсети"

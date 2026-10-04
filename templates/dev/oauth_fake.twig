@@ -1,0 +1,20 @@
+{#- Authorization page of the fake sign-in provider (local development only). -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% block title %}Тестовый вход · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Тестовый вход</h1>
+<p class="mt-1 text-muted">Это замена настоящему провайдеру для разработки. Укажите, что он «сообщит» о пользователе.</p>
+<form class="mt-6 flex flex-col gap-4" method="get" action="/dev/oauth/fake/approve">
+    <input type="hidden" name="state" value="{{ state }}">
+    <input type="hidden" name="challenge" value="{{ challenge }}">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    {{ f.input('id', 'Идентификатор в провайдере', value = suggested_id, required = true, hint = 'Один и тот же идентификатор — один и тот же аккаунт.') }}
+    {{ f.input('name', 'Имя', value = 'Тестовый Пользователь') }}
+    {{ f.input('email', 'Почта', type = 'email', hint = 'Можно оставить пустой.') }}
+    {{ f.checkbox('email_verified', 'Провайдер подтверждает эту почту', checked = true) }}
+    {{ f.button('Разрешить вход', type = 'submit', block = true) }}
+</form>
+{% endblock %}
+{% block auth_footer %}Работает только при DEV_OAUTH_FAKE=1.{% endblock %}

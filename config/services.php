@@ -119,6 +119,15 @@ return static function (Container $c, string $base): void {
         $c->get(Config::class)->string('auth.consent_version'),
     ));
 
+    $c->factory(\App\Domain\Auth\Social\SocialAuthService::class, static fn (Container $c): \App\Domain\Auth\Social\SocialAuthService => new \App\Domain\Auth\Social\SocialAuthService(
+        $c->get(\App\Domain\Auth\Social\IdentityRepository::class),
+        $c->get(\App\Domain\User\UserRepository::class),
+        $c->get(\App\Domain\Audit\AuditLog::class),
+        $c->get(\App\Kernel\Security\RateLimiter::class),
+        $c->get(Clock::class),
+        $c->get(Config::class)->string('auth.consent_version'),
+    ));
+
     $c->factory(HttpClientInterface::class, static fn (Container $c): HttpClientInterface => $c->get(GuzzleHttpClient::class));
 
     $c->factory(Translator::class, static fn (): Translator => new Translator($base . '/resources/lang', 'ru'));

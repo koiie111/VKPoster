@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Account\LoginMethodsController;
 use App\Http\Controllers\Account\SecurityController;
 use App\Http\Controllers\Account\TwoFactorController;
 use App\Http\Controllers\AppController;
@@ -9,6 +10,8 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Auth\SocialController;
+use App\Http\Controllers\Dev\DevOAuthController;
 use App\Http\Controllers\Dev\DevLoginController;
 use App\Http\Controllers\Dev\DevUiController;
 use App\Http\Controllers\HealthController;
@@ -25,9 +28,10 @@ return static function (Router $router): void {
 
     // One-time links carry a 43-character base64url token (see AuthTokens).
     $token = '{token:[A-Za-z0-9_-]{43}}';
+    $provider = '{provider:[a-z]{2,10}}';
 
     // Guests only: signed-in visitors are sent to /app.
-    $router->group('', [Guest::class], static function (Router $r): void {
+    $router->group('', [Guest::class], static function (Router $r) use ($provider): void {
         $r->get('/register', [RegisterController::class, 'show'])->name('register');
         $r->post('/register', [RegisterController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'register', 'max' => 10, 'seconds' => 3600]]);
         $r->get('/register/done', [RegisterController::class, 'done'])->name('register.done');
@@ -38,7 +42,14 @@ return static function (Router $router): void {
         $r->get('/password/forgot', [PasswordResetController::class, 'forgotShow'])->name('auth.forgot');
         $r->post('/password/forgot', [PasswordResetController::class, 'forgotStore'])->middleware([RateLimit::class, ['bucket' => 'forgot', 'max' => 10, 'seconds' => 3600]]);
         $r->get('/password/forgot/sent', [PasswordResetController::class, 'forgotSent']);
+        // Social sign-in: `provider` is checked against the enabled providers inside the controller (404 otherwise).
+        $r->get('/auth/' . $provider . '/redirect', [SocialController::class, 'redirect'])->middleware([RateLimit::class, ['bucket' => 'oauth-start', 'max' => 60, 'seconds' => 600]]);
+        $r->get('/auth/social/consent', [SocialController::class, 'consentShow'])->name('auth.social.consent');
+        $r->post('/auth/social/consent', [SocialController::class, 'consentStore'])->middleware([RateLimit::class, ['bucket' => 'oauth-consent', 'max' => 20, 'seconds' => 600]]);
     });
+
+    // The provider sends the browser back here, signed in (account linking) or not.
+    $router->get('/auth/' . $provider . '/callback', [SocialController::class, 'callback'])->name('auth.callback')->middleware([RateLimit::class, ['bucket' => 'oauth-callback', 'max' => 30, 'seconds' => 600]]);
 
     // Links from emails work in any browser, signed in or not.
     $router->get('/password/reset/' . $token, [PasswordResetController::class, 'resetShow'])->name('auth.reset.show');
@@ -49,7 +60,7 @@ return static function (Router $router): void {
     $router->post('/email/change/' . $token, [SecurityController::class, 'emailConfirm'])->middleware([RateLimit::class, ['bucket' => 'email-change', 'max' => 20, 'seconds' => 3600]]);
 
     // Signed in; the email may still be unconfirmed.
-    $router->group('', [Authenticate::class], static function (Router $r): void {
+    $router->group('', [Authenticate::class], static function (Router $r) use ($provider): void {
         $r->post('/logout', [LoginController::class, 'logout'])->name('logout');
         $r->post('/logout/all', [LoginController::class, 'logoutAll'])->name('logout.all');
         $r->get('/email/verification', [EmailVerificationController::class, 'notice'])->name('auth.verify.notice');
@@ -59,6 +70,10 @@ return static function (Router $router): void {
         $r->post('/account/password', [SecurityController::class, 'changePassword']);
         $r->post('/account/email', [SecurityController::class, 'requestEmailChange']);
         $r->post('/account/sessions/{id:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}}/revoke', [SecurityController::class, 'revokeSession']);
+        $r->get('/account/login-methods', [LoginMethodsController::class, 'show'])->name('account.login_methods');
+        $r->post('/account/login-methods/password', [LoginMethodsController::class, 'setPassword'])->middleware([RateLimit::class, ['bucket' => 'set-password', 'max' => 10, 'seconds' => 600]]);
+        $r->post('/account/login-methods/' . $provider . '/link', [LoginMethodsController::class, 'link']);
+        $r->post('/account/login-methods/' . $provider . '/unlink', [LoginMethodsController::class, 'unlink']);
         $r->post('/account/2fa/start', [TwoFactorController::class, 'start']);
         $r->get('/account/2fa/setup', [TwoFactorController::class, 'setup'])->name('account.2fa.setup');
         $r->get('/account/2fa/qr.svg', [TwoFactorController::class, 'qr']);
@@ -73,6 +88,9 @@ return static function (Router $router): void {
     });
 
     $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);
+    // Fake social sign-in provider (404 unless DEV_OAUTH_FAKE is on outside production).
+    $router->get('/dev/oauth/fake', [DevOAuthController::class, 'show']);
+    $router->get('/dev/oauth/fake/approve', [DevOAuthController::class, 'approve']);
 
     // Design-system showcase and prototypes: the controller answers 404 outside APP_ENV=local|testing.
     $router->get('/dev/ui', [DevUiController::class, 'showcase'])->name('dev.ui');
