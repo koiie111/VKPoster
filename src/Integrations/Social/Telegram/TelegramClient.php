@@ -181,6 +181,16 @@ final class TelegramClient
     }
 
     /**
+     * @param array<string, mixed> $extra
+     * @return array<string, mixed> the edited message
+     * @throws PlatformError
+     */
+    public function editMessageCaption(int|string $chatId, int $messageId, string $caption, array $extra = []): array
+    {
+        return $this->call('editMessageCaption', ['chat_id' => $chatId, 'message_id' => $messageId, 'caption' => $caption] + $extra, [], true);
+    }
+
+    /**
      * @param list<string> $allowedUpdates
      * @throws PlatformError
      */

@@ -22,6 +22,7 @@ final class PublishRequest
         public readonly ?array $poll = null,
         public readonly bool $silent = false,
         public readonly ?string $format = null,
+        public readonly bool $disablePreview = false,
     ) {
     }
 }

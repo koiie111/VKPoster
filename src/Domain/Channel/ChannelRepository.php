@@ -47,6 +47,13 @@ final class ChannelRepository extends WorkspaceScopedRepository
         return $row === null ? null : self::hydrate($row);
     }
 
+    public function findById(WorkspaceContext $context, int $id): ?Channel
+    {
+        $row = $this->scoped($context, 'channels')->where('id', '=', $id)->first();
+
+        return $row === null ? null : self::hydrate($row);
+    }
+
     public function findByExternal(WorkspaceContext $context, Platform $platform, string $externalId): ?Channel
     {
         $row = $this->scoped($context, 'channels')->where('platform', '=', $platform->value)->where('external_id', '=', $externalId)->first();

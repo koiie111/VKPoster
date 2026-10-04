@@ -46,7 +46,8 @@ final class Worker
     }
 
     /**
-     * Loop until a stop signal arrives (or `$maxJobs` jobs were processed, for tests).
+     * Loop until a stop signal arrives (or `$maxJobs` jobs were processed, for tests). `$queueName` may list several queues,
+     * comma-separated, in priority order (`publish,default`): a lower queue is only read when the ones before it are empty.
      */
     public function work(string $queueName = 'default', int $sleepSeconds = 2, ?int $maxJobs = null): void
     {
@@ -57,8 +58,16 @@ final class Worker
             pcntl_signal(SIGINT, fn () => $this->stop());
         }
         $processed = 0;
+        $queues = array_values(array_filter(array_map('trim', explode(',', $queueName)), static fn (string $q): bool => $q !== ''));
         while (!$this->shouldStop() && ($maxJobs === null || $processed < $maxJobs)) {
-            if ($this->runNext($queueName, $workerId)) {
+            $worked = false;
+            foreach ($queues as $name) {
+                if ($this->runNext($name, $workerId)) {
+                    $worked = true;
+                    break;
+                }
+            }
+            if ($worked) {
                 ++$processed;
                 continue;
             }

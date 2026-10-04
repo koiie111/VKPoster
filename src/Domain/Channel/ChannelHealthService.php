@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Channel;
 
+use App\Domain\Notification\Notifier;
 use App\Integrations\Social\PlatformRegistry;
 use App\Integrations\Social\Contracts\PlatformError;
 use App\Integrations\Social\Contracts\HealthStatus;
@@ -26,7 +27,7 @@ final class ChannelHealthService
         private readonly ChannelSystem $channels,
         private readonly ChannelCredentials $credentials,
         private readonly PlatformRegistry $registry,
-        private readonly ChannelMailer $mailer,
+        private readonly Notifier $notifier,
         private readonly Queue $queue,
         private readonly Clock $clock,
         private readonly Config $config,
@@ -91,8 +92,6 @@ final class ChannelHealthService
         if ($workspace === null) {
             return;
         }
-        foreach ($this->channels->alertRecipients($channel->workspaceId) as $person) {
-            $this->mailer->broken($person['email'], $person['name'], $channel->displayName(), $channel->platform->label(), $workspace['name'], $workspace['public_id'], $reason);
-        }
+        $this->notifier->channelProblem($channel, $workspace['name'], $workspace['public_id'], $reason);
     }
 }

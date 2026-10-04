@@ -21,6 +21,9 @@ final class Capabilities
         public readonly bool $delete,
         public readonly bool $firstComment,
         public readonly int $maxFileBytes,
+        public readonly bool $disablePreview = false,
+        /** How the editor's markup must be handed over: `plain` (markers stripped) or `html` (the platform's HTML subset). */
+        public readonly string $textFormat = 'plain',
     ) {
     }
 }
