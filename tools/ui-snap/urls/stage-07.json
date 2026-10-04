@@ -1,0 +1,161 @@
+[
+ {
+  "name": "home",
+  "url": "/w/{ws}",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "home-no-channels",
+  "url": "/w/{ws}",
+  "login_as": "social@ezposter.local"
+ },
+ {
+  "name": "calendar-month",
+  "url": "/w/{ws}/calendar",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "calendar-week",
+  "url": "/w/{ws}/calendar?view=week",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "calendar-list",
+  "url": "/w/{ws}/calendar?view=list",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "calendar-empty",
+  "url": "/w/{ws}/calendar",
+  "login_as": "social@ezposter.local"
+ },
+ {
+  "name": "calendar-client",
+  "url": "/w/{ws}/calendar?view=list",
+  "login_as": "client@ezposter.local"
+ },
+ {
+  "name": "calendar-filtered-empty",
+  "url": "/w/{ws}/calendar?state[]=published&state[]=failed&author=01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "editor-new",
+  "url": "/w/{ws}/posts/new",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "editor-no-channels",
+  "url": "/w/{ws}/posts/new",
+  "login_as": "social@ezposter.local"
+ },
+ {
+  "name": "editor-filled",
+  "url": "/w/{ws}/posts/new",
+  "login_as": "demo@ezposter.local",
+  "actions": [
+   {
+    "click": "label:has(input[data-channel]) >> nth=0"
+   },
+   {
+    "click": "label:has(input[data-channel]) >> nth=1"
+   },
+   {
+    "fill": [
+     "#pf-common-text",
+     "**Новое меню** уже в кофейне!\nЗаходите попробовать [тыквенный латте](https://example.com) и _свежие круассаны_."
+    ]
+   }
+  ]
+ },
+ {
+  "name": "editor-per-network",
+  "url": "/w/{ws}/posts/new",
+  "login_as": "demo@ezposter.local",
+  "actions": [
+   {
+    "click": "label:has(input[data-channel]) >> nth=0"
+   },
+   {
+    "click": "label:has(input[data-channel]) >> nth=1"
+   },
+   {
+    "fill": [
+     "#pf-common-text",
+     "Общий текст поста для всех каналов."
+    ]
+   },
+   {
+    "click": "#per-network"
+   }
+  ]
+ },
+ {
+  "name": "editor-too-long",
+  "url": "/w/{ws}/posts/new",
+  "login_as": "demo@ezposter.local",
+  "actions": [
+   {
+    "click": "label:has(input[data-channel]) >> nth=1"
+   },
+   {
+    "fill": [
+     "#pf-common-text",
+     "Очень длинный текст. ",
+     260
+    ]
+   }
+  ]
+ },
+ {
+  "name": "editor-edit",
+  "url": "/w/{ws}/posts/{post}/edit",
+  "post_text": "Новое меню",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "editor-author",
+  "url": "/w/{ws}/posts/new",
+  "login_as": "editor@ezposter.local"
+ },
+ {
+  "name": "post-scheduled",
+  "url": "/w/{ws}/posts/{post}",
+  "post_text": "Новое меню",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "post-published",
+  "url": "/w/{ws}/posts/{post}",
+  "post_text": "Доброе утро",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "post-failed",
+  "url": "/w/{ws}/posts/{post}",
+  "post_text": "Розыгрыш",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "post-unknown",
+  "url": "/w/{ws}/posts/{post}",
+  "post_text": "Пост, который",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "post-draft",
+  "url": "/w/{ws}/posts/{post}",
+  "post_text": "Идея для поста",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "templates-empty",
+  "url": "/w/{ws}/templates",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "notifications",
+  "url": "/account/notifications",
+  "login_as": "demo@ezposter.local"
+ }
+]

@@ -169,7 +169,7 @@
   .menu-item:hover, .menu-item:focus-visible { background: rgb(var(--sunken)); }
   .menu-item-danger { color: rgb(var(--bad-fg)); }
   .tab { display: inline-flex; align-items: center; gap: .5rem; min-height: 2.75rem; padding: 0 1rem; font-weight: 600; font-size: .9375rem; color: rgb(var(--muted)); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; cursor: pointer; }
-  .tab[aria-selected='true'] { color: rgb(var(--p-text)); border-bottom-color: rgb(var(--p-text)); }
+  .tab[aria-selected='true'], .tab[aria-current='page'] { color: rgb(var(--p-text)); border-bottom-color: rgb(var(--p-text)); }
   .tab:hover { color: rgb(var(--fg)); }
   .nav-link { display: flex; align-items: center; gap: .75rem; min-height: 2.75rem; padding: 0 .75rem; border-radius: var(--r-md); font-weight: 500; color: rgb(var(--muted)); }
   .nav-link:hover { background: rgb(var(--sunken)); color: rgb(var(--fg)); }

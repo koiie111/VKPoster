@@ -43,11 +43,11 @@
     <h2 class="ml-2 text-lg font-semibold" aria-live="polite">{{ title }}</h2>
     <p class="ml-auto hidden items-center gap-1.5 text-sm text-muted sm:flex">{{ icon('globe', 'h-4 w-4') }}Время: {{ timezone_label }}</p>
 </div>
-<div class="mb-4 flex gap-1 overflow-x-auto border-b border-line" role="navigation" aria-label="Вид календаря">
+<nav class="mb-4 flex gap-1 overflow-x-auto border-b border-line" aria-label="Вид календаря">
     {% for key, label in {month: 'Месяц', week: 'Неделя', list: 'Список'} %}
-    <a class="tab" href="{{ view_urls[key] }}" aria-selected="{{ view == key ? 'true' : 'false' }}"{% if view == key %} aria-current="page"{% endif %}>{{ label }}</a>
+    <a class="tab" href="{{ view_urls[key] }}"{% if view == key %} aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
-</div>
+</nav>
 <p class="mb-3 text-sm text-muted sm:hidden">{{ icon('globe', 'mr-1 inline h-4 w-4') }}Время: {{ timezone_label }}</p>
 
 <div x-data="calendarDnd" data-move-base="{{ base }}/posts" data-enabled="{{ can_move ? '1' : '0' }}" aria-label="Календарь публикаций">
