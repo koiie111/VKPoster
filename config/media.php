@@ -42,7 +42,7 @@ return static function (Env $env): array {
                 'document_bytes' => 200 * $mb,
             ],
             'max' => [
-                'image_bytes' => 25 * $mb, 'video_bytes' => 256 * $mb, 'document_bytes' => 100 * $mb,
+                'image_bytes' => 50 * $mb, 'video_bytes' => 250 * $mb, 'document_bytes' => 100 * $mb,
             ],
             'instagram' => [
                 'image_bytes' => 8 * $mb, 'image_ratio' => [0.8, 1.91], 'video_bytes' => 100 * $mb,

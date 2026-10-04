@@ -26,6 +26,14 @@ return static fn (Env $env): array => [
         // VK lets a community publish about this many posts a day through the API; the editor warns before it is exceeded.
         'posts_per_day' => $env->int('VK_POSTS_PER_DAY', 50),
     ],
+    'max' => [
+        // The shared bot every customer adds to their channels (a bot of a verified Russian legal entity, see ADR 0007).
+        'bot_token' => $env->string('MAX_BOT_TOKEN'),
+        'bot_username' => ltrim($env->string('MAX_BOT_USERNAME'), '@'),
+        // Secret part of the webhook URL; the header value MAX echoes back is derived from it.
+        'webhook_secret' => $env->string('MAX_WEBHOOK_SECRET'),
+        'api_base' => rtrim($env->string('MAX_API_BASE', 'https://platform-api2.max.ru'), '/'),
+    ],
     'channels' => [
         'max_per_workspace' => $env->int('CHANNELS_MAX', 100),
         'connect_code_ttl' => 900,

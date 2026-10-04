@@ -1,0 +1,10 @@
+{
+  "chat_id": -72000000000001,
+  "type": "channel",
+  "status": "active",
+  "title": "Мой канал",
+  "link": "https://max.ru/mychannel",
+  "is_public": true,
+  "participants_count": 120,
+  "last_event_time": 1760000000000
+}

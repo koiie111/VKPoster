@@ -1,0 +1,21 @@
+{
+  "update_type": "message_created",
+  "timestamp": 1760000200000,
+  "message": {
+    "recipient": {
+      "chat_id": 900001,
+      "chat_type": "dialog"
+    },
+    "timestamp": 1760000200000,
+    "body": {
+      "mid": "mid.100",
+      "seq": 5,
+      "text": "/start"
+    },
+    "sender": {
+      "user_id": 42,
+      "name": "Анна",
+      "is_bot": false
+    }
+  }
+}

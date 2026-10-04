@@ -1,0 +1,80 @@
+{#- Connecting MAX. Variables: workspace (context), base, code ({id, text, plain, expires}|null), bot_configured, bot_username, status_url, tab (shared|own). -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'channels' %}
+{% block title %}Подключить MAX · {{ app_name }}{% endblock %}
+{% block head %}{% if status_url %}<script src="{{ asset('js/channels.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endif %}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Каналы', href: base}, {label: 'Подключить MAX'}]) }}
+<div class="mt-3">{{ d.page_header('Подключить канал MAX', 'Выберите, какой бот будет публиковать в ваш канал. Подойдёт и группа.') }}</div>
+
+{% set shared_panel %}
+    {% if not bot_configured %}
+        {{ d.alert('warning', 'Бот сервиса пока не настроен', 'Пока он недоступен, подключите канал через свой бот: это вкладка рядом.') }}
+    {% else %}
+    <ol class="grid gap-5 sm:max-w-2xl">
+        <li class="flex gap-4">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary-softfg" aria-hidden="true">1</span>
+            <div class="min-w-0">
+                <p class="font-semibold">Добавьте бота администратором канала</p>
+                <p class="mt-1 text-sm text-muted">В MAX откройте свой канал → настройки канала → «Администраторы» → «Добавить администратора» и найдите
+                    {% if bot_username %}<a class="font-medium text-primary-text underline" href="https://max.ru/{{ bot_username }}" target="_blank" rel="noopener noreferrer">@{{ bot_username }}</a>{% else %}бота сервиса{% endif %}.
+                    Оставьте включённым право <strong class="text-fg">«Публиковать сообщения»</strong>. Чтобы бот видел ваше сообщение с кодом, включите и право читать сообщения. Если хотите, чтобы мы могли удалять и закреплять посты, включите и эти права.</p>
+            </div>
+        </li>
+        <li class="flex gap-4">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary-softfg" aria-hidden="true">2</span>
+            <div class="min-w-0 flex-1">
+                <p class="font-semibold">Получите код</p>
+                {% if code %}
+                <p class="mt-1 text-sm text-muted">Код одноразовый и действует до {{ code.expires|date('H:i', workspace.timezone) }}.</p>
+                <p class="mt-3 inline-block rounded-ctl bg-sunken px-4 py-3 font-mono text-2xl font-bold tracking-widest" data-testid="connect-code">{{ code.text }}</p>
+                {% else %}
+                <p class="mt-1 text-sm text-muted">Код действует 15 минут и подходит для одного канала.</p>
+                <form class="mt-3" method="post" action="{{ base }}/connect/max/code">{{ csrf_field() }}{{ f.button('Получить код', type = 'submit', icon = 'lock') }}</form>
+                {% endif %}
+            </div>
+        </li>
+        <li class="flex gap-4">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary-softfg" aria-hidden="true">3</span>
+            <div class="min-w-0 flex-1">
+                <p class="font-semibold">Напишите код в канале</p>
+                <p class="mt-1 text-sm text-muted">Отправьте в канал сообщение{% if code %} <code class="rounded bg-sunken px-1.5 py-0.5 font-mono text-fg">/connect {{ code.plain }}</code>{% else %} вида <code class="rounded bg-sunken px-1.5 py-0.5 font-mono text-fg">/connect КОД</code>{% endif %}. Бот подключит канал и сам удалит это сообщение (для этого ему нужно право удалять сообщения).</p>
+                {% if code %}
+                <div class="mt-4 flex items-center gap-3 rounded-ctl border border-line p-4" x-data="channelWait" data-status-url="{{ status_url }}" data-done-url="{{ base }}" role="status" aria-live="polite">
+                    <span data-wait-spinner class="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true"></span>
+                    <p data-wait-text class="text-sm">Ждём сообщение в канале…</p>
+                </div>
+                {% endif %}
+            </div>
+        </li>
+    </ol>
+    {% endif %}
+{% endset %}
+
+{% set own_panel %}
+    <div class="grid gap-6 lg:grid-cols-[1fr_20rem]">
+        <form class="card grid gap-4" method="post" action="{{ base }}/connect/max/own" autocomplete="off">
+            {{ csrf_field() }}
+            {% if errors('form') %}{{ d.alert('error', errors('form')|first) }}{% endif %}
+            {{ f.input('token', 'Токен бота', type = 'password', required = true, autocomplete = 'off', hint = 'Его выдаёт кабинет бота на business.max.ru. Мы храним токен в зашифрованном виде и не показываем его на страницах.') }}
+            {{ f.input('reference', 'Канал', value = old('reference'), required = true, placeholder = 'max.ru/mychannel', hint = 'Ссылка на публичный канал вида max.ru/mychannel или номер канала. Ссылка-приглашение не подойдёт: по ней бот не найдёт канал.') }}
+            <div>{{ f.button('Подключить канал', type = 'submit') }}</div>
+        </form>
+        <div class="text-sm text-muted">
+            <p class="font-semibold text-fg">Как подготовиться</p>
+            <ol class="mt-2 list-decimal space-y-1 pl-5">
+                <li>Зарегистрируйте бота на business.max.ru (нужна верифицированная организация) и скопируйте токен.</li>
+                <li>Добавьте этого бота администратором канала с правом «Публиковать сообщения».</li>
+                <li>Вставьте токен и имя канала сюда.</li>
+            </ol>
+            <p class="mt-3">Посты выйдут от имени вашего бота. Если токен перестанет работать, мы напишем вам.</p>
+        </div>
+    </div>
+{% endset %}
+
+{% set panels %}{{ o.tab_panel('connect-mode', 'shared', tab == 'shared', shared_panel) }}{{ o.tab_panel('connect-mode', 'own', tab == 'own', own_panel) }}{% endset %}
+{{ o.tabs('connect-mode', [{id: 'shared', label: 'Через бота сервиса'}, {id: 'own', label: 'Свой бот'}], active = tab, body = panels) }}
+{% endblock %}

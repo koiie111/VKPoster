@@ -1,0 +1,15 @@
+{
+  "members": [
+    {
+      "user_id": 42,
+      "name": "Анна",
+      "is_bot": false,
+      "is_owner": false,
+      "is_admin": true,
+      "permissions": [
+        "write"
+      ]
+    }
+  ],
+  "marker": null
+}

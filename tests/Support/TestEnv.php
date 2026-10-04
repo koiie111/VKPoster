@@ -21,6 +21,11 @@ final class TestEnv
 
     public const WEBHOOK_SECRET = 'test-webhook-secret-0123456789';
 
+    /** The shared MAX bot of the MAX stage (not a real token) and its webhook secret. */
+    public const MAX_BOT_TOKEN = 'max-shared-bot-token-not-real-0123456789';
+
+    public const MAX_WEBHOOK_SECRET = 'max-webhook-secret-0123456789';
+
     public const KEY = 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=';
 
     private static function process(string $name, string $default): string
@@ -60,12 +65,15 @@ final class TestEnv
             'TELEGRAM_LOGIN_BOT_TOKEN' => self::TELEGRAM_TOKEN,
             'TELEGRAM_LOGIN_BOT_NAME' => 'ezposter_test_bot',
             // Channels: Telegram plus the test network, the shared bot, and a webhook secret.
-            'PLATFORMS_ENABLED' => 'telegram,vk,fake',
+            'PLATFORMS_ENABLED' => 'telegram,vk,max,fake',
             'VK_CLIENT_ID' => 'vk-test-app',
             'VK_CLIENT_SECRET' => 'vk-test-secret',
             'TELEGRAM_BOT_TOKEN' => self::SHARED_BOT_TOKEN,
             'TELEGRAM_BOT_USERNAME' => 'ezposter_bot',
             'TELEGRAM_WEBHOOK_SECRET' => self::WEBHOOK_SECRET,
+            'MAX_BOT_TOKEN' => self::MAX_BOT_TOKEN,
+            'MAX_BOT_USERNAME' => 'ezposter_max_bot',
+            'MAX_WEBHOOK_SECRET' => self::MAX_WEBHOOK_SECRET,
         ];
 
         // The fake provider is refused in production, so tests that boot a production app get it switched off.

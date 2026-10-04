@@ -7,8 +7,8 @@
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
 - **Текущий этап:** 09
-- **Статус:** TODO
-- **Ветка / PR:** PR #13 (смержен)
+- **Статус:** IN_PROGRESS
+- **Ветка / PR:** `stage-09-max`
 - **Последнее обновление:** 2026-10-04 (этап 08 завершён)
 
 ## Этапы
@@ -25,7 +25,7 @@
 | 06 | Каналы + Telegram | DONE | [#11](https://github.com/koiie111/VKPoster/pull/11) | 2026-10-04 | Живая проверка владельцем прошла. Для 07: адаптер получает `PublishRequest` + локальные файлы (варианты из `VariantService`), хранить `PublishResult::allIds`; перед публикацией `ChannelHealthService::check()`; при отключении канала отменять его посты; `Channel::postUrl()`; `MediaUsageChecker` (из этапа 05) заменить реальным; подробности в `docs/architecture/modules/channels.md` |
 | 07 | Редактор, календарь, планировщик, публикация | DONE | [#12](https://github.com/koiie111/VKPoster/pull/12) | 2026-10-04 | После обновления кода перезапускайте `scheduler` и `worker` (долгие процессы держат старый код). Для 08/09: платформа добавляет адаптер (+`Capabilities::$textFormat`, опционально `EditableAdapter`, `CommentingAdapter`); текст приходит из `TextFormatter` в формате платформы; публикации идут через `Publisher`, переходы только через `PublicationSystem::move` |
 | 08 | VK | DONE | [#13](https://github.com/koiie111/VKPoster/pull/13) | 2026-10-04 | Живая проверка VK отложена владельцем (нет ключей): до неё проверить права без модерации, `Authorization: Bearer`, весь сценарий из архива. Для 09: адаптер может реализовать `OutcomeVerifier` (сверка `unknown`), `Capabilities::$maxPostsPerDay` для лимита, режим канала `account`/`OAuthRefresher` не нужен для бота MAX |
-| 09 | MAX | TODO | | | |
+| 09 | MAX | IN_PROGRESS | | | |
 | 10 | Биллинг: ЮKassa, Т-Банк | TODO | | | |
 | 11 | Лендинг, юр. страницы, базовая админка → MVP | TODO | | | |
 | 20 | Полная админка владельца, бизнес-дашборд, статистика | TODO | | | |

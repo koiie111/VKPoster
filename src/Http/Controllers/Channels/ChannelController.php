@@ -75,7 +75,7 @@ final class ChannelController
             // Platforms that have a connect page (others join as their stages arrive).
             'platforms' => array_map(static fn (Platform $p): array => ['id' => $p->value, 'label' => $p->label(), 'icon' => $p->icon()], array_values(array_filter(
                 $this->registry->enabled(),
-                static fn (Platform $p): bool => in_array($p, [Platform::Telegram, Platform::Vk, Platform::Fake], true),
+                static fn (Platform $p): bool => in_array($p, [Platform::Telegram, Platform::Vk, Platform::Max, Platform::Fake], true),
             ))),
             'base' => $base,
         ]);

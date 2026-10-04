@@ -244,7 +244,7 @@ final class ChannelPagesTest extends ChannelTestCase
     {
         [, $workspace] = $this->ownerSession();
 
-        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/max'))->status);
+        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/instagram'))->status);
         self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/bogus'))->status);
     }
 

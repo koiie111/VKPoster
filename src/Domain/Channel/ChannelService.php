@@ -25,6 +25,8 @@ use SensitiveParameter;
 final class ChannelService
 {
     private const TOKEN_PATTERN = '/^\d{5,15}:[A-Za-z0-9_-]{30,60}$/';
+    /** MAX gives out opaque tokens without a documented format: only reject what cannot be one. */
+    private const MAX_TOKEN_PATTERN = '/^[A-Za-z0-9_.\-]{20,300}$/';
 
     public function __construct(
         private readonly Connection $db,
@@ -47,36 +49,67 @@ final class ChannelService
      */
     public function connectOwnTelegramBot(WorkspaceContext $context, #[SensitiveParameter] string $token, string $reference): Channel
     {
-        $connector = $this->registry->connector(Platform::Telegram) ?? throw new ChannelException('Подключение Telegram сейчас выключено.');
         $token = trim($token);
         if (preg_match(self::TOKEN_PATTERN, $token) !== 1) {
             throw new ChannelException('Токен выглядит неправильно. Он состоит из цифр, двоеточия и длинного набора символов, например 123456:ABC-DEF…');
         }
+        [$channel, $info] = $this->connectOwnBot($context, Platform::Telegram, $token, $reference);
+        $this->afterConnect($context, $channel, $info, $this->telegram->make($token));
+
+        return $channel;
+    }
+
+    /**
+     * Connect a channel with the customer's own MAX bot (the customer is a verified legal entity that registered the bot).
+     *
+     * @throws ChannelException with a message for the person
+     */
+    public function connectOwnMaxBot(WorkspaceContext $context, #[SensitiveParameter] string $token, string $reference): Channel
+    {
+        $token = trim($token);
+        if (preg_match(self::MAX_TOKEN_PATTERN, $token) !== 1) {
+            throw new ChannelException('Токен выглядит неправильно. Скопируйте его целиком из кабинета бота на business.max.ru.');
+        }
+        [$channel] = $this->connectOwnBot($context, Platform::Max, $token, $reference);
+        $this->recordConnected($context, $channel);
+
+        return $channel;
+    }
+
+    /**
+     * The part of connecting an own bot that does not depend on the network: check the token and the rights, store the token
+     * encrypted, create or update the channel.
+     *
+     * @return array{0: Channel, 1: ChannelInfo}
+     * @throws ChannelException
+     */
+    private function connectOwnBot(WorkspaceContext $context, Platform $platform, #[SensitiveParameter] string $token, string $reference): array
+    {
+        $connector = $this->registry->connector($platform) ?? throw new ChannelException('Подключение ' . $platform->label() . ' сейчас выключено.');
         $this->assertRoom($context);
         try {
-            $info = $connector->connect(new Credential(Platform::Telegram, $token), $reference);
+            $info = $connector->connect(new Credential($platform, $token), $reference);
         } catch (PlatformError $e) {
             throw new ChannelException($e->forUser());
         }
 
         // The same chat connected again (after the token was replaced, say) keeps its row, and the old credential is replaced in place.
-        $existing = $this->channels->findByExternal($context, Platform::Telegram, $info->externalId);
-        $credentialId = $this->db->transaction(function () use ($context, $token, $existing): int {
+        $existing = $this->channels->findByExternal($context, $platform, $info->externalId);
+        $credentialId = $this->db->transaction(function () use ($context, $platform, $token, $existing): int {
             if ($existing !== null && $existing->credentialId !== null && $existing->mode === ChannelMode::OwnBot) {
                 $this->vault->replace($context, $existing->credentialId, $token);
 
                 return $existing->credentialId;
             }
 
-            return $this->vault->store($context, Platform::Telegram, 'bot_token', $token);
+            return $this->vault->store($context, $platform, 'bot_token', $token);
         });
-        $result = $this->channels->connect($context, Platform::Telegram, $info->externalId, ChannelMode::OwnBot, $info->title, $info->username, $info->kind, $credentialId, ['rights' => $info->rights], $context->userId);
+        $result = $this->channels->connect($context, $platform, $info->externalId, ChannelMode::OwnBot, $info->title, $info->username, $info->kind, $credentialId, ['rights' => $info->rights], $context->userId);
         if ($existing !== null && $existing->credentialId !== null && $existing->credentialId !== $credentialId && $existing->mode === ChannelMode::OwnBot) {
             $this->vault->deleteIfUnused($context, $existing->credentialId);
         }
-        $this->afterConnect($context, $result['channel'], $info, $this->telegram->make($token));
 
-        return $result['channel'];
+        return [$result['channel'], $info];
     }
 
     /**
