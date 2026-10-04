@@ -7,6 +7,11 @@ use App\Domain\Channel\ConnectCodes;
 use App\Integrations\Social\Fake\FakeAdapter;
 use App\Integrations\Social\PlatformRegistry;
 use App\Integrations\Social\Telegram\TelegramAdapter;
+use App\Integrations\Social\Vk\VkAdapter;
+use App\Integrations\Social\Vk\VkApi;
+use App\Integrations\Social\Vk\VkCommunities;
+use App\Integrations\Social\Vk\VkOAuth;
+use App\Integrations\Social\Vk\VkRateGate;
 use App\Integrations\Social\Telegram\TelegramClientFactory;
 use App\Domain\Media\FfprobeVideoProbe;
 use App\Domain\Media\FolderRepository;
@@ -202,12 +207,27 @@ return static function (Container $c, string $base): void {
 
     // Social platforms: one adapter class per network. A new network = one more line in the list below (and its flag in PLATFORMS_ENABLED).
     $c->factory(TelegramClientFactory::class, static fn (Container $c): TelegramClientFactory => new TelegramClientFactory($c->get(HttpClientInterface::class)));
+    $c->factory(VkApi::class, static fn (Container $c): VkApi => new VkApi(
+        $c->get(HttpClientInterface::class),
+        new VkRateGate($c->get(\Redis::class)),
+        $c->get(Config::class)->string('platforms.vk.api_version', '5.199'),
+    ));
+    $c->factory(VkOAuth::class, static function (Container $c): VkOAuth {
+        $config = $c->get(Config::class);
+
+        return new VkOAuth($c->get(HttpClientInterface::class), $config->string('platforms.vk.client_id'), $config->string('platforms.vk.client_secret'), $config->string('platforms.vk.scope', 'wall photos video docs groups'));
+    });
+    $c->factory(VkAdapter::class, static fn (Container $c): VkAdapter => new VkAdapter(
+        $c->get(VkApi::class),
+        $c->get(VkCommunities::class),
+        $c->get(Config::class)->int('platforms.vk.posts_per_day', 50),
+    ));
     $c->factory(FakeAdapter::class, static fn (Container $c): FakeAdapter => new FakeAdapter($c->get(LoggerInterface::class)));
     $c->factory(PlatformRegistry::class, static function (Container $c): PlatformRegistry {
         $config = $c->get(Config::class);
 
         return new PlatformRegistry(
-            [$c->get(TelegramAdapter::class), $c->get(FakeAdapter::class)],
+            [$c->get(TelegramAdapter::class), $c->get(VkAdapter::class), $c->get(FakeAdapter::class)],
             array_values(array_filter(array_map('strval', $config->array('platforms.enabled')), static fn (string $v): bool => $v !== '')),
             !$config->isProduction(),
         );

@@ -1,0 +1,8 @@
+{
+  "access_token": "ACCESS-2",
+  "refresh_token": "REFRESH-2",
+  "expires_in": 3600,
+  "user_id": "12345",
+  "scope": "wall photos video docs groups",
+  "token_type": "Bearer"
+}

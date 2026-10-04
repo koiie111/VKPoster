@@ -1,0 +1,35 @@
+{
+  "response": {
+    "items": [
+      {
+        "id": 4321,
+        "owner_id": -777,
+        "from_id": -777,
+        "text": "Старый текст",
+        "attachments": [
+          {
+            "type": "photo",
+            "photo": {
+              "id": 457,
+              "owner_id": -777,
+              "access_key": "ak1"
+            }
+          },
+          {
+            "type": "link",
+            "link": {
+              "url": "https://example.com"
+            }
+          },
+          {
+            "type": "video",
+            "video": {
+              "id": 99,
+              "owner_id": -777
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

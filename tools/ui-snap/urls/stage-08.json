@@ -1,0 +1,12 @@
+[
+  {
+    "name": "vk-connect",
+    "url": "/w/{ws}/channels/connect/vk",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "channels-menu-vk",
+    "url": "/w/{ws}/channels",
+    "login_as": "demo@ezposter.local"
+  }
+]

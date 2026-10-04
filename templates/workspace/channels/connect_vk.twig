@@ -1,0 +1,32 @@
+{#- Connecting VKontakte. Variables: workspace (context), base, available (the VK application is configured). -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'channels' %}
+{% block title %}Подключить ВКонтакте · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Каналы', href: base}, {label: 'Подключить ВКонтакте'}]) }}
+<div class="mt-3">{{ d.page_header('Подключить сообщества ВКонтакте', 'Мы будем публиковать на стене сообщества от его имени. Нужен аккаунт, который администратор или редактор сообщества.') }}</div>
+{% if not available %}
+    {{ d.alert('warning', 'Подключение ВКонтакте пока не настроено', 'Мы уже знаем об этом и скоро всё включим. Попробуйте позже.') }}
+{% else %}
+<ol class="grid gap-5 sm:max-w-2xl">
+    <li class="flex gap-4">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary-softfg" aria-hidden="true">1</span>
+        <div class="min-w-0 flex-1">
+            <p class="font-semibold">Войдите через ВКонтакте</p>
+            <p class="mt-1 text-sm text-muted">Откроется страница ВКонтакте. Разрешите доступ к стене, фото, видео и документам сообществ: без этих прав публиковать не получится. Пароль от ВКонтакте мы не видим.</p>
+            <div class="mt-3">{{ f.button('Войти через ВКонтакте', href = base ~ '/connect/vk/start', icon = 'share-2') }}</div>
+        </div>
+    </li>
+    <li class="flex gap-4">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary-softfg" aria-hidden="true">2</span>
+        <div class="min-w-0">
+            <p class="font-semibold">Выберите сообщества</p>
+            <p class="mt-1 text-sm text-muted">Мы покажем сообщества, где вы администратор или редактор. Можно выбрать несколько сразу.</p>
+        </div>
+    </li>
+</ol>
+<p class="mt-6 text-sm text-muted sm:max-w-2xl">Если вы перестанете быть администратором сообщества или отзовёте доступ в настройках ВКонтакте, мы напишем вам, а посты в это сообщество не уйдут.</p>
+{% endif %}
+{% endblock %}

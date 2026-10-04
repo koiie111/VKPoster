@@ -48,6 +48,19 @@ final class PublicationRepository extends WorkspaceScopedRepository
         return $row === null ? null : self::hydrate($row);
     }
 
+    /**
+     * How many publications of a channel are planned, being sent or sent in `[$from, $to)`, not counting one post (the one being moved).
+     */
+    public function countForChannelBetween(WorkspaceContext $context, int $channelId, DateTimeImmutable $from, DateTimeImmutable $to, ?int $exceptPostId = null): int
+    {
+        $rows = $this->db->select(
+            'SELECT COUNT(*) AS c FROM publications WHERE workspace_id = ? AND channel_id = ? AND status IN (\'queued\', \'sending\', \'sent\', \'unknown\') AND due_at >= ? AND due_at < ? AND post_id <> ?',
+            [$context->workspaceId, $channelId, DbTime::format($from), DbTime::format($to), $exceptPostId ?? 0],
+        );
+
+        return (int) ($rows[0]['c'] ?? 0);
+    }
+
     public function createQueued(WorkspaceContext $context, Post $post, PostVariant $variant, DateTimeImmutable $dueAt): Publication
     {
         $now = DbTime::format($this->clock->now());

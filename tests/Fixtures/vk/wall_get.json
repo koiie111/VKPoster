@@ -1,0 +1,23 @@
+{
+  "response": {
+    "count": 2,
+    "items": [
+      {
+        "id": 4400,
+        "from_id": -777,
+        "owner_id": -777,
+        "date": 1700000100,
+        "text": "Привет,   мир!",
+        "attachments": []
+      },
+      {
+        "id": 4300,
+        "from_id": -777,
+        "owner_id": -777,
+        "date": 1600000000,
+        "text": "Старый пост",
+        "attachments": []
+      }
+    ]
+  }
+}

@@ -22,6 +22,7 @@ final class ChannelCredentials
         private readonly Connection $db,
         private readonly Crypto $crypto,
         private readonly Config $config,
+        private readonly OAuthRefresher $oauth,
     ) {
     }
 
@@ -40,6 +41,9 @@ final class ChannelCredentials
             }
 
             return new Credential($channel->platform, $token);
+        }
+        if ($channel->mode === ChannelMode::Account) {
+            return new Credential($channel->platform, $this->oauth->accessToken($channel));
         }
         $row = $channel->credentialId === null ? null : $this->db->table('platform_credentials')
             ->where('id', '=', $channel->credentialId)->where('workspace_id', '=', $channel->workspaceId)->first();

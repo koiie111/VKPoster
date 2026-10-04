@@ -65,6 +65,9 @@ final class Channel
      */
     public function postUrl(string $externalPostId): ?string
     {
+        if ($this->platform === Platform::Vk) {
+            return 'https://vk.com/wall-' . $this->externalId . '_' . $externalPostId;
+        }
         if ($this->platform !== Platform::Telegram) {
             return null;
         }
@@ -80,6 +83,10 @@ final class Channel
      */
     public function handle(): string
     {
+        if ($this->platform === Platform::Vk) {
+            return $this->username !== null ? 'vk.com/' . $this->username : 'Сообщество';
+        }
+
         return $this->username !== null ? '@' . $this->username : ($this->kind === 'group' ? 'Группа' : 'Закрытый канал');
     }
 }

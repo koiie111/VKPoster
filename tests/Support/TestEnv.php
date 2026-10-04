@@ -60,7 +60,9 @@ final class TestEnv
             'TELEGRAM_LOGIN_BOT_TOKEN' => self::TELEGRAM_TOKEN,
             'TELEGRAM_LOGIN_BOT_NAME' => 'ezposter_test_bot',
             // Channels: Telegram plus the test network, the shared bot, and a webhook secret.
-            'PLATFORMS_ENABLED' => 'telegram,fake',
+            'PLATFORMS_ENABLED' => 'telegram,vk,fake',
+            'VK_CLIENT_ID' => 'vk-test-app',
+            'VK_CLIENT_SECRET' => 'vk-test-secret',
             'TELEGRAM_BOT_TOKEN' => self::SHARED_BOT_TOKEN,
             'TELEGRAM_BOT_USERNAME' => 'ezposter_bot',
             'TELEGRAM_WEBHOOK_SECRET' => self::WEBHOOK_SECRET,

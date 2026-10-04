@@ -10,6 +10,7 @@ use App\Integrations\Social\Contracts\Credential;
 use App\Integrations\Social\Contracts\EditableAdapter;
 use App\Integrations\Social\Contracts\ErrorKind;
 use App\Integrations\Social\Contracts\HealthStatus;
+use App\Integrations\Social\Contracts\OutcomeVerifier;
 use App\Integrations\Social\Contracts\Platform;
 use App\Integrations\Social\Contracts\PlatformAdapter;
 use App\Integrations\Social\Contracts\PlatformError;
@@ -22,7 +23,7 @@ use Psr\Log\LoggerInterface;
  * and tests without any real account. Failures can be scripted with `failNext()`; a channel id that starts with `broken-`
  * fails its health check.
  */
-final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingAdapter
+final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingAdapter, OutcomeVerifier
 {
     /** @var list<array{channel: string, text: string, media: int, id: string}> */
     public array $published = [];
@@ -45,6 +46,12 @@ final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingA
     /** @var \Closure|null called inside `publish()` after the post is "sent" (tests simulate a crash right after sending) */
     public ?\Closure $afterSend = null;
 
+    /** @var \Closure|null decides what `findPublished()` finds (tests of the unknown-outcome check); nothing is found when it is unset */
+    public ?\Closure $verify = null;
+
+    /** Posts per channel and day the network "allows" (0 = unlimited); tests of the daily limit set it. */
+    public int $dailyLimit = 0;
+
     private ?PlatformError $nextFailure = null;
 
     private int $counter = 0;
@@ -60,7 +67,7 @@ final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingA
 
     public function capabilities(): Capabilities
     {
-        return new Capabilities(4096, 1024, 10, true, true, true, true, true, true, true, 50 * 1024 * 1024, true, 'html');
+        return new Capabilities(4096, 1024, 10, true, true, true, true, true, true, true, 50 * 1024 * 1024, true, 'html', $this->dailyLimit);
     }
 
     public function validate(PublishRequest $request): array
@@ -114,6 +121,11 @@ final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingA
     {
         $this->maybeFail();
         $this->comments[] = ['id' => $published->externalId, 'text' => $text];
+    }
+
+    public function findPublished(PublishRequest $request, string $externalChannelId, Credential $credential, \DateTimeImmutable $since): ?PublishResult
+    {
+        return $this->verify === null ? null : ($this->verify)($request, $externalChannelId);
     }
 
     public function healthCheck(string $externalChannelId, Credential $credential): HealthStatus

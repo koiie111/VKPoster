@@ -1,0 +1,23 @@
+{#- Choosing VK communities. Variables: workspace (context), base, communities (list of {id, name, handle, connected}). -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'channels' %}
+{% block title %}Выбор сообществ ВКонтакте · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Каналы', href: base}, {label: 'Подключить ВКонтакте', href: base ~ '/connect/vk'}, {label: 'Выбор сообществ'}]) }}
+<div class="mt-3">{{ d.page_header('Какие сообщества подключить?', 'Здесь сообщества, где ваш аккаунт ВКонтакте администратор или редактор.') }}</div>
+{% if communities is empty %}
+<div class="card">{{ d.empty_state('Подходящих сообществ не нашли', 'Подключить можно только сообщество, где вы администратор или редактор. Попросите владельца сообщества дать вам роль и войдите ещё раз.', 'users', 'Войти ещё раз', base ~ '/connect/vk') }}</div>
+{% else %}
+<form class="card grid max-w-2xl gap-4" method="post" action="{{ base }}/connect/vk/choose">
+    {{ csrf_field() }}
+    <ul class="grid gap-3">
+        {% for c in communities %}
+        <li>{{ f.checkbox('communities[]', c.name, checked = not c.connected, value = c.id, hint = c.handle ~ (c.connected ? ' · уже подключено, подключим заново' : ''), id = 'vk-' ~ c.id) }}</li>
+        {% endfor %}
+    </ul>
+    <div class="flex flex-wrap gap-3">{{ f.button('Подключить выбранные', type = 'submit') }}{{ f.button('Отмена', variant = 'secondary', href = base) }}</div>
+</form>
+{% endif %}
+{% endblock %}

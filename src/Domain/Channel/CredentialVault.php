@@ -11,6 +11,7 @@ use App\Kernel\Database\Connection;
 use App\Kernel\Security\Crypto;
 use App\Support\Clock;
 use App\Support\DbTime;
+use DateTimeImmutable;
 use SensitiveParameter;
 use Symfony\Component\Uid\Ulid;
 
@@ -46,6 +47,58 @@ final class CredentialVault extends WorkspaceScopedRepository
     }
 
     /**
+     * Store an OAuth token pair (VK). The row is shared by every channel connected through this sign-in.
+     *
+     * @return int id of the new credential row
+     */
+    public function storeOAuth(WorkspaceContext $context, Platform $platform, #[SensitiveParameter] string $access, #[SensitiveParameter] string $refresh, DateTimeImmutable $expiresAt, string $deviceId, string $accountId, string $scopes): int
+    {
+        $now = DbTime::format($this->clock->now());
+
+        return (int) $this->db->table('platform_credentials')->insert([
+            'public_id' => (string) new Ulid(),
+            'workspace_id' => $context->workspaceId,
+            'platform' => $platform->value,
+            'kind' => 'oauth',
+            'secret_enc' => $this->crypto->encrypt($access),
+            'refresh_enc' => $this->crypto->encrypt($refresh),
+            'expires_at' => DbTime::format($expiresAt),
+            'scopes' => mb_substr($scopes, 0, 500),
+            'device_id' => $deviceId,
+            'account_id' => $accountId,
+            'hint' => $platform->label() . ' ' . $accountId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    /**
+     * The access token of an OAuth credential of this workspace, looked up by its public id (a connection that has just been made and is
+     * waiting for the person to pick communities). Null for a credential of another workspace or one that does not exist.
+     *
+     * @return array{id: int, token: string}|null
+     */
+    public function pendingOAuth(WorkspaceContext $context, Platform $platform, string $publicId): ?array
+    {
+        $row = $this->scoped($context, 'platform_credentials')->where('public_id', '=', $publicId)->where('platform', '=', $platform->value)->where('kind', '=', 'oauth')->first();
+
+        return $row === null ? null : ['id' => (int) $row['id'], 'token' => $this->crypto->decrypt((string) $row['secret_enc'])];
+    }
+
+    /**
+     * Drop OAuth credentials of a platform that no channel uses and that are older than a day: sign-ins the person abandoned before choosing
+     * communities.
+     */
+    public function pruneAbandoned(WorkspaceContext $context, Platform $platform): void
+    {
+        $limit = DbTime::format($this->clock->now()->modify('-1 day'));
+        $this->db->execute(
+            'DELETE FROM platform_credentials WHERE workspace_id = ? AND platform = ? AND kind = \'oauth\' AND created_at < ? AND id NOT IN (SELECT credential_id FROM channels WHERE credential_id IS NOT NULL)',
+            [$context->workspaceId, $platform->value, $limit],
+        );
+    }
+
+    /**
      * Replace the secret of an existing credential (the customer pasted a fresh token for the same bot).
      */
     public function replace(WorkspaceContext $context, int $credentialId, #[SensitiveParameter] string $secret): void
@@ -55,6 +108,13 @@ final class CredentialVault extends WorkspaceScopedRepository
             'hint' => self::mask($secret),
             'updated_at' => DbTime::format($this->clock->now()),
         ]);
+    }
+
+    public function publicIdOf(WorkspaceContext $context, int $credentialId): ?string
+    {
+        $row = $this->scoped($context, 'platform_credentials')->where('id', '=', $credentialId)->first();
+
+        return $row === null ? null : (string) $row['public_id'];
     }
 
     public function hint(WorkspaceContext $context, int $credentialId): ?string

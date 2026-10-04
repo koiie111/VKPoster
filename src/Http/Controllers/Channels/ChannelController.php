@@ -65,6 +65,7 @@ final class ChannelController
                 'note' => $this->note($channel, $context),
                 'avatar' => $channel->avatarKey === null ? null : $base . '/' . $channel->publicId . '/avatar',
                 'own_bot' => $channel->mode->value === 'own_bot',
+                'account' => $channel->mode->value === 'account',
             ];
         }
 
@@ -74,7 +75,7 @@ final class ChannelController
             // Platforms that have a connect page (others join as their stages arrive).
             'platforms' => array_map(static fn (Platform $p): array => ['id' => $p->value, 'label' => $p->label(), 'icon' => $p->icon()], array_values(array_filter(
                 $this->registry->enabled(),
-                static fn (Platform $p): bool => in_array($p, [Platform::Telegram, Platform::Fake], true),
+                static fn (Platform $p): bool => in_array($p, [Platform::Telegram, Platform::Vk, Platform::Fake], true),
             ))),
             'base' => $base,
         ]);
@@ -318,6 +319,6 @@ final class ChannelController
         }
         $checked = $channel->lastHealthAt === null ? '' : 'Проверен ' . $channel->lastHealthAt->setTimezone(new \DateTimeZone($context->timezone))->format('d.m.Y H:i') . '. ';
 
-        return $checked . ($missing === [] ? '' : 'Боту не хватает права: ' . implode(', ', $missing) . '.');
+        return $checked . ($missing === [] ? '' : ($channel->platform === Platform::Vk ? 'Аккаунту' : 'Боту') . ' не хватает права: ' . implode(', ', $missing) . '.');
     }
 }

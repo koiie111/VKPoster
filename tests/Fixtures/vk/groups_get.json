@@ -1,0 +1,35 @@
+{
+  "response": {
+    "count": 3,
+    "items": [
+      {
+        "id": 777,
+        "name": "Моё сообщество",
+        "screen_name": "mygroup",
+        "is_closed": 0,
+        "type": "page",
+        "admin_level": 3,
+        "is_admin": 1
+      },
+      {
+        "id": 888,
+        "name": "Редакторская группа",
+        "screen_name": "club888",
+        "is_closed": 0,
+        "type": "group",
+        "admin_level": 2,
+        "is_admin": 0
+      },
+      {
+        "id": 999,
+        "name": "Удалённое",
+        "screen_name": "club999",
+        "is_closed": 0,
+        "type": "group",
+        "admin_level": 3,
+        "is_admin": 1,
+        "deactivated": "deleted"
+      }
+    ]
+  }
+}
