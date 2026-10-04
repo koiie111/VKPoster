@@ -77,7 +77,6 @@ final class PostPagesTest extends PostTestCase
         $this->actAs($this->memberOf($workspace, 'viewer@example.com', Role::Viewer));
         self::assertSame(403, $this->get($this->postsUrl($workspace, '/new'))->status);
         self::assertSame(200, $this->get($this->base($workspace) . '/calendar')->status, 'a viewer may look at the calendar');
-        self::assertNotNull($owner);
     }
 
     public function testTheEditorWithoutChannelsPointsToConnectingOne(): void

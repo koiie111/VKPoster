@@ -125,7 +125,7 @@ final class BenchPublishCommand implements Command
             $delays[] = (float) DbTime::parse($row['sent_at'])?->format('U.u') - (float) DbTime::parse($row['due_at'])?->format('U.u');
         }
         sort($delays);
-        $at = static fn (float $q): float => $delays === [] ? 0.0 : $delays[(int) min(count($delays) - 1, max(0, (int) ceil($q * count($delays)) - 1))];
+        $at = static fn (float $q): float => $delays === [] ? 0.0 : $delays[min(count($delays) - 1, max(0, (int) ceil($q * count($delays)) - 1))];
         $p95 = $at(0.95);
         $out->line(sprintf('Published %d of %d (not published: %d).', count($delays), count($rows), $notSent));
         $out->line(sprintf('Delay from the planned time: p50 %.2f s, p95 %.2f s, max %.2f s.', $at(0.5), $p95, $delays === [] ? 0.0 : end($delays)));

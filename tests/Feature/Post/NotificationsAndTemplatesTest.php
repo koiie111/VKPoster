@@ -35,9 +35,12 @@ final class NotificationsAndTemplatesTest extends PostTestCase
         self::assertMatchesRegularExpression('~https://t\.me/ezposter_bot\?start=([A-Za-z0-9_-]{20,64})~', $html);
         preg_match('~start=([A-Za-z0-9_-]{20,64})~', $html, $m);
 
-        return $m[1];
+        return $m[1] ?? '';
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function startUpdate(string $token, int $chatId = 4242): array
     {
         return ['update_id' => 9001, 'message' => ['message_id' => 1, 'from' => ['id' => $chatId, 'is_bot' => false, 'first_name' => 'Иван', 'username' => 'ivan'], 'chat' => ['id' => $chatId, 'type' => 'private'], 'date' => 1790000000, 'text' => '/start ' . $token]];
@@ -140,7 +143,6 @@ final class NotificationsAndTemplatesTest extends PostTestCase
         self::assertStringContainsString('Не удалось опубликовать', $this->mailer->to('owner@example.com')[0]->subject);
         self::assertSame([], $this->mailer->to('editor@example.com'));
         self::assertSame([], $this->mailer->to('viewer@example.com'));
-        self::assertNotNull($viewer);
         self::assertSame(0, $this->db->select('SELECT COUNT(*) AS n FROM jobs')[0]['n'], 'the queue was drained');
         self::assertSame(4242, $this->http->requests[0]['options']['json']['chat_id'], 'the message went to the linked chat');
         self::assertStringContainsString('Важный пост', (string) $this->http->requests[0]['options']['json']['text']);
@@ -227,8 +229,5 @@ final class NotificationsAndTemplatesTest extends PostTestCase
         self::assertSame(403, $this->post($this->base($workspace) . '/templates/' . $id . '/delete')->status);
         self::assertSame(1, $this->db->select('SELECT COUNT(*) AS n FROM post_templates')[0]['n']);
         self::assertSame(200, $this->get($this->base($workspace) . '/templates')->status);
-        self::assertNotNull($this->app->container()->get(Worker::class));
-        self::assertNotSame('', TestEnv::WEBHOOK_SECRET);
-        self::assertNotSame([], TelegramFixtures::update('update_private_start'));
     }
 }
