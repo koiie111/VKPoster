@@ -71,12 +71,12 @@ final class ReceiptPdf
         $pdf->text($left, $y - 10, 12, 'Сумма');
         $pdf->text($right - $pdf->measure($amount, 18), $y - 12, 18, $amount);
         $y -= 36;
-        if ($this->config->string('billing.tax.vat') === 'none') {
+        if ($this->config->string('billing.tax.vat') === 'none' || $this->config->string('billing.tax.tax_system') === 'npd') {
             $pdf->text($left, $y, 10, 'НДС не облагается');
             $y -= 22;
         }
 
-        foreach ($pdf->wrap('Это квитанция об оплате сервиса. Кассовый чек по 54-ФЗ присылает платёжная система на почту плательщика.', 9, $right - $left) as $line) {
+        foreach ($pdf->wrap($this->config->string('billing.tax.tax_system') === 'npd' ? 'Это квитанция об оплате сервиса. Чек как самозанятый формируется в приложении «Мой налог».' : 'Это квитанция об оплате сервиса. Кассовый чек по 54-ФЗ присылает платёжная система на почту плательщика.', 9, $right - $left) as $line) {
             $pdf->text($left, $y, 9, $line);
             $y -= 13;
         }

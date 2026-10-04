@@ -141,7 +141,7 @@ final class YooKassaGateway implements PaymentGateway
     {
         $amount = ['value' => Money::decimal($invoice->amount), 'currency' => $invoice->currency];
 
-        return [
+        $body = [
             'amount' => $amount,
             'description' => mb_substr($invoice->description, 0, 128),
             'metadata' => ['payment' => $payment->publicId, 'invoice' => $invoice->number],
@@ -158,6 +158,12 @@ final class YooKassaGateway implements PaymentGateway
                 ]],
             ],
         ];
+        if ($this->taxSystem === 'npd') {
+            // A self-employed seller issues receipts in "Мой налог"; there is no cash register receipt to send.
+            unset($body['receipt']);
+        }
+
+        return $body;
     }
 
     /**

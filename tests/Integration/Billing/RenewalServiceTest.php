@@ -102,21 +102,22 @@ final class RenewalServiceTest extends BillingTestCase
         self::assertSame(1, $this->renewals()->tick()['renewals_failed']);
         self::assertSame($first->modify('+3 days')->format('Y-m-d H:i'), $this->subscription($workspace)->nextRenewalAttemptAt?->format('Y-m-d H:i'), 'the last retry is on the third day');
 
-        // Attempt 3: the day the period ends. No more attempts after it, and the grace period begins.
+        // Attempt 3: the day the period ends; the grace period begins, and the card is still tried daily during it.
         $this->setClockTo($end);
         $summary = $this->renewals()->tick();
         self::assertSame(1, $summary['renewals_failed']);
         self::assertSame(1, $summary['past_due']);
         $s = $this->subscription($workspace);
         self::assertSame(3, $s->renewalAttempts);
-        self::assertNull($s->nextRenewalAttemptAt, 'the ladder is over');
+        self::assertSame($first->modify('+4 days')->format('Y-m-d H:i'), $s->nextRenewalAttemptAt?->format('Y-m-d H:i'), 'still trying during the grace');
         self::assertSame(SubscriptionStatus::PastDue, $s->status);
         self::assertSame('pro', $this->plans()->find($s->planId)?->code, 'the plan still works during the grace period');
 
-        // Nothing happens during the grace days.
+        // One more attempt on each grace day.
+        $this->setClockTo($end->modify('+1 day'));
+        self::assertSame(1, $this->renewals()->tick()['renewals_failed']);
         $this->setClockTo($end->modify('+2 days'));
-        $quiet = $this->renewals()->tick();
-        self::assertSame(0, $quiet['renewals_failed'] + $quiet['dropped_to_free']);
+        self::assertSame(1, $this->renewals()->tick()['renewals_failed']);
 
         // After three days of grace: Free, channels beyond Free's two paused, nothing deleted.
         $this->setClockTo($end->modify('+3 days'));
@@ -129,7 +130,7 @@ final class RenewalServiceTest extends BillingTestCase
         self::assertSame(2, count(array_filter($channels, static fn ($c): bool => $c->status === ChannelStatus::Paused)));
 
         $subjects = $this->subjects();
-        self::assertSame(3, count(array_filter($subjects, static fn (string $s): bool => $s === 'Не удалось продлить тариф «Про»')), 'an email for each failure');
+        self::assertSame(6, count(array_filter($subjects, static fn (string $s): bool => $s === 'Не удалось продлить тариф «Про»')), 'an email for each failure');
         self::assertContains('Тариф отключён: не удалось получить оплату', $subjects);
         self::assertContains('billing.downgraded_to_free', $this->auditActions($workspace));
     }

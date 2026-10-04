@@ -31,10 +31,10 @@ return static function (Env $env): array {
             'password' => $env->string('TBANK_PASSWORD'),
             'api_base' => rtrim($env->string('TBANK_API_BASE', 'https://securepay.tinkoff.ru/v2'), '/'),
         ],
-        // Data for the 54-FZ receipt. `tax_system`: osn | usn_income | usn_income_outcome | patent | envd | esn.
+        // Data for the 54-FZ receipt. `tax_system`: npd | osn | usn_income | usn_income_outcome | patent | envd | esn. `npd` (self-employed): no 54-FZ receipt is sent to the provider, the seller issues receipts in "Мой налог".
         // `vat`: none | vat0 | vat10 | vat20 (an individual entrepreneur on the simplified system is usually "none").
         'tax' => [
-            'tax_system' => $env->string('BILLING_TAX_SYSTEM', 'usn_income'),
+            'tax_system' => $env->string('BILLING_TAX_SYSTEM', 'npd'),
             'vat' => $env->string('BILLING_VAT', 'none'),
             'item_name' => 'Подписка ezposter',
         ],
@@ -45,7 +45,7 @@ return static function (Env $env): array {
         'trial' => ['plan' => 'pro', 'days' => 14],
         // Renewal: the first attempt is `lead_days` before the period ends; after a failure it is repeated after each of `retry_days`
         // (counted from the first attempt); when the period has ended the workspace has `grace_days` before it falls back to Free.
-        'renewal' => ['lead_days' => 3, 'retry_days' => [1, 3], 'grace_days' => 3],
+        'renewal' => ['lead_days' => 3, 'retry_days' => [1, 3, 4, 5, 6], 'grace_days' => 3],
         // An unpaid checkout is forgotten after this many hours (the payment page of the provider expires about then too).
         'checkout_ttl_hours' => 24,
         'catalog' => [

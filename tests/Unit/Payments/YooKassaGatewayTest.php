@@ -76,6 +76,15 @@ final class YooKassaGatewayTest extends TestCase
         self::assertFalse($body['save_payment_method']);
     }
 
+    public function testASelfEmployedSellerSendsNoReceipt(): void
+    {
+        $this->http->expect('POST', BillingFixtures::YOOKASSA_API . '/payments', 200, BillingFixtures::yookassaRaw('payment_pending'));
+
+        $this->gateway('none', 'npd')->createPayment(BillingFixtures::invoice(), BillingFixtures::payment('yookassa'), 'https://x', true);
+
+        self::assertArrayNotHasKey('receipt', $this->http->requests[0]['options']['json']);
+    }
+
     public function testChargesASavedMethodWithoutAConfirmation(): void
     {
         $this->http->expect('POST', BillingFixtures::YOOKASSA_API . '/payments', 200, BillingFixtures::yookassaRaw('payment_succeeded'));

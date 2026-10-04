@@ -166,7 +166,7 @@ final class TBankGateway implements PaymentGateway
     {
         $name = mb_substr($this->itemName . ': ' . $invoice->description, 0, 128);
 
-        return [
+        $params = [
             'Amount' => $invoice->amount,
             'OrderId' => $payment->publicId,
             'Description' => mb_substr($invoice->description, 0, 140),
@@ -188,6 +188,11 @@ final class TBankGateway implements PaymentGateway
                 ]],
             ],
         ];
+        if ($this->taxSystem === 'npd') {
+            unset($params['Receipt']);
+        }
+
+        return $params;
     }
 
     /**

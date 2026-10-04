@@ -96,6 +96,16 @@ final class TBankGatewayTest extends TestCase
         self::assertArrayNotHasKey('Recurrent', $this->http->requests[0]['options']['json']);
     }
 
+    public function testASelfEmployedSellerSendsNoReceipt(): void
+    {
+        $this->http->expect('POST', BillingFixtures::TBANK_API . '/Init', 200, BillingFixtures::tbankRaw('init_ok'));
+        $gateway = new TBankGateway($this->http, BillingFixtures::TBANK_TERMINAL, BillingFixtures::TBANK_PASSWORD, BillingFixtures::TBANK_API, 'https://x/hook', 'npd', 'none', 'x');
+
+        $gateway->createPayment(BillingFixtures::invoice(), BillingFixtures::payment('tbank'), 'https://x', true);
+
+        self::assertArrayNotHasKey('Receipt', $this->http->requests[0]['options']['json']);
+    }
+
     public function testStatusesAreMapped(): void
     {
         $this->http->expect('POST', BillingFixtures::TBANK_API . '/GetState', 200, BillingFixtures::tbankRaw('getstate_confirmed'));
