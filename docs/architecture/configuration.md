@@ -41,6 +41,10 @@
 | `VK_CLIENT_ID` `VK_CLIENT_SECRET` | `VKID_*` | Приложение VK ID для публикации в сообщества (права на стену); адрес возврата `<APP_URL>/channels/connect/vk/callback`. Включается флагом `vk` в `PLATFORMS_ENABLED`. См. [modules/vk.md](modules/vk.md) |
 | `VK_SCOPE` | `wall photos video docs groups` | Права, которые просит подключение VK |
 | `VK_POSTS_PER_DAY` | `50` | Суточный лимит постов одного сообщества для предупреждения при планировании |
+| `MAX_BOT_TOKEN` | — | Общий бот MAX (бот верифицированного юрлица, business.max.ru). Без него работает только режим «свой бот». Включается флагом `max` в `PLATFORMS_ENABLED` |
+| `MAX_BOT_USERNAME` | — | Имя бота MAX без `@` для страницы подключения (иначе спрашивается у MAX и кэшируется) |
+| `MAX_WEBHOOK_SECRET` | — | 16–128 символов `A-Za-z0-9_-`: часть адреса вебхука `/webhooks/max/{secret}`; из него выводится секретный заголовок. Задать, затем `max:webhook set https://публичный-хост` |
+| `MAX_API_BASE` | `https://platform-api2.max.ru` | Адрес MAX API (менять не нужно) |
 | `TELEGRAM_BOT_TOKEN` | — | Общий бот сервиса (создаётся в @BotFather); без него подключение «через бота сервиса» недоступно, «свой бот» работает |
 | `TELEGRAM_BOT_USERNAME` | — | Имя бота без `@` для подсказки на странице подключения; если пусто, спрашивается у Telegram и кэшируется на час |
 | `TELEGRAM_WEBHOOK_SECRET` | — | 16–128 символов `A-Za-z0-9_-`: секретная часть адреса вебхука; из него же выводится значение заголовка `X-Telegram-Bot-Api-Secret-Token`. Без него вебхук отвечает 404 |

@@ -6,6 +6,9 @@ use App\Domain\Auth\PasswordPolicy;
 use App\Domain\Channel\ConnectCodes;
 use App\Integrations\Social\Fake\FakeAdapter;
 use App\Integrations\Social\PlatformRegistry;
+use App\Integrations\Social\Max\MaxAdapter;
+use App\Integrations\Social\Max\MaxClientFactory;
+use App\Integrations\Social\Max\MaxRateGate;
 use App\Integrations\Social\Telegram\TelegramAdapter;
 use App\Integrations\Social\Vk\VkAdapter;
 use App\Integrations\Social\Vk\VkApi;
@@ -207,6 +210,15 @@ return static function (Container $c, string $base): void {
 
     // Social platforms: one adapter class per network. A new network = one more line in the list below (and its flag in PLATFORMS_ENABLED).
     $c->factory(TelegramClientFactory::class, static fn (Container $c): TelegramClientFactory => new TelegramClientFactory($c->get(HttpClientInterface::class)));
+    $c->factory(MaxClientFactory::class, static fn (Container $c): MaxClientFactory => new MaxClientFactory(
+        $c->get(HttpClientInterface::class),
+        $c->get(Config::class)->string('platforms.max.api_base', 'https://platform-api2.max.ru'),
+    ));
+    $c->factory(MaxAdapter::class, static fn (Container $c): MaxAdapter => new MaxAdapter(
+        $c->get(MaxClientFactory::class),
+        $c->get(\App\Integrations\Social\Max\MaxInspector::class),
+        new MaxRateGate($c->get(\Redis::class)),
+    ));
     $c->factory(VkApi::class, static fn (Container $c): VkApi => new VkApi(
         $c->get(HttpClientInterface::class),
         new VkRateGate($c->get(\Redis::class)),
@@ -227,7 +239,7 @@ return static function (Container $c, string $base): void {
         $config = $c->get(Config::class);
 
         return new PlatformRegistry(
-            [$c->get(TelegramAdapter::class), $c->get(VkAdapter::class), $c->get(FakeAdapter::class)],
+            [$c->get(TelegramAdapter::class), $c->get(VkAdapter::class), $c->get(MaxAdapter::class), $c->get(FakeAdapter::class)],
             array_values(array_filter(array_map('strval', $config->array('platforms.enabled')), static fn (string $v): bool => $v !== '')),
             !$config->isProduction(),
         );

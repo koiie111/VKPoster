@@ -1,0 +1,16 @@
+{
+  "update_type": "message_created",
+  "timestamp": 1760000200000,
+  "message": {
+    "recipient": {
+      "chat_id": -72000000000001,
+      "chat_type": "channel"
+    },
+    "timestamp": 1760000200000,
+    "body": {
+      "mid": "mid.100",
+      "seq": 5,
+      "text": "/connect {{CODE}}"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "update_type": "bot_removed",
+  "timestamp": 1760000300000,
+  "chat_id": -72000000000001,
+  "user": {
+    "user_id": 42,
+    "name": "Анна",
+    "is_bot": false
+  }
+}

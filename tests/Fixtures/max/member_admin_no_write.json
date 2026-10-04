@@ -1,0 +1,14 @@
+{
+  "user_id": 555000111,
+  "first_name": "ezposter",
+  "name": "ezposter",
+  "username": "ezposter_bot",
+  "is_bot": true,
+  "last_activity_time": 1760000000000,
+  "is_owner": false,
+  "is_admin": true,
+  "join_time": 1750000000000,
+  "permissions": [
+    "read_all_messages"
+  ]
+}

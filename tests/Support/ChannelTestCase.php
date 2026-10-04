@@ -10,6 +10,7 @@ use App\Domain\Channel\ChannelRepository;
 use App\Domain\Channel\ConnectCodes;
 use App\Domain\Workspace\Workspace;
 use App\Integrations\Social\Contracts\Platform;
+use App\Integrations\Social\Max\MaxWebhook;
 use App\Integrations\Social\Telegram\TelegramWebhook;
 use App\Kernel\Http\Response;
 use App\Kernel\HttpClient\HttpClientInterface;
@@ -55,6 +56,39 @@ abstract class ChannelTestCase extends MediaTestCase
         $headers += ['Content-Type' => 'application/json', 'X-Telegram-Bot-Api-Secret-Token' => TelegramWebhook::headerToken(TestEnv::WEBHOOK_SECRET)];
 
         return $this->request('POST', '/webhooks/telegram/' . ($secret ?? TestEnv::WEBHOOK_SECRET), $update, $headers);
+    }
+
+    /**
+     * Expect one call to the MAX API (path as in the documentation, e.g. `/messages`) and answer it with a recorded fixture.
+     */
+    protected function max(string $method, string $path, string $fixture, int $status = 200): void
+    {
+        $this->http->expect($method, MaxFixtures::API . $path, $status, MaxFixtures::raw($fixture));
+    }
+
+    /**
+     * The calls the shared MAX bot makes to connect a public channel it administers.
+     */
+    protected function expectMaxInspection(int $chat = MaxFixtures::CHANNEL, string $chatFixture = 'chat_channel', string $member = 'member_admin'): void
+    {
+        $this->max('GET', '/chats/' . $chat, $chatFixture);
+        $this->max('GET', '/chats/' . $chat . '/members/me', $member);
+    }
+
+    /**
+     * @param array<string, mixed> $update
+     * @param array<string, string> $headers extra or replacement headers
+     */
+    protected function maxWebhook(array $update, array $headers = [], ?string $secret = null): Response
+    {
+        $headers += ['Content-Type' => 'application/json', 'X-Max-Bot-Api-Secret' => MaxWebhook::headerToken(TestEnv::MAX_WEBHOOK_SECRET)];
+
+        return $this->request('POST', '/webhooks/max/' . ($secret ?? TestEnv::MAX_WEBHOOK_SECRET), $update, $headers);
+    }
+
+    protected function issueMaxCode(Workspace $workspace, \App\Domain\User\User $user): string
+    {
+        return $this->app->container()->get(ConnectCodes::class)->issue($this->contextFor($workspace, $user), Platform::Max)->code;
     }
 
     /**

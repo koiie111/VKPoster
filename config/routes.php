@@ -16,8 +16,10 @@ use App\Http\Controllers\Dev\DevOAuthController;
 use App\Http\Controllers\Dev\DevLoginController;
 use App\Http\Controllers\Dev\DevUiController;
 use App\Http\Controllers\Channels\ChannelController;
+use App\Http\Controllers\Channels\MaxConnectController;
 use App\Http\Controllers\Channels\VkConnectController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\Webhooks\MaxWebhookController;
 use App\Http\Controllers\Webhooks\TelegramWebhookController;
 use App\Http\Controllers\Workspace\AuditController;
 use App\Http\Controllers\Workspace\InvitationController;
@@ -175,6 +177,10 @@ return static function (Router $router): void {
                 $c->post('/connect/telegram/code', [ChannelController::class, 'issueCode'])->middleware([RateLimit::class, ['bucket' => 'channel-code', 'max' => 20, 'seconds' => 3600]]);
                 $c->get('/connect/telegram/status/{codeId:' . $ulid . '}', [ChannelController::class, 'codeStatus'])->middleware([RateLimit::class, ['bucket' => 'channel-code-status', 'max' => 600, 'seconds' => 600]]);
                 $c->post('/connect/telegram/own', [ChannelController::class, 'connectOwn'])->middleware([RateLimit::class, ['bucket' => 'channel-own-bot', 'max' => 15, 'seconds' => 3600]]);
+                $c->get('/connect/max', [MaxConnectController::class, 'show']);
+                $c->post('/connect/max/code', [MaxConnectController::class, 'issueCode'])->middleware([RateLimit::class, ['bucket' => 'channel-code', 'max' => 20, 'seconds' => 3600]]);
+                $c->get('/connect/max/status/{codeId:' . $ulid . '}', [MaxConnectController::class, 'codeStatus'])->middleware([RateLimit::class, ['bucket' => 'channel-code-status', 'max' => 600, 'seconds' => 600]]);
+                $c->post('/connect/max/own', [MaxConnectController::class, 'connectOwn'])->middleware([RateLimit::class, ['bucket' => 'channel-own-bot', 'max' => 15, 'seconds' => 3600]]);
                 // The test network: the controller answers 404 unless it is enabled (never in production).
                 $c->get('/connect/fake', [ChannelController::class, 'fakeForm']);
                 $c->post('/connect/fake', [ChannelController::class, 'connectFake']);
@@ -225,6 +231,8 @@ return static function (Router $router): void {
 
     // Telegram calls this for every update of the shared bot: authenticity is the secret in the path plus a header (see TelegramWebhook).
     $router->post('/webhooks/telegram/{secret:[A-Za-z0-9_-]{16,128}}', [TelegramWebhookController::class, 'receive'])->withoutCsrf();
+    // MAX calls this for every update of the shared bot: the secret in the path plus the X-Max-Bot-Api-Secret header (see MaxWebhook).
+    $router->post('/webhooks/max/{secret:[A-Za-z0-9_-]{16,128}}', [MaxWebhookController::class, 'receive'])->withoutCsrf();
 
     $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);
     // Fake social sign-in provider (404 unless DEV_OAUTH_FAKE is on outside production).

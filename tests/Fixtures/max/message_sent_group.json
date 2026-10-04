@@ -1,0 +1,23 @@
+{
+  "message": {
+    "sender": {
+      "user_id": 555000111,
+      "first_name": "ezposter",
+      "name": "ezposter",
+      "username": "ezposter_bot",
+      "is_bot": true,
+      "last_activity_time": 1760000000000
+    },
+    "recipient": {
+      "chat_id": -72000000000001,
+      "chat_type": "channel"
+    },
+    "timestamp": 1760000100000,
+    "body": {
+      "mid": "mid.0000000000000002",
+      "seq": 1,
+      "text": "hi",
+      "attachments": []
+    }
+  }
+}
