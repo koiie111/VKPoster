@@ -18,9 +18,11 @@ final class PlatformRequirements
     }
 
     /**
+     * @param bool $includeFixable false leaves out what a rendition fixes by itself (a picture that is too heavy or too large is shrunk
+     *                             when the post goes out), so the editor only warns about real obstacles
      * @return list<string>
      */
-    public function problems(Media $media, string $platform): array
+    public function problems(Media $media, string $platform, bool $includeFixable = true): array
     {
         $rules = $this->limits->platforms[$platform] ?? null;
         if ($rules === null) {
@@ -34,11 +36,11 @@ final class PlatformRequirements
         switch ($media->kind) {
             case MediaKind::Image:
                 $max = $int($rules['image_bytes'] ?? null);
-                if ($max !== null && $media->size > $max) {
+                if ($includeFixable && $max !== null && $media->size > $max) {
                     $problems[] = sprintf('%s: фото больше %s МБ.', $name, $mb($max));
                 }
                 $sum = $int($rules['image_side_sum'] ?? null);
-                if ($sum !== null && ($media->width ?? 0) + ($media->height ?? 0) > $sum) {
+                if ($includeFixable && $sum !== null && ($media->width ?? 0) + ($media->height ?? 0) > $sum) {
                     $problems[] = sprintf('%s: сумма сторон фото больше %d пикселей.', $name, $sum);
                 }
                 $range = $rules['image_ratio'] ?? null;

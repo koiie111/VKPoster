@@ -1,0 +1,8 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}{{ body }}{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">{{ title }}</h1>
+<p style="margin:0;">{{ body }}</p>
+{% if link %}{% include 'emails/_button.html.twig' with {link: link, label: 'Открыть'} only %}{% endif %}
+<p style="margin:20px 0 0;color:#6b6a7c;font-size:14px;">Какие сообщения вам приходят, можно выбрать в настройках уведомлений: «Безопасность» → «Уведомления».</p>
+{% endblock %}

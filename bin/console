@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use App\Kernel\Application;
 use App\Kernel\Console\Command\AuthPruneCommand;
+use App\Kernel\Console\Command\BenchPublishCommand;
 use App\Kernel\Console\Command\ChannelsCheckCommand;
 use App\Kernel\Console\Command\CreateAdminCommand;
 use App\Kernel\Console\Command\CryptoRotateCommand;
@@ -40,6 +41,7 @@ try {
         KeyGenerateCommand::class,
         CreateAdminCommand::class,
         AuthPruneCommand::class,
+        BenchPublishCommand::class,
         ChannelsCheckCommand::class,
         CryptoRotateCommand::class,
         TelegramPollCommand::class,

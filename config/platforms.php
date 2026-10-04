@@ -21,5 +21,7 @@ return static fn (Env $env): array => [
         'max_per_workspace' => $env->int('CHANNELS_MAX', 100),
         'connect_code_ttl' => 900,
         'health_interval_hours' => 6,
+        // A channel is checked right before publishing when its last check is older than this many minutes.
+        'preflight_minutes' => $env->int('CHANNEL_PREFLIGHT_MINUTES', 15),
     ],
 ];

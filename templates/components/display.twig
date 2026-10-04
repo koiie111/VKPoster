@@ -33,7 +33,8 @@
     connected: ['Подключён', 'ok'],
     needs_reauth: ['Нужно переподключить', 'warn'],
     error: ['Ошибка', 'bad'],
-    paused: ['На паузе', 'neutral']
+    paused: ['На паузе', 'neutral'],
+    unknown: ['Нужно проверить', 'warn']
 } -%}
 {%- set item = map[status] ?? [status, 'neutral'] -%}
 {%- set tones = {neutral: 'bg-sunken text-fg', ok: 'bg-ok-soft text-ok-fg', warn: 'bg-warn-soft text-warn-fg', bad: 'bg-bad-soft text-bad-fg', info: 'bg-info-soft text-info-fg'} -%}
@@ -41,7 +42,7 @@
 {%- endmacro %}
 
 {% macro platform_badge(platform, label = null) -%}
-{%- set names = {vk: 'ВКонтакте', tg: 'Telegram', max: 'MAX', ig: 'Instagram'} -%}
+{%- set names = {vk: 'ВКонтакте', tg: 'Telegram', max: 'MAX', ig: 'Instagram', fake: 'Тестовая сеть'} -%}
 <span class="badge plat plat-{{ names[platform] is defined ? platform : 'vk' }}">{{ label ?? names[platform] ?? platform }}</span>
 {%- endmacro %}
 

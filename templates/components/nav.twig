@@ -59,6 +59,7 @@
         <div class="px-3 py-2"><p class="truncate text-sm font-semibold">{{ name }}</p><p class="truncate text-xs text-muted">{{ email }}</p></div>
         <div class="px-2 pb-2">{{ n.theme_choice() }}</div>
         {{ o.menu_item('Безопасность', href = '/account/security', icon = 'shield') }}
+        {{ o.menu_item('Уведомления', href = '/account/notifications', icon = 'bell') }}
         {{ o.menu_item('Тарифы и оплата', href = '#', icon = 'credit-card') }}
         {{ o.menu_item('Справка', href = '#', icon = 'circle-help') }}
         <form method="post" action="/logout">{{ csrf_field() }}{{ o.menu_item('Выйти', icon = 'log-out', type = 'submit') }}</form>

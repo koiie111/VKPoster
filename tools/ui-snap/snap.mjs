@@ -47,13 +47,26 @@ for (const item of list) {
         if (!found) throw new Error(`no workspace after /app for ${item.name}`);
         url = url.replace('{ws}', found[1]);
       }
+      if (url.includes('{post}')) {
+        // `{post}`: the id of the post whose title contains `post_text`, found in the calendar's list view of the same workspace.
+        const ws = url.match(/\/w\/([0-9A-Z]{26})/)?.[1];
+        await page.goto(`${base}/w/${ws}/calendar?view=list`, { waitUntil: 'networkidle' });
+        const href = await page.locator('a', { hasText: item.post_text ?? '' }).first().getAttribute('href');
+        const id = href?.match(/\/posts\/([0-9A-Z]{26})/)?.[1];
+        if (!id) throw new Error(`no post containing "${item.post_text}" for ${item.name}`);
+        url = url.replace('{post}', id);
+      }
       await page.goto(url, { waitUntil: 'networkidle' });
       // Optional scripted steps to reach a state: [{fill: [selector, value]}, {click: selector}].
       for (const step of item.actions ?? []) {
         if (step.fill) {
-          await page.fill(step.fill[0], step.fill[1]);
+          await page.fill(step.fill[0], step.fill[1].repeat(step.fill[2] ?? 1));
         } else if (step.click) {
           await Promise.all([page.waitForLoadState('networkidle'), page.click(step.click)]);
+        } else if (step.check) {
+          await page.check(step.check, { force: true });
+        } else if (step.press) {
+          await page.press(step.press[0], step.press[1]);
         }
       }
       await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);

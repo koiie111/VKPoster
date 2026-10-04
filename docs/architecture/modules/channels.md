@@ -54,5 +54,5 @@
 - Тестовая сеть `fake` (`FakeAdapter`, платформа «Тестовая сеть»): подключается страницей `/w/{id}/channels/connect/fake`, «публикует» в журнал и в память, ошибки можно запрограммировать (`failNext`), канал с id `broken-…` не проходит проверку. Включается `PLATFORMS_ENABLED=telegram,fake`, в production не работает.
 - Записанные ответы Bot API: `tests/Fixtures/telegram/*.json`, загрузчик `tests/Support/TelegramFixtures`, база тестов `tests/Support/ChannelTestCase` (HTTP замокан, ни один тест не ходит в Telegram).
 
-## Что принимает этап 07
+## Что сделал этап 07 (см. [posts.md](posts.md))
 Адаптер получает `PublishRequest` и локальные пути файлов (варианты под сеть из `VariantService`); результат хранить целиком, включая `allIds` (удаление альбома удаляет все сообщения); `Channel::postUrl()` строит ссылку на пост по `username`; перед публикацией вызвать `ChannelHealthService::check()`; при удалении канала отменять его запланированные посты (сейчас отключение канала постов не касается, их ещё нет).

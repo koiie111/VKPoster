@@ -1,13 +1,52 @@
-{#- Workspace start page. Placeholder until channels and the calendar exist (stages 06 and 07). Variables: user, workspace. -#}
+{#- Workspace start page. Variables: user, workspace (context), channel_count, upcoming, attention (lists of rows), base. -#}
 {% extends 'layouts/app.twig' %}
 {% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
 {% set nav_current = 'dashboard' %}
 {% block title %}Обзор · {{ workspace.workspaceName }} · {{ app_name }}{% endblock %}
 {% block content %}
-{{ d.page_header('Здравствуйте, ' ~ user.name ~ '!', 'Пространство «' ~ workspace.workspaceName ~ '». Здесь появится обзор ваших публикаций.') }}
+{% set actions %}
+    {% if can('posts.draft') and channel_count > 0 %}{{ f.button('Создать пост', href = base ~ '/posts/new', icon = 'plus') }}{% endif %}
+{% endset %}
+{{ d.page_header('Здравствуйте, ' ~ user.name ~ '!', 'Пространство «' ~ workspace.workspaceName ~ '».', body = actions) }}
+
+{% if channel_count == 0 %}
 <div class="card">
-    {{ d.empty_state('Пока здесь пусто', 'Подключите каналы и запланируйте первый пост: мы опубликуем его сами в нужное время. Эти возможности появятся в ближайших обновлениях.', 'rocket',
-        can('members.manage') ? 'Пригласить коллегу' : 'Настроить безопасность аккаунта',
-        can('members.manage') ? url('workspace.team', {workspaceId: workspace.workspacePublicId}) : url('account.security')) }}
+    {% if can('channels.manage') %}
+        {{ d.empty_state('Подключите первый канал', 'Чтобы планировать посты, нужен хотя бы один канал: мы будем публиковать в него сами в нужное время. Это займёт пару минут.', 'share-2', 'Подключить канал', base ~ '/channels') }}
+    {% else %}
+        {{ d.empty_state('Пока нет каналов', 'Каналы подключает владелец или администратор пространства. Когда они появятся, здесь будут ваши ближайшие публикации.', 'share-2') }}
+    {% endif %}
 </div>
+{% else %}
+    {% if attention %}
+    <section class="mb-6" aria-labelledby="attention-title">
+        {% set list %}
+        <ul class="mt-2 flex flex-col gap-1.5">
+            {% for it in attention %}<li><a class="font-medium underline underline-offset-2" href="{{ it.href }}">{{ it.time }} · {{ it.channel }}: {{ it.title }}</a></li>{% endfor %}
+        </ul>
+        {% endset %}
+        {{ d.alert('error', 'Этим постам нужно внимание', body = list) }}
+    </section>
+    {% endif %}
+    <section class="card" aria-labelledby="upcoming-title">
+        <div class="mb-4 flex items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold" id="upcoming-title">Ближайшие публикации</h2>
+            <a class="text-sm font-medium text-primary-text underline underline-offset-2" href="{{ base }}/calendar">Весь календарь</a>
+        </div>
+        {% if upcoming %}
+        <ul class="divide-y divide-line">
+            {% for it in upcoming %}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 first:pt-0 last:pb-0">
+                <span class="w-36 shrink-0 text-sm tabular-nums text-muted">{{ it.time }}</span>
+                {{ d.platform_badge(it.platform, it.channel) }}
+                <a class="min-w-0 flex-1 truncate font-medium hover:underline" href="{{ it.href }}">{{ it.title }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+            {{ d.empty_state('Запланированных постов нет', 'Создайте пост и выберите время: он выйдет сам.', 'calendar-days', can('posts.draft') ? 'Создать пост' : null, can('posts.draft') ? base ~ '/posts/new' : null) }}
+        {% endif %}
+    </section>
+{% endif %}
 {% endblock %}

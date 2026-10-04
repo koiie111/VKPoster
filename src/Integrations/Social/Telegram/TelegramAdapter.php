@@ -9,6 +9,7 @@ use App\Integrations\Social\Contracts\Capabilities;
 use App\Integrations\Social\Contracts\ChannelConnector;
 use App\Integrations\Social\Contracts\ChannelInfo;
 use App\Integrations\Social\Contracts\Credential;
+use App\Integrations\Social\Contracts\EditableAdapter;
 use App\Integrations\Social\Contracts\ErrorKind;
 use App\Integrations\Social\Contracts\HealthStatus;
 use App\Integrations\Social\Contracts\Platform;
@@ -25,7 +26,7 @@ use App\Integrations\Social\Contracts\PublishResult;
  *
  * Text longer than the caption limit goes out as a separate message right after the media (the buttons then sit under the text).
  */
-final class TelegramAdapter implements PlatformAdapter, ChannelConnector
+final class TelegramAdapter implements PlatformAdapter, ChannelConnector, EditableAdapter
 {
     private const MAX_TEXT = 4096;
     private const MAX_CAPTION = 1024;
@@ -43,7 +44,7 @@ final class TelegramAdapter implements PlatformAdapter, ChannelConnector
 
     public function capabilities(): Capabilities
     {
-        return new Capabilities(self::MAX_TEXT, self::MAX_CAPTION, 10, true, true, true, true, true, true, false, self::MAX_FILE_BYTES);
+        return new Capabilities(self::MAX_TEXT, self::MAX_CAPTION, 10, true, true, true, true, true, true, false, self::MAX_FILE_BYTES, true, 'html');
     }
 
     public function validate(PublishRequest $request): array
@@ -114,6 +115,7 @@ final class TelegramAdapter implements PlatformAdapter, ChannelConnector
             $request->buttons,
         )]];
         $parse = $request->format === 'html' ? ['parse_mode' => 'HTML'] : [];
+        $preview = $request->disablePreview ? ['link_preview_options' => ['is_disabled' => true]] : [];
 
         if ($request->poll !== null) {
             $poll = $request->poll;
@@ -124,7 +126,7 @@ final class TelegramAdapter implements PlatformAdapter, ChannelConnector
 
         $count = count($request->media);
         if ($count === 0) {
-            return $this->result($externalChannelId, [$client->sendMessage($chat, $request->text, $extra + $parse + $markup)]);
+            return $this->result($externalChannelId, [$client->sendMessage($chat, $request->text, $extra + $parse + $preview + $markup)]);
         }
 
         $visibleLength = mb_strlen($request->format === 'html' ? strip_tags($request->text) : $request->text);
@@ -151,7 +153,7 @@ final class TelegramAdapter implements PlatformAdapter, ChannelConnector
         }
         if (!$captionFits) {
             try {
-                $messages[] = $client->sendMessage($chat, $request->text, $extra + $parse + $markup);
+                $messages[] = $client->sendMessage($chat, $request->text, $extra + $parse + $preview + $markup);
             } catch (PlatformError $e) {
                 // The media is out already; a retry would post it a second time, so the outcome is "unknown", not "failed".
                 throw new PlatformError(ErrorKind::UnknownOutcome, 'Media was sent but the text message failed: ' . $e->getMessage(), 'Файлы опубликованы, а текст отправить не удалось. Проверьте канал.');
@@ -167,6 +169,27 @@ final class TelegramAdapter implements PlatformAdapter, ChannelConnector
         $chat = $this->chatId($externalChannelId);
         foreach ($published->allIds !== [] ? $published->allIds : [$published->externalId] as $id) {
             $client->deleteMessage($chat, (int) $id);
+        }
+    }
+
+    /**
+     * Change the text of a published post: the text message itself, or the caption of its first file when it has media. Telegram
+     * cannot replace files; buttons are kept by sending them again.
+     */
+    public function edit(PublishResult $published, string $externalChannelId, Credential $credential, PublishRequest $request, bool $hasMedia): void
+    {
+        $client = $this->clients->make($credential->secret);
+        $chat = $this->chatId($externalChannelId);
+        $extra = $request->format === 'html' ? ['parse_mode' => 'HTML'] : [];
+        $extra += $request->disablePreview ? ['link_preview_options' => ['is_disabled' => true]] : [];
+        if ($request->buttons !== []) {
+            $extra['reply_markup'] = ['inline_keyboard' => array_map(static fn (array $b): array => [['text' => $b['text'], 'url' => $b['url']]], $request->buttons)];
+        }
+        $id = (int) $published->externalId;
+        if ($hasMedia) {
+            $client->editMessageCaption($chat, $id, $request->text, $extra);
+        } else {
+            $client->editMessageText($chat, $id, $request->text, $extra);
         }
     }
 

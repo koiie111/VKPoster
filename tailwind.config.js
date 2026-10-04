@@ -12,7 +12,7 @@ module.exports = {
     './src/**/*.php',
   ],
   // Platform classes are assembled from data (`plat-{{ platform }}`), so Tailwind cannot see them in templates.
-  safelist: ['plat-vk', 'plat-tg', 'plat-max', 'plat-ig'],
+  safelist: ['plat-vk', 'plat-tg', 'plat-max', 'plat-ig', 'plat-fake'],
   darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {

@@ -1,0 +1,51 @@
+{#- Notification settings. Variables: user, types (id, label, hint, email, telegram), has_email, telegram (link or null), bot_configured, connect_url. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'settings' %}
+{% block title %}Уведомления · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Уведомления', 'О чём и как мы вам напишем: если пост не вышел, с каналом что-то случилось или всё прошло хорошо.') }}
+<p class="mb-6 text-sm"><a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('account.security') }}">← Безопасность</a></p>
+
+<div class="flex flex-col gap-6">
+    <section class="card" aria-labelledby="tg-title">
+        <h2 class="text-lg font-semibold" id="tg-title">Telegram</h2>
+        {% if telegram %}
+            <p class="mt-1 text-sm text-muted">Бот пишет вам{% if telegram.username %} в личные сообщения (@{{ telegram.username }}){% else %} в личные сообщения{% endif %}.</p>
+            <form class="mt-4" method="post" action="/account/notifications/telegram/unlink">{{ csrf_field() }}{{ f.button('Отключить Telegram', variant = 'secondary', type = 'submit') }}</form>
+        {% elseif not bot_configured %}
+            <p class="mt-1 text-sm text-muted">Бот сервиса пока не настроен, поэтому уведомления в Telegram недоступны. Почта работает.</p>
+        {% elseif connect_url %}
+            <p class="mt-1 text-sm text-muted">Откройте бота и нажмите «Запустить» (Start). Ссылка действует 15 минут и подходит один раз.</p>
+            <div class="mt-4 flex flex-wrap gap-3">
+                {{ f.button('Открыть бота в Telegram', href = connect_url, icon = 'send', attrs = {target: '_blank', rel: 'noopener noreferrer'}) }}
+                <form method="post" action="/account/notifications/telegram/link">{{ csrf_field() }}{{ f.button('Новая ссылка', variant = 'secondary', type = 'submit') }}</form>
+                {{ f.button('Я нажал «Запустить»', variant = 'ghost', href = '/account/notifications') }}
+            </div>
+        {% else %}
+            <p class="mt-1 text-sm text-muted">Подключите свой Telegram, и бот будет писать вам, когда с постами или каналами что-то случится.</p>
+            <form class="mt-4" method="post" action="/account/notifications/telegram/link">{{ csrf_field() }}{{ f.button('Подключить Telegram', type = 'submit', icon = 'send') }}</form>
+        {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="types-title">
+        <h2 class="text-lg font-semibold" id="types-title">Что присылать</h2>
+        {% if not has_email %}<div class="mt-3">{{ d.alert('info', 'Почта не подтверждена', 'Пока на почту ничего не придёт. Подтвердите адрес в разделе «Безопасность».') }}</div>{% endif %}
+        <form class="mt-4 flex flex-col gap-5" method="post" action="/account/notifications">
+            {{ csrf_field() }}
+            {% for t in types %}
+            <fieldset class="flex flex-col gap-2 border-t border-line pt-4 first:border-0 first:pt-0">
+                <legend class="font-semibold">{{ t.label }}</legend>
+                <p class="text-sm text-muted">{{ t.hint }}</p>
+                <div class="mt-1 flex flex-wrap gap-x-8 gap-y-2">
+                    {{ f.checkbox('n[' ~ t.id ~ '][email]', 'По почте', t.email, id = 'n-' ~ t.id ~ '-email') }}
+                    {{ f.checkbox('n[' ~ t.id ~ '][telegram]', 'В Telegram', t.telegram, hint = telegram ? null : 'Сначала подключите Telegram выше.', id = 'n-' ~ t.id ~ '-tg') }}
+                </div>
+            </fieldset>
+            {% endfor %}
+            <div>{{ f.button('Сохранить', type = 'submit') }}</div>
+        </form>
+    </section>
+</div>
+{% endblock %}

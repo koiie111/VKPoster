@@ -15,7 +15,7 @@ use App\Domain\Media\MediaLimits;
 use App\Domain\Media\MediaRepository;
 use App\Domain\Media\MediaService;
 use App\Domain\Media\MediaUsageChecker;
-use App\Domain\Media\NullMediaUsageChecker;
+use App\Domain\Post\PostUsageChecker;
 use App\Domain\Media\VideoProbe;
 use App\Integrations\Storage\MediaStorage;
 use App\Integrations\Storage\MediaStorageFactory;
@@ -185,8 +185,8 @@ return static function (Container $c, string $base): void {
     $c->factory(MediaStorage::class, static fn (Container $c): MediaStorage => MediaStorageFactory::create($c->get(Config::class), $base));
     $c->factory(MediaLimits::class, static fn (Container $c): MediaLimits => MediaLimits::fromConfig($c->get(Config::class)));
     $c->factory(VideoProbe::class, static fn (): VideoProbe => new FfprobeVideoProbe());
-    // Stage 07 (posts) replaces this with a checker that looks at scheduled posts.
-    $c->factory(MediaUsageChecker::class, static fn (): MediaUsageChecker => new NullMediaUsageChecker());
+    // A library file that a planned post still needs cannot be deleted.
+    $c->factory(MediaUsageChecker::class, static fn (Container $c): MediaUsageChecker => $c->get(PostUsageChecker::class));
     $c->factory(MediaService::class, static fn (Container $c): MediaService => new MediaService(
         $c->get(MediaRepository::class),
         $c->get(FolderRepository::class),

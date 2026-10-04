@@ -1,0 +1,133 @@
+{#- Post editor. Variables: channels (cards with caps and the variant state), text, media, options, per_network, post, date, time,
+    timezone_label, min_date, errors {form, channels, date}, can_publish, can_template, templates, action, autosave, base.
+    Behaviour: public/assets/js/editor.js (contract: data-* attributes below and in components/composer.twig). -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% import 'components/composer.twig' as k %}
+
+{% set nav_current = 'editor' %}
+{% block title %}{{ post ? 'Изменить пост' : 'Новый пост' }} · {{ app_name }}{% endblock %}
+{% block head %}<script src="{{ asset('js/editor.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Календарь', href: base ~ '/calendar'}, {label: post ? 'Изменить пост' : 'Новый пост'}]) }}
+{% set head_actions %}
+    {% if not post and templates %}
+        {% set menu %}{% for t in templates %}{{ o.menu_item(t.name, href = base ~ '/posts/new?template=' ~ t.id, icon = 'copy') }}{% endfor %}{{ o.menu_item('Все шаблоны', href = base ~ '/templates', icon = 'list') }}{% endset %}
+        {{ o.dropdown('from-template', 'Из шаблона', icon = 'copy', variant = 'secondary', body = menu) }}
+    {% endif %}
+{% endset %}
+<div class="mt-3">{{ d.page_header(post ? 'Изменить пост' : 'Новый пост', body = head_actions) }}</div>
+
+{% if channels is empty %}
+<div class="card">
+    {% if can('channels.manage') %}
+        {{ d.empty_state('Сначала подключите канал', 'Чтобы создать пост, нужен канал, в который мы его опубликуем.', 'share-2', 'Подключить канал', base ~ '/channels') }}
+    {% else %}
+        {{ d.empty_state('Для вас нет доступных каналов', 'Каналы подключает владелец или администратор пространства. Попросите его добавить канал или выдать вам доступ.', 'share-2') }}
+    {% endif %}
+</div>
+{% else %}
+{% set selected_count = channels|filter(c => c.selected)|length %}
+<div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" x-data="composer"
+     data-validate-url="{{ base }}/posts/validate" data-autosave-url="{{ autosave ? base ~ '/posts/autosave' : '' }}" data-picker-url="{{ base }}/media-picker"
+     data-upload-url="{{ base }}/media/upload" data-post-id="{{ post ? post.publicId : '' }}" data-update-base="{{ base }}/posts"
+     data-can-publish="{{ can_publish ? '1' : '0' }}">
+    <form class="flex min-w-0 flex-col gap-6" method="post" action="{{ action }}" data-composer-form novalidate>
+        {{ csrf_field() }}
+        <div data-form-error>
+        {% if errors.form is defined and errors.form %}{{ d.alert('error', 'Пост пока нельзя запланировать', errors.form) }}{% endif %}
+        </div>
+
+        <fieldset>
+            <legend class="label">Куда опубликовать</legend>
+            <div class="flex flex-wrap gap-2">
+                {% for ch in channels %}
+                <label class="{{ ch.usable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60' }}">
+                    <input class="peer sr-only" type="checkbox" name="channels[]" value="{{ ch.id }}" data-channel data-name="{{ ch.name }}" data-badge="{{ ch.badge }}" data-platform="{{ ch.platform }}" data-caps="{{ ch.caps|json_encode }}"{% if ch.selected %} checked{% endif %}{% if not ch.usable and not ch.selected %} disabled{% endif %}>
+                    <span class="plat plat-{{ ch.badge }} inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-sm font-semibold transition peer-checked:border-primary peer-checked:bg-primary-soft peer-checked:text-primary-softfg peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-text"><span class="max-w-[16rem] truncate">{{ ch.name }}</span>{% if ch.problem %}<span class="text-xs font-medium text-warn-fg">({{ ch.problem }})</span>{% endif %}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <p class="hint">Пост уйдёт во все отмеченные каналы. Справа видно, как он будет выглядеть в каждом.</p>
+            <p class="mt-1.5 text-sm font-medium text-bad-fg" role="alert" data-channels-error hidden></p>
+        </fieldset>
+
+        {{ f.switch('per_network', 'Настроить отдельно для каждой соцсети', per_network, 'Свой текст, файлы и кнопки для каждого канала. Пока вы ничего не меняли, канал получает общий вариант.', id = 'per-network') }}
+
+        <div>
+            <div class="flex gap-1 overflow-x-auto border-b border-line" role="tablist" aria-label="Для какой соцсети правим пост" data-tabs hidden></div>
+            <div class="pt-4">
+                {{ k.panel('common', '', text, media, options, 'pf-common') }}
+                {% for ch in channels %}
+                    {{ k.panel(ch.id, 'v[' ~ ch.id ~ ']', ch.variant.text is not null ? ch.variant.text : text, ch.variant.media, ch.variant.options, 'pf-' ~ ch.id, true, {text: ch.variant.text_custom, media: ch.variant.media_custom, options: ch.variant.options_custom}) }}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div data-problems class="flex flex-col gap-2" aria-live="polite">
+            {% if errors.channels is defined %}{% for ch in channels %}{% if errors.channels[ch.id] is defined %}
+                <div class="flex gap-2 rounded-ctl bg-bad-soft px-3 py-2 text-sm text-bad-fg" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<div><strong>{{ ch.name }}:</strong> {{ errors.channels[ch.id]|join(' ') }}</div></div>
+            {% endif %}{% endfor %}{% endif %}
+        </div>
+
+        {% if can_publish %}
+        {{ f.datetime('publish', 'Когда опубликовать', date, time, tz = timezone, tz_label = timezone_label, error = errors.date ?? null) }}
+        {% else %}
+        {{ d.alert('info', 'Вы сохраняете черновик', 'Планировать и публиковать посты могут редакторы и администраторы. Сохраните черновик, и они его опубликуют.') }}
+        {% endif %}
+
+        <div class="flex flex-wrap items-center gap-3 border-t border-line pt-5">
+            {% if can_publish %}
+                {{ f.button(post and post.status.value == 'scheduled' ? 'Сохранить изменения' : 'Запланировать пост', type = 'submit', icon = 'calendar-days', attrs = {name: 'intent', value: 'schedule'}) }}
+                {{ f.button('Сохранить черновик', type = 'submit', variant = 'secondary', attrs = {name: 'intent', value: 'draft'}) }}
+                {{ f.button('Опубликовать сейчас', type = 'submit', variant = 'ghost', attrs = {name: 'intent', value: 'now', 'data-confirm-now': '1'}) }}
+            {% else %}
+                {{ f.button('Сохранить черновик', type = 'submit', icon = 'save', attrs = {name: 'intent', value: 'draft'}) }}
+            {% endif %}
+            {% if can_template %}{{ f.button('Сохранить как шаблон', variant = 'ghost', icon = 'copy', attrs = {'data-dialog-open': 'save-template'}) }}{% endif %}
+            <span class="text-sm text-muted" data-autosave-status role="status"></span>
+        </div>
+
+        {% if can_template %}
+        {% set tpl_body %}
+            <label class="label" for="template-name">Название шаблона</label>
+            <input class="field" id="template-name" name="template_name" maxlength="100" autocomplete="off" placeholder="Например, «Анонс акции»">
+            <p class="hint">Сохраним текст, файлы, кнопки и выбранные каналы. Время публикации в шаблон не входит.</p>
+            {% set tpl_footer %}<button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button><button type="submit" class="btn btn-primary" formaction="{{ base }}/templates" formmethod="post" name="intent" value="draft">Сохранить шаблон</button>{% endset %}
+            {{ o.modal_footer(tpl_footer) }}
+        {% endset %}
+        {{ o.modal('save-template', 'Сохранить как шаблон', body = tpl_body) }}
+        {% endif %}
+    </form>
+
+    <aside class="min-w-0 lg:sticky lg:top-20 lg:self-start" aria-label="Превью поста">
+        <h2 class="mb-3 text-lg font-semibold">Как это будет выглядеть</h2>
+        <div class="flex gap-1 overflow-x-auto border-b border-line" role="tablist" aria-label="Соцсеть для превью" data-pv-tabs></div>
+        <div class="pt-4" id="preview-panel" role="tabpanel" aria-label="Превью" data-pv-panel></div>
+        <p class="text-sm text-muted" data-pv-empty{% if selected_count > 0 %} hidden{% endif %}>Выберите хотя бы один канал, и здесь появится превью.</p>
+        <p class="mt-3 text-xs text-muted">Это приблизительный вид: в самой соцсети шрифты и отступы могут отличаться.</p>
+    </aside>
+
+    {{ k.preview_template('tg') }}{{ k.preview_template('vk') }}{{ k.preview_template('max') }}{{ k.preview_template('ig') }}
+    <template data-button-template>{{ k.button_row('', '__i__') }}</template>
+
+    {% set picker_body %}
+        <div class="flex flex-wrap gap-2">
+            <div class="min-w-0 flex-1"><label class="sr-only" for="picker-q">Поиск по названию</label><input class="field" type="search" id="picker-q" placeholder="Поиск по названию" data-picker-search></div>
+            <div><label class="sr-only" for="picker-kind">Тип файлов</label><select class="field" id="picker-kind" data-picker-kind><option value="">Все файлы</option><option value="image">Фото</option><option value="video">Видео</option></select></div>
+        </div>
+        <ul class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4" data-picker-grid aria-live="polite"></ul>
+        <p class="mt-4 text-sm text-muted" data-picker-status role="status"></p>
+        <div class="mt-2 flex flex-wrap justify-between gap-3">
+            <button type="button" class="btn btn-secondary btn-sm" data-picker-more hidden>Показать ещё</button>
+            {% set picker_footer %}<button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button><button type="button" class="btn btn-primary" data-picker-add>Добавить в пост</button>{% endset %}
+        </div>
+        {{ o.modal_footer(picker_footer) }}
+    {% endset %}
+    {{ o.modal('media-picker', 'Выберите файлы из медиатеки', 'Отметьте нужные файлы: они добавятся в пост по порядку выбора.', 'lg', picker_body) }}
+    <input class="sr-only" type="file" id="editor-upload" accept="image/*,video/mp4,video/quicktime,.pdf" multiple data-upload-input tabindex="-1" aria-label="Загрузить файлы">
+</div>
+{% endif %}
+{% endblock %}

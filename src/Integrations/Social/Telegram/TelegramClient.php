@@ -181,6 +181,16 @@ final class TelegramClient
     }
 
     /**
+     * @param array<string, mixed> $extra
+     * @return array<string, mixed> the edited message
+     * @throws PlatformError
+     */
+    public function editMessageCaption(int|string $chatId, int $messageId, string $caption, array $extra = []): array
+    {
+        return $this->call('editMessageCaption', ['chat_id' => $chatId, 'message_id' => $messageId, 'caption' => $caption] + $extra, [], true);
+    }
+
+    /**
      * @param list<string> $allowedUpdates
      * @throws PlatformError
      */
@@ -289,7 +299,10 @@ final class TelegramClient
             throw $this->transportError($method, $e, $mutating);
         } finally {
             foreach ($handles as $handle) {
-                fclose($handle);
+                // Guzzle closes the streams it was given once the request is done; closing again is an error.
+                if (is_resource($handle)) {
+                    fclose($handle);
+                }
             }
         }
 

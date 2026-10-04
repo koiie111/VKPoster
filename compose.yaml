@@ -30,7 +30,7 @@ services:
 
   worker:
     <<: *app
-    command: ["php", "bin/console", "queue:work"]
+    command: ["php", "bin/console", "queue:work", "--queue=publish,default"]
     restart: unless-stopped
 
   scheduler:

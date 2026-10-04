@@ -1,0 +1,148 @@
+{#- Building blocks of the post editor (`workspace/posts/editor.twig`, behaviour in `public/assets/js/editor.js`).
+    A "panel" is the content of one editing tab: the common post (prefix = '') or one channel's own variant (prefix = 'v[<channel id>]').
+    Field names follow `PostForm`; `data-*` attributes are the contract with the script. -#}
+
+{% macro fname(prefix, field) -%}{{ prefix ? prefix ~ '[' ~ field ~ ']' : field }}{%- endmacro %}
+
+{#- Link button row: [text] [url] [remove]. Used for existing rows and as the <template> the script clones. -#}
+{% macro button_row(prefix, index, text = '', url = '') -%}
+{% import _self as k %}
+<div class="grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]" data-button-row>
+    <div><label class="sr-only" for="{{ prefix|replace({'[': '-', ']': ''}) }}-btn-text-{{ index }}">Надпись кнопки</label><input class="field" id="{{ prefix|replace({'[': '-', ']': ''}) }}-btn-text-{{ index }}" name="{{ prefix ? prefix ~ '[buttons][' ~ index ~ '][text]' : 'buttons[' ~ index ~ '][text]' }}" value="{{ text }}" placeholder="Надпись, например «Купить»" maxlength="64" data-button-text></div>
+    <div><label class="sr-only" for="{{ prefix|replace({'[': '-', ']': ''}) }}-btn-url-{{ index }}">Ссылка кнопки</label><input class="field" type="url" inputmode="url" id="{{ prefix|replace({'[': '-', ']': ''}) }}-btn-url-{{ index }}" name="{{ prefix ? prefix ~ '[buttons][' ~ index ~ '][url]' : 'buttons[' ~ index ~ '][url]' }}" value="{{ url }}" placeholder="https://…" maxlength="2000" data-button-url></div>
+    <button type="button" class="btn btn-ghost !px-0 w-11" data-button-remove aria-label="Убрать кнопку" title="Убрать кнопку">{{ icon('trash-2', 'h-4 w-4') }}</button>
+</div>
+{%- endmacro %}
+
+{#- Options of a post or variant. `o` is the options array (buttons, silent, disable_preview, pin, delete_after, delete_after_unit, first_comment).
+    Every control carries data-cap: it is shown only when a selected channel's platform supports it. -#}
+{% macro options(prefix, o, uid) -%}
+{% import _self as k %}
+<div class="flex flex-col gap-5" data-options>
+    <div data-cap="buttons">
+        <p class="label">Кнопки со ссылками</p>
+        <div class="flex flex-col gap-2" data-buttons>
+            {% for b in o.buttons %}{{ k.button_row(prefix, loop.index0, b.text, b.url) }}{% endfor %}
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm mt-2" data-button-add>{{ icon('plus', 'h-4 w-4') }}Добавить кнопку</button>
+        <p class="hint">До 3 кнопок под постом. Ссылка должна начинаться с https://.</p>
+    </div>
+    <div class="flex flex-col gap-3">
+        <div data-cap="silent"><div class="flex items-start gap-3"><input class="check mt-0.5" type="checkbox" id="{{ uid }}-silent" name="{{ k.fname(prefix, 'silent') }}" value="1"{% if o.silent %} checked{% endif %} data-opt="silent"><div><label for="{{ uid }}-silent" class="text-[0.9375rem]">Отправить без звука</label><p class="hint !mt-0">Подписчики не получат уведомление.</p></div></div></div>
+        <div data-cap="disable_preview"><div class="flex items-start gap-3"><input class="check mt-0.5" type="checkbox" id="{{ uid }}-preview" name="{{ k.fname(prefix, 'disable_preview') }}" value="1"{% if o.disable_preview %} checked{% endif %} data-opt="disable_preview"><div><label for="{{ uid }}-preview" class="text-[0.9375rem]">Не показывать превью ссылок</label><p class="hint !mt-0">Ссылка в тексте останется, но без карточки сайта.</p></div></div></div>
+        <div data-cap="pin"><div class="flex items-start gap-3"><input class="check mt-0.5" type="checkbox" id="{{ uid }}-pin" name="{{ k.fname(prefix, 'pin') }}" value="1"{% if o.pin %} checked{% endif %} data-opt="pin"><div><label for="{{ uid }}-pin" class="text-[0.9375rem]">Закрепить пост</label><p class="hint !mt-0">Пост закрепится сразу после публикации.</p></div></div></div>
+    </div>
+    <div data-cap="delete">
+        <p class="label" id="{{ uid }}-del-label">Удалить пост через</p>
+        <div class="flex flex-wrap items-center gap-2" role="group" aria-labelledby="{{ uid }}-del-label">
+            <div class="w-28"><label class="sr-only" for="{{ uid }}-del">Сколько</label><input class="field" type="number" min="1" max="999999" inputmode="numeric" id="{{ uid }}-del" name="{{ k.fname(prefix, 'delete_after') }}" value="{{ o.delete_after }}" placeholder="Не удалять" data-opt="delete_after"></div>
+            <div class="w-36"><label class="sr-only" for="{{ uid }}-del-unit">Единица времени</label>
+                <select class="field" id="{{ uid }}-del-unit" name="{{ k.fname(prefix, 'delete_after_unit') }}" data-opt="delete_after_unit">
+                    {% for v, t in {minutes: 'минут', hours: 'часов', days: 'дней'} %}<option value="{{ v }}"{% if o.delete_after_unit == v %} selected{% endif %}>{{ t }}</option>{% endfor %}
+                </select></div>
+        </div>
+        <p class="hint">Через это время после публикации мы сами удалим пост из соцсети. Пусто — не удалять.</p>
+    </div>
+    <div data-cap="first_comment">
+        <label class="label" for="{{ uid }}-fc">Первый комментарий</label>
+        <textarea class="field" id="{{ uid }}-fc" rows="2" name="{{ k.fname(prefix, 'first_comment') }}" maxlength="4000" data-opt="first_comment">{{ o.first_comment }}</textarea>
+        <p class="hint">Появится под постом сразу после публикации: удобно для ссылок и хэштегов.</p>
+    </div>
+    <p class="text-sm text-muted" data-no-options hidden>У выбранных соцсетей нет дополнительных настроек.</p>
+</div>
+{%- endmacro %}
+
+{#- One media tile as the server renders it (the script re-renders the list from this data). -#}
+{% macro media_data(items) -%}
+{% for m in items %}<li data-media-id="{{ m.id }}" data-name="{{ m.name }}" data-kind="{{ m.kind }}" data-thumb="{{ m.thumb ?? '' }}"{% if m.missing is defined and m.missing %} data-missing="1"{% endif %}></li>{% endfor %}
+{%- endmacro %}
+
+{#- A full editing panel. key: 'common' or the channel id. state: for a variant, the card['variant'] array. -#}
+{% macro panel(key, prefix, text, media, options, uid, hidden = false, custom = {}) -%}
+{% import _self as k %}
+<section id="panel-{{ key }}" data-panel="{{ key }}" data-prefix="{{ prefix }}" role="tabpanel" aria-labelledby="tab-{{ key }}" class="flex flex-col gap-6"{% if hidden %} hidden{% endif %}>
+    {% if key != 'common' %}
+    <div class="flex flex-wrap items-center justify-between gap-2 rounded-ctl bg-sunken px-3 py-2 text-sm">
+        <p class="text-muted" data-inherit-note>Пока всё совпадает с общим постом. Изменили что-то здесь, и эта соцсеть получит свой вариант.</p>
+        <button type="button" class="btn btn-ghost btn-sm" data-reset-variant hidden>Вернуть как в общем</button>
+    </div>
+    <input type="hidden" name="{{ k.fname(prefix, 'text_custom') }}" value="{{ custom.text ? '1' : '0' }}" data-custom="text">
+    <input type="hidden" name="{{ k.fname(prefix, 'media_custom') }}" value="{{ custom.media ? '1' : '0' }}" data-custom="media">
+    <input type="hidden" name="{{ k.fname(prefix, 'options_custom') }}" value="{{ custom.options ? '1' : '0' }}" data-custom="options">
+    {% endif %}
+
+    <div class="flex flex-col">
+        <label class="label" for="{{ uid }}-text">{{ key == 'common' ? 'Текст поста' : 'Текст для этой соцсети' }}</label>
+        <div class="flex flex-wrap gap-1 rounded-t-ctl border border-b-0 border-line bg-sunken px-2 py-1" role="toolbar" aria-label="Оформление текста">
+            <button type="button" class="btn btn-ghost btn-sm !min-w-9 !px-2 font-bold" data-fmt="bold" title="Жирный (Ctrl+B)" aria-label="Жирный">Ж</button>
+            <button type="button" class="btn btn-ghost btn-sm !min-w-9 !px-2 italic" data-fmt="italic" title="Курсив (Ctrl+I)" aria-label="Курсив">К</button>
+            <button type="button" class="btn btn-ghost btn-sm !min-w-9 !px-2 line-through" data-fmt="strike" title="Зачёркнутый" aria-label="Зачёркнутый">З</button>
+            <button type="button" class="btn btn-ghost btn-sm !px-2" data-fmt="link" title="Ссылка" aria-label="Вставить ссылку">{{ icon('link', 'h-4 w-4') }}</button>
+        </div>
+        <textarea class="field !rounded-t-none" id="{{ uid }}-text" name="{{ k.fname(prefix, 'text') }}" rows="{{ key == 'common' ? 9 : 7 }}" aria-describedby="{{ uid }}-hint {{ uid }}-count" data-text>{{ text }}</textarea>
+        <div class="mt-1.5 flex justify-between gap-3">
+            <p class="hint !mt-0" id="{{ uid }}-hint">**жирный**, _курсив_, ~~зачёркнутый~~, [текст](https://ссылка)</p>
+            <p class="hint !mt-0 shrink-0" id="{{ uid }}-count" data-counter aria-live="polite"></p>
+        </div>
+    </div>
+
+    <div data-media-block>
+        <p class="label" id="{{ uid }}-media-label">Фото и видео</p>
+        <ul class="flex flex-col gap-2" aria-labelledby="{{ uid }}-media-label" data-media-list></ul>
+        <ul hidden data-media-source>{{ k.media_data(media) }}</ul>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-media-pick>{{ icon('images', 'h-4 w-4') }}Из медиатеки</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-media-upload>{{ icon('upload', 'h-4 w-4') }}Загрузить файл</button>
+            <span class="text-sm text-muted" data-media-note></span>
+        </div>
+        <ul class="mt-2 flex flex-col gap-1" data-upload-status aria-live="polite"></ul>
+        <p class="hint">Порядок можно менять перетаскиванием или кнопками со стрелками. Первый файл станет обложкой.</p>
+    </div>
+
+    <details class="rounded-card border border-line" data-details>
+        <summary class="flex min-h-11 cursor-pointer items-center gap-2 px-4 text-[0.9375rem] font-semibold">{{ icon('settings', 'h-4 w-4') }}Дополнительно: кнопки, тихая отправка, закрепление, удаление</summary>
+        <div class="border-t border-line p-4">{{ k.options(prefix, options, uid) }}</div>
+    </details>
+</section>
+{%- endmacro %}
+
+{#- Preview templates, one per look: tg | vk | max | ig. The script clones the right one for each selected channel and fills the slots:
+    [data-pv-name] [data-pv-media] [data-pv-text] [data-pv-buttons]. -#}
+{% macro preview_template(kind) -%}
+{% import 'components/display.twig' as d %}
+<template data-pv-template="{{ kind }}">
+{% if kind == 'vk' %}
+    <div class="rounded-card border border-line bg-surface p-4">
+        <div class="flex items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary-softfg" aria-hidden="true" data-pv-initials></span><div class="min-w-0"><p class="truncate font-semibold leading-tight" data-pv-name></p><p class="text-xs text-muted">только что</p></div></div>
+        <p class="mt-3 whitespace-pre-line break-words text-[0.9375rem]" data-pv-text></p>
+        <div class="mt-3 grid gap-1 empty:hidden" data-pv-media></div>
+        <div class="mt-3 flex flex-col gap-2 empty:hidden" data-pv-buttons></div>
+        <div class="mt-3 flex gap-5 text-muted" aria-hidden="true">{{ icon('heart', 'h-5 w-5') }}{{ icon('message-circle', 'h-5 w-5') }}{{ icon('share-2', 'h-5 w-5') }}</div>
+    </div>
+{% elseif kind == 'max' %}
+    <div class="rounded-card bg-sunken p-4">
+        <div class="max-w-sm rounded-3xl bg-surface p-3 shadow-card">
+            <div class="grid gap-1 empty:hidden" data-pv-media></div>
+            <p class="mt-2 px-1 text-sm font-semibold" data-pv-name></p>
+            <p class="mt-1 whitespace-pre-line break-words px-1 text-[0.9375rem]" data-pv-text></p>
+            <div class="mt-2 flex flex-col gap-1.5 empty:hidden" data-pv-buttons></div>
+        </div>
+    </div>
+{% elseif kind == 'ig' %}
+    <div class="max-w-sm rounded-card border border-line bg-surface">
+        <div class="flex items-center gap-3 p-3"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary-softfg" aria-hidden="true" data-pv-initials></span><p class="truncate text-sm font-semibold" data-pv-name></p></div>
+        <div class="grid empty:hidden" data-pv-media></div>
+        <p class="whitespace-pre-line break-words p-3 text-sm" data-pv-text></p>
+    </div>
+{% else %}
+    <div class="rounded-card bg-sunken p-4">
+        <div class="max-w-sm overflow-hidden rounded-2xl rounded-bl-md bg-surface shadow-card">
+            <div class="grid gap-0.5 empty:hidden" data-pv-media></div>
+            <div class="p-3"><p class="text-sm font-semibold text-primary-text" data-pv-name></p>
+            <p class="mt-1 whitespace-pre-line break-words text-[0.9375rem]" data-pv-text></p>
+            <div class="mt-2 flex flex-col gap-1.5 empty:hidden" data-pv-buttons></div></div>
+        </div>
+    </div>
+{% endif %}
+</template>
+{%- endmacro %}

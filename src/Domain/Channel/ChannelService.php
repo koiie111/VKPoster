@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Channel;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Post\PublicationSystem;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Social\Contracts\ChannelInfo;
 use App\Integrations\Social\Contracts\Credential;
@@ -35,6 +36,7 @@ final class ChannelService
         private readonly TelegramClientFactory $telegram,
         private readonly AuditLog $audit,
         private readonly Config $config,
+        private readonly PublicationSystem $publications,
     ) {
     }
 
@@ -149,11 +151,14 @@ final class ChannelService
     }
 
     /**
-     * Disconnect. The channel itself is untouched; our row, its access entries and (for an own bot) the stored token go.
+     * Disconnect. The channel itself is untouched; our row, its access entries and (for an own bot) the stored token go, and the posts
+     * still planned for it are cancelled.
      */
     public function remove(WorkspaceContext $context, Channel $channel): void
     {
         $this->db->transaction(function () use ($context, $channel): void {
+            // Posts planned for this channel can never go out: they are cancelled, with the reason in their journal.
+            $this->publications->cancelForChannel($channel->id, 'Канал «' . $channel->displayName() . '» отключён от сервиса.');
             $this->channels->delete($context, $channel);
             if ($channel->credentialId !== null) {
                 $this->vault->deleteIfUnused($context, $channel->credentialId);

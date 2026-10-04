@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Channel;
 
+use App\Domain\Notification\TelegramLinks;
 use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Domain\Workspace\WorkspaceRepository;
@@ -45,6 +46,7 @@ final class TelegramUpdateHandler
         private readonly ChannelHealthService $health,
         private readonly RateLimiter $limiter,
         private readonly LoggerInterface $logger,
+        private readonly TelegramLinks $links,
     ) {
     }
 
@@ -89,6 +91,16 @@ final class TelegramUpdateHandler
             return;
         }
         if ($type === 'private') {
+            // `/start TOKEN` from the notifications page links this chat to the person's account.
+            if (preg_match('~^/start(?:@[A-Za-z0-9_]+)?\s+([A-Za-z0-9_-]{20,64})$~', $text, $link) === 1) {
+                $from = is_array($message['from'] ?? null) ? $message['from'] : [];
+                $linked = $this->limiter->attempt('tg-link:' . $chatId, 10, 600)->allowed && $this->links->redeem($link[1], $chatId, is_string($from['username'] ?? null) ? $from['username'] : null) !== null;
+                $client->sendMessage($chatId, $linked
+                    ? 'Готово! Теперь я буду писать сюда, если с вашими постами или каналами что-то случится. Какие сообщения присылать, можно выбрать в настройках уведомлений.'
+                    : 'Ссылка не подошла: она устарела или уже использована. Откройте настройки уведомлений в сервисе и нажмите «Подключить Telegram» ещё раз.');
+
+                return;
+            }
             if (str_starts_with($text, '/start') || str_starts_with($text, '/connect') || str_starts_with($text, '/help')) {
                 $client->sendMessage($chatId, "Я публикую посты по расписанию. Чтобы подключить канал:\n1. Получите код на странице «Каналы» в сервисе.\n2. Добавьте меня администратором канала с правом «Публикация сообщений».\n3. Напишите в канале: /connect КОД");
             }
