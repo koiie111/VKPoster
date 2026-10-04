@@ -1,0 +1,23 @@
+{#- Public pages: marketing site, legal pages. Blocks: title, content. -#}
+{% extends 'layouts/base.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/nav.twig' as n %}
+
+{% block body %}
+<header class="border-b border-line bg-surface">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+        <a href="/" aria-label="{{ app_name }}: на главную">{{ d.logo() }}</a>
+        <nav class="hidden items-center gap-6 text-[0.9375rem] font-medium text-muted md:flex" aria-label="Разделы сайта">
+            <a class="hover:text-fg" href="#features">Возможности</a><a class="hover:text-fg" href="#pricing">Тарифы</a><a class="hover:text-fg" href="#faq">Вопросы</a>
+        </nav>
+        <div class="flex items-center gap-2"><span class="max-sm:hidden">{{ n.theme_toggle() }}</span><a class="btn btn-ghost btn-sm" href="#">Войти</a><a class="btn btn-primary btn-sm" href="#">Начать</a></div>
+    </div>
+</header>
+<main id="main">{% block content %}{% endblock %}</main>
+<footer class="mt-16 border-t border-line bg-surface">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted">
+        <span>© {{ app_name }}</span>
+        <nav class="flex flex-wrap gap-4" aria-label="Документы"><a class="hover:text-fg" href="#">Политика конфиденциальности</a><a class="hover:text-fg" href="#">Оферта</a></nav>
+    </div>
+</footer>
+{% endblock %}

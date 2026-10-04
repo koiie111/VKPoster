@@ -26,6 +26,14 @@ final class View
     /** @var array<string, string> */
     private array $assetVersions = [];
 
+    /** @var array<string, string>|null */
+    private ?array $manifest = null;
+
+    /** @var array<string, bool>|null */
+    private ?array $icons = null;
+
+    private readonly bool $debug;
+
     public function __construct(
         Config $config,
         private readonly RequestContext $context,
@@ -37,6 +45,7 @@ final class View
         string $cacheDir,
     ) {
         $debug = !$config->isProduction();
+        $this->debug = $debug;
         $this->twig = new Environment(new FilesystemLoader($templatesDir), [
             'cache' => $config->isProduction() ? $cacheDir : false,
             'strict_variables' => $debug,
@@ -80,6 +89,7 @@ final class View
                     new TwigFunction('csrf_token', $this->view->csrfToken(...)),
                     new TwigFunction('csp_nonce', $this->view->nonce(...)),
                     new TwigFunction('asset', $this->view->asset(...)),
+                    new TwigFunction('icon', $this->view->icon(...), ['is_safe' => ['html']]),
                     new TwigFunction('url', $this->view->url(...)),
                     new TwigFunction('t', $this->view->translate(...)),
                     new TwigFunction('old', $this->view->old(...)),
@@ -136,6 +146,10 @@ final class View
         if (str_contains($path, '..')) {
             return '/assets/';
         }
+        $built = $this->builtAsset($path);
+        if ($built !== null) {
+            return '/assets/build/' . $built;
+        }
         if (!isset($this->assetVersions[$path])) {
             $file = $this->publicDir . '/assets/' . $path;
             $this->assetVersions[$path] = is_file($file) ? substr((string) hash_file('sha256', $file), 0, 10) : '';
@@ -143,6 +157,70 @@ final class View
         $version = $this->assetVersions[$path];
 
         return '/assets/' . $path . ($version !== '' ? '?v=' . $version : '');
+    }
+
+    /**
+     * Inline `<svg><use>` for a sprite icon (`public/assets/icons/sprite.svg`). Outside production an unknown
+     * icon name throws, so a typo shows up in tests instead of rendering an empty box.
+     *
+     * @param string $class Tailwind utility classes (escaped).
+     * @param string|null $label Accessible name; null marks the icon decorative (`aria-hidden`).
+     * @internal Twig function.
+     */
+    public function icon(string $name, string $class = 'h-5 w-5', ?string $label = null): string
+    {
+        if (preg_match('/^[a-z0-9-]+$/', $name) !== 1 || ($this->iconNames()[$name] ?? false) === false) {
+            if (!$this->debug) {
+                return '';
+            }
+
+            throw new \InvalidArgumentException(sprintf('Unknown icon "%s".', $name));
+        }
+        $e = static fn (string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $a11y = $label === null ? 'aria-hidden="true"' : 'role="img" aria-label="' . $e($label) . '"';
+
+        return '<svg class="' . $e($class) . ' shrink-0" ' . $a11y . ' focusable="false"><use href="'
+            . $e($this->asset('icons/sprite.svg')) . '#i-' . $name . '"></use></svg>';
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    private function iconNames(): array
+    {
+        if ($this->icons === null) {
+            $file = $this->publicDir . '/assets/icons/sprite.svg';
+            $svg = is_file($file) ? (string) file_get_contents($file) : '';
+            preg_match_all('/<symbol id="i-([a-z0-9-]+)"/', $svg, $m);
+            $this->icons = array_fill_keys($m[1], true);
+        }
+
+        return $this->icons;
+    }
+
+    /**
+     * File name of a hashed build artifact (`app.css` -> `app.<hash>.css`) from `build/manifest.json`,
+     * or null when the path is not a build artifact or the manifest does not list it.
+     */
+    private function builtAsset(string $path): ?string
+    {
+        if ($path !== 'app.css') {
+            return null;
+        }
+        if ($this->manifest === null) {
+            $file = $this->publicDir . '/assets/build/manifest.json';
+            $data = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+            $this->manifest = [];
+            if (is_array($data)) {
+                foreach ($data as $key => $value) {
+                    if (is_string($key) && is_string($value) && preg_match('/^[A-Za-z0-9._-]+$/', $value) === 1) {
+                        $this->manifest[$key] = $value;
+                    }
+                }
+            }
+        }
+
+        return $this->manifest[$path] ?? null;
     }
 
     /**

@@ -1,0 +1,63 @@
+{#- Prototype: post editor with a live preview for every selected network (?error=1 shows validation errors). -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/post.twig' as p %}
+
+{% set nav_current = 'editor' %}
+{% block title %}Новый пост · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Календарь', href: '/dev/proto/calendar'}, {label: 'Новый пост'}]) }}
+<div class="mt-3">{{ d.page_header('Новый пост') }}</div>
+
+<div class="grid gap-8 lg:grid-cols-[1fr_24rem]" x-data="postEditor">
+    <form class="flex min-w-0 flex-col gap-6" action="/dev/proto/editor" method="get" data-allow-resubmit>
+        {% if error %}{{ d.alert('error', 'Пост пока нельзя запланировать', 'Исправьте отмеченные поля: текст длиннее, чем разрешает Instagram, и время уже прошло.') }}{% endif %}
+
+        <fieldset>
+            <legend class="label">Куда опубликовать</legend>
+            <div class="flex flex-wrap gap-2">
+                {% for pl in [{k: 'vk', n: 'ВКонтакте', l: 16384}, {k: 'tg', n: 'Telegram', l: 4096}, {k: 'max', n: 'MAX', l: 4000}, {k: 'ig', n: 'Instagram', l: 2200}] %}
+                <label class="cursor-pointer">
+                    <input class="peer sr-only" type="checkbox" name="platforms[]" value="{{ pl.k }}" data-editor-platform="{{ pl.k }}" data-limit="{{ pl.l }}"{% if pl.k in ['vk', 'tg'] or (error and pl.k == 'ig') %} checked{% endif %}>
+                    <span class="plat plat-{{ pl.k }} inline-flex min-h-11 items-center gap-2 rounded-pill border border-line bg-surface px-4 text-sm font-semibold transition peer-checked:border-primary peer-checked:bg-primary-soft peer-checked:text-primary-softfg peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-text">{{ pl.n }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <p class="hint">Для каждой соцсети справа покажем, как будет выглядеть пост.</p>
+        </fieldset>
+
+        <div class="flex flex-col">
+            <label class="label" for="post-text">Текст поста</label>
+            <textarea class="field{{ error ? ' field-error' : '' }}" id="post-text" name="text" rows="8" data-editor-text{% if error %} aria-invalid="true" aria-describedby="post-text-error"{% endif %}>{{ text }}</textarea>
+            <div class="mt-1.5 flex justify-between gap-3">
+                <p class="text-sm font-medium text-bad-fg" id="post-text-error" role="alert">{% if error %}{{ icon('circle-alert', 'mr-1 inline h-4 w-4') }}Текст длиннее, чем разрешает Instagram (2200 символов). Сократите его или уберите Instagram.{% endif %}</p>
+                <p class="hint !mt-0 shrink-0" data-editor-counter aria-live="polite"></p>
+            </div>
+        </div>
+
+        {{ f.dropzone('media', 'Фото и видео') }}
+        {{ f.datetime('publish', 'Когда опубликовать', error ? '2026-10-01' : '2026-10-09', error ? '09:00' : '12:30', required = true, error = error ? 'Это время уже прошло. Выберите время в будущем.' : null) }}
+
+        <div class="flex flex-wrap gap-3 border-t border-line pt-5">
+            {{ f.button('Запланировать пост', type = 'submit', icon = 'calendar-days') }}
+            {{ f.button('Сохранить черновик', variant = 'secondary') }}
+            {{ f.button('Опубликовать сейчас', variant = 'ghost') }}
+        </div>
+    </form>
+
+    <aside class="min-w-0" aria-label="Превью поста">
+        <h2 class="mb-3 text-lg font-semibold">Как это будет выглядеть</h2>
+        <div class="flex gap-1 overflow-x-auto border-b border-line" role="tablist" aria-label="Соцсеть для превью">
+            {% for pl in [{k: 'vk', n: 'ВКонтакте'}, {k: 'tg', n: 'Telegram'}, {k: 'max', n: 'MAX'}, {k: 'ig', n: 'Instagram'}] %}
+            <button type="button" class="tab" role="tab" id="pv-tab-{{ pl.k }}" aria-controls="preview-panel" aria-selected="false" data-preview-tab="{{ pl.k }}">{{ pl.n }}</button>
+            {% endfor %}
+        </div>
+        <div class="pt-4" id="preview-panel" role="tabpanel" aria-label="Превью">
+            {% for pl in ['vk', 'tg', 'max', 'ig'] %}{{ p.preview(pl, 'Кофейня «Зерно»', 'Новое меню уже в кофейне! Заходите попробовать тыквенный латте.', true) }}{% endfor %}
+            <p class="text-sm text-muted" data-editor-empty hidden>Выберите хотя бы одну соцсеть, и здесь появится превью.</p>
+        </div>
+    </aside>
+</div>
+<p class="mt-8 text-sm text-muted">Состояния: <a class="underline" href="?">обычное</a>, <a class="underline" href="?error=1">ошибки в форме</a>.</p>
+{% endblock %}

@@ -1,15 +1,22 @@
-{% extends 'layouts/base.twig' %}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
 
 {% block title %}{{ title }} · {{ app_name }}{% endblock %}
 
 {% block content %}
-    <h1>{{ title }}</h1>
-    <p>{% block message %}{% endblock %}</p>
-    <p><a href="/">{{ t('Вернуться на главную') }}</a></p>
-    {% if error_id %}
-        <p><small>{{ t('Код ошибки для поддержки: :id', {id: error_id}) }}</small></p>
-    {% endif %}
+    <div class="text-center">
+        <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-warn-soft text-warn-fg">{{ icon('triangle-alert', 'h-7 w-7') }}</span>
+        <h1 class="mt-4 text-2xl font-bold">{{ title }}</h1>
+        <p class="mt-2 text-muted">{% block message %}{% endblock %}</p>
+        <div class="mt-6">{{ f.button(t('Вернуться на главную'), href = '/') }}</div>
+        {% if error_id %}
+            <p class="mt-4 text-xs text-muted">{{ t('Код ошибки для поддержки: :id', {id: error_id}) }}</p>
+        {% endif %}
+    </div>
     {% if debug %}
-        <pre>{{ debug }}</pre>
+        <pre class="mt-4 overflow-x-auto rounded-ctl bg-sunken p-3 text-xs">{{ debug }}</pre>
     {% endif %}
 {% endblock %}
+
+{% block auth_footer %}{% endblock %}

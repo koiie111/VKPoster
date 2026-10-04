@@ -1,0 +1,48 @@
+{#- Prototype: calendar (month / week / list). ?state=empty shows the empty state. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% import 'components/calendar.twig' as c %}
+
+{% set nav_current = 'calendar' %}
+{% block title %}Календарь · {{ app_name }}{% endblock %}
+{% block content %}
+{% set actions %}
+    {{ f.button('Фильтры', variant = 'secondary', icon = 'filter', attrs = {'data-dialog-open': 'cal-filters'}) }}
+    {{ f.button('Запланировать пост', href = '/dev/proto/editor', icon = 'plus') }}
+{% endset %}
+{{ d.page_header('Календарь', 'Все запланированные и опубликованные посты в одном месте.', body = actions) }}
+
+{% set filters %}
+    <div class="flex flex-col gap-4">
+        <fieldset class="flex flex-col gap-3"><legend class="label">Соцсети</legend>{{ f.checkbox('c-vk', 'ВКонтакте', true) }}{{ f.checkbox('c-tg', 'Telegram', true) }}{{ f.checkbox('c-max', 'MAX', true) }}{{ f.checkbox('c-ig', 'Instagram', true) }}</fieldset>
+        <fieldset class="flex flex-col gap-3"><legend class="label">Статус</legend>{{ f.checkbox('s-sch', 'Запланированные', true) }}{{ f.checkbox('s-pub', 'Опубликованные', true) }}{{ f.checkbox('s-draft', 'Черновики', true) }}{{ f.checkbox('s-fail', 'С ошибкой', true) }}</fieldset>
+        {{ f.button('Применить', attrs = {'data-dialog-close': ''}) }}
+    </div>
+{% endset %}
+{{ o.drawer('cal-filters', 'Фильтры', body = filters) }}
+
+<div class="mb-4 flex flex-wrap items-center gap-2">
+    <button type="button" class="btn btn-secondary !px-0 w-11" aria-label="Предыдущий период">{{ icon('chevron-left', 'h-5 w-5') }}</button>
+    <button type="button" class="btn btn-secondary !px-0 w-11" aria-label="Следующий период">{{ icon('chevron-right', 'h-5 w-5') }}</button>
+    <button type="button" class="btn btn-secondary">Сегодня</button>
+    <p class="ml-2 text-lg font-semibold">Октябрь 2026</p>
+    <p class="ml-auto hidden items-center gap-1.5 text-sm text-muted sm:flex">{{ icon('globe', 'h-4 w-4') }}Время по Москве (МСК)</p>
+</div>
+
+{% if state == 'empty' %}
+    <div class="card">{{ d.empty_state('В этом месяце нет постов', 'Запланируйте первый пост, и он появится в календаре.', 'calendar-days', 'Запланировать пост', '/dev/proto/editor') }}</div>
+{% else %}
+    {% set tab_month %}{{ c.month(month) }}{% endset %}
+    {% set tab_week %}{{ c.week(week) }}{% endset %}
+    {% set tab_list %}{{ c.list(groups) }}{% endset %}
+    {% set panels %}
+        {{ o.tab_panel('cal', 'month', view == 'month', body = tab_month) }}
+        {{ o.tab_panel('cal', 'week', view == 'week', body = tab_week) }}
+        {{ o.tab_panel('cal', 'list', view == 'list', body = tab_list) }}
+    {% endset %}
+    {{ o.tabs('cal', [{id: 'month', label: 'Месяц'}, {id: 'week', label: 'Неделя'}, {id: 'list', label: 'Список'}], view, body = panels) }}
+{% endif %}
+<p class="mt-8 text-sm text-muted">Состояния: <a class="underline" href="?">обычное</a>, <a class="underline" href="?state=empty">пусто</a>.</p>
+{% endblock %}

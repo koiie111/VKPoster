@@ -1,0 +1,13 @@
+{#- Sign-in / sign-up / password reset: one centered card. Blocks: title, content. -#}
+{% extends 'layouts/base.twig' %}
+{% import 'components/display.twig' as d %}
+
+{% block body %}
+<div class="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+    <a href="/" class="mb-8" aria-label="{{ app_name }}: на главную">{{ d.logo() }}</a>
+    <main id="main" class="card w-full max-w-md !p-6 sm:!p-8">
+        {% block content %}{% endblock %}
+    </main>
+    <p class="mt-6 text-center text-sm text-muted">{% block auth_footer %}Нужна помощь? <a class="font-medium text-primary-text underline underline-offset-2" href="#">Напишите нам</a>{% endblock %}</p>
+</div>
+{% endblock %}

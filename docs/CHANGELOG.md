@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Added
+- Этап 21 (часть B): дизайн-система направления «Индиго»: токены и темы (светлая, тёмная, как в системе), Tailwind-сборка с хэшем (`make css`, `css-watch`, `css-check`), 45 Twig-компонентов, макеты `base/app/auth/landing/admin`, витрина `/dev/ui`, прототипы онбординга, каналов, редактора с превью, календаря (месяц, неделя, список) и дашборда, Lucide-спрайт, `make ui-behavior`, страницы ошибок и главная на новых макетах; документация `docs/design/design-system.md`, `ux-writing.md`.
 - Этап 21 (часть A): три варианта стиля `docs/design/directions/{a,b,c}.html`, референсы `docs/design/references.md`, `tailwind.config.js`, шрифт Inter (self-hosted), инструмент `tools/ui-snap` (Playwright + axe-core, `make ui-snap STAGE=NN`, `make a11y`).
 - Этап 00: Docker-стек (nginx, php-fpm, worker, scheduler, mysql, redis, mailpit; профили `s3`, `tunnel`), `Makefile`, CI на GitHub Actions, PHPUnit, PHPStan (level 8 + strict-rules), php-cs-fixer, `/healthz`.
 - Скелет документации и ADR 0001–0002.

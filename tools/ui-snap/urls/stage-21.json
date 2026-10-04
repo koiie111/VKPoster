@@ -1,0 +1,21 @@
+[
+  { "name": "ui-showcase", "url": "/dev/ui" },
+  { "name": "onboarding-1", "url": "/dev/proto/onboarding?step=1" },
+  { "name": "onboarding-2", "url": "/dev/proto/onboarding?step=2" },
+  { "name": "onboarding-3", "url": "/dev/proto/onboarding?step=3" },
+  { "name": "onboarding-4", "url": "/dev/proto/onboarding?step=4" },
+  { "name": "channels", "url": "/dev/proto/channels" },
+  { "name": "channels-empty", "url": "/dev/proto/channels?state=empty" },
+  { "name": "channels-loading", "url": "/dev/proto/channels?state=loading" },
+  { "name": "editor", "url": "/dev/proto/editor" },
+  { "name": "editor-error", "url": "/dev/proto/editor?error=1" },
+  { "name": "calendar", "url": "/dev/proto/calendar" },
+  { "name": "calendar-week", "url": "/dev/proto/calendar?view=week" },
+  { "name": "calendar-list", "url": "/dev/proto/calendar?view=list" },
+  { "name": "calendar-empty", "url": "/dev/proto/calendar?state=empty" },
+  { "name": "dashboard", "url": "/dev/proto/dashboard" },
+  { "name": "layout-auth", "url": "/dev/layouts/auth" },
+  { "name": "layout-landing", "url": "/dev/layouts/landing" },
+  { "name": "layout-admin", "url": "/dev/layouts/admin" },
+  { "name": "page-404", "url": "/no-such-page" }
+]

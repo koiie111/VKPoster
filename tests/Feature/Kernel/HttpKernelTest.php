@@ -33,7 +33,7 @@ final class HttpKernelTest extends HttpTestCase
         $response = $this->get('/');
 
         self::assertSame(200, $response->status);
-        self::assertStringContainsString('<h1>', $response->body);
+        self::assertStringContainsString('<h1', $response->body);
         self::assertStringContainsString('text/html', (string) $response->header('Content-Type'));
     }
 
@@ -58,7 +58,7 @@ final class HttpKernelTest extends HttpTestCase
         }
         self::assertStringNotContainsString('unsafe-inline', $csp);
         self::assertStringNotContainsString('unsafe-eval', $csp);
-        self::assertSame(3, substr_count($response->body, 'nonce="' . $m[1] . '"'), 'every script tag carries the request nonce');
+        self::assertSame(4, substr_count($response->body, 'nonce="' . $m[1] . '"'), 'every script tag carries the request nonce');
         self::assertStringNotContainsString('<script>', $response->body);
         self::assertStringNotContainsString('onclick', $response->body);
     }
@@ -326,6 +326,6 @@ final class HttpKernelTest extends HttpTestCase
 
     public function testAssetUrlsCarryAContentHash(): void
     {
-        self::assertMatchesRegularExpression('#/assets/css/kernel\.css\?v=[0-9a-f]{10}#', $this->get('/')->body);
+        self::assertMatchesRegularExpression('#/assets/js/app\.js\?v=[0-9a-f]{10}#', $this->get('/')->body);
     }
 }

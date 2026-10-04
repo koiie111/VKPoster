@@ -1,0 +1,67 @@
+{#- Navigation: sidebar, workspace switcher, user menu, theme toggle. -#}
+
+{#- items: list of {id, label, icon, href, badge?}; `current` is the id of the active item. -#}
+{% macro sidebar_nav(items, current, label = 'Основная навигация') -%}
+<nav aria-label="{{ label }}">
+    <ul class="flex flex-col gap-1">
+        {% for item in items %}
+        <li><a class="nav-link" href="{{ item.href }}"{% if item.id == current %} aria-current="page"{% endif %}>{{ icon(item.icon, 'h-5 w-5') }}<span class="flex-1">{{ item.label }}</span>{% if item.badge is defined and item.badge %}<span class="badge bg-primary-soft text-primary-softfg">{{ item.badge }}</span>{% endif %}</a></li>
+        {% endfor %}
+    </ul>
+</nav>
+{%- endmacro %}
+
+{#- Workspace switcher in the top bar. workspaces: list of {name, href, current?}. -#}
+{% macro workspace_switcher(current, workspaces) -%}
+{% import 'components/overlay.twig' as o %}
+{% import 'components/display.twig' as d %}
+{% set label = current %}
+<div class="relative inline-block" x-data="dropdown">
+    <button type="button" class="btn btn-ghost max-w-[14rem] !px-2 !text-fg" data-dropdown-trigger aria-haspopup="menu" aria-expanded="false" aria-controls="ws-menu">
+        <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-ctl bg-primary-soft text-sm font-bold text-primary-softfg" aria-hidden="true">{{ current|slice(0, 1)|upper }}</span>
+        <span class="truncate">{{ current }}</span>{{ icon('chevron-down', 'h-4 w-4') }}
+    </button>
+    <div class="menu absolute left-0 mt-1" id="ws-menu" role="menu" data-dropdown-menu hidden>
+        <p class="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">Рабочие пространства</p>
+        {% for ws in workspaces %}{{ o.menu_item(ws.name, href = ws.href, icon = (ws.name == current ? 'check' : null)) }}{% endfor %}
+        {{ o.menu_item('Создать пространство', href = '#', icon = 'plus') }}
+    </div>
+</div>
+{%- endmacro %}
+
+{#- Light/dark quick toggle (shows the opposite icon of the current theme). -#}
+{% macro theme_toggle() -%}
+<span x-data="themeSwitch">
+    <button type="button" class="group btn btn-ghost !px-0 w-11" data-theme-toggle aria-pressed="false" aria-label="Переключить тёмную тему" title="Тёмная тема">
+        <span class="group-aria-pressed:hidden">{{ icon('moon', 'h-5 w-5') }}</span><span class="hidden group-aria-pressed:inline">{{ icon('sun', 'h-5 w-5') }}</span>
+    </button>
+</span>
+{%- endmacro %}
+
+{#- Three-way theme choice for the profile page / user menu. -#}
+{% macro theme_choice() -%}
+<div x-data="themeSwitch" role="group" aria-label="Тема оформления" class="grid grid-cols-3 gap-1 rounded-ctl bg-sunken p-1">
+    {% for key, label in {light: 'Светлая', dark: 'Тёмная', system: 'Как в системе'} %}
+    <button type="button" class="rounded-sm px-2 py-2 text-sm font-medium text-muted aria-pressed:bg-surface aria-pressed:text-fg aria-pressed:shadow-card" data-theme-set="{{ key }}" aria-pressed="false">{{ label }}</button>
+    {% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro user_menu(name, email) -%}
+{% import _self as n %}
+{% import 'components/overlay.twig' as o %}
+{% import 'components/display.twig' as d %}
+<div class="relative inline-block" x-data="dropdown">
+    <button type="button" class="flex min-h-11 items-center gap-2 rounded-full p-1 pr-2 hover:bg-sunken" data-dropdown-trigger aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu" aria-label="Меню профиля: {{ name }}">
+        {{ d.avatar(name, size = 'sm') }}{{ icon('chevron-down', 'h-4 w-4 text-muted') }}
+    </button>
+    <div class="menu absolute right-0 mt-1" id="user-menu" role="menu" data-dropdown-menu hidden>
+        <div class="px-3 py-2"><p class="truncate text-sm font-semibold">{{ name }}</p><p class="truncate text-xs text-muted">{{ email }}</p></div>
+        <div class="px-2 pb-2">{{ n.theme_choice() }}</div>
+        {{ o.menu_item('Профиль', href = '#', icon = 'user') }}
+        {{ o.menu_item('Тарифы и оплата', href = '#', icon = 'credit-card') }}
+        {{ o.menu_item('Справка', href = '#', icon = 'circle-help') }}
+        {{ o.menu_item('Выйти', href = '#', icon = 'log-out') }}
+    </div>
+</div>
+{%- endmacro %}

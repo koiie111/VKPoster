@@ -1,0 +1,105 @@
+{#- Overlays and menus. Behavior lives in public/assets/js/components.js (Alpine.data); dialogs are native <dialog>. -#}
+
+{#- Dropdown menu. body holds menu_item() calls. trigger is a button with `label`; align: left | right. -#}
+{% macro dropdown(id, label, icon = null, align = 'right', variant = 'secondary', icon_only = false, body = '') -%}
+<div class="relative inline-block" x-data="dropdown">
+    <button type="button" class="btn btn-{{ variant }}{{ icon_only ? ' !px-0 w-11' : '' }}" data-dropdown-trigger aria-haspopup="menu" aria-expanded="false" aria-controls="{{ id }}"{% if icon_only %} aria-label="{{ label }}"{% endif %}>
+        {% if icon %}{{ icon(icon, 'h-5 w-5') }}{% endif %}{% if not icon_only %}{{ label }}{{ icon('chevron-down', 'h-4 w-4') }}{% endif %}
+    </button>
+    <div class="menu absolute mt-1 {{ align == 'right' ? 'right-0' : 'left-0' }}" id="{{ id }}" role="menu" data-dropdown-menu hidden>{{ body }}</div>
+</div>
+{%- endmacro %}
+
+{% macro menu_item(label, href = null, icon = null, danger = false, type = 'button', attrs = {}) -%}
+{%- if href is not null -%}
+<a class="menu-item{{ danger ? ' menu-item-danger' : '' }}" role="menuitem" href="{{ href }}"{% for k, v in attrs %} {{ k }}="{{ v }}"{% endfor %}>{% if icon %}{{ icon(icon, 'h-4 w-4') }}{% endif %}{{ label }}</a>
+{%- else -%}
+<button type="{{ type }}" class="menu-item{{ danger ? ' menu-item-danger' : '' }}" role="menuitem"{% for k, v in attrs %} {{ k }}="{{ v }}"{% endfor %}>{% if icon %}{{ icon(icon, 'h-4 w-4') }}{% endif %}{{ label }}</button>
+{%- endif -%}
+{%- endmacro %}
+
+{#- Modal: open with any element carrying data-dialog-open="{id}". body is the body; use modal_footer() for buttons. -#}
+{% macro modal(id, title, description = null, size = 'md', body = '') -%}
+<dialog class="dlg{{ size == 'lg' ? ' dlg-lg' : '' }}" id="{{ id }}" aria-labelledby="{{ id }}-title"{% if description %} aria-describedby="{{ id }}-desc"{% endif %} data-dialog-light-dismiss>
+    <div class="flex items-start justify-between gap-4 p-5 pb-0">
+        <div><h2 class="text-lg font-semibold" id="{{ id }}-title">{{ title }}</h2>{% if description %}<p class="mt-1 text-sm text-muted" id="{{ id }}-desc">{{ description }}</p>{% endif %}</div>
+        <button type="button" class="btn btn-ghost !px-0 w-10 !min-h-10" data-dialog-close aria-label="Закрыть">{{ icon('x', 'h-5 w-5') }}</button>
+    </div>
+    <div class="p-5">{{ body }}</div>
+</dialog>
+{%- endmacro %}
+
+{% macro modal_footer(body = '') -%}
+<div class="mt-6 flex flex-wrap justify-end gap-3">{{ body }}</div>
+{%- endmacro %}
+
+{#- Side panel (side: right | left). -#}
+{% macro drawer(id, title, side = 'right', body = '') -%}
+<dialog class="dlg dlg-drawer{{ side == 'left' ? ' dlg-drawer-left' : '' }}" id="{{ id }}" aria-labelledby="{{ id }}-title" data-dialog-light-dismiss>
+    <div class="flex items-center justify-between gap-4 border-b border-line p-4">
+        <h2 class="text-lg font-semibold" id="{{ id }}-title">{{ title }}</h2>
+        <button type="button" class="btn btn-ghost !px-0 w-10 !min-h-10" data-dialog-close aria-label="Закрыть">{{ icon('x', 'h-5 w-5') }}</button>
+    </div>
+    <div class="p-4">{{ body }}</div>
+</dialog>
+{%- endmacro %}
+
+{#- Tabs. items: list of {id, label}; body holds tab_panel() calls. -#}
+{% macro tabs(name, items, active = null, body = '') -%}
+{%- set current = active ?? items[0].id -%}
+<div x-data="tabs">
+    <div class="flex overflow-x-auto border-b border-line" role="tablist" aria-label="{{ name }}">
+        {% for item in items %}
+        <button type="button" class="tab" role="tab" id="{{ name }}-tab-{{ item.id }}" aria-controls="{{ name }}-panel-{{ item.id }}" aria-selected="{{ item.id == current ? 'true' : 'false' }}" tabindex="{{ item.id == current ? '0' : '-1' }}">{{ item.label }}</button>
+        {% endfor %}
+    </div>
+    {{ body }}
+</div>
+{%- endmacro %}
+
+{% macro tab_panel(name, id, active = false, body = '') -%}
+<div role="tabpanel" id="{{ name }}-panel-{{ id }}" aria-labelledby="{{ name }}-tab-{{ id }}" class="pt-5" tabindex="0"{% if not active %} hidden{% endif %}>{{ body }}</div>
+{%- endmacro %}
+
+{#- One per page (in the base layout). `flash` is a list of {text, kind} shown on load. -#}
+{% macro toast_region(flash = []) -%}
+<div class="fixed bottom-4 right-4 z-toast flex flex-col gap-2 max-sm:left-4 max-sm:right-4 max-sm:items-center" x-data="toasts" aria-live="polite" aria-atomic="false">
+    <template>
+        <div class="toast" role="status">
+            <span data-toast-kind="success" class="text-ok">{{ icon('circle-check', 'h-5 w-5') }}</span>
+            <span data-toast-kind="error" class="text-bad" hidden>{{ icon('circle-alert', 'h-5 w-5') }}</span>
+            <span data-toast-kind="warning" class="text-warn" hidden>{{ icon('triangle-alert', 'h-5 w-5') }}</span>
+            <span data-toast-kind="info" class="text-info" hidden>{{ icon('info', 'h-5 w-5') }}</span>
+            <p class="min-w-0 flex-1 text-sm font-medium" data-toast-text></p>
+            <button type="button" class="-m-1 rounded-sm p-1 text-muted hover:text-fg" data-toast-close aria-label="Закрыть уведомление">{{ icon('x', 'h-4 w-4') }}</button>
+        </div>
+    </template>
+    {% for item in flash %}<span hidden data-toast-now="{{ item.text }}" data-toast-kind="{{ item.kind }}"></span>{% endfor %}
+</div>
+{%- endmacro %}
+
+{#- Confirm dialog for dangerous actions: names the object, optionally asks to type its name.
+    Open with data-dialog-open="{id}". Submits a POST (with CSRF) to `action`. -#}
+{% macro confirm_dialog(id, title, object_name, text, action, confirm_label = 'Удалить', require_name = false, method = 'post') -%}
+<dialog class="dlg" id="{{ id }}" aria-labelledby="{{ id }}-title" aria-describedby="{{ id }}-desc" data-dialog-light-dismiss>
+    <form method="post" action="{{ action }}" class="p-5" x-data="confirmName">
+        {{ csrf_field() }}
+        {% if method != 'post' %}<input type="hidden" name="_method" value="{{ method|upper }}">{% endif %}
+        <div class="flex gap-4">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bad-soft text-bad-fg">{{ icon('triangle-alert', 'h-5 w-5') }}</span>
+            <div class="min-w-0">
+                <h2 class="text-lg font-semibold" id="{{ id }}-title">{{ title }}</h2>
+                <p class="mt-1 text-sm text-muted" id="{{ id }}-desc"><strong class="break-words text-fg">«{{ object_name }}»</strong>. {{ text }}</p>
+                {% if require_name %}
+                <label class="label mt-4" for="{{ id }}-name">Чтобы подтвердить, введите название: {{ object_name }}</label>
+                <input class="field" id="{{ id }}-name" autocomplete="off" data-confirm-input data-confirm-name="{{ object_name }}">
+                {% endif %}
+            </div>
+        </div>
+        <div class="mt-6 flex flex-wrap justify-end gap-3">
+            <button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button>
+            <button type="submit" class="btn btn-danger" data-confirm-submit>{{ confirm_label }}</button>
+        </div>
+    </form>
+</dialog>
+{%- endmacro %}

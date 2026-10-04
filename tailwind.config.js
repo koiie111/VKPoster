@@ -9,7 +9,10 @@ module.exports = {
     './templates/**/*.twig',
     './public/assets/js/**/*.js',
     './docs/design/directions/*.html',
+    './src/**/*.php',
   ],
+  // Platform classes are assembled from data (`plat-{{ platform }}`), so Tailwind cannot see them in templates.
+  safelist: ['plat-vk', 'plat-tg', 'plat-max', 'plat-ig'],
   darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
@@ -25,6 +28,8 @@ module.exports = {
         vk: v('vk'), tg: v('tg'), max: v('max'), ig: v('ig'),
       },
       borderRadius: { ctl: 'var(--r-md)', card: 'var(--r-lg)', pill: '9999px' },
+      zIndex: { sticky: '30', dropdown: '40', overlay: '50', modal: '60', toast: '70' },
+      transitionDuration: { fast: '120ms', base: '200ms', slow: '320ms' },
       boxShadow: { card: 'var(--shadow-card)', pop: 'var(--shadow-pop)' },
     },
   },

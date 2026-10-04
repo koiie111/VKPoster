@@ -1,0 +1,25 @@
+{#- Layout sample: public landing page. -#}
+{% extends 'layouts/landing.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% block title %}{{ app_name }}: отложенный постинг{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-6xl px-4 py-16 text-center sm:py-24">
+    <p class="mb-4">{{ d.badge('Для ВКонтакте, Telegram, MAX и Instagram', 'primary') }}</p>
+    <h1 class="mx-auto max-w-3xl text-4xl font-bold sm:text-5xl">Пишите посты заранее. Публикуем вовремя.</h1>
+    <p class="mx-auto mt-5 max-w-2xl text-lg text-muted">Один календарь для всех ваших соцсетей. Напишите пост один раз, выберите время, и мы опубликуем его сами.</p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">{{ f.button('Начать бесплатно', href = '#', icon = 'rocket') }}{{ f.button('Посмотреть, как это работает', variant = 'secondary', href = '#features') }}</div>
+</section>
+<section id="features" class="mx-auto grid max-w-6xl gap-4 px-4 md:grid-cols-3" aria-label="Возможности">
+    {% for item in [{i: 'calendar-days', t: 'Календарь на месяц', x: 'Все посты перед глазами: неделя, месяц или список.'}, {i: 'eye', t: 'Превью для каждой сети', x: 'Видно, как пост выглядит в ВК, Telegram, MAX и Instagram.'}, {i: 'clock', t: 'Точно в срок', x: 'Публикуем в назначенное время с учётом вашего часового пояса.'}] %}
+    <div class="card"><span class="flex h-11 w-11 items-center justify-center rounded-ctl bg-primary-soft text-primary-text">{{ icon(item.i, 'h-5 w-5') }}</span><h2 class="mt-4 text-lg font-semibold">{{ item.t }}</h2><p class="mt-1 text-muted">{{ item.x }}</p></div>
+    {% endfor %}
+</section>
+<section id="pricing" class="mx-auto mt-16 max-w-6xl px-4" aria-labelledby="pr-h">
+    <h2 class="mb-6 text-center text-3xl font-bold" id="pr-h">Тарифы</h2>
+    <div class="mx-auto grid max-w-3xl gap-4 sm:grid-cols-2">
+        <div class="card"><h3 class="text-lg font-semibold">Старт</h3><p class="mt-2 text-3xl font-bold">0 ₽</p><p class="text-sm text-muted">30 постов в месяц, 2 канала</p><div class="mt-5">{{ f.button('Начать бесплатно', variant = 'secondary', href = '#', block = true) }}</div></div>
+        <div class="card !border-primary"><h3 class="flex items-center gap-2 text-lg font-semibold">Профи {{ d.badge('Популярный', 'primary') }}</h3><p class="mt-2 text-3xl font-bold">990 ₽<span class="text-base font-normal text-muted"> / мес</span></p><p class="text-sm text-muted">Без ограничений, 10 каналов, команда</p><div class="mt-5">{{ f.button('Выбрать тариф', href = '#', block = true) }}</div></div>
+    </div>
+</section>
+{% endblock %}

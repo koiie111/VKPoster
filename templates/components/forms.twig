@@ -1,0 +1,128 @@
+{#- Form components. Every control renders label + hint + error itself and wires aria-describedby. -#}
+
+{% macro button(label, variant = 'primary', size = 'md', type = 'button', icon = null, loading = false, disabled = false, href = null, block = false, attrs = {}) -%}
+{%- set cls = 'btn btn-' ~ variant ~ (size == 'sm' ? ' btn-sm' : '') ~ (block ? ' btn-block' : '') ~ (loading ? ' btn-loading' : '') -%}
+{%- if href is not null -%}
+<a href="{{ href }}" class="{{ cls }}"{% for k, v in attrs %} {{ k }}="{{ v }}"{% endfor %}>{% if icon %}{{ icon(icon, 'h-4 w-4') }}{% endif %}{{ label }}</a>
+{%- else -%}
+<button type="{{ type }}" class="{{ cls }}"{% if disabled or loading %} disabled{% endif %}{% if loading %} aria-busy="true"{% endif %}{% for k, v in attrs %} {{ k }}="{{ v }}"{% endfor %}>
+    {%- if loading %}<span class="spin" aria-hidden="true"></span>{% else %}<span class="spin btn-spin" aria-hidden="true"></span>{% if icon %}{{ icon(icon, 'h-4 w-4') }}{% endif %}{% endif -%}
+    {{ label }}
+</button>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro icon_button(icon, label, variant = 'ghost', type = 'button', attrs = {}) -%}
+<button type="{{ type }}" class="btn btn-{{ variant }} !px-0 w-11" aria-label="{{ label }}" title="{{ label }}"{% for k, v in attrs %} {{ k }}="{{ v }}"{% endfor %}>{{ icon(icon, 'h-5 w-5') }}</button>
+{%- endmacro %}
+
+{#- Wrapper for custom controls: body renders the control, give it id=`id`, aria-describedby=`id-hint id-error`. -#}
+{% macro form_field(id, label, hint = null, error = null, required = false, body = '') -%}
+<div class="flex flex-col">
+    <label class="label" for="{{ id }}">{{ label }}{% if required %}<span class="text-bad-fg" aria-hidden="true"> *</span>{% endif %}</label>
+    {{ body }}
+    {% if hint %}<p class="hint" id="{{ id }}-hint">{{ hint }}</p>{% endif %}
+    {% if error %}<p class="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-bad-fg" id="{{ id }}-error" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ error }}</span></p>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro _describedby(id, hint, error) -%}
+{%- set ids = [] -%}{%- if hint %}{% set ids = ids|merge([id ~ '-hint']) %}{% endif -%}{%- if error %}{% set ids = ids|merge([id ~ '-error']) %}{% endif -%}
+{%- if ids %} aria-describedby="{{ ids|join(' ') }}"{% endif -%}
+{%- endmacro %}
+
+{% macro input(name, label, type = 'text', value = '', hint = null, error = null, placeholder = '', required = false, autocomplete = null, id = null, attrs = {}) -%}
+{% import _self as f %}
+{%- set fid = id ?? ('f-' ~ name) -%}
+<div class="flex flex-col">
+    <label class="label" for="{{ fid }}">{{ label }}{% if required %}<span class="text-bad-fg" aria-hidden="true"> *</span>{% endif %}</label>
+    <input class="field{{ error ? ' field-error' : '' }}" id="{{ fid }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if error %} aria-invalid="true"{% endif %}{{ f._describedby(fid, hint, error) }}{% for k, v in attrs %} {{ k }}="{{ v }}"{% endfor %}>
+    {% if hint %}<p class="hint" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}
+    {% if error %}<p class="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-bad-fg" id="{{ fid }}-error" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ error }}</span></p>{% endif %}
+</div>
+{%- endmacro %}
+
+{#- Textarea; with `max` shows a live "n из max" counter (component `counter`). -#}
+{% macro textarea(name, label, value = '', rows = 4, max = null, hint = null, error = null, placeholder = '', required = false, id = null) -%}
+{% import _self as f %}
+{%- set fid = id ?? ('f-' ~ name) -%}
+<div class="flex flex-col"{% if max %} x-data="counter"{% endif %}>
+    <label class="label" for="{{ fid }}">{{ label }}{% if required %}<span class="text-bad-fg" aria-hidden="true"> *</span>{% endif %}</label>
+    <textarea class="field{{ error ? ' field-error' : '' }}" id="{{ fid }}" name="{{ name }}" rows="{{ rows }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if max %} data-counter-max="{{ max }}"{% endif %}{% if required %} required{% endif %}{% if error %} aria-invalid="true"{% endif %}{{ f._describedby(fid, hint, error) }}>{{ value }}</textarea>
+    <div class="mt-1.5 flex justify-between gap-3">
+        <div>
+            {% if hint %}<p class="hint !mt-0" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}
+            {% if error %}<p class="flex items-start gap-1.5 text-sm font-medium text-bad-fg" id="{{ fid }}-error" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ error }}</span></p>{% endif %}
+        </div>
+        {% if max %}<p class="hint !mt-0 shrink-0" data-counter-out aria-live="polite">{{ value|length }} из {{ max }}</p>{% endif %}
+    </div>
+</div>
+{%- endmacro %}
+
+{#- `options` is a map value => label. -#}
+{% macro select(name, label, options, value = '', hint = null, error = null, required = false, id = null) -%}
+{% import _self as f %}
+{%- set fid = id ?? ('f-' ~ name) -%}
+<div class="flex flex-col">
+    <label class="label" for="{{ fid }}">{{ label }}{% if required %}<span class="text-bad-fg" aria-hidden="true"> *</span>{% endif %}</label>
+    <select class="field{{ error ? ' field-error' : '' }}" id="{{ fid }}" name="{{ name }}"{% if required %} required{% endif %}{% if error %} aria-invalid="true"{% endif %}{{ f._describedby(fid, hint, error) }}>
+        {% for v, text in options %}<option value="{{ v }}"{% if (v ~ '') == (value ~ '') %} selected{% endif %}>{{ text }}</option>{% endfor %}
+    </select>
+    {% if hint %}<p class="hint" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}
+    {% if error %}<p class="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-bad-fg" id="{{ fid }}-error" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ error }}</span></p>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro checkbox(name, label, checked = false, value = '1', hint = null, disabled = false, id = null) -%}
+{%- set fid = id ?? ('f-' ~ name ~ '-' ~ value) -%}
+<div class="flex items-start gap-3">
+    <input class="check mt-0.5" type="checkbox" id="{{ fid }}" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}{% if disabled %} disabled{% endif %}{% if hint %} aria-describedby="{{ fid }}-hint"{% endif %}>
+    <div><label for="{{ fid }}" class="text-[0.9375rem]">{{ label }}</label>{% if hint %}<p class="hint !mt-0" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}</div>
+</div>
+{%- endmacro %}
+
+{% macro radio(name, label, value, checked = false, hint = null, disabled = false, id = null) -%}
+{%- set fid = id ?? ('f-' ~ name ~ '-' ~ value) -%}
+<div class="flex items-start gap-3">
+    <input class="check mt-0.5 rounded-full" type="radio" id="{{ fid }}" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}{% if disabled %} disabled{% endif %}{% if hint %} aria-describedby="{{ fid }}-hint"{% endif %}>
+    <div><label for="{{ fid }}" class="text-[0.9375rem]">{{ label }}</label>{% if hint %}<p class="hint !mt-0" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}</div>
+</div>
+{%- endmacro %}
+
+{#- On/off switch: a real checkbox (works without JS, submits with the form). -#}
+{% macro switch(name, label, checked = false, hint = null, disabled = false, id = null) -%}
+{%- set fid = id ?? ('f-' ~ name) -%}
+<div class="flex items-center justify-between gap-4">
+    <div><label for="{{ fid }}" class="text-[0.9375rem]">{{ label }}</label>{% if hint %}<p class="hint !mt-0" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}</div>
+    <input class="switch" type="checkbox" role="switch" id="{{ fid }}" name="{{ name }}" value="1"{% if checked %} checked{% endif %}{% if disabled %} disabled{% endif %}{% if hint %} aria-describedby="{{ fid }}-hint"{% endif %}>
+</div>
+{%- endmacro %}
+
+{#- Date + time with an explicit time zone (the zone decides when the post goes out). Submits {name}_date, {name}_time, {name}_tz. -#}
+{% macro datetime(name, label, date = '', time = '', tz = 'Europe/Moscow', tz_label = 'Москва (МСК, UTC+3)', hint = null, error = null, required = false) -%}
+{%- set fid = 'f-' ~ name -%}
+<fieldset class="flex flex-col" aria-describedby="{{ fid }}-tz{% if error %} {{ fid }}-error{% endif %}">
+    <legend class="label">{{ label }}{% if required %}<span class="text-bad-fg" aria-hidden="true"> *</span>{% endif %}</legend>
+    <div class="grid grid-cols-2 gap-3">
+        <div><label class="sr-only" for="{{ fid }}-date">Дата</label><input class="field{{ error ? ' field-error' : '' }}" type="date" id="{{ fid }}-date" name="{{ name }}_date" value="{{ date }}"{% if required %} required{% endif %}{% if error %} aria-invalid="true"{% endif %}></div>
+        <div><label class="sr-only" for="{{ fid }}-time">Время</label><input class="field{{ error ? ' field-error' : '' }}" type="time" id="{{ fid }}-time" name="{{ name }}_time" value="{{ time }}"{% if required %} required{% endif %}{% if error %} aria-invalid="true"{% endif %}></div>
+    </div>
+    <input type="hidden" name="{{ name }}_tz" value="{{ tz }}">
+    <p class="hint flex items-center gap-1.5" id="{{ fid }}-tz">{{ icon('globe', 'h-4 w-4') }}Часовой пояс: {{ tz_label }}</p>
+    {% if hint %}<p class="hint" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}
+    {% if error %}<p class="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-bad-fg" id="{{ fid }}-error" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ error }}</span></p>{% endif %}
+</fieldset>
+{%- endmacro %}
+
+{% macro dropzone(name, label, hint = 'JPG, PNG или MP4, до 50 МБ', accept = 'image/*,video/mp4', multiple = true, id = null) -%}
+{%- set fid = id ?? ('f-' ~ name) -%}
+<div x-data="dropzone">
+    <label class="drop" for="{{ fid }}" data-dropzone>
+        {{ icon('cloud-upload', 'h-8 w-8') }}
+        <span class="font-semibold text-fg">Перетащите файлы сюда или нажмите, чтобы выбрать</span>
+        <span class="text-sm">{{ hint }}</span>
+        <span class="text-sm font-medium text-primary-text" data-dropzone-list aria-live="polite"></span>
+        <input class="sr-only" type="file" id="{{ fid }}" name="{{ name }}{{ multiple ? '[]' : '' }}" accept="{{ accept }}"{% if multiple %} multiple{% endif %}>
+    </label>
+</div>
+{%- endmacro %}

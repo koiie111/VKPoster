@@ -1,0 +1,65 @@
+{#- Post card and per-platform previews. -#}
+
+{#- post: {title, text, platforms: [vk|tg|max|ig], status, time, error?, media?: int} -#}
+{% macro post_card(post, href = '#') -%}
+{% import 'components/display.twig' as d %}
+<article class="card flex flex-col gap-3">
+    <div class="flex flex-wrap items-center gap-2">{% for p in post.platforms %}{{ d.platform_badge(p) }}{% endfor %}</div>
+    <div class="flex gap-3">
+        <div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-ctl bg-primary-soft text-primary-softfg" aria-hidden="true">{{ icon('image', 'h-7 w-7') }}</div>
+        <div class="min-w-0">
+            <h3 class="font-semibold leading-snug"><a class="hover:underline" href="{{ href }}">{{ post.title }}</a></h3>
+            <p class="mt-1 line-clamp-3 text-sm text-muted">{{ post.text }}</p>
+        </div>
+    </div>
+    {% if post.error is defined and post.error %}
+    <p class="flex gap-2 rounded-ctl bg-bad-soft px-3 py-2 text-sm text-bad-fg">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ post.error }}</span></p>
+    {% endif %}
+    <div class="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
+        <span class="flex items-center gap-1.5 text-muted">{{ icon('clock', 'h-4 w-4') }}{{ post.time }}</span>
+        {{ d.status_badge(post.status) }}
+    </div>
+</article>
+{%- endmacro %}
+
+{#- Simplified preview of how the post looks in a network. platform: vk | tg | max | ig.
+    The text sits in [data-preview-text], which the editor script keeps in sync with the textarea. -#}
+{% macro preview(platform, author, text, hidden = false) -%}
+{% import 'components/display.twig' as d %}
+{%- set shown = text != '' ? text : 'Здесь появится ваш текст' -%}
+<div data-preview="{{ platform }}"{% if hidden %} hidden{% endif %}>
+{% if platform == 'vk' %}
+    <div class="rounded-card border border-line bg-surface p-4">
+        <div class="flex items-center gap-3">{{ d.avatar(author) }}<div><p class="font-semibold leading-tight">{{ author }}</p><p class="text-xs text-muted">только что</p></div></div>
+        <p class="mt-3 whitespace-pre-line break-words text-[0.9375rem]" data-preview-text>{{ shown }}</p>
+        <div class="mt-3 flex h-36 items-center justify-center rounded-ctl bg-sunken text-muted" aria-hidden="true">{{ icon('image', 'h-8 w-8') }}</div>
+        <div class="mt-3 flex gap-5 text-muted" aria-hidden="true">{{ icon('heart', 'h-5 w-5') }}{{ icon('message-circle', 'h-5 w-5') }}{{ icon('share-2', 'h-5 w-5') }}</div>
+    </div>
+{% elseif platform == 'tg' %}
+    <div class="rounded-card bg-sunken p-4">
+        <div class="max-w-sm overflow-hidden rounded-2xl rounded-bl-md bg-surface shadow-card">
+            <div class="flex h-36 items-center justify-center bg-primary-soft text-primary-softfg" aria-hidden="true">{{ icon('image', 'h-8 w-8') }}</div>
+            <div class="p-3"><p class="text-sm font-semibold text-primary-text">{{ author }}</p>
+            <p class="mt-1 whitespace-pre-line break-words text-[0.9375rem]" data-preview-text>{{ shown }}</p>
+            <p class="mt-1 text-right text-xs text-muted">12:30</p></div>
+        </div>
+    </div>
+{% elseif platform == 'max' %}
+    <div class="rounded-card bg-sunken p-4">
+        <div class="max-w-sm rounded-3xl bg-surface p-3 shadow-card">
+            <div class="flex h-32 items-center justify-center rounded-2xl bg-primary-soft text-primary-softfg" aria-hidden="true">{{ icon('image', 'h-8 w-8') }}</div>
+            <p class="mt-2 px-1 text-sm font-semibold">{{ author }}</p>
+            <p class="mt-1 whitespace-pre-line break-words px-1 text-[0.9375rem]" data-preview-text>{{ shown }}</p>
+            <p class="mt-1 px-1 text-right text-xs text-muted">12:30</p>
+        </div>
+    </div>
+{% else %}
+    <div class="max-w-sm rounded-card border border-line bg-surface">
+        <div class="flex items-center gap-3 p-3">{{ d.avatar(author, size = 'sm') }}<p class="text-sm font-semibold">{{ author }}</p></div>
+        <div class="flex aspect-square items-center justify-center bg-sunken text-muted" aria-hidden="true">{{ icon('image', 'h-10 w-10') }}</div>
+        <div class="flex gap-4 p-3 text-muted" aria-hidden="true">{{ icon('heart', 'h-5 w-5') }}{{ icon('message-circle', 'h-5 w-5') }}{{ icon('send', 'h-5 w-5') }}</div>
+        <p class="whitespace-pre-line break-words px-3 pb-3 text-sm"><strong>{{ author }}</strong> <span data-preview-text>{{ shown }}</span></p>
+    </div>
+{% endif %}
+</div>
+{%- endmacro %}

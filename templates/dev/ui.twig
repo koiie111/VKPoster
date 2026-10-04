@@ -1,0 +1,177 @@
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% import 'components/nav.twig' as n %}
+{% import 'components/post.twig' as p %}
+
+{% set nav_current = '' %}
+
+{% macro section(id, title, body = '') %}
+<section class="mb-12" aria-labelledby="s-{{ id }}">
+    <h2 class="mb-5 border-b border-line pb-2 text-xl font-bold" id="s-{{ id }}">{{ title }}</h2>
+    {{ body }}
+</section>
+{% endmacro %}
+{% block title %}Витрина компонентов · {{ app_name }}{% endblock %}
+
+{% block content %}
+{% import _self as s %}
+
+{% set _b1 %}
+    <a class="btn btn-secondary" href="/dev/layouts/auth">Макет входа</a>
+    <a class="btn btn-secondary" href="/dev/layouts/landing">Макет лендинга</a>
+    <a class="btn btn-secondary" href="/dev/layouts/admin">Макет админки</a>
+{% endset %}{{ d.page_header('Витрина компонентов', 'Все компоненты дизайн-системы в разных состояниях. Переключите тему кнопкой с луной в шапке, чтобы увидеть тёмный вариант.', body = _b1) }}
+
+{% set _b2 %}
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
+        {% for name, cls in {'Фон': 'bg-bg', 'Поверхность': 'bg-surface', 'Утопленный': 'bg-sunken', 'Граница': 'bg-line', 'Основной': 'bg-primary', 'Основной (hover)': 'bg-primary-hover', 'Основной (фон)': 'bg-primary-soft', 'Успех': 'bg-ok', 'Внимание': 'bg-warn', 'Ошибка': 'bg-bad', 'Инфо': 'bg-info', 'Текст': 'bg-fg'} %}
+        <div><div class="h-14 rounded-ctl border border-line {{ cls }}"></div><p class="mt-1.5 text-sm font-medium">{{ name }}</p></div>
+        {% endfor %}
+    </div>
+    <div class="mt-5 flex flex-wrap gap-2">{% for pl in ['vk', 'tg', 'max', 'ig'] %}{{ d.platform_badge(pl) }}{% endfor %}</div>
+    <p class="mt-5 text-sm text-muted">Скругления: <span class="font-medium text-fg">8 / 12 / 16 px</span> (sm / ctl / card). Шаг отступов 4 px. Шрифт Inter. Длительности анимаций 120 / 200 / 320 мс. Слои: sticky 30, dropdown 40, overlay 50, modal 60, toast 70.</p>
+{% endset %}{{ s.section('colors', 'Цвета и токены', body = _b2) }}
+
+{% set _b3 %}
+    <p class="text-4xl font-bold">Заголовок 1: 36 px</p>
+    <p class="mt-2 text-2xl font-bold">Заголовок 2: 24 px</p>
+    <p class="mt-2 text-xl font-semibold">Заголовок 3: 20 px</p>
+    <p class="mt-2 text-base">Основной текст 16 px: напишите пост один раз, выберите соцсети и время, а мы опубликуем его вовремя.</p>
+    <p class="mt-2 text-sm text-muted">Вспомогательный текст 14 px: подсказки, подписи, время публикации.</p>
+    <p class="mt-2 text-xs text-muted">Мелкий текст 12 px: метки и счётчики.</p>
+{% endset %}{{ s.section('type', 'Типографика', body = _b3) }}
+
+{% set _b4 %}
+    <div class="flex flex-wrap items-center gap-3">
+        {{ f.button('Запланировать пост', icon = 'plus') }}
+        {{ f.button('Сохранить черновик', variant = 'secondary') }}
+        {{ f.button('Отмена', variant = 'ghost') }}
+        {{ f.button('Удалить пост', variant = 'danger', icon = 'trash-2') }}
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+        {{ f.button('Маленькая', size = 'sm') }}
+        {{ f.button('Планируем…', loading = true) }}
+        {{ f.button('Недоступно', disabled = true) }}
+        {{ f.button('Ссылка-кнопка', variant = 'secondary', href = '#') }}
+        {{ f.icon_button('settings', 'Настройки', variant = 'secondary') }}
+        {{ f.icon_button('trash-2', 'Удалить') }}
+    </div>
+    <div class="mt-4 max-w-sm">{{ f.button('Войти', block = true, type = 'submit') }}</div>
+{% endset %}{{ s.section('buttons', 'Кнопки', body = _b4) }}
+
+{% set _b5 %}
+    <div class="grid gap-6 md:grid-cols-2">
+        {{ f.input('title', 'Название поста', hint = 'Видно только вам. В соцсеть не попадёт.', placeholder = 'Например, «Осенняя коллекция»') }}
+        {{ f.input('email', 'Почта', type = 'email', required = true, value = 'anna@example.com', autocomplete = 'email') }}
+        {{ f.input('when', 'Время публикации', value = '25:00', error = 'Такого времени нет. Укажите время от 00:00 до 23:59.') }}
+        {{ f.input('locked', 'Недоступное поле', value = 'Только чтение', attrs = {disabled: 'disabled'}) }}
+        {{ f.select('tz', 'Часовой пояс', {'Europe/Moscow': 'Москва (МСК)', 'Asia/Yekaterinburg': 'Екатеринбург (+5)', 'Asia/Novosibirsk': 'Новосибирск (+7)'}, 'Europe/Moscow', hint = 'По нему мы публикуем посты.') }}
+        {{ f.select('plan', 'Тариф', {'start': 'Старт', 'pro': 'Профи'}, 'start', error = 'Выберите тариф, чтобы продолжить.') }}
+        <div class="md:col-span-2">{{ f.textarea('text', 'Текст поста', 'Скоро расскажем о новинках!', max = 4096, hint = 'Первые строки видны в ленте.') }}</div>
+        {{ f.datetime('publish', 'Когда опубликовать', '2026-10-09', '12:30', required = true) }}
+        {{ f.datetime('publish2', 'Время с ошибкой', '2026-10-01', '09:00', error = 'Это время уже прошло. Выберите время в будущем.') }}
+        <div class="md:col-span-2">{{ f.dropzone('media', 'Фото и видео') }}</div>
+    </div>
+    <div class="mt-6 grid gap-4 md:grid-cols-3">
+        <fieldset class="flex flex-col gap-3"><legend class="label">Флажки</legend>{{ f.checkbox('notify', 'Напомнить о публикации по почте', true) }}{{ f.checkbox('agree', 'Показывать в календаре черновики', false, hint = 'Они будут бледнее обычных постов.') }}{{ f.checkbox('off', 'Недоступный флажок', false, disabled = true) }}</fieldset>
+        <fieldset class="flex flex-col gap-3"><legend class="label">Выбор одного</legend>{{ f.radio('mode', 'Опубликовать сразу', 'now', true) }}{{ f.radio('mode', 'Запланировать на время', 'later') }}{{ f.radio('mode', 'В свободный слот', 'slot', hint = 'Следующее свободное время из расписания.') }}</fieldset>
+        <fieldset class="flex flex-col gap-3"><legend class="label">Переключатели</legend>{{ f.switch('tg', 'Публиковать в Telegram', true) }}{{ f.switch('max', 'Публиковать в MAX', false, hint = 'Канал подключён.') }}{{ f.switch('ig', 'Instagram недоступен', false, disabled = true) }}</fieldset>
+    </div>
+{% endset %}{{ s.section('forms', 'Поля формы', body = _b5) }}
+
+{% set _b6 %}
+    <div class="flex flex-wrap gap-2">
+        {% for st in ['draft', 'scheduled', 'publishing', 'published', 'partial', 'failed', 'canceled'] %}{{ d.status_badge(st) }}{% endfor %}
+    </div>
+    <div class="mt-3 flex flex-wrap gap-2">
+        {% for st in ['connected', 'needs_reauth', 'error', 'paused'] %}{{ d.status_badge(st) }}{% endfor %}
+    </div>
+    <div class="mt-3 flex flex-wrap gap-2">
+        {{ d.badge('Новое', 'primary') }}{{ d.badge('Бета', 'info') }}{{ d.badge('Скоро', 'neutral', icon = 'clock') }}
+    </div>
+    <div class="mt-4 flex items-center gap-3">{{ d.avatar('Анна Смирнова', size = 'sm') }}{{ d.avatar('Иван Петров') }}{{ d.avatar('Мария', size = 'lg') }}</div>
+{% endset %}{{ s.section('badges', 'Бейджи, статусы, аватары', body = _b6) }}
+
+{% set _b7 %}
+    <div class="grid gap-4 md:grid-cols-2">
+        {{ d.alert('info', 'Пост уйдёт в 12:30', 'Мы опубликуем его в ВКонтакте и Telegram.') }}
+        {{ d.alert('success', 'Канал подключён', 'Теперь можно планировать посты в Telegram.') }}
+        {{ d.alert('warning', 'Доступ к Instagram скоро истечёт', 'Переподключите канал, чтобы посты продолжили выходить.') }}
+        {% set _b8 %}{{ f.button('Заменить фото', variant = 'secondary', size = 'sm') }}{% endset %}{{ d.alert('error', 'Пост не опубликован', 'Instagram не принял картинку: она слишком узкая.', body = _b8) }}
+    </div>
+    <div class="mt-5 flex flex-wrap items-center gap-6">
+        <div class="w-64">{{ d.progress(12, 30, 'Посты в этом месяце') }}</div>
+        {% set _b9 %}<button type="button" class="btn btn-secondary btn-sm">{{ icon('info', 'h-4 w-4') }}Подсказка при наведении</button>{% endset %}{{ d.tooltip('tip-demo', 'Часовой пояс влияет на время публикации', body = _b9) }}
+        <button type="button" class="btn btn-secondary btn-sm" data-toast-trigger="Пост запланирован на 12:30" data-toast-kind="success">Показать уведомление</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-toast-trigger="Не удалось сохранить. Проверьте соединение и повторите." data-toast-kind="error">Уведомление об ошибке</button>
+    </div>
+    <div class="mt-5 grid gap-4 md:grid-cols-2">
+        <div class="card">{{ d.skeleton(4) }}</div>
+        <div class="card">{{ d.stepper(['Подключите канал', 'Напишите пост', 'Выберите время'], 2) }}</div>
+    </div>
+{% endset %}{{ s.section('feedback', 'Уведомления, подсказки, прогресс', body = _b7) }}
+
+{% set _b10 %}
+    {{ d.breadcrumbs([{label: 'Главная', href: '/dev/proto/dashboard'}, {label: 'Посты', href: '/dev/proto/calendar'}, {label: 'Осенняя коллекция'}]) }}
+    <div class="mt-5">
+    {% set _b11 %}
+        {% set _b12 %}<p>Здесь список всех постов. Стрелки влево и вправо переключают вкладки.</p>{% endset %}{{ o.tab_panel('demo', 'a', true, body = _b12) }}
+        {% set _b13 %}<p>Запланированные посты.</p>{% endset %}{{ o.tab_panel('demo', 'b', body = _b13) }}
+        {% set _b14 %}<p>Черновики.</p>{% endset %}{{ o.tab_panel('demo', 'c', body = _b14) }}
+    {% endset %}{{ o.tabs('demo', [{id: 'a', label: 'Все посты'}, {id: 'b', label: 'Запланированные'}, {id: 'c', label: 'Черновики'}], 'a', body = _b11) }}
+    </div>
+    <div class="mt-5 flex flex-wrap gap-3">
+        {% set _b15 %}
+            {{ o.menu_item('Редактировать', href = '#', icon = 'pencil') }}
+            {{ o.menu_item('Дублировать', href = '#', icon = 'copy') }}
+            {{ o.menu_item('Удалить', icon = 'trash-2', danger = true, attrs = {'data-dialog-open': 'demo-confirm'}) }}
+        {% endset %}{{ o.dropdown('demo-menu', 'Действия', icon = 'ellipsis', body = _b15) }}
+        {{ n.theme_choice() }}
+    </div>
+{% endset %}{{ s.section('nav', 'Навигация: хлебные крошки, вкладки, меню', body = _b10) }}
+
+{% set _b16 %}
+    <div class="flex flex-wrap gap-3">
+        {{ f.button('Открыть окно', variant = 'secondary', attrs = {'data-dialog-open': 'demo-modal'}) }}
+        {{ f.button('Открыть панель', variant = 'secondary', attrs = {'data-dialog-open': 'demo-drawer'}) }}
+        {{ f.button('Удалить пост…', variant = 'danger', attrs = {'data-dialog-open': 'demo-confirm'}) }}
+        {{ f.button('Удалить канал…', variant = 'danger', attrs = {'data-dialog-open': 'demo-confirm-name'}) }}
+    </div>
+    {% set _b17 %}
+        {{ f.datetime('move', 'Новое время', '2026-10-10', '10:00') }}
+        {% set _b18 %}{{ f.button('Отмена', variant = 'secondary', attrs = {'data-dialog-close': ''}) }}{{ f.button('Перенести') }}{% endset %}{{ o.modal_footer(body = _b18) }}
+    {% endset %}{{ o.modal('demo-modal', 'Перенести публикацию', 'Выберите новое время для поста.', body = _b17) }}
+    {% set _b19 %}
+        <div class="flex flex-col gap-4">{{ f.checkbox('f-vk', 'ВКонтакте', true) }}{{ f.checkbox('f-tg', 'Telegram', true) }}{{ f.checkbox('f-max', 'MAX') }}{{ f.checkbox('f-ig', 'Instagram') }}{{ f.button('Применить') }}</div>
+    {% endset %}{{ o.drawer('demo-drawer', 'Фильтры', body = _b19) }}
+    {{ o.confirm_dialog('demo-confirm', 'Удалить пост?', 'Осенняя коллекция уже в продаже', 'Пост исчезнет из календаря. Это нельзя отменить.', '/dev/ui', 'Удалить пост') }}
+    {{ o.confirm_dialog('demo-confirm-name', 'Удалить канал?', 'Зерно', 'Все запланированные посты этого канала будут отменены.', '/dev/ui', 'Удалить канал', true) }}
+{% endset %}{{ s.section('overlays', 'Окна и панели', body = _b16) }}
+
+{% set _b20 %}
+    {% set _b21 %}
+    {% set _b22 %}
+        {% for ch in [{n: 'Зерно | Кофейня', s: 'connected', c: 48}, {n: 'zerno.coffee', s: 'needs_reauth', c: 12}, {n: 'Зерно: новости', s: 'paused', c: 3}] %}
+        <tr><td class="font-medium">{{ ch.n }}</td><td>{{ d.status_badge(ch.s) }}</td><td class="text-right tabular-nums">{{ ch.c }}</td></tr>
+        {% endfor %}
+    {% endset %}{{ d.table([{label: 'Канал', sort_href: '#', sorted: 'asc'}, {label: 'Статус'}, {label: 'Постов', sort_href: '#', class: 'text-right'}], caption = 'Каналы', body = _b22) }}
+    {% endset %}{{ d.card(padded = false, body = _b21) }}
+    <div class="mt-4">{{ d.pagination(2, 5, '/dev/ui') }}</div>
+    <div class="mt-6">{% set _b23 %}{% set _b24 %}{% endset %}{{ d.table([{label: 'Платёж'}, {label: 'Сумма'}], empty = true, empty_title = 'Платежей пока нет', empty_text = 'Когда вы оплатите тариф, платёж появится здесь.', empty_action = 'Выбрать тариф', empty_href = '#', body = _b24) }}{% endset %}{{ d.card(padded = false, body = _b23) }}</div>
+{% endset %}{{ s.section('data', 'Таблицы и пагинация', body = _b20) }}
+
+{% set _b25 %}
+    <div class="grid gap-4 md:grid-cols-2">
+        {% for post in posts %}{{ p.post_card(post) }}{% endfor %}
+    </div>
+    <div class="mt-6">{% set _b26 %}{{ d.empty_state('Пока нет запланированных постов', 'Напишите первый пост, выберите соцсети и время. Мы опубликуем его сами.', 'calendar-days', 'Запланировать пост', '/dev/proto/editor', 'Подключить канал', '/dev/proto/channels') }}{% endset %}{{ d.card(body = _b26) }}</div>
+{% endset %}{{ s.section('cards', 'Карточки и пустые состояния', body = _b25) }}
+
+{% set _b27 %}
+    <div class="grid gap-4 md:grid-cols-2">
+        {% for pl in ['vk', 'tg', 'max', 'ig'] %}<div><p class="mb-2 text-sm font-semibold text-muted">{{ pl|upper }}</p>{{ p.preview(pl, 'Кофейня «Зерно»', 'Новое меню уже в кофейне! Заходите попробовать тыквенный латте.') }}</div>{% endfor %}
+    </div>
+{% endset %}{{ s.section('previews', 'Превью поста в соцсетях', body = _b27) }}
+{% endblock %}
