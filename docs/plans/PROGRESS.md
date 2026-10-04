@@ -7,9 +7,9 @@
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
 - **Текущий этап:** 07
-- **Статус:** TODO
-- **Ветка / PR:** PR #11 (смержен)
-- **Последнее обновление:** 2026-10-04 (этап 06 завершён)
+- **Статус:** IN_PROGRESS
+- **Ветка / PR:** `stage-07-posts-scheduler`
+- **Последнее обновление:** 2026-10-04 (этап 07 начат)
 
 ## Этапы
 
@@ -23,7 +23,7 @@
 | 04 | Workspace, команда, роли, аудит | DONE | [#9](https://github.com/koiie111/VKPoster/pull/9) | 2026-10-04 | Для 05+: данные пространства только через репозитории от `WorkspaceScopedRepository` (первый параметр `WorkspaceContext`, его даёт `ResolveWorkspace`), маршруты внутри `/w/{workspaceId}/…` в группе `config/routes.php` с `Authorize` (право из `config/permissions.php`), новые права добавлять в матрицу и в `PermissionsTest`; события в журнал через `AuditLog::record(…, workspaceId)` + подпись в `AuditActions`; пункты меню — `WorkspaceNav::items()`; для 06: FK `member_channel_access.channel_id → channels` и экран доступа к каналам |
 | 05 | Медиатека | DONE | [#10](https://github.com/koiie111/VKPoster/pull/10) | 2026-10-04 | Для 06+: файлы отдаёт только `/media/{id}/{variant}`; для Instagram (этап 12) ссылка `MediaUrls::signed()` (нужен публичный `APP_URL`); при публикации варианты строит `VariantService::get(context, media, new VariantSpec(crop, watermark, maxEdge, maxBytes))`, требования сетей лежат в `config/media.php → platforms`, проверка `PlatformRequirements`. **Для 07: подменить `MediaUsageChecker` (сейчас `NullMediaUsageChecker` в `config/services.php`) реальной проверкой запланированных постов**, добавить выбор файла из медиатеки в редактор (понадобится JSON-список файлов), права `media.*` уже есть. Для 06: `ffmpeg` уже в образе |
 | 06 | Каналы + Telegram | DONE | [#11](https://github.com/koiie111/VKPoster/pull/11) | 2026-10-04 | Живая проверка владельцем прошла. Для 07: адаптер получает `PublishRequest` + локальные файлы (варианты из `VariantService`), хранить `PublishResult::allIds`; перед публикацией `ChannelHealthService::check()`; при отключении канала отменять его посты; `Channel::postUrl()`; `MediaUsageChecker` (из этапа 05) заменить реальным; подробности в `docs/architecture/modules/channels.md` |
-| 07 | Редактор, календарь, планировщик, публикация | TODO | | | |
+| 07 | Редактор, календарь, планировщик, публикация | IN_PROGRESS | | | |
 | 08 | VK | TODO | | | |
 | 09 | MAX | TODO | | | |
 | 10 | Биллинг: ЮKassa, Т-Банк | TODO | | | |
