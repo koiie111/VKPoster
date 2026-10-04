@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Domain\Auth\PasswordPolicy;
+use App\Domain\Workspace\Permissions;
+use App\Http\WorkspaceNav;
 use App\Domain\Auth\RegistrationService;
 use App\Domain\Auth\RememberMe;
 use App\Kernel\Config;
@@ -116,6 +118,7 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Domain\Auth\AuthMailer::class),
         $c->get(\App\Kernel\Security\RateLimiter::class),
         $c->get(\App\Domain\Audit\AuditLog::class),
+        $c->get(\App\Domain\Workspace\WorkspaceService::class),
         $c->get(Config::class)->string('auth.consent_version'),
     ));
 
@@ -125,6 +128,7 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Domain\Audit\AuditLog::class),
         $c->get(\App\Kernel\Security\RateLimiter::class),
         $c->get(Clock::class),
+        $c->get(\App\Domain\Workspace\WorkspaceService::class),
         $c->get(Config::class)->string('auth.consent_version'),
     ));
 
@@ -132,16 +136,35 @@ return static function (Container $c, string $base): void {
 
     $c->factory(Translator::class, static fn (): Translator => new Translator($base . '/resources/lang', 'ru'));
 
-    $c->factory(View::class, static fn (Container $c): View => new View(
-        $c->get(Config::class),
-        $c->get(RequestContext::class),
-        $c->get(Csrf::class),
-        $c->get(Router::class),
-        $c->get(Translator::class),
-        $base . '/templates',
-        $base . '/public',
-        $base . '/storage/cache/twig',
-    ));
+    $c->factory(Permissions::class, static function (Container $c): Permissions {
+        $matrix = [];
+        foreach ($c->get(Config::class)->array('permissions') as $permission => $roles) {
+            $matrix[(string) $permission] = is_array($roles) ? array_values(array_filter($roles, 'is_string')) : [];
+        }
+
+        return new Permissions($matrix);
+    });
+
+    $c->factory(View::class, static function (Container $c) use ($base): View {
+        $view = new View(
+            $c->get(Config::class),
+            $c->get(RequestContext::class),
+            $c->get(Csrf::class),
+            $c->get(Router::class),
+            $c->get(Translator::class),
+            $base . '/templates',
+            $base . '/public',
+            $base . '/storage/cache/twig',
+        );
+        // Workspace-aware helpers live above the Kernel, so they are attached here.
+        $nav = $c->get(WorkspaceNav::class);
+        $view->registerFunction('can', $nav->can(...));
+        $view->registerFunction('current_workspace', $nav->current(...));
+        $view->registerFunction('my_workspaces', $nav->mine(...));
+        $view->registerFunction('workspace_nav', $nav->items(...));
+
+        return $view;
+    });
 
     $c->factory(HealthCheck::class, static fn (Container $c): HealthCheck => new HealthCheck($c->get(Config::class)->env()->all()));
 

@@ -16,6 +16,7 @@ final class RequestContext
     private ?Session $session = null;
     private string $nonce = '';
     private ?object $user = null;
+    private ?object $workspace = null;
 
     /** @var array<string, list<string>> */
     private array $cspExtras = [];
@@ -25,6 +26,7 @@ final class RequestContext
         $this->request = $request;
         $this->session = null;
         $this->user = null;
+        $this->workspace = null;
         $this->cspExtras = [];
         $this->nonce = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
     }
@@ -60,6 +62,19 @@ final class RequestContext
     public function setUser(?object $user): void
     {
         $this->user = $user;
+    }
+
+    /**
+     * Workspace context of this request (set by the `ResolveWorkspace` middleware), for templates and policies.
+     */
+    public function workspace(): ?object
+    {
+        return $this->workspace;
+    }
+
+    public function setWorkspace(?object $workspace): void
+    {
+        $this->workspace = $workspace;
     }
 
     /**

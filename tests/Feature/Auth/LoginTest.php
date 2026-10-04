@@ -23,7 +23,7 @@ final class LoginTest extends AuthTestCase
         $response = $this->signIn();
 
         self::assertSame('/app', $response->header('Location'));
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
         self::assertSame(1, (int) $this->db->select('SELECT COUNT(*) AS c FROM user_sessions WHERE revoked_at IS NULL')[0]['c']);
         self::assertSame('success', $this->db->select('SELECT outcome FROM login_attempts')[0]['outcome']);
     }

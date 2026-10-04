@@ -9,7 +9,7 @@
 | Точки входа | `public/index.php`, `bin/console` | собирают `Application` и передают управление |
 | Каркас | `src/Kernel` | контейнер, конфиг, HTTP, роутер, middleware, сессии, БД, очередь, консоль, безопасность, валидация, шаблоны, логи |
 | HTTP | `src/Http` | тонкие контроллеры и прикладные middleware (`SecurityHeaders`, `StartSession`, `VerifyCsrf`, `RateLimit`, `Authenticate`) |
-| Бизнес-логика | `src/Domain` | `User`, `Auth` (вход, токены, сессии, 2FA), `Audit`, `Notification` (очередь писем); подробности: [modules/auth.md](modules/auth.md) |
+| Бизнес-логика | `src/Domain` | `User`, `Auth` (вход, токены, сессии, 2FA), `Workspace` (пространства, команда, роли), `Audit`, `Notification` (очередь писем); подробности: [modules/auth.md](modules/auth.md), [modules/workspaces.md](modules/workspaces.md) |
 | Общее | `src/Support` | `Clock` (время только через него), `Fs`, `DbTime`, `UserAgent` |
 | Конфигурация | `config/` | `app`, `database`, `security`, `session` читают env; `routes`, `services`, `schedule` пишутся кодом |
 | Шаблоны | `templates/` | Twig: `layouts/` (макеты), `components/` (дизайн-система, [design-system.md](../design/design-system.md)), `dev/` (витрина и прототипы, только `APP_ENV=local`), `errors/` |

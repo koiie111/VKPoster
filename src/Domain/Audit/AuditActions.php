@@ -1,0 +1,83 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Domain\Audit;
+
+use App\Domain\Workspace\Role;
+
+/**
+ * Human-readable names of audit actions for the workspace journal. Actions missing from the map are
+ * shown by their technical name, so a new event is never hidden.
+ */
+final class AuditActions
+{
+    /** @var array<string, string> */
+    private const LABELS = [
+        'workspace.created' => 'Создано пространство',
+        'workspace.updated' => 'Изменены настройки пространства',
+        'workspace.deleted' => 'Пространство удалено',
+        'workspace.ownership_transferred' => 'Владение передано',
+        'member.invited' => 'Приглашён участник',
+        'member.invitation_revoked' => 'Приглашение отозвано',
+        'member.joined' => 'Участник присоединился',
+        'member.role_changed' => 'Изменена роль',
+        'member.removed' => 'Участник исключён',
+        'member.left' => 'Участник вышел',
+        'channel.connected' => 'Подключён канал',
+        'channel.disconnected' => 'Отключён канал',
+        'post.published' => 'Опубликован пост',
+        'post.scheduled' => 'Запланирован пост',
+        'billing.payment' => 'Платёж',
+    ];
+
+    /** @var array<string, string> filter value => label of the group of actions */
+    private const GROUPS = [
+        'workspace' => 'Пространство',
+        'member' => 'Команда',
+        'channel' => 'Каналы',
+        'post' => 'Публикации',
+        'billing' => 'Оплата',
+    ];
+
+    public static function label(string $action): string
+    {
+        return self::LABELS[$action] ?? $action;
+    }
+
+    /**
+     * One-line details of an entry for the journal, built from its metadata (never the raw JSON, so nothing
+     * unexpected can leak onto the page). Empty when the action says everything itself.
+     *
+     * @param array<string, mixed> $meta
+     */
+    public static function describe(string $action, array $meta): string
+    {
+        $text = static fn (string $key): string => is_scalar($meta[$key] ?? null) ? (string) $meta[$key] : '';
+        $role = static function (string $key) use ($text): string {
+            $value = $text($key);
+
+            return Role::tryFrom($value)?->label() ?? $value;
+        };
+        $parts = match ($action) {
+            'member.invited', 'member.invitation_revoked', 'member.removed' => [$text('email'), $role('role')],
+            'member.joined', 'member.left' => [$role('role')],
+            'member.role_changed' => [($text('email') === '' ? '' : $text('email') . ': ') . $role('from') . ' → ' . $role('to')],
+            'workspace.updated' => [$text('name') === '' ? '' : '«' . $text('name') . '»', $text('timezone')],
+            'workspace.deleted' => [$text('name') === '' ? '' : '«' . $text('name') . '»'],
+            'workspace.created' => [($meta['personal'] ?? false) === true ? 'личное пространство' : ''],
+            'workspace.ownership_transferred' => [$text('email') === '' ? '' : 'новый владелец: ' . $text('email')],
+            default => [],
+        };
+
+        return implode(' · ', array_filter($parts, static fn (string $p): bool => $p !== ''));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function groups(): array
+    {
+        return self::GROUPS;
+    }
+}

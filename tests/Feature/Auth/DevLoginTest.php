@@ -24,7 +24,7 @@ final class DevLoginTest extends AuthTestCase
         $response = $this->get('/dev/login-as/' . $user->id);
 
         self::assertSame('/app', $response->header('Location'));
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
     }
 
     public function testAcceptsAnEmailAddressToo(): void

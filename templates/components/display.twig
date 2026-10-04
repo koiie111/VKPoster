@@ -142,7 +142,7 @@
     When `empty` is true the empty-state block is shown instead of the rows. -#}
 {% macro table(columns, empty = false, empty_title = 'Здесь пока пусто', empty_text = '', empty_action = null, empty_href = null, caption = null, body = '') -%}
 {% import _self as d %}
-<div class="overflow-x-auto">
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="{{ caption ?? 'Таблица' }}">
     <table class="tbl">
         {% if caption %}<caption class="sr-only">{{ caption }}</caption>{% endif %}
         <thead><tr>

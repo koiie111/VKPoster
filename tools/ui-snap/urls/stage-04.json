@@ -1,0 +1,15 @@
+[
+  { "name": "workspace-home", "url": "/w/{ws}", "login_as": "demo@ezposter.local" },
+  { "name": "workspace-new", "url": "/workspaces/new", "login_as": "demo@ezposter.local" },
+  { "name": "workspace-new-error", "url": "/workspaces/new", "login_as": "demo@ezposter.local", "actions": [
+    { "fill": ["#f-name", "А"] },
+    { "click": "form[action=\"/workspaces\"] button[type=submit]" }
+  ] },
+  { "name": "team", "url": "/w/{ws}/team", "login_as": "demo@ezposter.local" },
+  { "name": "team-admin", "url": "/w/{ws}/team", "login_as": "admin@ezposter.local" },
+  { "name": "settings", "url": "/w/{ws}/settings", "login_as": "demo@ezposter.local" },
+  { "name": "audit", "url": "/w/{ws}/audit", "login_as": "demo@ezposter.local" },
+  { "name": "audit-empty-filter", "url": "/w/{ws}/audit?group=billing", "login_as": "demo@ezposter.local" },
+  { "name": "editor-home", "url": "/w/{ws}", "login_as": "editor@ezposter.local" },
+  { "name": "forbidden", "url": "/w/{ws}/team", "login_as": "editor@ezposter.local" }
+]

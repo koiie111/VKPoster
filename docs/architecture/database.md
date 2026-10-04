@@ -102,6 +102,39 @@ erDiagram
         varchar ip
         datetime6 created_at
     }
+    workspaces {
+        bigint id PK
+        char26 public_id UK "ULID in URLs"
+        bigint owner_id FK
+        varchar name
+        varchar timezone
+        varchar locale
+        bool is_personal
+    }
+    workspace_members {
+        bigint workspace_id PK
+        bigint user_id PK
+        char26 public_id UK
+        varchar role "owner | admin | editor | author | viewer | client"
+        bool channels_restricted
+        bigint invited_by
+    }
+    invitations {
+        bigint id PK
+        char26 public_id UK
+        bigint workspace_id FK
+        varchar email
+        varchar role
+        char64 token_hash UK "SHA-256"
+        datetime6 expires_at
+        datetime6 accepted_at
+        datetime6 revoked_at
+    }
+    member_channel_access {
+        bigint workspace_id PK
+        bigint user_id PK
+        bigint channel_id PK "FK on channels from stage 06"
+    }
     audit_log {
         bigint id PK
         bigint workspace_id
@@ -115,6 +148,6 @@ erDiagram
     }
 ```
 
-Связанные таблицы удаляются каскадом вместе с пользователем. `audit_log` без внешних ключей: журнал переживает удаление пользователей. Счётчики неудачных входов хранятся в Redis (`auth:fail:*`, `auth:lock:*`), а не в БД.
+Связанные таблицы удаляются каскадом вместе с пользователем (в том числе его пространства и членства; см. [modules/workspaces.md](modules/workspaces.md)). `audit_log` без внешних ключей: журнал переживает удаление пользователей. Счётчики неудачных входов хранятся в Redis (`auth:fail:*`, `auth:lock:*`), а не в БД.
 
 Команды: `make migrate`, `make console CMD="migrate:status"`, `migrate:rollback` (последний batch), `migrate:fresh` (удаляет все таблицы; в production отключена), `seed` (dev-данные из `database/seeds/`; в production отключена).

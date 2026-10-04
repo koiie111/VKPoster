@@ -138,6 +138,18 @@ final class Session
     }
 
     /**
+     * Keep flash values from the previous request for one more request (a redirect hop that renders nothing).
+     */
+    public function reflash(string ...$keys): void
+    {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $this->flashOld)) {
+                $this->flashNew[$key] = $this->flashOld[$key];
+            }
+        }
+    }
+
+    /**
      * Flash value written by the previous request.
      */
     public function getFlash(string $key, mixed $default = null): mixed

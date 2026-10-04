@@ -1,0 +1,25 @@
+{#- Invitation page behind the emailed link. Variables: invitation, workspace, role_label, role_description, signed_in, token, mismatch, user_email. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% block title %}Приглашение · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Вас приглашают в команду</h1>
+<p class="mt-2 text-muted">Пространство <strong class="break-words text-fg">«{{ workspace.name }}»</strong>. Ваша роль: <strong class="text-fg">{{ role_label }}</strong>. {{ role_description }}</p>
+{% if mismatch %}
+<div class="mt-6">{{ d.alert('error', 'Это приглашение для другого адреса', 'Оно отправлено на ' ~ invitation.email ~ ', а вы вошли как ' ~ user_email ~ '. Выйдите и войдите в аккаунт с адресом из приглашения.') }}</div>
+<form class="mt-6" method="post" action="/logout">{{ csrf_field() }}{{ f.button('Выйти из аккаунта', type = 'submit', block = true) }}</form>
+{% elseif signed_in %}
+<form class="mt-6" method="post" action="/invitations/{{ token }}/accept">
+    {{ csrf_field() }}
+    {{ f.button('Войти в команду', type = 'submit', block = true) }}
+</form>
+{% else %}
+<p class="mt-4 text-sm text-muted">Приглашение отправлено на {{ invitation.email }}. Войдите в аккаунт с этим адресом или создайте новый: после этого вы вернётесь сюда.</p>
+<div class="mt-6 flex flex-col gap-3">
+    {{ f.button('Войти', href = url('login'), block = true) }}
+    {{ f.button('Создать аккаунт', variant = 'secondary', href = url('register'), block = true) }}
+</div>
+{% endif %}
+{% endblock %}
+{% block auth_footer %}Приглашение действует до {{ invitation.expiresAt|date('d.m.Y', workspace.timezone) }}.{% endblock %}

@@ -60,7 +60,7 @@ final class RememberMeTest extends AuthTestCase
         $first = $this->rememberCookie();
         $this->useBrowser(['remember' => $first]); // the session cookie is gone (browser restarted)
 
-        $app = $this->get('/app');
+        $app = $this->getApp();
 
         self::assertSame(200, $app->status);
         $second = $this->rememberCookie();
@@ -99,10 +99,10 @@ final class RememberMeTest extends AuthTestCase
         $cookie = $this->rememberCookie();
 
         $this->useBrowser(['remember' => $cookie]);
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
         $this->clock->advance(5);
         $this->useBrowser(['remember' => $cookie]);
-        $second = $this->get('/app');
+        $second = $this->getApp();
 
         self::assertSame(200, $second->status, 'the previous validator stays valid for a minute');
         self::assertSame(1, (int) $this->db->select('SELECT COUNT(*) AS c FROM auth_tokens WHERE type = ?', ['remember'])[0]['c']);

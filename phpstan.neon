@@ -20,3 +20,7 @@ services:
         class: App\Tools\PHPStan\RequireClassDocblockRule
         tags:
             - phpstan.rules.rule
+    -
+        class: App\Tools\PHPStan\WorkspaceScopedRepositoryRule
+        tags:
+            - phpstan.rules.rule

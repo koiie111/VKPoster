@@ -57,7 +57,7 @@ final class SessionsTest extends AuthTestCase
         $laptop = $this->browserFor('anna@example.com', 'LaptopAgent');
         $phone = $this->browserFor('anna@example.com', 'PhoneAgent');
         $this->useBrowser($laptop);
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
 
         $this->useBrowser($phone);
         $response = $this->post('/account/sessions/' . $this->publicIdOf('LaptopAgent') . '/revoke');
@@ -66,7 +66,7 @@ final class SessionsTest extends AuthTestCase
         $this->useBrowser($laptop);
         self::assertSame('/login', $this->get('/app')->header('Location'));
         $this->useBrowser($phone);
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
     }
 
     public function testNobodyCanRevokeSomeoneElsesDevice(): void
@@ -80,7 +80,7 @@ final class SessionsTest extends AuthTestCase
 
         self::assertStringContainsString('Не удалось отключить', $this->follow($response)->body);
         $this->useBrowser($anna);
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
     }
 
     public function testTheCurrentDeviceCannotBeRevokedThroughTheEndpoint(): void
@@ -90,7 +90,7 @@ final class SessionsTest extends AuthTestCase
 
         $this->post('/account/sessions/' . $this->publicIdOf('OnlyAgent') . '/revoke');
 
-        self::assertSame(200, $this->get('/app')->status);
+        self::assertSame(200, $this->getApp()->status);
         self::assertSame(1, (int) $this->db->select('SELECT COUNT(*) AS c FROM user_sessions WHERE revoked_at IS NULL')[0]['c']);
     }
 

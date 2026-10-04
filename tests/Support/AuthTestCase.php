@@ -30,6 +30,7 @@ abstract class AuthTestCase extends HttpTestCase
     protected function setUp(): void
     {
         $this->db = TestEnv::connection();
+        $this->db->execute('DELETE FROM workspaces');
         $this->db->execute('DELETE FROM users');
         $this->db->execute('DELETE FROM jobs');
         $this->db->execute('DELETE FROM failed_jobs');
@@ -130,6 +131,17 @@ abstract class AuthTestCase extends HttpTestCase
     protected function text(Response $response): string
     {
         return trim((string) preg_replace('/\s+/', ' ', strip_tags($response->body)));
+    }
+
+    /**
+     * Open the application the way a browser does after sign-in: `/app` redirects to the user's workspace.
+     */
+    protected function getApp(): Response
+    {
+        $response = $this->get('/app');
+        $location = (string) $response->header('Location');
+
+        return $response->status === 302 && str_starts_with($location, '/w/') ? $this->get($location) : $response;
     }
 
     /**

@@ -1,0 +1,108 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http;
+
+use App\Domain\User\User;
+use App\Domain\Workspace\Permissions;
+use App\Domain\Workspace\WorkspaceContext;
+use App\Domain\Workspace\WorkspaceRepository;
+use App\Http\Middleware\ResolveWorkspace;
+use App\Kernel\Http\RequestContext;
+
+/**
+ * Feeds the application shell (sidebar, workspace switcher) and the Twig helpers `can()`,
+ * `current_workspace()`, `my_workspaces()` and `workspace_nav()`.
+ *
+ * Inside `/w/{id}/…` the workspace is the resolved one; on account pages (outside any workspace) the
+ * last used workspace is shown so the sidebar does not jump, after checking the membership again.
+ */
+final class WorkspaceNav
+{
+    public function __construct(
+        private readonly RequestContext $context,
+        private readonly WorkspaceRepository $workspaces,
+        private readonly Permissions $permissions,
+    ) {
+    }
+
+    /**
+     * Whether the current member holds a permission in the workspace of this request.
+     */
+    public function can(string $permission): bool
+    {
+        $workspace = $this->context->workspace();
+
+        return $workspace instanceof WorkspaceContext && $this->permissions->allows($workspace->role, $permission);
+    }
+
+    public function current(): ?WorkspaceContext
+    {
+        $resolved = $this->context->workspace();
+        if ($resolved instanceof WorkspaceContext) {
+            return $resolved;
+        }
+        $user = $this->context->user();
+        $last = $this->context->session()?->get(ResolveWorkspace::SESSION_KEY);
+        if (!$user instanceof User || !is_string($last)) {
+            return null;
+        }
+        $workspace = $this->workspaces->findByPublicId($last);
+        $membership = $workspace === null ? null : $this->workspaces->membership($workspace->id, $user->id);
+
+        return $workspace !== null && $membership !== null ? WorkspaceContext::from($workspace, $membership) : null;
+    }
+
+    /**
+     * Workspaces for the switcher.
+     *
+     * @return list<array{name: string, href: string, role: string, current: bool}>
+     */
+    public function mine(): array
+    {
+        $user = $this->context->user();
+        if (!$user instanceof User) {
+            return [];
+        }
+
+        $current = $this->current()?->workspacePublicId;
+
+        return array_map(static fn (array $row): array => [
+            'name' => $row['workspace']->name,
+            'href' => '/w/' . $row['workspace']->publicId,
+            'role' => $row['role']->label(),
+            'current' => $row['workspace']->publicId === $current,
+        ], $this->workspaces->forUser($user->id));
+    }
+
+    /**
+     * Sidebar entries for the current workspace, limited to what the member may open.
+     *
+     * @return list<array{id: string, label: string, icon: string, href: string}>
+     */
+    public function items(): array
+    {
+        $workspace = $this->current();
+        if ($workspace === null) {
+            return [
+                ['id' => 'dashboard', 'label' => 'Обзор', 'icon' => 'layout-dashboard', 'href' => '/app'],
+                ['id' => 'settings', 'label' => 'Безопасность', 'icon' => 'settings', 'href' => '/account/security'],
+            ];
+        }
+        $base = '/w/' . $workspace->workspacePublicId;
+        $items = [['id' => 'dashboard', 'label' => 'Обзор', 'icon' => 'layout-dashboard', 'href' => $base]];
+        if ($this->permissions->allows($workspace->role, 'members.manage')) {
+            $items[] = ['id' => 'team', 'label' => 'Команда', 'icon' => 'users', 'href' => $base . '/team'];
+        }
+        if ($this->permissions->allows($workspace->role, 'audit.view')) {
+            $items[] = ['id' => 'audit', 'label' => 'Журнал действий', 'icon' => 'list', 'href' => $base . '/audit'];
+        }
+        if ($this->permissions->allows($workspace->role, 'workspace.settings')) {
+            $items[] = ['id' => 'workspace', 'label' => 'Пространство', 'icon' => 'building-2', 'href' => $base . '/settings'];
+        }
+        $items[] = ['id' => 'settings', 'label' => 'Безопасность', 'icon' => 'shield', 'href' => '/account/security'];
+
+        return $items;
+    }
+}

@@ -92,7 +92,7 @@
                 <p class="mt-1 text-sm text-muted" id="{{ id }}-desc"><strong class="break-words text-fg">«{{ object_name }}»</strong>. {{ text }}</p>
                 {% if require_name %}
                 <label class="label mt-4" for="{{ id }}-name">Чтобы подтвердить, введите название: {{ object_name }}</label>
-                <input class="field" id="{{ id }}-name" autocomplete="off" data-confirm-input data-confirm-name="{{ object_name }}">
+                <input class="field" id="{{ id }}-name" name="confirm_name" autocomplete="off" data-confirm-input data-confirm-name="{{ object_name }}">
                 {% endif %}
             </div>
         </div>

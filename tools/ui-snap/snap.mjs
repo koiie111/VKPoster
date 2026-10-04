@@ -1,6 +1,7 @@
 // Screenshots (375/768/1440 px x light/dark) and an axe-core audit for the URLs of one stage.
 // Usage: node snap.mjs <stage> [--a11y-only]   (URL list: tools/ui-snap/urls/stage-<stage>.json;
-// an item may have `login_as` (user id or email) and `actions` to reach a state)
+// an item may have `login_as` (user id or email) and `actions` to reach a state; `{ws}` in the url is replaced
+// by the id of the signed-in user's workspace, found by following `/app`)
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -26,7 +27,7 @@ const report = [];
 let failed = false;
 
 for (const item of list) {
-  const url = item.url.startsWith('file:') || item.url.startsWith('http') ? item.url : base + item.url;
+  const template = item.url.startsWith('file:') || item.url.startsWith('http') ? item.url : base + item.url;
   for (const theme of themes) {
     for (const width of widths) {
       const ctx = await browser.newContext({
@@ -38,6 +39,13 @@ for (const item of list) {
       if (item.login_as) {
         // Signed-in screens: local-only dev login (a user id or an email), see DevLoginController.
         await page.goto(`${base}/dev/login-as/${encodeURIComponent(item.login_as)}`, { waitUntil: 'networkidle' });
+      }
+      let url = template;
+      if (url.includes('{ws}')) {
+        await page.goto(`${base}/app`, { waitUntil: 'networkidle' });
+        const found = page.url().match(/\/w\/([0-9A-Z]{26})/);
+        if (!found) throw new Error(`no workspace after /app for ${item.name}`);
+        url = url.replace('{ws}', found[1]);
       }
       await page.goto(url, { waitUntil: 'networkidle' });
       // Optional scripted steps to reach a state: [{fill: [selector, value]}, {click: selector}].

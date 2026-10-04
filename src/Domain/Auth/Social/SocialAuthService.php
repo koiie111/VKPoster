@@ -7,6 +7,7 @@ namespace App\Domain\Auth\Social;
 use App\Domain\Audit\AuditLog;
 use App\Domain\User\User;
 use App\Domain\User\UserRepository;
+use App\Domain\Workspace\WorkspaceService;
 use App\Integrations\OAuth\SocialProfile;
 use App\Kernel\Security\RateLimiter;
 use App\Support\Clock;
@@ -32,6 +33,7 @@ final class SocialAuthService
         private readonly AuditLog $audit,
         private readonly RateLimiter $limiter,
         private readonly Clock $clock,
+        private readonly WorkspaceService $workspaces,
         private readonly string $consentVersion,
     ) {
     }
@@ -103,6 +105,7 @@ final class SocialAuthService
             return null;
         }
         $this->audit->record('auth.social.registered', $user->id, 'user', (string) $user->id, ['provider' => $profile->provider]);
+        $this->workspaces->createPersonal($user);
 
         return $user;
     }

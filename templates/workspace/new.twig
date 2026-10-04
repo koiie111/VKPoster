@@ -1,0 +1,20 @@
+{#- Create an additional workspace. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'dashboard' %}
+{% block title %}Новое пространство · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Новое пространство', 'Отдельное пространство со своей командой, каналами и постами: например, для другого проекта или клиента.') }}
+<section class="card max-w-xl" aria-labelledby="new-title">
+    <h2 class="sr-only" id="new-title">Создание пространства</h2>
+    <form class="flex flex-col gap-4" method="post" action="/workspaces">
+        {{ csrf_field() }}
+        {{ f.input('name', 'Название', value = old('name'), required = true, placeholder = 'Кофейня «Зерно»', error = errors('name')|first, hint = 'Его увидят все участники команды. Потом можно переименовать.', attrs = {autofocus: '', maxlength: 100}) }}
+        <div class="flex flex-wrap gap-3">
+            {{ f.button('Создать пространство', type = 'submit') }}
+            {{ f.button('Отмена', variant = 'secondary', href = '/app') }}
+        </div>
+    </form>
+</section>
+{% endblock %}

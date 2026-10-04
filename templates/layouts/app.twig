@@ -11,6 +11,8 @@
 {#- Prototype pages (/dev/proto/*) are opened by guests and show demo data; real pages have a signed-in user and only link to what exists. -#}
 {% set me = current_user() %}
 {% set demo = me is null %}
+{% set ws = demo ? null : current_workspace() %}
+{% set ws_list = ws ? my_workspaces() : [] %}
 {% set items = nav_items is defined ? nav_items : (demo ? [
     {id: 'dashboard', label: 'Обзор', icon: 'layout-dashboard', href: '/app'},
     {id: 'calendar', label: 'Календарь', icon: 'calendar-days', href: '/dev/proto/calendar'},
@@ -20,10 +22,7 @@
     {id: 'analytics', label: 'Аналитика', icon: 'chart-column', href: '#'},
     {id: 'team', label: 'Команда', icon: 'users', href: '#'},
     {id: 'settings', label: 'Безопасность', icon: 'settings', href: '/account/security'}
-] : [
-    {id: 'dashboard', label: 'Обзор', icon: 'layout-dashboard', href: '/app'},
-    {id: 'settings', label: 'Безопасность', icon: 'settings', href: '/account/security'}
-]) %}
+] : workspace_nav()) %}
 {% set current = nav_current is defined ? nav_current : '' %}
 <div class="lg:grid lg:min-h-screen lg:grid-cols-[16rem_1fr]">
     <aside class="hidden border-r border-line bg-surface lg:block">
@@ -41,14 +40,14 @@
         </div>
     </aside>
 
-    {% set drawer_body %}{% if demo %}<p class="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted">Рабочее пространство</p><ul class="mb-4"><li><a class="nav-link" href="#">{{ icon('check', 'h-5 w-5') }}Кофейня «Зерно»</a></li><li><a class="nav-link" href="#">{{ icon('house', 'h-5 w-5') }}Школа йоги</a></li></ul>{% endif %}{{ n.sidebar_nav(items, current, 'Навигация') }}{% endset %}{{ o.drawer('nav-drawer', app_name, side = 'left', body = drawer_body) }}
+    {% set drawer_body %}{% if ws %}<p class="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted">Рабочее пространство</p><ul class="mb-4">{% for w in ws_list %}<li><a class="nav-link" href="{{ w.href }}"{% if w.current %} aria-current="true"{% endif %}>{{ icon(w.current ? 'check' : 'house', 'h-5 w-5') }}<span class="truncate">{{ w.name }}</span></a></li>{% endfor %}<li><a class="nav-link" href="{{ url('workspace.new') }}">{{ icon('plus', 'h-5 w-5') }}Создать пространство</a></li></ul>{% elseif demo %}<p class="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted">Рабочее пространство</p><ul class="mb-4"><li><a class="nav-link" href="#">{{ icon('check', 'h-5 w-5') }}Кофейня «Зерно»</a></li><li><a class="nav-link" href="#">{{ icon('house', 'h-5 w-5') }}Школа йоги</a></li></ul>{% endif %}{{ n.sidebar_nav(items, current, 'Навигация') }}{% endset %}{{ o.drawer('nav-drawer', app_name, side = 'left', body = drawer_body) }}
     <div class="min-w-0">
         <header class="sticky top-0 z-sticky flex items-center gap-2 border-b border-line bg-surface/95 px-3 py-2 backdrop-blur sm:px-6">
             <button type="button" class="btn btn-ghost !px-0 w-11 lg:hidden" data-dialog-open="nav-drawer" aria-label="Открыть меню">{{ icon('menu', 'h-5 w-5') }}</button>
             <span class="lg:hidden">{{ d.logo('!text-base', true) }}</span>
             {% if demo %}<div class="hidden sm:block">{{ n.workspace_switcher('Кофейня «Зерно»', [
                 {name: 'Кофейня «Зерно»', href: '#'}, {name: 'Школа йоги', href: '#'}
-            ]) }}</div>{% endif %}
+            ]) }}</div>{% elseif ws %}<div class="hidden sm:block">{{ n.workspace_switcher(ws.workspaceName, ws_list, url('workspace.new')) }}</div>{% endif %}
             <div class="ml-auto flex items-center gap-1 sm:gap-2">
                 {% if demo %}
                 <a class="btn btn-primary btn-sm max-sm:!px-0 max-sm:w-11" href="/dev/proto/editor" aria-label="Создать пост">{{ icon('plus', 'h-4 w-4') }}<span class="max-sm:sr-only">Создать пост</span></a>

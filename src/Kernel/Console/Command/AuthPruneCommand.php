@@ -30,7 +30,7 @@ final class AuthPruneCommand implements Command
     public function run(array $args, Output $out): int
     {
         $result = $this->maintenance->prune();
-        $out->line(sprintf('Deleted: %d tokens, %d sessions, %d journal rows.', $result['tokens'], $result['sessions'], $result['attempts']));
+        $out->line(sprintf('Deleted: %d tokens, %d sessions, %d journal rows, %d invitations.', $result['tokens'], $result['sessions'], $result['attempts'], $result['invitations']));
 
         return 0;
     }
