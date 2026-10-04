@@ -7,9 +7,9 @@
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
 - **Текущий этап:** 02
-- **Статус:** TODO
-- **Ветка / PR:** —
-- **Последнее обновление:** 2026-10-04 (этап 21 завершён)
+- **Статус:** IN_PROGRESS
+- **Ветка / PR:** `stage-02-auth-email` / —
+- **Последнее обновление:** 2026-10-04 (этап 02 начат)
 
 ## Этапы
 
@@ -18,7 +18,7 @@
 | 00 | Инфраструктура, Docker, CI, удаление legacy | DONE | [#4](https://github.com/koiie111/VKPoster/pull/4) | 2026-10-04 | Продукт: ezposter; прод на VDS в РФ; есть ИП (без иностранного юрлица). Debian вместо Alpine (ADR 0002). Для 01: заменить заглушки `bin/console`, `public/index.php`, `HealthCheck` |
 | 01 | Ядро приложения | DONE | [#5](https://github.com/koiie111/VKPoster/pull/5) | 2026-10-04 | Для 21: `templates/layouts/base.twig`, `templates/errors/*` и `public/assets/css/kernel.css` временные, дизайн-система их заменяет; тесты страниц ищут тексты ошибок («Страница не найдена» и т. п.). Тестовые маршруты и cookie-jar: `tests/Support/HttpTestCase.php`. Для 02: используйте `Session::regenerate()` при входе, `Csrf`, `RateLimit`, `Authenticate` (читает `auth.user_id`), `PasswordHasher`, `Validator` |
 | 21 | Дизайн-система и UX-основа | DONE | [#6](https://github.com/koiie111/VKPoster/pull/6) | 2026-10-04 | Вариант A «Индиго», Inter, временный логотип-иконка. Для 02+: экраны только из `templates/components/` (импорт `forms/display/overlay`), макеты `layouts/auth|app|landing|admin`, тексты по `docs/design/ux-writing.md`, эталон — прототипы `/dev/proto/*`; динамические имена классов добавлять в `safelist`; новые экраны добавлять в `tools/ui-snap/urls/stage-NN.json` |
-| 02 | Регистрация и вход по email, 2FA | TODO | | | |
+| 02 | Регистрация и вход по email, 2FA | IN_PROGRESS | | | |
 | 03 | Вход через соцсети | TODO | | | |
 | 04 | Workspace, команда, роли, аудит | TODO | | | |
 | 05 | Медиатека | TODO | | | |
