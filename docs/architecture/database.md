@@ -55,6 +55,10 @@ erDiagram
     users ||--o{ recovery_codes : has
     users ||--o{ login_attempts : has
     users ||--o{ user_identities : has
+    workspaces ||--o{ media_folders : has
+    workspaces ||--o{ media : owns
+    workspaces ||--o{ watermarks : has
+    media_folders |o--o{ media : holds
     users {
         bigint id PK
         varchar email UK "NULL для входа через соцсети"
@@ -135,6 +139,46 @@ erDiagram
         bigint user_id PK
         bigint channel_id PK "FK on channels from stage 06"
     }
+    media_folders {
+        bigint id PK
+        char26 public_id UK
+        bigint workspace_id FK
+        varchar name "UK with workspace_id"
+    }
+    media {
+        bigint id PK
+        char26 public_id UK "ULID in URLs"
+        bigint workspace_id FK
+        bigint uploader_id FK "SET NULL"
+        bigint folder_id FK "SET NULL"
+        varchar kind "image | video | document"
+        varchar original_name "display only"
+        varchar storage_key "internal"
+        varchar thumb_key
+        varchar mime "detected from content"
+        bigint size "stored bytes, counts toward the quota"
+        int width
+        int height
+        int duration_ms
+        varchar codec
+        bool animated
+        char64 sha256 "of the upload; UK with workspace_id"
+        text variants_json "cache of crops and watermarked copies"
+    }
+    watermarks {
+        bigint id PK
+        char26 public_id UK
+        bigint workspace_id FK
+        varchar name
+        varchar storage_key
+        int width
+        int height
+        char2 position "tl tc tr ml mc mr bl bc br"
+        tinyint opacity
+        tinyint scale
+        tinyint margin
+        bool is_default
+    }
     audit_log {
         bigint id PK
         bigint workspace_id
@@ -148,6 +192,6 @@ erDiagram
     }
 ```
 
-Связанные таблицы удаляются каскадом вместе с пользователем (в том числе его пространства и членства; см. [modules/workspaces.md](modules/workspaces.md)). `audit_log` без внешних ключей: журнал переживает удаление пользователей. Счётчики неудачных входов хранятся в Redis (`auth:fail:*`, `auth:lock:*`), а не в БД.
+Медиатека (`media_folders`, `media`, `watermarks`) принадлежит пространству и удаляется вместе с ним; подробности и правила хранения файлов: [modules/media.md](modules/media.md). Связанные таблицы удаляются каскадом вместе с пользователем (в том числе его пространства и членства; см. [modules/workspaces.md](modules/workspaces.md)). `audit_log` без внешних ключей: журнал переживает удаление пользователей. Счётчики неудачных входов хранятся в Redis (`auth:fail:*`, `auth:lock:*`), а не в БД.
 
 Команды: `make migrate`, `make console CMD="migrate:status"`, `migrate:rollback` (последний batch), `migrate:fresh` (удаляет все таблицы; в production отключена), `seed` (dev-данные из `database/seeds/`; в production отключена).

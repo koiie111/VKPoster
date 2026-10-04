@@ -37,6 +37,14 @@
 | `TELEGRAM_LOGIN_BOT_TOKEN` `TELEGRAM_LOGIN_BOT_NAME` | — | Бот для Telegram Login Widget (имя без `@`); нужны оба значения. В BotFather выполните `/setdomain` с публичным доменом |
 | `OAUTH_ORDER` | `vkid,yandex,telegram,google` | Порядок кнопок входа; не перечисленные в списке провайдеры идут в конце |
 | `DEV_OAUTH_FAKE` | `0` | `1` включает встроенного тестового провайдера `/dev/oauth/fake`. Префикс `DEV_`: при `APP_ENV=production` приложение не запустится |
-| `S3_KEY` `S3_SECRET` | `minioadmin` | Доступ к MinIO (профиль `s3`) |
+| `S3_KEY` `S3_SECRET` | `minioadmin` | Доступ к MinIO (профиль `s3`) и ключи S3 для `MEDIA_DISK=s3` |
+| `MEDIA_DISK` | `local` | Где хранить файлы медиатеки: `local` (`MEDIA_LOCAL_ROOT`) или `s3` |
+| `MEDIA_LOCAL_ROOT` | `storage/media` | Каталог локального хранилища (относительно проекта или абсолютный); вне docroot nginx |
+| `S3_ENDPOINT` `S3_BUCKET` `S3_REGION` `S3_PATH_STYLE` | — / `ezposter` / `us-east-1` / `1` | Адрес (для MinIO `http://minio:9000`), бакет, регион и стиль адресов S3; нужны при `MEDIA_DISK=s3` |
+| `MEDIA_MAX_FILE_MB` | `50` | Максимальный размер одного файла (должен быть не больше `upload_max_filesize` в `docker/php/php.ini` и `client_max_body_size` в nginx) |
+| `MEDIA_QUOTA_MB` | `500` | Квота медиатеки пространства; с этапа 10 придёт из тарифа |
+| `MEDIA_MAX_VIDEO_SECONDS` | `900` | Максимальная длина видео |
+| `MEDIA_URL_TIMEOUT` | `30` | Лимит времени (секунды) на загрузку файла по ссылке |
+| `MEDIA_SIGNED_URL_TTL` | `3600` | Срок жизни подписанных ссылок на файлы по умолчанию (секунды) |
 
 Обязательные переменные проверяются при старте (`Config::load`): если чего-то нет, приложение и `bin/console` не запускаются, а в журнал попадает имя переменной без значения. В `config/*.php` env читается только через `Env`; прямых `getenv()` в коде нет.

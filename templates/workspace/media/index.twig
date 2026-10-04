@@ -97,7 +97,7 @@
 {% endif %}
 
 <section class="mt-8 max-w-md" aria-label="Место в медиатеке">
-    {{ d.progress(usage.percent, 100, 'Занято ' ~ usage.used ~ ' из ' ~ usage.quota, 'Занятое место в медиатеке') }}
+    {{ d.progress(usage.percent, 100, 'Место в медиатеке', 'Занятое место в медиатеке', usage.used ~ ' из ' ~ usage.quota) }}
 </section>
 
 {% if can_manage %}

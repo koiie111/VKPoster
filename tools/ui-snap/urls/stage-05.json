@@ -1,0 +1,57 @@
+[
+  {
+    "name": "media-empty",
+    "url": "/w/{ws}/media",
+    "login_as": "social@ezposter.local"
+  },
+  {
+    "name": "media-library",
+    "url": "/w/{ws}/media",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "media-folder",
+    "url": "/w/{ws}/media",
+    "login_as": "demo@ezposter.local",
+    "actions": [
+      {
+        "click": "nav[aria-label=\"Папки\"] a:nth-of-type(2)"
+      }
+    ]
+  },
+  {
+    "name": "media-search-empty",
+    "url": "/w/{ws}/media?q=zzz",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "media-item",
+    "url": "/w/{ws}/media",
+    "login_as": "demo@ezposter.local",
+    "actions": [
+      {
+        "click": "section[aria-label=\"Файлы\"] ul li:nth-child(2) a"
+      }
+    ]
+  },
+  {
+    "name": "media-watermarks",
+    "url": "/w/{ws}/media/watermarks",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "media-editor-view",
+    "url": "/w/{ws}/media",
+    "login_as": "editor@ezposter.local"
+  },
+  {
+    "name": "media-document",
+    "url": "/w/{ws}/media",
+    "login_as": "demo@ezposter.local",
+    "actions": [
+      {
+        "click": "section[aria-label=\"Файлы\"] ul li:first-child a"
+      }
+    ]
+  }
+]

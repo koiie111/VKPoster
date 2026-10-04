@@ -18,7 +18,7 @@
             {% if w.isDefault %}{{ d.badge('Используется по умолчанию', 'info') }}{% endif %}
         </div>
         <div class="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <div class="overflow-hidden rounded-card bg-sunken">
+            <div class="self-start overflow-hidden rounded-card bg-sunken">
                 <img class="w-full" data-preview-img src="{{ base }}/watermarks/{{ w.publicId }}/preview" alt="Предпросмотр: так водяной знак «{{ w.name }}» выглядит на фото" width="800" height="500">
             </div>
             <form class="flex flex-col gap-4" method="post" action="{{ base }}/watermarks/{{ w.publicId }}/update">

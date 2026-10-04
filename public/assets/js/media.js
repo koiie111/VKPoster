@@ -96,6 +96,11 @@
                 };
 
                 var add = function (files) {
+                    // A new selection starts a new batch: forget the finished one (its errors were already shown).
+                    if (running === 0 && queue.length === 0) {
+                        while (list.firstChild) { list.removeChild(list.firstChild); }
+                        total = 0; done = 0; failed = 0;
+                    }
                     Array.prototype.forEach.call(files, function (file) {
                         total += 1;
                         var row = el('li', 'rounded-ctl border border-line bg-surface p-3');

@@ -68,9 +68,10 @@ final class MediaFileController
             'Content-Type' => $object['mime'],
             'X-Content-Type-Options' => 'nosniff',
             // Nothing in a user file may run in our origin, whatever the browser decides the type is.
-            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            'Content-Security-Policy' => "default-src 'none'; sandbox",
             'Cross-Origin-Resource-Policy' => $signed ? 'cross-origin' : 'same-origin',
-            'Cache-Control' => 'private, max-age=3600',
+            // A watermarked rendition changes when the watermark settings do, so it is revalidated soon.
+            'Cache-Control' => str_contains($variant, '-wm') ? 'private, max-age=60' : 'private, max-age=3600',
             'ETag' => $etag,
             'Accept-Ranges' => 'bytes',
             'Content-Disposition' => $this->disposition($media, $object['mime'], $request->query['download'] ?? null),
