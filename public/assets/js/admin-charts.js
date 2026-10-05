@@ -20,6 +20,9 @@
             var money = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: config.currency || 'RUB', maximumFractionDigits: 0 });
             return function (value) { return money.format(value / 100); };
         }
+        if (config.format === 'percent') {
+            return function (value) { return value === null || value === undefined ? '—' : value + '%'; };
+        }
         var int = new Intl.NumberFormat('ru-RU');
         return function (value) { return int.format(value); };
     }
@@ -54,7 +57,7 @@
             th.textContent = label;
             row.appendChild(th);
             config.datasets.forEach(function (set) {
-                row.insertCell().textContent = format(set.data[i] || 0);
+                row.insertCell().textContent = set.data[i] === null ? '—' : format(set.data[i] || 0);
             });
         });
         wrap.appendChild(t);

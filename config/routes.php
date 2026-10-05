@@ -58,6 +58,7 @@ use App\Http\Controllers\Admin\AdminAuditController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DesignController;
+use App\Http\Controllers\Admin\StatsController;
 use App\Http\Controllers\Site\ThemeController;
 use App\Http\Middleware\AdminAuditTrail;
 use App\Http\Middleware\RequireStaffPermission;
@@ -309,6 +310,8 @@ return static function (Router $router): void {
             $s->get('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'editPlan'])->middleware($can('plans.manage'));
             $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan'])->middleware($can('plans.manage'));
             $s->get('/promo', [OperationsController::class, 'promo'])->name('admin.promo')->middleware($can('finance.view'));
+            $s->get('/stats', [StatsController::class, 'publishing'])->name('admin.stats')->middleware($can('stats.view'));
+            $s->get('/system', [StatsController::class, 'system'])->name('admin.system')->middleware($can('system.view'));
             $s->get('/queues', [OperationsController::class, 'queues'])->name('admin.queues')->middleware($can('system.view'));
             $s->post('/queues/failed/{id:[0-9]{1,12}}/retry', [OperationsController::class, 'retry'])->middleware($can('ops.manage'));
             $s->post('/queues/failed/{id:[0-9]{1,12}}/discard', [OperationsController::class, 'discard'])->middleware($can('ops.manage'));

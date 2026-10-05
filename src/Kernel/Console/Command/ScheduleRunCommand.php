@@ -16,7 +16,7 @@ final class ScheduleRunCommand implements Command
 {
     private bool $stop = false;
 
-    public function __construct(private readonly Schedule $schedule, private readonly Clock $clock)
+    public function __construct(private readonly Schedule $schedule, private readonly Clock $clock, private readonly \App\Support\Heartbeat $heartbeat)
     {
     }
 
@@ -50,6 +50,7 @@ final class ScheduleRunCommand implements Command
         while (!$this->shouldStop()) {
             $wait = 60 - ((int) $this->clock->now()->format('s'));
             for ($i = 0; $i < $wait * 10 && !$this->shouldStop(); ++$i) {
+                $this->heartbeat->beat('scheduler');
                 usleep(100_000);
             }
             if (!$this->shouldStop()) {

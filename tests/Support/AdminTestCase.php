@@ -20,6 +20,13 @@ abstract class AdminTestCase extends BillingTestCase
 
     protected static int $staffCounter = 0;
 
+    protected function tearDown(): void
+    {
+        // Settings written by a test (platform switches, colours) must not leak into the next one.
+        $this->db->execute('DELETE FROM app_settings');
+        parent::tearDown();
+    }
+
     /**
      * Create a staff member, sign in as them, switch two-factor on and (by default) unlock the admin area.
      */

@@ -212,6 +212,7 @@ return static function (Container $c, string $base): void {
         $view->registerFunction('platform_notices', $nav->platformNotices(...));
         $view->registerFunction('impersonating', $c->get(\App\Http\Auth\Impersonation::class)->target(...));
         $view->registerFunction('theme_version', $c->get(\App\Domain\Design\ThemeColors::class)->version(...));
+        $view->registerFunction('bytes', \App\Domain\Admin\SystemStatus::bytes(...));
         $adminNav = $c->get(\App\Http\Admin\AdminNav::class);
         $view->registerFunction('admin_can', $adminNav->can(...));
         $view->registerFunction('admin_role', $adminNav->role(...));
@@ -220,6 +221,15 @@ return static function (Container $c, string $base): void {
         return $view;
     });
 
+    $c->factory(\App\Domain\Admin\SystemStatus::class, static fn (Container $c): \App\Domain\Admin\SystemStatus => new \App\Domain\Admin\SystemStatus(
+        $c->get(Connection::class),
+        $c->get(\Redis::class),
+        $c->get(\App\Support\Heartbeat::class),
+        $c->get(Clock::class),
+        $c->get(Config::class),
+        $base . '/storage/logs/app.log',
+        $base . '/storage',
+    ));
     $c->factory(MediaStorage::class, static fn (Container $c): MediaStorage => MediaStorageFactory::create($c->get(Config::class), $base));
     $c->factory(MediaLimits::class, static fn (Container $c): MediaLimits => MediaLimits::fromConfig($c->get(Config::class)));
     $c->factory(VideoProbe::class, static fn (): VideoProbe => new FfprobeVideoProbe());

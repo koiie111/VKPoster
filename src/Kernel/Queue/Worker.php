@@ -17,11 +17,21 @@ final class Worker
 {
     private bool $stop = false;
 
+    private ?\Closure $pulse = null;
+
     public function __construct(
         private readonly Queue $queue,
         private readonly Container $container,
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    /**
+     * Something to call on every pass of `work()` (a heartbeat for monitoring).
+     */
+    public function onPulse(\Closure $pulse): void
+    {
+        $this->pulse = $pulse;
     }
 
     /**
@@ -60,6 +70,9 @@ final class Worker
         $processed = 0;
         $queues = array_values(array_filter(array_map('trim', explode(',', $queueName)), static fn (string $q): bool => $q !== ''));
         while (!$this->shouldStop() && ($maxJobs === null || $processed < $maxJobs)) {
+            if ($this->pulse !== null) {
+                ($this->pulse)();
+            }
             $worked = false;
             foreach ($queues as $name) {
                 if ($this->runNext($name, $workerId)) {

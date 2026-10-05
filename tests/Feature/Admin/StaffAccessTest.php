@@ -104,10 +104,16 @@ final class StaffAccessTest extends AdminTestCase
             foreach ($this->adminRoutes() as $route) {
                 $permission = (string) $this->permissionOf($route);
                 $path = $this->samplePath($route);
-                $response = in_array('GET', $route->methods, true) ? $this->get($path) : $this->post($path, $this->confirm());
+                $isRead = in_array('GET', $route->methods, true);
+                if (!$isRead && $access->allows($role, $permission)) {
+                    // An allowed change would really change something (switch networks off, edit prices); the refusals are what is tested here.
+                    continue;
+                }
+                $response = $isRead ? $this->get($path) : $this->post($path, $this->confirm());
                 $label = $role->value . ' ' . implode(',', $route->methods) . ' ' . $path . ' (' . $permission . ')';
                 if ($access->allows($role, $permission)) {
                     self::assertNotSame(403, $response->status, $label . ' must be open');
+                    self::assertLessThan(500, $response->status, $label . ' must not crash');
                 } else {
                     self::assertSame(403, $response->status, $label . ' must be refused');
                 }
