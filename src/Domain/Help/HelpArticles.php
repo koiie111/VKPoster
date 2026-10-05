@@ -23,6 +23,14 @@ final class HelpArticles
     }
 
     /**
+     * Drop what was read, so the next call reads again (after an article was published in the admin area).
+     */
+    public function forget(): void
+    {
+        $this->articles = null;
+    }
+
+    /**
      * @return list<HelpArticle>
      */
     public function all(): array

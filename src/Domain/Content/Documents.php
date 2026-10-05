@@ -149,6 +149,8 @@ final class Documents
                 $db->execute("DELETE FROM cms_pages WHERE kind = ? AND slug = ? AND status = 'draft'", [$kind, $slug]);
             }
         });
+        $this->legal->forget();
+        $this->help->forget();
 
         return [];
     }

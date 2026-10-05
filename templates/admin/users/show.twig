@@ -111,6 +111,12 @@
     </section>
 </div>
 
+{% if tickets %}
+<section class="card mt-4" aria-labelledby="tk-h"><h2 class="text-lg font-semibold" id="tk-h">Обращения в поддержку</h2>
+    <ul class="mt-3 divide-y divide-line text-sm">{% for t in tickets %}<li class="flex flex-wrap items-center justify-between gap-2 py-2"><a class="font-medium hover:underline" href="/admin/support/{{ t.public_id }}">{{ t.subject }}</a><span class="text-muted">{{ {open: 'ждёт ответа', pending: 'ждём клиента', solved: 'решён'}[t.status] ?? t.status }} · {{ t.updated_at|date('d.m.Y', tz) }}</span></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
 <section class="card mt-4" aria-labelledby="act-h"><h2 class="text-lg font-semibold" id="act-h">Журнал: что делал человек и что делали с его аккаунтом</h2>
     {% if journal %}<ul class="mt-3 divide-y divide-line text-sm">{% for entry in journal %}<li class="flex flex-wrap justify-between gap-2 py-2"><span>{{ entry.label }}{% if entry.actor_id and entry.actor_id != person.id %} <span class="text-muted">· сотрудник № {{ entry.actor_id }}</span>{% endif %}</span><span class="text-muted">{{ entry.created_at|date('d.m.Y H:i', tz) }}{% if entry.ip %} · {{ entry.ip }}{% endif %}</span></li>{% endfor %}</ul>
     {% else %}<p class="mt-3 text-muted">Записей нет.</p>{% endif %}

@@ -25,6 +25,14 @@ final class LegalDocuments
     }
 
     /**
+     * Drop what was read, so the next call reads again (after a document was published in the admin area).
+     */
+    public function forget(): void
+    {
+        $this->documents = null;
+    }
+
+    /**
      * @return list<LegalDocument>
      */
     public function all(): array
