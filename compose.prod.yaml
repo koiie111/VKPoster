@@ -1,0 +1,76 @@
+# Production stack: `docker compose -f compose.prod.yaml up -d --build`. No mailpit, MinIO, tunnel or UI tools.
+# Everything is published on 127.0.0.1 only: put a TLS-terminating reverse proxy (nginx, Caddy) in front and set APP_URL to the https address.
+# Settings come from `.env` (start from `.env.production.example`); see docs/deploy.md.
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+    target: prod
+  image: ezposter-app:prod
+  env_file: [.env]
+  environment:
+    DB_HOST: mysql
+    REDIS_HOST: redis
+  volumes:
+    - app-storage:/var/www/html/storage
+  restart: unless-stopped
+  depends_on:
+    mysql: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: web
+    image: ezposter-web:prod
+    ports: ["127.0.0.1:${HTTP_PORT:-8080}:80"]
+    restart: unless-stopped
+    depends_on: [app]
+
+  app:
+    <<: *app
+
+  worker:
+    <<: *app
+    command: ["php", "bin/console", "queue:work", "--queue=publish,default"]
+
+  # Exactly one scheduler: it starts publications, health checks, renewals and clean-ups.
+  scheduler:
+    <<: *app
+    command: ["php", "bin/console", "schedule:run"]
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${DB_DATABASE:-app}
+      MYSQL_USER: ${DB_USERNAME:-app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/app.cnf:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mysql-data:
+  redis-data:
+  app-storage:

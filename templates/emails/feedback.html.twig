@@ -1,0 +1,7 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Сообщение от пользователя {{ email }}{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;">Сообщение от пользователя</h1>
+<p style="margin:0;white-space:pre-wrap;">{{ message }}</p>
+<p style="margin:20px 0 0;font-size:14px;color:#6b7280;">Пользователь: {{ user }}<br>Почта для ответа: {{ email }}<br>Пространство: {{ workspace }}<br>Страница: {{ page }}<br>Браузер: {{ agent }}<br>Время: {{ time }}<br>Окружение: {{ environment }}</p>
+{% endblock %}

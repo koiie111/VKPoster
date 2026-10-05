@@ -6,6 +6,7 @@ namespace App\Http\Middleware;
 
 use App\Domain\Auth\SessionRegistry;
 use App\Domain\User\UserRepository;
+use App\Http\Auth\Impersonation;
 use App\Kernel\Exception\HttpException;
 use App\Kernel\Http\Request;
 use App\Kernel\Http\RequestContext;
@@ -26,16 +27,22 @@ final class Authenticate implements MiddlewareInterface
         private readonly RequestContext $context,
         private readonly SessionRegistry $registry,
         private readonly UserRepository $users,
+        private readonly Impersonation $impersonation,
     ) {
     }
 
     public function handle(Request $request, Closure $next): Response
     {
         $session = $this->context->session();
-        $userId = $session?->get('auth.user_id');
         $user = null;
-        if ($session !== null && is_int($userId) && $this->registry->activeUserId($session->id()) === $userId) {
+        // While support acts as a customer, the device row belongs to the staff member: that is who must still be signed in.
+        $staffId = $session === null ? null : $this->impersonation->staffId($session);
+        $userId = $session?->get('auth.user_id');
+        if ($session !== null && is_int($userId) && $this->registry->activeUserId($session->id()) === ($staffId ?? $userId)) {
             $user = $this->users->find($userId);
+            if ($staffId !== null && !$this->isActiveStaff($staffId)) {
+                $user = null;
+            }
         }
         if ($user === null || $user->isBlocked()) {
             if ($session !== null && $userId !== null) {
@@ -54,5 +61,12 @@ final class Authenticate implements MiddlewareInterface
         $this->context->setUser($user);
 
         return $next($request->withAttribute('user', $user)->withAttribute('user_id', $user->id));
+    }
+
+    private function isActiveStaff(int $id): bool
+    {
+        $staff = $this->users->find($id);
+
+        return $staff !== null && $staff->isSuperadmin && !$staff->isBlocked();
     }
 }

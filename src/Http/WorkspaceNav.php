@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http;
 
 use App\Domain\Billing\Entitlements;
+use App\Domain\Status\PlatformStatus;
 use App\Domain\User\User;
 use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
@@ -28,6 +29,7 @@ final class WorkspaceNav
         private readonly Permissions $permissions,
         private readonly Entitlements $entitlements,
         private readonly Clock $clock,
+        private readonly PlatformStatus $status,
     ) {
     }
 
@@ -103,6 +105,21 @@ final class WorkspaceNav
             'posts_limit' => $entitlement->limit('posts_per_month'),
             'href' => $this->permissions->allows($workspace->role, 'workspace.billing') ? '/w/' . $workspace->workspacePublicId . '/billing' : null,
         ];
+    }
+
+    /**
+     * Sentences for the banner "a network you publish to is having trouble", for the current workspace only.
+     *
+     * @return list<string>
+     */
+    public function platformNotices(): array
+    {
+        $workspace = $this->current();
+        if ($workspace === null) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(static fn ($h): ?string => $h->notice, $this->status->problemsFor($workspace->workspaceId)), static fn (?string $n): bool => $n !== null));
     }
 
     /**

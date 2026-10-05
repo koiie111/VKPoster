@@ -1,0 +1,21 @@
+{#- "The documents changed" page. Variables: documents (required legal documents), first_time. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% block title %}Обновились документы · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">{{ first_time ? 'Нужно ваше согласие' : 'Мы обновили документы' }}</h1>
+<p class="mt-2 text-muted">{{ first_time ? 'Чтобы продолжить, прочитайте документы и подтвердите согласие.' : 'Прочитайте новую редакцию и подтвердите согласие, чтобы продолжить работу.' }}</p>
+<ul class="mt-4 flex flex-col gap-1">
+    {% for doc in documents %}<li><a class="font-medium text-primary-text underline underline-offset-2" href="/legal/{{ doc.slug }}" target="_blank" rel="noopener">{{ doc.title }}</a> <span class="text-sm text-muted">от {{ doc.version|date('d.m.Y') }}</span></li>{% endfor %}
+</ul>
+<form class="mt-6 flex flex-col gap-4" method="post" action="/consent">
+    {{ csrf_field() }}
+    <div class="flex flex-col gap-1.5">
+        {{ f.checkbox('consent', 'Я принимаю условия оферты и согласен(на) на обработку персональных данных') }}
+        {% if errors('consent') %}<p class="flex items-start gap-1.5 text-sm font-medium text-bad-fg" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ errors('consent')|first }}</span></p>{% endif %}
+    </div>
+    {{ f.button('Продолжить', type = 'submit', block = true) }}
+</form>
+<form class="mt-3" method="post" action="/logout">{{ csrf_field() }}{{ f.button('Выйти', variant = 'ghost', type = 'submit', block = true) }}</form>
+{% endblock %}

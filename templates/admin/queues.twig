@@ -1,0 +1,34 @@
+{#- Admin: queues and failed jobs. Variables: queues {queues, failed}, failed (page). -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'queues' %}
+{% set tz = current_user().timezone %}
+{% block title %}Очереди · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Очереди', 'Задачи, которые ждут воркера, и те, что не удались несколько раз подряд.') }}
+<section class="mb-6 grid gap-4 sm:grid-cols-3" aria-label="Состояние очередей">
+    {% for name, count in queues.queues %}<div class="card"><p class="text-sm text-muted">Очередь «{{ name }}»</p><p class="mt-1 text-3xl font-bold">{{ count }}</p><p class="text-sm text-muted">задач ждут или выполняются</p></div>
+    {% else %}<div class="card sm:col-span-2"><p class="font-semibold">Очереди пусты</p><p class="text-sm text-muted">Все задачи выполнены.</p></div>{% endfor %}
+    <div class="card"><p class="text-sm text-muted">Не удались</p><p class="mt-1 text-3xl font-bold {{ queues.failed ? 'text-bad-fg' : '' }}">{{ queues.failed }}</p></div>
+</section>
+<div class="card !p-0 overflow-hidden">
+{% set rows %}
+    {% for j in failed.rows %}
+    <tr>
+        <td><span class="block font-medium">{{ j.job }}</span><span class="block text-xs text-muted">очередь «{{ j.queue }}» · попыток: {{ j.attempts }}</span></td>
+        <td class="max-w-md break-words text-sm text-muted">{{ j.error }}</td>
+        <td class="whitespace-nowrap text-muted">{{ j.failed_at ? j.failed_at|date('d.m.Y H:i', tz) : '' }}</td>
+        <td><div class="flex gap-2">
+            <form method="post" action="/admin/queues/failed/{{ j.id }}/retry">{{ csrf_field() }}{{ f.button('Повторить', type = 'submit', size = 'sm', variant = 'secondary', icon = 'refresh-cw') }}</form>
+            {{ f.button('Удалить', size = 'sm', variant = 'danger', attrs = {'data-dialog-open': 'discard-' ~ j.id}) }}
+        </div></td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Задача'}, {label: 'Ошибка'}, {label: 'Когда'}, {label: 'Что делать'}], empty = failed.rows is empty, empty_title = 'Упавших задач нет', empty_text = 'Если задача не удастся несколько раз подряд, она появится здесь.', caption = 'Упавшие задачи', body = rows) }}
+</div>
+<div class="mt-4">{{ d.pagination(failed.page, failed.pages, '/admin/queues') }}</div>
+{% for j in failed.rows %}{{ o.confirm_dialog('discard-' ~ j.id, 'Удалить упавшую задачу?', j.job, 'Она не будет выполнена, это нельзя отменить.', '/admin/queues/failed/' ~ j.id ~ '/discard', 'Удалить') }}{% endfor %}
+{% endblock %}

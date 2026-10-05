@@ -1,0 +1,28 @@
+{#- Admin: workspaces. Variables: q, result, base. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'workspaces' %}
+{% set tz = current_user().timezone %}
+{% block title %}Пространства · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Пространства', 'Всего найдено: ' ~ result.total ~ '.') }}
+<form class="mb-4 flex flex-wrap items-end gap-3" method="get" action="/admin/workspaces" role="search">
+    <div class="min-w-[16rem] flex-1">{{ f.input('q', 'Найти пространство', value = q, placeholder = 'Название, номер или почта владельца') }}</div>
+    {{ f.button('Найти', type = 'submit', variant = 'secondary', icon = 'search') }}
+</form>
+<div class="card !p-0 overflow-hidden">
+{% set rows %}
+    {% for w in result.rows %}
+    <tr>
+        <td><a class="font-medium hover:underline" href="/admin/workspaces/{{ w.public_id }}">{{ w.name }}</a><span class="block text-xs text-muted">{{ w.owner_email ?? w.owner_name }}</span></td>
+        <td>{{ w.plan ?? '—' }}{% if w.subscription == 'past_due' %} {{ d.badge('Просрочена', 'bad') }}{% elseif w.subscription == 'trialing' %} {{ d.badge('Пробный', 'info') }}{% endif %}</td>
+        <td>{{ w.members }}</td><td>{{ w.channels }}</td>
+        <td class="whitespace-nowrap text-muted">{{ w.created_at|date('d.m.Y', tz) }}</td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Пространство'}, {label: 'Тариф'}, {label: 'Людей'}, {label: 'Каналов'}, {label: 'Создано'}], empty = result.rows is empty, empty_title = 'Ничего не нашли', empty_text = 'Попробуйте другой запрос.', caption = 'Пространства', body = rows) }}
+</div>
+<div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
+{% endblock %}

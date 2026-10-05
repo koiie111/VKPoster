@@ -1,0 +1,29 @@
+{#- Admin: subscriptions. Variables: status, result, base. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'subscriptions' %}
+{% set tz = current_user().timezone %}
+{% block title %}Подписки · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Подписки', 'Всего найдено: ' ~ result.total ~ '. Тариф выдают на карточке пространства.') }}
+<form class="mb-4 flex flex-wrap items-end gap-3" method="get" action="/admin/subscriptions" role="search">
+    <div class="min-w-[14rem]">{{ f.select('status', 'Состояние', {'': 'Все', trialing: 'Пробный период', active: 'Активные', past_due: 'Просроченные'}, value = status) }}</div>
+    {{ f.button('Показать', type = 'submit', variant = 'secondary', icon = 'filter') }}
+</form>
+<div class="card !p-0 overflow-hidden">
+{% set rows %}
+    {% for s in result.rows %}
+    <tr>
+        <td><a class="font-medium hover:underline" href="/admin/workspaces/{{ s.workspace_public_id }}">{{ s.workspace_name }}</a></td>
+        <td>{{ s.plan }}{% if s.period %} <span class="text-muted">· {{ s.period == 'year' ? 'год' : 'месяц' }}</span>{% endif %}</td>
+        <td>{{ d.badge({trialing: 'Пробный период', active: 'Активна', past_due: 'Просрочена'}[s.status] ?? s.status, {trialing: 'info', active: 'ok', past_due: 'bad'}[s.status] ?? 'neutral', dot = true) }}{% if s.cancel_at_period_end %}<span class="block text-xs text-muted">без автопродления</span>{% endif %}{% if s.last_failure %}<span class="block text-xs text-bad-fg">{{ s.last_failure }}</span>{% endif %}</td>
+        <td class="whitespace-nowrap text-muted">{% if s.status == 'trialing' and s.trial_ends_at %}до {{ s.trial_ends_at|date('d.m.Y', tz) }}{% elseif s.current_period_end %}до {{ s.current_period_end|date('d.m.Y', tz) }}{% else %}—{% endif %}</td>
+        <td>{{ s.price_amount ? money(s.price_amount, s.currency) : '—' }}</td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Пространство'}, {label: 'Тариф'}, {label: 'Состояние'}, {label: 'Срок'}, {label: 'Цена периода'}], empty = result.rows is empty, empty_title = 'Подписок нет', empty_text = 'Они появятся вместе с первыми пространствами.', caption = 'Подписки', body = rows) }}
+</div>
+<div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
+{% endblock %}

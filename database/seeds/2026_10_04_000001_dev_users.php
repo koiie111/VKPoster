@@ -8,7 +8,9 @@ use App\Kernel\Database\Seeder;
 /**
  * Local demo accounts (refused in production by `seed`; idempotent, existing accounts are left untouched):
  * - demo@ezposter.local / demo-password-2026: confirmed email, no 2FA;
- * - social@ezposter.local: no password, signs in through (fake) VK ID and Google only.
+ * - social@ezposter.local: no password, signs in through (fake) VK ID and Google only;
+ * - staff@ezposter.local / staff-password-2026: staff (superadmin). `/dev/login-as/staff@ezposter.local` also opens the admin area without a
+ *   two-factor code (local development only); a real staff account is made with `user:create-admin`.
  */
 return new class () implements Seeder {
     public function run(Connection $db): void
@@ -16,6 +18,26 @@ return new class () implements Seeder {
         $now = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
         $this->demo($db, $now);
         $this->social($db, $now);
+        $this->admin($db, $now);
+    }
+
+    private function admin(Connection $db, string $now): void
+    {
+        if ($db->select('SELECT id FROM users WHERE email = ?', ['staff@ezposter.local']) !== []) {
+            return;
+        }
+        $db->table('users')->insert([
+            'email' => 'staff@ezposter.local',
+            'email_verified_at' => $now,
+            'password_hash' => password_hash('staff-password-2026', PASSWORD_ARGON2ID),
+            'password_changed_at' => $now,
+            'name' => 'Сотрудник Демо',
+            'is_superadmin' => 1,
+            'consent_version' => (new \App\Domain\Legal\LegalDocuments(dirname(__DIR__, 2) . '/resources/legal'))->consentVersion(),
+            'consent_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     private function demo(Connection $db, string $now): void
@@ -29,7 +51,7 @@ return new class () implements Seeder {
             'password_hash' => password_hash('demo-password-2026', PASSWORD_ARGON2ID),
             'password_changed_at' => $now,
             'name' => 'Анна Демо',
-            'consent_version' => 'seed',
+            'consent_version' => (new \App\Domain\Legal\LegalDocuments(dirname(__DIR__, 2) . '/resources/legal'))->consentVersion(),
             'consent_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
@@ -45,7 +67,7 @@ return new class () implements Seeder {
             'email' => 'social@ezposter.local',
             'email_verified_at' => $now,
             'name' => 'Иван Соцсети',
-            'consent_version' => 'seed',
+            'consent_version' => (new \App\Domain\Legal\LegalDocuments(dirname(__DIR__, 2) . '/resources/legal'))->consentVersion(),
             'consent_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,

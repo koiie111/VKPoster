@@ -477,7 +477,8 @@ final class PostPagesTest extends PostTestCase
         [$owner, $workspace] = $this->ownerWithWorkspace();
         $this->actAs($owner);
         $empty = $this->text($this->get($this->base($workspace)));
-        self::assertStringContainsString('Подключите первый канал', $empty);
+        self::assertStringContainsString('Три шага до первой публикации', $empty);
+        self::assertStringContainsString('Подключите канал', $empty);
 
         $channel = $this->fakeChannel($workspace, $owner);
         $this->scheduled($this->contextFor($workspace, $owner), [$channel], '+1 day', 'Скоро выйдет');

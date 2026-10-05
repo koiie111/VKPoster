@@ -1,0 +1,26 @@
+{#- Public status page. Variables: platforms (list of PlatformHealth). -#}
+{% extends 'layouts/landing.twig' %}
+{% import 'components/display.twig' as d %}
+{% block title %}Состояние соцсетей · {{ app_name }}{% endblock %}
+{% block content %}
+{% set problems = platforms|filter(p => p.state != 'ok') %}
+<div class="mx-auto max-w-3xl px-4 py-12">
+    {{ d.page_header('Состояние соцсетей', 'Работает ли публикация в Telegram, ВКонтакте и MAX прямо сейчас. Данные обновляются каждую минуту.') }}
+    {% if problems %}
+        {{ d.alert('warning', 'Есть перебои', 'Публикации в отмеченные сети могут задерживаться. Мы повторяем попытки сами, ничего делать не нужно.') }}
+    {% else %}
+        {{ d.alert('success', 'Всё работает', 'Сбоев в соцсетях сейчас нет.') }}
+    {% endif %}
+    <ul class="card mt-6 divide-y divide-line !p-0" aria-label="Соцсети">
+        {% for h in platforms %}
+        <li class="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0"><p class="font-semibold">{{ d.platform_badge(h.platform.badgeKey, h.platform.label) }}</p>{% if h.notice %}<p class="mt-1 text-sm text-muted">{{ h.notice }}</p>{% endif %}</div>
+            {{ d.badge(h.state == 'ok' ? 'Работает' : (h.state == 'maintenance' ? 'Технические работы' : 'Перебои'), h.state == 'ok' ? 'ok' : 'warn', dot = true) }}
+        </li>
+        {% else %}
+        <li class="px-5 py-4 text-muted">Пока нет подключённых сетей.</li>
+        {% endfor %}
+    </ul>
+    <p class="mt-6 text-sm text-muted">Если у вас что-то не работает, а здесь всё хорошо, напишите нам из приложения: меню профиля → «Сообщить о проблеме».</p>
+</div>
+{% endblock %}

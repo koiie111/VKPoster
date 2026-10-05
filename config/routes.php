@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Account\ConsentController;
+use App\Http\Controllers\Account\FeedbackController;
 use App\Http\Controllers\Account\LoginMethodsController;
 use App\Http\Controllers\Account\NotificationController;
 use App\Http\Controllers\Account\SecurityController;
@@ -30,6 +32,10 @@ use App\Http\Controllers\Workspace\SettingsController;
 use App\Http\Controllers\Workspace\TeamController;
 use App\Http\Controllers\Workspace\WorkspaceController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Site\HelpController;
+use App\Http\Controllers\Site\LegalController;
+use App\Http\Controllers\Site\SeoController;
+use App\Http\Controllers\Site\StatusController;
 use App\Http\Controllers\Media\FolderController;
 use App\Http\Controllers\Media\MediaController;
 use App\Http\Controllers\Media\MediaFileController;
@@ -42,14 +48,33 @@ use App\Http\Middleware\AuthenticateOrSigned;
 use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\Authorize;
 use App\Http\Middleware\Guest;
+use App\Http\Middleware\OptionalAuthenticate;
 use App\Http\Middleware\RateLimit;
+use App\Http\Middleware\RequireConsent;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\ResolveWorkspace;
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\BillingAdminController;
+use App\Http\Controllers\Admin\ImpersonationController;
+use App\Http\Controllers\Admin\OperationsController;
+use App\Http\Controllers\Admin\UsersController;
+use App\Http\Controllers\Admin\WorkspacesController;
+use App\Http\Middleware\DenyWhenImpersonating;
+use App\Http\Middleware\RequireAdminUnlock;
+use App\Http\Middleware\RequireStaff;
 use App\Kernel\Http\Router;
 
 return static function (Router $router): void {
-    $router->get('/', [HomeController::class, 'index'])->name('home');
+    $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(OptionalAuthenticate::class);
     $router->get('/healthz', [HealthController::class, 'show'])->name('health');
+
+    // Public site: legal documents, the knowledge base, the status of the networks, and what search engines may read.
+    $router->get('/legal/{slug:[a-z]{3,20}}', [LegalController::class, 'show'])->name('legal.show')->middleware(OptionalAuthenticate::class);
+    $router->get('/help', [HelpController::class, 'index'])->name('help')->middleware(OptionalAuthenticate::class);
+    $router->get('/help/{slug:[a-z0-9-]{1,60}}', [HelpController::class, 'show'])->name('help.show')->middleware(OptionalAuthenticate::class);
+    $router->get('/status', [StatusController::class, 'show'])->name('status')->middleware(OptionalAuthenticate::class);
+    $router->get('/robots.txt', [SeoController::class, 'robots']);
+    $router->get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
     // One-time links carry a 43-character base64url token (see AuthTokens).
     $token = '{token:[A-Za-z0-9_-]{43}}';
@@ -87,28 +112,36 @@ return static function (Router $router): void {
     // Signed in; the email may still be unconfirmed.
     $router->group('', [Authenticate::class], static function (Router $r) use ($provider): void {
         $r->post('/logout', [LoginController::class, 'logout'])->name('logout');
-        $r->post('/logout/all', [LoginController::class, 'logoutAll'])->name('logout.all');
+        $r->post('/logout/all', [LoginController::class, 'logoutAll'])->name('logout.all')->middleware(DenyWhenImpersonating::class);
+        $r->post('/impersonation/stop', [ImpersonationController::class, 'stop']);
+        $r->get('/feedback', [FeedbackController::class, 'show'])->name('feedback');
+        $r->post('/feedback', [FeedbackController::class, 'send'])->middleware([RateLimit::class, ['bucket' => 'feedback', 'max' => 10, 'seconds' => 3600]]);
+        $r->get('/consent', [ConsentController::class, 'show'])->name('consent');
+        $r->post('/consent', [ConsentController::class, 'accept'])->middleware([RateLimit::class, ['bucket' => 'consent', 'max' => 30, 'seconds' => 600]]);
         $r->get('/email/verification', [EmailVerificationController::class, 'notice'])->name('auth.verify.notice');
         $r->post('/email/verification/resend', [EmailVerificationController::class, 'resend']);
 
-        $r->get('/account/security', [SecurityController::class, 'show'])->name('account.security');
-        $r->post('/account/password', [SecurityController::class, 'changePassword']);
-        $r->post('/account/email', [SecurityController::class, 'requestEmailChange']);
-        $r->post('/account/sessions/{id:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}}/revoke', [SecurityController::class, 'revokeSession']);
-        $r->get('/account/login-methods', [LoginMethodsController::class, 'show'])->name('account.login_methods');
-        $r->post('/account/login-methods/password', [LoginMethodsController::class, 'setPassword'])->middleware([RateLimit::class, ['bucket' => 'set-password', 'max' => 10, 'seconds' => 600]]);
-        $r->post('/account/login-methods/' . $provider . '/link', [LoginMethodsController::class, 'link']);
-        $r->post('/account/login-methods/' . $provider . '/unlink', [LoginMethodsController::class, 'unlink']);
-        $r->get('/account/notifications', [NotificationController::class, 'show'])->name('account.notifications');
-        $r->post('/account/notifications', [NotificationController::class, 'save']);
-        $r->post('/account/notifications/telegram/link', [NotificationController::class, 'linkTelegram'])->middleware([RateLimit::class, ['bucket' => 'telegram-link', 'max' => 10, 'seconds' => 3600]]);
-        $r->post('/account/notifications/telegram/unlink', [NotificationController::class, 'unlinkTelegram']);
-        $r->post('/account/2fa/start', [TwoFactorController::class, 'start']);
-        $r->get('/account/2fa/setup', [TwoFactorController::class, 'setup'])->name('account.2fa.setup');
-        $r->get('/account/2fa/qr.svg', [TwoFactorController::class, 'qr']);
-        $r->post('/account/2fa/confirm', [TwoFactorController::class, 'confirm']);
-        $r->post('/account/2fa/disable', [TwoFactorController::class, 'disable']);
-        $r->post('/account/2fa/recovery-codes', [TwoFactorController::class, 'regenerateCodes']);
+        // Security of the account is the person's own: closed while support acts as them.
+        $r->group('', [DenyWhenImpersonating::class], static function (Router $a) use ($provider): void {
+            $a->get('/account/security', [SecurityController::class, 'show'])->name('account.security');
+            $a->post('/account/password', [SecurityController::class, 'changePassword']);
+            $a->post('/account/email', [SecurityController::class, 'requestEmailChange']);
+            $a->post('/account/sessions/{id:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}}/revoke', [SecurityController::class, 'revokeSession']);
+            $a->get('/account/login-methods', [LoginMethodsController::class, 'show'])->name('account.login_methods');
+            $a->post('/account/login-methods/password', [LoginMethodsController::class, 'setPassword'])->middleware([RateLimit::class, ['bucket' => 'set-password', 'max' => 10, 'seconds' => 600]]);
+            $a->post('/account/login-methods/' . $provider . '/link', [LoginMethodsController::class, 'link']);
+            $a->post('/account/login-methods/' . $provider . '/unlink', [LoginMethodsController::class, 'unlink']);
+            $a->get('/account/notifications', [NotificationController::class, 'show'])->name('account.notifications');
+            $a->post('/account/notifications', [NotificationController::class, 'save']);
+            $a->post('/account/notifications/telegram/link', [NotificationController::class, 'linkTelegram'])->middleware([RateLimit::class, ['bucket' => 'telegram-link', 'max' => 10, 'seconds' => 3600]]);
+            $a->post('/account/notifications/telegram/unlink', [NotificationController::class, 'unlinkTelegram']);
+            $a->post('/account/2fa/start', [TwoFactorController::class, 'start']);
+            $a->get('/account/2fa/setup', [TwoFactorController::class, 'setup'])->name('account.2fa.setup');
+            $a->get('/account/2fa/qr.svg', [TwoFactorController::class, 'qr']);
+            $a->post('/account/2fa/confirm', [TwoFactorController::class, 'confirm']);
+            $a->post('/account/2fa/disable', [TwoFactorController::class, 'disable']);
+            $a->post('/account/2fa/recovery-codes', [TwoFactorController::class, 'regenerateCodes']);
+        });
     });
 
     // The invitation page is public: the link in the email is the secret. Accepting needs an account (see below).
@@ -116,7 +149,7 @@ return static function (Router $router): void {
 
     // The application itself needs a confirmed email.
     $ulid = '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}';
-    $router->group('', [Authenticate::class, RequireVerifiedEmail::class], static function (Router $r) use ($token, $ulid): void {
+    $router->group('', [Authenticate::class, RequireVerifiedEmail::class, RequireConsent::class], static function (Router $r) use ($token, $ulid): void {
         $r->get('/app', [AppController::class, 'dashboard'])->name('app');
         $r->get('/workspaces/new', [WorkspaceController::class, 'create'])->name('workspace.new');
         // VK ID sends the browser back here (a fixed address registered in the VK application); the controller checks the workspace and the right.
@@ -136,15 +169,15 @@ return static function (Router $router): void {
                 $t->post('/team/members/{memberId:' . $ulid . '}/role', [TeamController::class, 'changeRole']);
                 $t->post('/team/members/{memberId:' . $ulid . '}/remove', [TeamController::class, 'remove']);
             });
-            $w->post('/team/transfer', [TeamController::class, 'transfer'])->middleware([Authorize::class, ['permission' => 'workspace.transfer']]);
+            $w->post('/team/transfer', [TeamController::class, 'transfer'])->middleware([Authorize::class, ['permission' => 'workspace.transfer']], DenyWhenImpersonating::class);
 
             $w->group('', [[Authorize::class, ['permission' => 'workspace.settings']]], static function (Router $t): void {
                 $t->get('/settings', [SettingsController::class, 'show'])->name('workspace.settings');
                 $t->post('/settings', [SettingsController::class, 'update']);
             });
-            $w->post('/delete', [SettingsController::class, 'delete'])->middleware([Authorize::class, ['permission' => 'workspace.delete']]);
+            $w->post('/delete', [SettingsController::class, 'delete'])->middleware([Authorize::class, ['permission' => 'workspace.delete']], DenyWhenImpersonating::class);
             // Plan and payment: the owner only. `pay` sends the browser on to the provider (a plain page load, see BillingController::checkout).
-            $w->group('/billing', [[Authorize::class, ['permission' => 'workspace.billing']]], static function (Router $b) use ($ulid): void {
+            $w->group('/billing', [[Authorize::class, ['permission' => 'workspace.billing']], DenyWhenImpersonating::class], static function (Router $b) use ($ulid): void {
                 $b->get('', [BillingController::class, 'overview'])->name('workspace.billing');
                 $b->get('/plans', [BillingController::class, 'plans'])->name('workspace.billing.plans');
                 $b->post('/checkout', [BillingController::class, 'checkout'])->middleware([RateLimit::class, ['bucket' => 'billing-checkout', 'max' => 20, 'seconds' => 3600]]);
@@ -239,6 +272,36 @@ return static function (Router $router): void {
             });
             $w->get('/media-picker', [PickerController::class, 'list'])->middleware([Authorize::class, ['permission' => 'posts.draft']]);
             $w->get('/audit', [AuditController::class, 'show'])->name('workspace.audit')->middleware([Authorize::class, ['permission' => 'audit.view']]);
+        });
+    });
+
+    // The back office. Superadmins only (anybody else gets 404), two-factor protected, with a fresh code every 8 hours and its own rate limit.
+    $router->group('/admin', [Authenticate::class, RequireVerifiedEmail::class, [RateLimit::class, ['bucket' => 'admin', 'max' => 600, 'seconds' => 600]], RequireStaff::class], static function (Router $a): void {
+        $a->get('/unlock', [AdminController::class, 'unlockShow'])->name('admin.unlock');
+        $a->post('/unlock', [AdminController::class, 'unlock'])->middleware([RateLimit::class, ['bucket' => 'admin-unlock', 'max' => 10, 'seconds' => 600]]);
+        $a->group('', [RequireAdminUnlock::class], static function (Router $s): void {
+            $s->get('', [AdminController::class, 'overview'])->name('admin');
+            $s->get('/users', [UsersController::class, 'index'])->name('admin.users');
+            $s->get('/users/{id:[0-9]{1,12}}', [UsersController::class, 'show']);
+            $s->post('/users/{id:[0-9]{1,12}}/block', [UsersController::class, 'block']);
+            $s->post('/users/{id:[0-9]{1,12}}/unblock', [UsersController::class, 'unblock']);
+            $s->post('/users/{id:[0-9]{1,12}}/impersonate', [UsersController::class, 'impersonate'])->middleware([RateLimit::class, ['bucket' => 'admin-impersonate', 'max' => 30, 'seconds' => 3600]]);
+            $s->get('/workspaces', [WorkspacesController::class, 'index'])->name('admin.workspaces');
+            $s->get('/workspaces/{publicId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}', [WorkspacesController::class, 'show']);
+            $s->post('/workspaces/{publicId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}/grant', [WorkspacesController::class, 'grant']);
+            $s->get('/subscriptions', [BillingAdminController::class, 'subscriptions'])->name('admin.subscriptions');
+            $s->get('/payments', [BillingAdminController::class, 'payments'])->name('admin.payments');
+            $s->post('/payments/{paymentId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}/refund', [BillingAdminController::class, 'refund'])->middleware([RateLimit::class, ['bucket' => 'admin-refund', 'max' => 30, 'seconds' => 3600]]);
+            $s->get('/plans', [BillingAdminController::class, 'plans'])->name('admin.plans');
+            $s->get('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'editPlan']);
+            $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan']);
+            $s->get('/promo', [OperationsController::class, 'promo'])->name('admin.promo');
+            $s->get('/queues', [OperationsController::class, 'queues'])->name('admin.queues');
+            $s->post('/queues/failed/{id:[0-9]{1,12}}/retry', [OperationsController::class, 'retry']);
+            $s->post('/queues/failed/{id:[0-9]{1,12}}/discard', [OperationsController::class, 'discard']);
+            $s->get('/channels', [OperationsController::class, 'channels'])->name('admin.channels');
+            $s->get('/platforms', [OperationsController::class, 'platforms'])->name('admin.platforms');
+            $s->post('/platforms', [OperationsController::class, 'savePlatforms']);
         });
     });
 

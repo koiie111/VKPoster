@@ -1,0 +1,9 @@
+{#- Admin: promo codes (a stub until stage 16). -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'promo' %}
+{% block title %}Промокоды · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Промокоды', 'Скидки, бесплатные дни и лимиты активаций.') }}
+<div class="card">{{ d.empty_state('Промокодов пока нет', 'Создание и применение промокодов появятся вместе с рефералкой и остальными платёжными системами (этап 16). Раздел занимает место в меню заранее.', 'star') }}</div>
+{% endblock %}

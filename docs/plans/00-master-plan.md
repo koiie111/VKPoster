@@ -369,4 +369,4 @@ interface PlatformAdapter {
 | Дизайн-система и UX-тексты | `docs/design/design-system.md`, `ux-writing.md` + витрина `/dev/ui` | этап 21, далее при добавлении компонентов |
 | Деплой, эксплуатация, инциденты | `docs/deploy.md`, `docs/runbook.md` | этапы 11, 19 |
 | История изменений | `docs/CHANGELOG.md` (Keep a Changelog) | каждый этап |
-| База знаний для пользователей | `docs/user/*.md` → страницы `/help` | этапы с пользовательскими функциями |
+| База знаний для пользователей | `resources/help/*.md` → страницы `/help` | этапы с пользовательскими функциями |

@@ -10,7 +10,37 @@
 {% endset %}
 {{ d.page_header('Здравствуйте, ' ~ user.name ~ '!', 'Пространство «' ~ workspace.workspaceName ~ '».', body = actions) }}
 
+{% if not onboarding.complete and (can('channels.manage') or can('posts.draft')) %}
+{% set copy = {
+    channel: {title: 'Подключите канал', text: 'Мы будем публиковать в него сами в нужное время. Это займёт пару минут.', label: 'Подключить канал', href: base ~ '/channels', allowed: can('channels.manage'), help: '/help/connect-telegram'},
+    post: {title: 'Напишите первый пост', text: 'Текст, фото или видео. Справа видно, как пост будет выглядеть в каждой сети.', label: 'Создать пост', href: base ~ '/posts/new', allowed: can('posts.draft'), help: '/help/schedule-post'},
+    schedule: {title: 'Запланируйте публикацию', text: 'Выберите дату и время и нажмите «Запланировать пост»: он появится в календаре и выйдет сам.', label: 'Открыть редактор', href: base ~ '/posts/new', allowed: can('posts.draft'), help: '/help/getting-started'}
+} %}
+<section class="card mb-6" aria-labelledby="onboarding-title">
+    <h2 class="text-lg font-semibold" id="onboarding-title">Три шага до первой публикации</h2>
+    <ol class="mt-4 flex flex-col gap-3">
+        {% for step in onboarding.steps %}
+        {% set item = copy[step.key] %}
+        <li class="flex gap-3 rounded-ctl p-3 {{ step.key == onboarding.next ? 'bg-primary-soft' : '' }}">
+            <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full {{ step.done ? 'bg-ok text-primary-fg' : 'border border-line text-muted' }}" aria-hidden="true">{% if step.done %}{{ icon('check', 'h-4 w-4') }}{% else %}{{ loop.index }}{% endif %}</span>
+            <div class="min-w-0 flex-1">
+                <p class="font-medium {{ step.done ? 'text-muted line-through' : '' }}">{{ item.title }}{% if step.done %}<span class="sr-only"> (готово)</span>{% endif %}</p>
+                {% if not step.done %}
+                <p class="mt-0.5 text-sm text-muted">{{ item.text }}</p>
+                <p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {% if step.key == onboarding.next and item.allowed %}{{ f.button(item.label, href = item.href, size = 'sm') }}{% endif %}
+                    <a class="text-sm font-medium text-primary-text underline underline-offset-2" href="{{ item.help }}">Как это сделать</a>
+                </p>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ol>
+</section>
+{% endif %}
+
 {% if channel_count == 0 %}
+{% if can('channels.manage') and not onboarding.complete %}{% else %}
 <div class="card">
     {% if can('channels.manage') %}
         {{ d.empty_state('Подключите первый канал', 'Чтобы планировать посты, нужен хотя бы один канал: мы будем публиковать в него сами в нужное время. Это займёт пару минут.', 'share-2', 'Подключить канал', base ~ '/channels') }}
@@ -18,6 +48,7 @@
         {{ d.empty_state('Пока нет каналов', 'Каналы подключает владелец или администратор пространства. Когда они появятся, здесь будут ваши ближайшие публикации.', 'share-2') }}
     {% endif %}
 </div>
+{% endif %}
 {% else %}
     {% if attention %}
     <section class="mb-6" aria-labelledby="attention-title">

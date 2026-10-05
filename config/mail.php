@@ -14,6 +14,8 @@ return static function (Env $env): array {
     return [
         'dsn' => $dsn,
         'from' => $env->string('MAIL_FROM', 'no-reply@localhost'),
+        // Where "Сообщить о проблеме" messages go (the owner's support mailbox).
+        'support' => $env->string('SUPPORT_EMAIL', $env->string('MAIL_FROM', 'no-reply@localhost')),
         'from_name' => $env->string('MAIL_FROM_NAME', $env->string('APP_NAME', 'ezposter')),
     ];
 };

@@ -1,0 +1,19 @@
+{#- One help article. Variables: article, html, toc, articles. -#}
+{% extends 'layouts/landing.twig' %}
+{% import 'components/display.twig' as d %}
+{% block title %}{{ article.title }} · Справка · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="mx-auto grid max-w-5xl gap-8 px-4 py-12 lg:grid-cols-[15rem_1fr]">
+    <nav class="lg:sticky lg:top-6 lg:self-start" aria-label="Статьи справки">
+        <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-muted"><a href="/help">Справка</a></p>
+        <ul class="flex flex-col gap-1 text-sm">
+            {% for a in articles %}<li><a class="block rounded-ctl px-3 py-2 hover:bg-sunken {{ a.slug == article.slug ? 'bg-primary-soft font-semibold text-primary-softfg' : 'text-muted' }}" href="/help/{{ a.slug }}"{% if a.slug == article.slug %} aria-current="page"{% endif %}>{{ a.title }}</a></li>{% endfor %}
+        </ul>
+    </nav>
+    <article class="min-w-0">
+        <h1 class="text-3xl font-bold">{{ article.title }}</h1>
+        <div class="doc mt-6">{{ html|raw }}</div>
+        <p class="mt-10 border-t border-line pt-4 text-sm text-muted">Остались вопросы? {% if current_user() %}В меню профиля выберите «Сообщить о проблеме».{% else %}Войдите и напишите нам из меню профиля: «Сообщить о проблеме».{% endif %}</p>
+    </article>
+</div>
+{% endblock %}

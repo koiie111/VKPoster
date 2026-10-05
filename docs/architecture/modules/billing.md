@@ -1,6 +1,6 @@
 # Биллинг: тарифы, лимиты, подписка, оплата (этап 10)
 
-Код: `src/Domain/Billing`, `src/Integrations/Payments`, `src/Http/Controllers/Billing`, `src/Http/Controllers/Webhooks/PaymentWebhookController.php`, `src/Http/Middleware/PlanFeature.php`, шаблоны `templates/workspace/billing/`, письма `templates/emails/billing_*`. Решения и что не проверено: [ADR 0008](../../adr/0008-billing-gateways-and-limits.md). Пользовательская инструкция: [docs/user/billing.md](../../user/billing.md).
+Код: `src/Domain/Billing`, `src/Integrations/Payments`, `src/Http/Controllers/Billing`, `src/Http/Controllers/Webhooks/PaymentWebhookController.php`, `src/Http/Middleware/PlanFeature.php`, шаблоны `templates/workspace/billing/`, письма `templates/emails/billing_*`. Решения и что не проверено: [ADR 0008](../../adr/0008-billing-gateways-and-limits.md). Пользовательская инструкция: [resources/help/billing.md](../../../resources/help/billing.md).
 
 ## Модель
 - **Источник правды о подписке — наша БД.** Провайдеры только принимают деньги.

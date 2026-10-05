@@ -26,11 +26,12 @@
 | `REDIS_DB` | `0` | Номер базы Redis (тесты используют 15) |
 | `MAIL_HOST` `MAIL_PORT` | `mailpit` `1025` | SMTP (в dev — Mailpit) |
 | `MAIL_FROM` `MAIL_FROM_NAME` | | Адрес и имя отправителя |
+| `SUPPORT_EMAIL` | `MAIL_FROM` | Ящик, куда приходят сообщения «Сообщить о проблеме» |
+| `HTTP_PORT` | `8080` | Только `compose.prod.yaml`: порт nginx на `127.0.0.1` за обратным прокси |
 | `MAIL_DSN` | — | Полный DSN почтового транспорта (`smtp://user:pass@host:587`); если задан, `MAIL_HOST`/`MAIL_PORT` игнорируются |
 | `DEV_LOGIN` | `1` | `/dev/login-as/{id или email}`: вход без пароля. Работает только при `APP_ENV=local` (и в тестах); при `DEV_LOGIN=1` и `APP_ENV=production` приложение не запустится |
 | `PASSWORD_HIBP` | `0` | `1` включает проверку новых паролей в Have I Been Pwned (отправляются только 5 символов SHA-1; при недоступности сервиса проверка пропускается) |
 | `REMEMBER_DAYS` | `30` | Срок жизни cookie «Запомнить меня» |
-| `CONSENT_VERSION` | `2026-10-01` | Версия текста согласия на обработку ПДн; сохраняется в `users.consent_version` при регистрации |
 | `VKID_CLIENT_ID` `VKID_CLIENT_SECRET` | — | VK ID (id.vk.com). Без `VKID_CLIENT_ID` кнопка скрыта; секрет необязателен для потока с PKCE |
 | `YANDEX_CLIENT_ID` `YANDEX_CLIENT_SECRET` | — | Яндекс ID; нужны оба значения |
 | `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | — | Google (OIDC); нужны оба значения |

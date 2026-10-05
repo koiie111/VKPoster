@@ -14,7 +14,8 @@
     {{ f.input('email', 'Почта', type = 'email', value = old('email'), required = true, autocomplete = 'email', placeholder = 'anna@example.com', error = errors('email')|first, hint = 'Сюда придёт письмо для подтверждения.') }}
     {{ f.input('password', 'Пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 10 символов. Лучше длинная фраза, чем сложное слово.', attrs = {minlength: 10, maxlength: 128}) }}
     <div class="flex flex-col gap-1.5">
-        {{ f.checkbox('consent', 'Я согласен(на) на обработку персональных данных', checked = old('consent') == '1', hint = 'Подробности в политике конфиденциальности.') }}
+        {{ f.checkbox('consent', 'Я принимаю условия оферты и согласен(на) на обработку персональных данных', checked = old('consent') == '1') }}
+        <p class="hint -mt-2">Читайте: <a class="text-primary-text underline underline-offset-2" href="/legal/offer" target="_blank" rel="noopener">публичная оферта</a>, <a class="text-primary-text underline underline-offset-2" href="/legal/privacy" target="_blank" rel="noopener">политика обработки персональных данных</a>.</p>
         {% if errors('consent') %}<p class="flex items-start gap-1.5 text-sm font-medium text-bad-fg" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ errors('consent')|first }}</span></p>{% endif %}
     </div>
     {{ f.button('Создать аккаунт', type = 'submit', block = true) }}

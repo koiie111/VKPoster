@@ -1,0 +1,16 @@
+{#- "Сообщить о проблеме". Variables: from (path the person came from). -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = '' %}
+{% block title %}Сообщить о проблеме · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Сообщить о проблеме', 'Расскажите, что случилось или что хочется улучшить. Мы ответим на почту вашего аккаунта.') }}
+<form class="card flex max-w-2xl flex-col gap-4" method="post" action="/feedback">
+    {{ csrf_field() }}
+    <input type="hidden" name="from" value="{{ from }}">
+    {{ f.textarea('message', 'Что случилось', value = old('message'), rows = 7, max = 3000, required = true, error = errors('message')|first, hint = 'Что вы делали, что ожидали увидеть и что получилось. Скриншоты можно приложить, ответив на наше письмо.') }}
+    <p class="text-sm text-muted">Вместе с сообщением мы получим ваше имя и почту, название пространства, страницу, с которой вы пришли, и тип браузера. Пароли и токены каналов нам недоступны и не передаются.</p>
+    <div class="flex flex-wrap gap-2">{{ f.button('Отправить', type = 'submit') }}{{ f.button('Отмена', variant = 'secondary', href = from ?: '/app') }}</div>
+</form>
+{% endblock %}

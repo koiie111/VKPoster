@@ -1,0 +1,35 @@
+{#- Admin: one workspace. Variables: workspace, members, channels, plans. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'workspaces' %}
+{% set tz = current_user().timezone %}
+{% block title %}{{ workspace.name }} · Админка{% endblock %}
+{% block content %}
+{{ d.page_header(workspace.name, 'Владелец: ' ~ (workspace.owner_email ?? workspace.owner_name) ~ '. Номер: ' ~ workspace.public_id ~ '.') }}
+<div class="grid gap-4 lg:grid-cols-2">
+    <section class="card" aria-labelledby="sub-h"><h2 class="text-lg font-semibold" id="sub-h">Тариф</h2>
+        <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt class="text-muted">Тариф</dt><dd>{{ workspace.plan ?? 'нет' }}</dd>
+            <dt class="text-muted">Состояние</dt><dd>{{ {trialing: 'пробный период', active: 'активна', past_due: 'просрочена'}[workspace.subscription] ?? '—' }}{% if workspace.cancel_at_period_end %}, автопродление выключено{% endif %}</dd>
+            <dt class="text-muted">Оплачено до</dt><dd>{{ workspace.current_period_end ? workspace.current_period_end|date('d.m.Y H:i', tz) : '—' }}</dd>
+            <dt class="text-muted">Пробный период до</dt><dd>{{ workspace.trial_ends_at ? workspace.trial_ends_at|date('d.m.Y H:i', tz) : '—' }}</dd>
+            {% if workspace.last_failure %}<dt class="text-muted">Последний сбой</dt><dd>{{ workspace.last_failure }}</dd>{% endif %}
+        </dl>
+        <form class="mt-5 flex flex-wrap items-end gap-3 border-t border-line pt-4" method="post" action="/admin/workspaces/{{ workspace.public_id }}/grant">
+            {{ csrf_field() }}
+            <div class="min-w-[9rem] flex-1">{{ f.select('plan', 'Выдать тариф', plans|reduce((carry, p) => carry|merge({(p.code): p.name}), {}), value = workspace.plan_code) }}</div>
+            <div class="min-w-[8rem]">{{ f.select('period', 'На срок', {month: 'Месяц', year: 'Год'}) }}</div>
+            {{ f.button('Выдать', type = 'submit') }}
+        </form>
+        <p class="hint">Срок считается от сегодня, платёж не создаётся. Действие попадёт в журнал.</p>
+    </section>
+    <section class="card" aria-labelledby="mem-h"><h2 class="text-lg font-semibold" id="mem-h">Участники</h2>
+        <ul class="mt-3 divide-y divide-line">{% for m in members %}<li class="flex flex-wrap justify-between gap-2 py-2 text-sm"><a class="font-medium hover:underline" href="/admin/users/{{ m.id }}">{{ m.name }}<span class="block text-xs font-normal text-muted">{{ m.email ?? 'без почты' }}</span></a><span class="text-muted">{{ m.role }}{% if m.status == 'blocked' %} · заблокирован{% endif %}</span></li>{% endfor %}</ul>
+    </section>
+</div>
+<section class="card mt-4" aria-labelledby="ch-h"><h2 class="text-lg font-semibold" id="ch-h">Каналы</h2>
+    {% if channels %}<ul class="mt-3 divide-y divide-line">{% for c in channels %}<li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span>{{ c.title }} <span class="text-muted">· {{ c.platform }}</span>{% if c.last_error %}<span class="block text-xs text-bad-fg">{{ c.last_error }}</span>{% endif %}</span>{{ d.badge({active: 'Подключён', paused: 'На паузе', error: 'Нужно проверить', revoked: 'Нужно переподключить'}[c.status] ?? c.status, c.status == 'active' ? 'ok' : (c.status == 'paused' ? 'neutral' : 'warn'), dot = true) }}</li>{% endfor %}</ul>
+    {% else %}<p class="mt-3 text-muted">Каналов нет.</p>{% endif %}
+</section>
+{% endblock %}

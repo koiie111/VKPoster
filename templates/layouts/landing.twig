@@ -1,23 +1,40 @@
-{#- Public pages: marketing site, legal pages. Blocks: title, content. -#}
+{#- Public pages: marketing site, legal pages, help, status. Blocks: title, content. Pages that may be indexed set `indexable`. -#}
 {% extends 'layouts/base.twig' %}
 {% import 'components/display.twig' as d %}
 {% import 'components/nav.twig' as n %}
 
 {% block body %}
+{% set me = current_user() %}
 <header class="border-b border-line bg-surface">
     <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <a href="/" aria-label="{{ app_name }}: на главную">{{ d.logo() }}</a>
         <nav class="hidden items-center gap-6 text-[0.9375rem] font-medium text-muted md:flex" aria-label="Разделы сайта">
-            <a class="hover:text-fg" href="#features">Возможности</a><a class="hover:text-fg" href="#pricing">Тарифы</a><a class="hover:text-fg" href="#faq">Вопросы</a>
+            <a class="hover:text-fg" href="/#features">Возможности</a><a class="hover:text-fg" href="/#pricing">Тарифы</a><a class="hover:text-fg" href="/#faq">Вопросы</a><a class="hover:text-fg" href="/help">Справка</a>
         </nav>
-        <div class="flex items-center gap-2"><span class="max-sm:hidden">{{ n.theme_toggle() }}</span><a class="btn btn-ghost btn-sm" href="{{ url('login') }}">Войти</a><a class="btn btn-primary btn-sm" href="{{ url('register') }}">Начать</a></div>
+        <div class="flex items-center gap-2">
+            <span class="max-sm:hidden">{{ n.theme_toggle() }}</span>
+            {% if me %}<a class="btn btn-primary btn-sm" href="/app">Открыть сервис</a>
+            {% else %}<a class="btn btn-ghost btn-sm" href="{{ url('login') }}">Войти</a><a class="btn btn-primary btn-sm" href="{{ url('register') }}">Начать</a>{% endif %}
+        </div>
     </div>
 </header>
 <main id="main">{% block content %}{% endblock %}</main>
 <footer class="mt-16 border-t border-line bg-surface">
-    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted">
-        <span>© {{ app_name }}</span>
-        <nav class="flex flex-wrap gap-4" aria-label="Документы"><a class="hover:text-fg" href="#">Политика конфиденциальности</a><a class="hover:text-fg" href="#">Оферта</a></nav>
+    <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+            <a href="/" aria-label="{{ app_name }}: на главную">{{ d.logo() }}</a>
+            <p class="mt-3 max-w-xs text-muted">Отложенный постинг в Telegram, ВКонтакте и MAX: пишите заранее, публикуем вовремя.</p>
+        </div>
+        <nav aria-label="Сервис"><p class="mb-3 font-semibold">Сервис</p><ul class="flex flex-col gap-2 text-muted">
+            <li><a class="hover:text-fg" href="/#features">Возможности</a></li><li><a class="hover:text-fg" href="/#pricing">Тарифы</a></li><li><a class="hover:text-fg" href="/#faq">Вопросы и ответы</a></li><li><a class="hover:text-fg" href="/status">Состояние соцсетей</a></li>
+        </ul></nav>
+        <nav aria-label="Помощь"><p class="mb-3 font-semibold">Помощь</p><ul class="flex flex-col gap-2 text-muted">
+            <li><a class="hover:text-fg" href="/help">Справка</a></li><li><a class="hover:text-fg" href="/help/connect-telegram">Подключить Telegram</a></li><li><a class="hover:text-fg" href="/help/connect-vk">Подключить ВКонтакте</a></li><li><a class="hover:text-fg" href="/help/connect-max">Подключить MAX</a></li>
+        </ul></nav>
+        <nav aria-label="Документы"><p class="mb-3 font-semibold">Документы</p><ul class="flex flex-col gap-2 text-muted">
+            <li><a class="hover:text-fg" href="/legal/offer">Публичная оферта</a></li><li><a class="hover:text-fg" href="/legal/privacy">Политика обработки ПДн</a></li><li><a class="hover:text-fg" href="/legal/cookies">Политика cookies</a></li><li><a class="hover:text-fg" href="/legal/requisites">Реквизиты</a></li>
+        </ul></nav>
     </div>
+    <div class="border-t border-line"><p class="mx-auto max-w-6xl px-4 py-4 text-sm text-muted">© {{ 'now'|date('Y') }} {{ app_name }}</p></div>
 </footer>
 {% endblock %}

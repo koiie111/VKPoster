@@ -1,0 +1,131 @@
+{#- Landing page. Variables: plans (cards from the price list), faq, trial_days. Light on scripts: only the theme toggle and the cookie notice run JS. -#}
+{% extends 'layouts/landing.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set me = current_user() %}
+{% block title %}{{ seo_title }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-6xl px-4 pb-8 pt-12 sm:pt-20" aria-labelledby="hero-title">
+    <div class="grid items-center gap-10 lg:grid-cols-[1.05fr_1fr]">
+        <div>
+            <p class="mb-4">{{ d.badge('Telegram, ВКонтакте и MAX', 'primary') }}</p>
+            <h1 class="text-4xl font-bold leading-tight sm:text-5xl" id="hero-title">Пишите посты заранее. Публикуем вовремя.</h1>
+            <p class="mt-5 max-w-xl text-lg text-muted">Один календарь для всех ваших каналов и сообществ. Напишите пост один раз, выберите время, и {{ app_name }} опубликует его сам, а если что-то пойдёт не так, сообщит вам.</p>
+            <div class="mt-8 flex flex-wrap gap-3">
+                {% if me %}{{ f.button('Открыть сервис', href = '/app', icon = 'rocket') }}
+                {% else %}{{ f.button('Попробовать бесплатно', href = url('register'), icon = 'rocket') }}{% endif %}
+                {{ f.button('Как это работает', variant = 'secondary', href = '#how') }}
+            </div>
+            <p class="mt-4 text-sm text-muted">Без банковской карты. После пробного периода останется бесплатный тариф.</p>
+        </div>
+        {#- The picture of the product is built from the same markup as the real calendar, with demo data. It is decoration for sighted users only. -#}
+        <div class="rounded-card border border-line bg-surface p-3 shadow-pop sm:p-4" aria-hidden="true">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <p class="text-sm font-semibold">Неделя 12–18 октября</p>
+                <span class="badge">Часовой пояс: Москва</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                {% for day in [
+                    {label: 'Пн', num: '12', items: [{p: 'tg', t: '10:00', x: 'Новинки недели'}, {p: 'vk', t: '10:00', x: 'Новинки недели'}]},
+                    {label: 'Ср', num: '14', today: true, items: [{p: 'max', t: '12:30', x: 'Акция до пятницы'}, {p: 'tg', t: '18:00', x: 'Опрос: что дальше?'}]},
+                    {label: 'Пт', num: '16', items: [{p: 'vk', t: '09:00', x: 'Итоги недели'}, {p: 'tg', t: '19:30', x: 'Розыгрыш'}]}
+                ] %}
+                <div class="min-w-0 rounded-ctl border border-line p-2 {{ day.today is defined ? 'bg-primary-soft' : '' }}">
+                    <p class="mb-2 font-semibold">{{ day.label }} <span class="text-muted">{{ day.num }}</span></p>
+                    <ul class="flex flex-col gap-1.5">
+                        {% for it in day.items %}<li class="plat plat-{{ it.p }} flex items-center gap-1.5 truncate rounded-sm border border-line bg-surface px-1.5 py-1 font-medium"><span class="shrink-0 tabular-nums">{{ it.t }}</span><span class="truncate">{{ it.x }}</span></li>{% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="mt-3 rounded-ctl border border-line bg-sunken/50 p-3 text-sm">
+                <div class="flex items-center gap-2"><span class="plat plat-tg"></span><span class="font-semibold">Опрос: что дальше?</span><span class="ml-auto badge badge-dot text-primary-text">Запланирован</span></div>
+                <p class="mt-1 text-muted">Выберем тему следующей недели вместе. Ответьте в комментариях или проголосуйте ниже.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="mx-auto mt-12 max-w-6xl px-4" aria-label="Поддерживаемые сети">
+    <ul class="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-muted">
+        <li class="plat plat-tg flex items-center gap-2 font-semibold"><span class="text-fg">Telegram</span></li>
+        <li class="plat plat-vk flex items-center gap-2 font-semibold"><span class="text-fg">ВКонтакте</span></li>
+        <li class="plat plat-max flex items-center gap-2 font-semibold"><span class="text-fg">MAX</span></li>
+    </ul>
+</section>
+
+<section id="features" class="mx-auto mt-20 max-w-6xl px-4" aria-labelledby="features-title">
+    <h2 class="text-center text-3xl font-bold" id="features-title">Всё, чтобы посты выходили без вашего участия</h2>
+    <p class="mx-auto mt-3 max-w-2xl text-center text-muted">Календарь, редактор и надёжная очередь публикации. Остальное мы не усложняем.</p>
+    <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for item in [
+            {i: 'calendar-days', t: 'Календарь на месяц', x: 'Неделя, месяц или список: все посты перед глазами. Перенесите пост на другой день перетаскиванием.'},
+            {i: 'eye', t: 'Свой вариант для каждой сети', x: 'Общий текст или отдельный для Telegram, ВКонтакте и MAX. Справа видно, как пост будет выглядеть, и сколько символов осталось.'},
+            {i: 'clock', t: 'Публикуем точно в срок', x: 'Время указано по вашему часовому поясу. Посты выходят в течение минуты после назначенного времени.'},
+            {i: 'shield', t: 'Без дублей и потерянных постов', x: 'При сбое сети мы повторяем попытку с паузами, но не публикуем пост дважды. Весь ход публикации виден в журнале.'},
+            {i: 'bell', t: 'Узнаете о проблеме сразу', x: 'Если канал отключили или пост не вышел, пришлём письмо и сообщение в Telegram с понятным объяснением.'},
+            {i: 'users', t: 'Команда и клиенты', x: 'Пригласите коллег с нужными ролями: автор пишет, редактор планирует, владелец платит. Несколько пространств для разных проектов.'},
+            {i: 'images', t: 'Медиатека', x: 'Загрузите фото и видео один раз и используйте в любых постах. Мы сами подгоним размер под требования сети.'},
+            {i: 'repeat', t: 'Полезные мелочи', x: 'Кнопки со ссылками, тихая отправка, закрепление, удаление поста через заданное время, шаблоны.'},
+            {i: 'lock', t: 'Ваши данные под защитой', x: 'Токены каналов хранятся зашифрованными, вход защищает двухфакторный код, данные лежат на серверах в России.'}
+        ] %}
+        <div class="card"><span class="flex h-11 w-11 items-center justify-center rounded-ctl bg-primary-soft text-primary-text">{{ icon(item.i, 'h-5 w-5') }}</span><h3 class="mt-4 text-lg font-semibold">{{ item.t }}</h3><p class="mt-1 text-muted">{{ item.x }}</p></div>
+        {% endfor %}
+    </div>
+</section>
+
+<section id="how" class="mx-auto mt-20 max-w-6xl px-4" aria-labelledby="how-title">
+    <h2 class="text-center text-3xl font-bold" id="how-title">Три шага до первого поста</h2>
+    <ol class="mt-10 grid gap-4 md:grid-cols-3">
+        {% for step in [
+            {n: '1', t: 'Подключите канал', x: 'Добавьте бота в администраторы канала и отправьте код, либо войдите через ВКонтакте. Это занимает пару минут.', h: '/help/connect-telegram', hl: 'Как подключить Telegram'},
+            {n: '2', t: 'Напишите пост', x: 'Текст, фото или видео, при желании свой вариант для каждой сети. Черновик сохраняется сам.', h: '/help/schedule-post', hl: 'Как запланировать пост'},
+            {n: '3', t: 'Выберите время', x: 'Нажмите «Запланировать»: пост появится в календаре и выйдет в назначенный момент.', h: '/help/getting-started', hl: 'Быстрый старт'}
+        ] %}
+        <li class="card"><span class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-fg font-bold" aria-hidden="true">{{ step.n }}</span><h3 class="mt-4 text-lg font-semibold">{{ step.t }}</h3><p class="mt-1 text-muted">{{ step.x }}</p><p class="mt-3"><a class="text-sm font-medium text-primary-text underline underline-offset-2" href="{{ step.h }}">{{ step.hl }}</a></p></li>
+        {% endfor %}
+    </ol>
+</section>
+
+<section id="pricing" class="mx-auto mt-20 max-w-6xl px-4" aria-labelledby="pricing-title">
+    <h2 class="text-center text-3xl font-bold" id="pricing-title">Тарифы</h2>
+    <p class="mx-auto mt-3 max-w-2xl text-center text-muted">Начните с пробного периода: {{ trial_days }} дней тарифа «Про» без карты. Потом выберите подходящий тариф или оставайтесь на бесплатном.</p>
+    <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {% for plan in plans %}
+        <div class="card flex flex-col {{ plan.popular ? '!border-primary' : '' }}">
+            <h3 class="flex flex-wrap items-center gap-2 text-lg font-semibold">{{ plan.name }}{% if plan.popular %} {{ d.badge('Популярный', 'primary') }}{% endif %}</h3>
+            <p class="mt-2 text-3xl font-bold">{{ plan.price }}<span class="text-base font-normal text-muted"> {{ plan.per }}</span></p>
+            <p class="min-h-5 text-sm text-muted">{{ plan.year }}</p>
+            <ul class="mt-4 flex flex-1 flex-col gap-2 text-sm">
+                {% for line in plan.highlights %}<li class="flex gap-2">{{ icon('check', 'mt-0.5 h-4 w-4 text-ok') }}<span>{{ line }}</span></li>{% endfor %}
+            </ul>
+            <div class="mt-5">
+                {% if me %}{{ f.button('Открыть сервис', variant = plan.popular ? 'primary' : 'secondary', href = '/app', block = true) }}
+                {% else %}{{ f.button(plan.free ? 'Начать бесплатно' : 'Попробовать бесплатно', variant = plan.popular ? 'primary' : 'secondary', href = url('register'), block = true) }}{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="mt-4 text-center text-sm text-muted">Цены указаны в рублях. Автопродление можно отключить в любой момент.</p>
+</section>
+
+<section id="faq" class="mx-auto mt-20 max-w-3xl px-4" aria-labelledby="faq-title">
+    <h2 class="text-center text-3xl font-bold" id="faq-title">Вопросы и ответы</h2>
+    <div class="mt-8 flex flex-col gap-3">
+        {% for item in faq %}
+        <details class="card group !p-0">
+            <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-card px-5 py-4 font-semibold">{{ item.q }}<span class="shrink-0 text-muted transition-transform group-open:rotate-180">{{ icon('chevron-down', 'h-5 w-5') }}</span></summary>
+            <p class="px-5 pb-5 text-muted">{{ item.a }}</p>
+        </details>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="mx-auto mt-20 max-w-4xl px-4" aria-labelledby="cta-title">
+    <div class="rounded-card bg-primary-soft p-8 text-center text-primary-softfg sm:p-12">
+        <h2 class="text-3xl font-bold" id="cta-title">Попробуйте первый пост сегодня</h2>
+        <p class="mx-auto mt-3 max-w-xl">Регистрация занимает минуту. {{ trial_days }} дней тарифа «Про» в подарок, карта не нужна.</p>
+        <div class="mt-6">{% if me %}{{ f.button('Открыть сервис', href = '/app', icon = 'rocket') }}{% else %}{{ f.button('Попробовать бесплатно', href = url('register'), icon = 'rocket') }}{% endif %}</div>
+    </div>
+</section>
+{% endblock %}
