@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Domain\Admin\StaffAccess;
 use App\Domain\Auth\SessionRegistry;
 use App\Domain\User\UserRepository;
 use App\Http\Auth\Impersonation;
@@ -28,6 +29,7 @@ final class Authenticate implements MiddlewareInterface
         private readonly SessionRegistry $registry,
         private readonly UserRepository $users,
         private readonly Impersonation $impersonation,
+        private readonly StaffAccess $staffAccess,
     ) {
     }
 
@@ -67,6 +69,6 @@ final class Authenticate implements MiddlewareInterface
     {
         $staff = $this->users->find($id);
 
-        return $staff !== null && $staff->isSuperadmin && !$staff->isBlocked();
+        return $staff !== null && $this->staffAccess->isStaff($staff);
     }
 }

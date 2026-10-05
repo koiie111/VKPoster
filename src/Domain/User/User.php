@@ -29,6 +29,7 @@ final class User
         public readonly string $status,
         public readonly DateTimeImmutable $createdAt,
         public readonly ?string $consentVersion = null,
+        public readonly ?string $blockReason = null,
     ) {
     }
 

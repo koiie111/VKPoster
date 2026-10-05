@@ -77,6 +77,7 @@ final class AdminController
             return Response::redirect('/admin/unlock');
         }
         $session->set(RequireAdminUnlock::SESSION_KEY, $this->clock->now()->getTimestamp());
+        $session->set(RequireAdminUnlock::LAST_SEEN_KEY, $this->clock->now()->getTimestamp());
         $this->audit->record('admin.unlocked', $user->id, 'user', (string) $user->id);
         $intended = $session->pull('admin.intended');
 

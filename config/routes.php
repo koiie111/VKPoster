@@ -54,6 +54,10 @@ use App\Http\Middleware\RequireConsent;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\ResolveWorkspace;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AdminAuditController;
+use App\Http\Controllers\Admin\StaffController;
+use App\Http\Middleware\AdminAuditTrail;
+use App\Http\Middleware\RequireStaffPermission;
 use App\Http\Controllers\Admin\BillingAdminController;
 use App\Http\Controllers\Admin\ImpersonationController;
 use App\Http\Controllers\Admin\OperationsController;
@@ -275,33 +279,41 @@ return static function (Router $router): void {
         });
     });
 
-    // The back office. Superadmins only (anybody else gets 404), two-factor protected, with a fresh code every 8 hours and its own rate limit.
+    // The back office. Staff only (anybody else gets 404), two-factor protected, with a fresh code every 8 hours (and after 30 idle minutes) and
+    // its own rate limit. Every route names the permission it needs (`config/admin_permissions.php`); every change is audited.
     $router->group('/admin', [Authenticate::class, RequireVerifiedEmail::class, [RateLimit::class, ['bucket' => 'admin', 'max' => 600, 'seconds' => 600]], RequireStaff::class], static function (Router $a): void {
         $a->get('/unlock', [AdminController::class, 'unlockShow'])->name('admin.unlock');
         $a->post('/unlock', [AdminController::class, 'unlock'])->middleware([RateLimit::class, ['bucket' => 'admin-unlock', 'max' => 10, 'seconds' => 600]]);
-        $a->group('', [RequireAdminUnlock::class], static function (Router $s): void {
-            $s->get('', [AdminController::class, 'overview'])->name('admin');
-            $s->get('/users', [UsersController::class, 'index'])->name('admin.users');
-            $s->get('/users/{id:[0-9]{1,12}}', [UsersController::class, 'show']);
-            $s->post('/users/{id:[0-9]{1,12}}/block', [UsersController::class, 'block']);
-            $s->post('/users/{id:[0-9]{1,12}}/unblock', [UsersController::class, 'unblock']);
-            $s->post('/users/{id:[0-9]{1,12}}/impersonate', [UsersController::class, 'impersonate'])->middleware([RateLimit::class, ['bucket' => 'admin-impersonate', 'max' => 30, 'seconds' => 3600]]);
-            $s->get('/workspaces', [WorkspacesController::class, 'index'])->name('admin.workspaces');
-            $s->get('/workspaces/{publicId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}', [WorkspacesController::class, 'show']);
-            $s->post('/workspaces/{publicId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}/grant', [WorkspacesController::class, 'grant']);
-            $s->get('/subscriptions', [BillingAdminController::class, 'subscriptions'])->name('admin.subscriptions');
-            $s->get('/payments', [BillingAdminController::class, 'payments'])->name('admin.payments');
-            $s->post('/payments/{paymentId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}/refund', [BillingAdminController::class, 'refund'])->middleware([RateLimit::class, ['bucket' => 'admin-refund', 'max' => 30, 'seconds' => 3600]]);
-            $s->get('/plans', [BillingAdminController::class, 'plans'])->name('admin.plans');
-            $s->get('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'editPlan']);
-            $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan']);
-            $s->get('/promo', [OperationsController::class, 'promo'])->name('admin.promo');
-            $s->get('/queues', [OperationsController::class, 'queues'])->name('admin.queues');
-            $s->post('/queues/failed/{id:[0-9]{1,12}}/retry', [OperationsController::class, 'retry']);
-            $s->post('/queues/failed/{id:[0-9]{1,12}}/discard', [OperationsController::class, 'discard']);
-            $s->get('/channels', [OperationsController::class, 'channels'])->name('admin.channels');
-            $s->get('/platforms', [OperationsController::class, 'platforms'])->name('admin.platforms');
-            $s->post('/platforms', [OperationsController::class, 'savePlatforms']);
+        $a->group('', [RequireAdminUnlock::class, AdminAuditTrail::class], static function (Router $s): void {
+            $ulid26 = '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}';
+            $can = static fn (string $permission): array => [RequireStaffPermission::class, ['permission' => $permission]];
+            $s->get('', [AdminController::class, 'overview'])->name('admin')->middleware($can('dashboard.view'));
+            $s->get('/users', [UsersController::class, 'index'])->name('admin.users')->middleware($can('users.view'));
+            $s->get('/users/{id:[0-9]{1,12}}', [UsersController::class, 'show'])->middleware($can('users.view'));
+            $s->post('/users/{id:[0-9]{1,12}}/block', [UsersController::class, 'block'])->middleware($can('users.manage'));
+            $s->post('/users/{id:[0-9]{1,12}}/unblock', [UsersController::class, 'unblock'])->middleware($can('users.manage'));
+            $s->post('/users/{id:[0-9]{1,12}}/impersonate', [UsersController::class, 'impersonate'])->middleware($can('users.impersonate'), [RateLimit::class, ['bucket' => 'admin-impersonate', 'max' => 30, 'seconds' => 3600]]);
+            $s->get('/workspaces', [WorkspacesController::class, 'index'])->name('admin.workspaces')->middleware($can('workspaces.view'));
+            $s->get('/workspaces/{publicId:' . $ulid26 . '}', [WorkspacesController::class, 'show'])->middleware($can('workspaces.view'));
+            $s->post('/workspaces/{publicId:' . $ulid26 . '}/grant', [WorkspacesController::class, 'grant'])->middleware($can('grants.manage'));
+            $s->get('/subscriptions', [BillingAdminController::class, 'subscriptions'])->name('admin.subscriptions')->middleware($can('finance.view'));
+            $s->get('/payments', [BillingAdminController::class, 'payments'])->name('admin.payments')->middleware($can('finance.view'));
+            $s->post('/payments/{paymentId:' . $ulid26 . '}/refund', [BillingAdminController::class, 'refund'])->middleware($can('finance.manage'), [RateLimit::class, ['bucket' => 'admin-refund', 'max' => 30, 'seconds' => 3600]]);
+            $s->get('/plans', [BillingAdminController::class, 'plans'])->name('admin.plans')->middleware($can('finance.view'));
+            $s->get('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'editPlan'])->middleware($can('plans.manage'));
+            $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan'])->middleware($can('plans.manage'));
+            $s->get('/promo', [OperationsController::class, 'promo'])->name('admin.promo')->middleware($can('finance.view'));
+            $s->get('/queues', [OperationsController::class, 'queues'])->name('admin.queues')->middleware($can('system.view'));
+            $s->post('/queues/failed/{id:[0-9]{1,12}}/retry', [OperationsController::class, 'retry'])->middleware($can('ops.manage'));
+            $s->post('/queues/failed/{id:[0-9]{1,12}}/discard', [OperationsController::class, 'discard'])->middleware($can('ops.manage'));
+            $s->get('/channels', [OperationsController::class, 'channels'])->name('admin.channels')->middleware($can('system.view'));
+            $s->get('/platforms', [OperationsController::class, 'platforms'])->name('admin.platforms')->middleware($can('system.view'));
+            $s->post('/platforms', [OperationsController::class, 'savePlatforms'])->middleware($can('ops.manage'));
+            $s->get('/audit', [AdminAuditController::class, 'index'])->name('admin.audit')->middleware($can('audit.view'));
+            $s->get('/audit/export', [AdminAuditController::class, 'export'])->middleware($can('audit.view'));
+            $s->get('/staff', [StaffController::class, 'index'])->name('admin.staff')->middleware($can('staff.manage'));
+            $s->post('/staff', [StaffController::class, 'assign'])->middleware($can('staff.manage'));
+            $s->post('/staff/{id:[0-9]{1,12}}/remove', [StaffController::class, 'remove'])->middleware($can('staff.manage'));
         });
     });
 

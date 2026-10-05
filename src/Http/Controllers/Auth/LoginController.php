@@ -72,7 +72,8 @@ final class LoginController
 
                 return Response::redirect('/login');
             case LoginStatus::Blocked:
-                $this->flash->invalid($old, ['form' => 'Аккаунт заблокирован. Напишите в поддержку, и мы разберёмся.']);
+                $reason = $result->user?->blockReason;
+                $this->flash->invalid($old, ['form' => 'Аккаунт заблокирован.' . ($reason !== null && $reason !== '' ? ' Причина: ' . rtrim($reason, '.') . '.' : '') . ' Напишите в поддержку, и мы разберёмся.']);
 
                 return Response::redirect('/login');
             case LoginStatus::Invalid:

@@ -182,6 +182,15 @@ return static function (Container $c, string $base): void {
         return new Permissions($matrix);
     });
 
+    $c->factory(\App\Domain\Admin\StaffAccess::class, static function (Container $c): \App\Domain\Admin\StaffAccess {
+        $matrix = [];
+        foreach ($c->get(Config::class)->array('admin_permissions') as $permission => $roles) {
+            $matrix[(string) $permission] = is_array($roles) ? array_values(array_filter($roles, 'is_string')) : [];
+        }
+
+        return new \App\Domain\Admin\StaffAccess($c->get(Connection::class), $c->get(Clock::class), $matrix);
+    });
+
     $c->factory(View::class, static function (Container $c) use ($base): View {
         $view = new View(
             $c->get(Config::class),
@@ -202,6 +211,9 @@ return static function (Container $c, string $base): void {
         $view->registerFunction('plan_card', $nav->planCard(...));
         $view->registerFunction('platform_notices', $nav->platformNotices(...));
         $view->registerFunction('impersonating', $c->get(\App\Http\Auth\Impersonation::class)->target(...));
+        $adminNav = $c->get(\App\Http\Admin\AdminNav::class);
+        $view->registerFunction('admin_can', $adminNav->can(...));
+        $view->registerFunction('admin_role', $adminNav->role(...));
         $view->registerFunction('money', \App\Support\Money::format(...));
 
         return $view;

@@ -184,9 +184,16 @@ final class UserRepository
         $this->db->table('users')->where('id', '=', $id)->update(['is_superadmin' => $value ? 1 : 0, 'updated_at' => DbTime::format($this->clock->now())]);
     }
 
-    public function setStatus(int $id, string $status): void
+    /**
+     * @param string|null $reason shown to the person when they try to sign in while blocked; forgotten when the status is not `blocked`
+     */
+    public function setStatus(int $id, string $status, ?string $reason = null): void
     {
-        $this->db->table('users')->where('id', '=', $id)->update(['status' => $status, 'updated_at' => DbTime::format($this->clock->now())]);
+        $this->db->table('users')->where('id', '=', $id)->update([
+            'status' => $status,
+            'block_reason' => $status === User::STATUS_BLOCKED ? $reason : null,
+            'updated_at' => DbTime::format($this->clock->now()),
+        ]);
     }
 
     /**
@@ -208,6 +215,7 @@ final class UserRepository
             (string) $row['status'],
             DbTime::parse($row['created_at']) ?? new DateTimeImmutable('@0'),
             is_string($row['consent_version'] ?? null) ? $row['consent_version'] : null,
+            is_string($row['block_reason'] ?? null) ? $row['block_reason'] : null,
         );
     }
 }

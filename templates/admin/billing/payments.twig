@@ -26,6 +26,8 @@
                 {{ csrf_field() }}
                 <label class="sr-only" for="amount-{{ p.public_id }}">Сумма возврата, ₽</label>
                 <input class="field" id="amount-{{ p.public_id }}" name="amount" inputmode="decimal" placeholder="Вся сумма: {{ money(left, p.currency) }}">
+                <label class="sr-only" for="code-{{ p.public_id }}">Код подтверждения</label>
+                <input class="field" id="code-{{ p.public_id }}" name="confirm_code" inputmode="numeric" autocomplete="one-time-code" placeholder="Код из аутентификатора" required>
                 <label class="flex items-start gap-2 text-xs text-muted"><input class="mt-0.5" type="checkbox" name="confirm" value="1" required>Возврат нельзя отменить</label>
                 <button class="btn btn-danger btn-sm" type="submit">Вернуть деньги</button>
             </form>{% endif %}</td>

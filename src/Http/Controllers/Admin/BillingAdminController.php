@@ -10,6 +10,7 @@ use App\Domain\Billing\BillingService;
 use App\Domain\Billing\PaymentRepository;
 use App\Domain\Billing\PlanEditor;
 use App\Domain\Billing\PlanRepository;
+use App\Http\Admin\StepUp;
 use App\Http\FormFlash;
 use App\Http\WorkspaceRequest;
 use App\Kernel\Exception\HttpException;
@@ -31,6 +32,7 @@ final class BillingAdminController
         private readonly PlanRepository $plans,
         private readonly PlanEditor $editor,
         private readonly FormFlash $flash,
+        private readonly StepUp $stepUp,
     ) {
     }
 
@@ -65,6 +67,9 @@ final class BillingAdminController
     {
         $staff = WorkspaceRequest::user($request);
         $payment = $this->payments->findByPublicId($paymentId) ?? throw new HttpException(404, 'Not found');
+        if (($denied = $this->stepUp->guard($request, $staff, '/admin/payments')) !== null) {
+            return $denied;
+        }
         if ($request->input('confirm') !== '1') {
             $this->flash->toast('Подтвердите, что возврат нельзя отменить.', 'error');
 
@@ -106,6 +111,9 @@ final class BillingAdminController
     public function updatePlan(Request $request, string $code): Response
     {
         $plan = $this->plans->findByCode($code) ?? throw new HttpException(404, 'Not found');
+        if (($denied = $this->stepUp->guard($request, WorkspaceRequest::user($request), '/admin/plans/' . $plan->code)) !== null) {
+            return $denied;
+        }
         $input = [];
         foreach ($request->all() as $key => $value) {
             if (is_string($value)) {

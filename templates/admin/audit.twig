@@ -1,0 +1,35 @@
+{#- Admin: the journal of staff actions. Variables: filters, actions, result, base, export_href. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'audit' %}
+{% set tz = current_user().timezone %}
+{% block title %}Журнал действий · Админка{% endblock %}
+{% block content %}
+{% set head_actions %}{{ f.button('Скачать CSV', variant = 'secondary', icon = 'download', href = export_href) }}{% endset %}
+{{ d.page_header('Журнал действий', 'Кто что сделал в админке: найдено записей ' ~ result.total ~ '. Время показано в вашем часовом поясе (' ~ tz ~ ').', body = head_actions) }}
+<form class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" method="get" action="/admin/audit" role="search">
+    {{ f.select('scope', 'Что показывать', {admin: 'Только действия сотрудников', all: 'Все события сервиса'}, value = filters.scope ?? 'admin') }}
+    {{ f.select('action', 'Действие', {'': 'Любое'}|merge(actions), value = filters.action ?? '') }}
+    {{ f.input('actor', 'Кто (номер или почта)', value = filters.actor ?? '') }}
+    {{ f.input('subject', 'Номер объекта', value = filters.subject ?? '', hint = 'Например номер пользователя или платежа') }}
+    {{ f.input('from', 'С даты', type = 'date', value = filters.from ?? '') }}
+    {{ f.input('to', 'По дату', type = 'date', value = filters.to ?? '') }}
+    <div class="flex items-end gap-3">{{ f.button('Применить', type = 'submit', variant = 'secondary', icon = 'filter') }}{{ f.button('Сбросить', variant = 'ghost', href = '/admin/audit') }}</div>
+</form>
+<div class="card !p-0 overflow-hidden">
+{% set rows %}
+    {% for r in result.rows %}
+    <tr>
+        <td class="whitespace-nowrap text-muted">{{ r.created_at|date('d.m.Y H:i:s', tz) }}</td>
+        <td><span class="block font-medium">{{ r.label }}</span><span class="block text-xs text-muted">{{ r.action }}</span></td>
+        <td>{% if r.actor_id %}<a class="hover:underline" href="/admin/users/{{ r.actor_id }}">{{ r.actor_name ?? ('№ ' ~ r.actor_id) }}</a>{% else %}<span class="text-muted">система</span>{% endif %}<span class="block text-xs text-muted">{{ r.ip }}</span></td>
+        <td>{% if r.subject_type %}{{ r.subject_type }} <span class="text-muted">{{ r.subject_id }}</span>{% endif %}</td>
+        <td class="max-w-md break-words text-sm text-muted">{{ r.details }}</td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Когда'}, {label: 'Действие'}, {label: 'Кто'}, {label: 'Объект'}, {label: 'Подробности'}], empty = result.rows is empty, empty_title = 'Записей нет', empty_text = 'Измените фильтры или период.', caption = 'Журнал действий', body = rows) }}
+</div>
+<div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
+{% endblock %}

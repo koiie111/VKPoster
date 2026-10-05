@@ -2,6 +2,7 @@
 {% extends 'layouts/admin.twig' %}
 {% import 'components/display.twig' as d %}
 {% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
 {% set nav_current = 'plans' %}
 {% block title %}{{ plan.name }} · Тарифы · Админка{% endblock %}
 {% block content %}
@@ -30,6 +31,7 @@
             {% for key, label in features %}{{ f.checkbox('feature_' ~ key, label, checked = old('feature_' ~ key, plan.hasFeature(key) ? '1' : '') == '1') }}{% endfor %}
         </div>
     </fieldset>
+    <div class="max-w-xs">{{ a.step_up('plan-code') }}</div>
     <div class="flex flex-wrap gap-2">{{ f.button('Сохранить', type = 'submit') }}{{ f.button('Отмена', variant = 'secondary', href = '/admin/plans') }}</div>
 </form>
 {% endblock %}

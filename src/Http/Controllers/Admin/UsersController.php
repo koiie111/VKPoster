@@ -10,6 +10,8 @@ use App\Domain\Auth\SessionRegistry;
 use App\Domain\User\User;
 use App\Domain\User\UserRepository;
 use App\Http\Auth\Impersonation;
+use App\Http\Admin\StepUp;
+use App\Http\Admin\AdminInput;
 use App\Http\FormFlash;
 use App\Http\WorkspaceRequest;
 use App\Kernel\Exception\HttpException;
@@ -30,6 +32,7 @@ final class UsersController
         private readonly Impersonation $impersonation,
         private readonly AuditLog $audit,
         private readonly FormFlash $flash,
+        private readonly StepUp $stepUp,
     ) {
     }
 
@@ -60,15 +63,24 @@ final class UsersController
     {
         $staff = WorkspaceRequest::user($request);
         $target = $this->target((int) $id);
+        if (($denied = $this->stepUp->guard($request, $staff, '/admin/users/' . $target->id)) !== null) {
+            return $denied;
+        }
+        $reason = AdminInput::text($request, 'reason', 500);
+        if ($reason === '') {
+            $this->flash->toast('Напишите причину блокировки: человек увидит её при попытке войти.', 'error');
+
+            return Response::redirect('/admin/users/' . $target->id);
+        }
         if ($target->id === $staff->id || $target->isSuperadmin) {
             $this->flash->toast('Этого человека заблокировать нельзя: он сотрудник.', 'error');
 
             return Response::redirect('/admin/users/' . $target->id);
         }
-        $this->users->setStatus($target->id, User::STATUS_BLOCKED);
+        $this->users->setStatus($target->id, User::STATUS_BLOCKED, $reason);
         // A blocked person is signed out everywhere at once.
         $this->sessions->revokeAll($target->id);
-        $this->audit->record('admin.user_blocked', $staff->id, 'user', (string) $target->id);
+        $this->audit->record('admin.user_blocked', $staff->id, 'user', (string) $target->id, ['before' => $target->status, 'after' => User::STATUS_BLOCKED, 'reason' => $reason]);
         $this->flash->toast('Аккаунт заблокирован, все его сессии завершены.');
 
         return Response::redirect('/admin/users/' . $target->id);
@@ -79,7 +91,7 @@ final class UsersController
         $staff = WorkspaceRequest::user($request);
         $target = $this->target((int) $id);
         $this->users->setStatus($target->id, User::STATUS_ACTIVE);
-        $this->audit->record('admin.user_unblocked', $staff->id, 'user', (string) $target->id);
+        $this->audit->record('admin.user_unblocked', $staff->id, 'user', (string) $target->id, ['before' => $target->status, 'after' => User::STATUS_ACTIVE]);
         $this->flash->toast('Аккаунт разблокирован.');
 
         return Response::redirect('/admin/users/' . $target->id);
@@ -89,6 +101,9 @@ final class UsersController
     {
         $staff = WorkspaceRequest::user($request);
         $target = $this->target((int) $id);
+        if (($denied = $this->stepUp->guard($request, $staff, '/admin/users/' . $target->id)) !== null) {
+            return $denied;
+        }
         if ($target->id === $staff->id || $target->isSuperadmin || $target->isBlocked()) {
             $this->flash->toast('Под этим аккаунтом войти нельзя: это сотрудник или заблокированный человек.', 'error');
 
