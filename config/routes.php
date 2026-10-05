@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Account\ConsentController;
 use App\Http\Controllers\Account\LoginMethodsController;
 use App\Http\Controllers\Account\NotificationController;
 use App\Http\Controllers\Account\SecurityController;
@@ -46,20 +47,22 @@ use App\Http\Middleware\AuthenticateOrSigned;
 use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\Authorize;
 use App\Http\Middleware\Guest;
+use App\Http\Middleware\OptionalAuthenticate;
 use App\Http\Middleware\RateLimit;
+use App\Http\Middleware\RequireConsent;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\ResolveWorkspace;
 use App\Kernel\Http\Router;
 
 return static function (Router $router): void {
-    $router->get('/', [HomeController::class, 'index'])->name('home');
+    $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(OptionalAuthenticate::class);
     $router->get('/healthz', [HealthController::class, 'show'])->name('health');
 
     // Public site: legal documents, the knowledge base, the status of the networks, and what search engines may read.
-    $router->get('/legal/{slug:[a-z]{3,20}}', [LegalController::class, 'show'])->name('legal.show');
-    $router->get('/help', [HelpController::class, 'index'])->name('help');
-    $router->get('/help/{slug:[a-z0-9-]{1,60}}', [HelpController::class, 'show'])->name('help.show');
-    $router->get('/status', [StatusController::class, 'show'])->name('status');
+    $router->get('/legal/{slug:[a-z]{3,20}}', [LegalController::class, 'show'])->name('legal.show')->middleware(OptionalAuthenticate::class);
+    $router->get('/help', [HelpController::class, 'index'])->name('help')->middleware(OptionalAuthenticate::class);
+    $router->get('/help/{slug:[a-z0-9-]{1,60}}', [HelpController::class, 'show'])->name('help.show')->middleware(OptionalAuthenticate::class);
+    $router->get('/status', [StatusController::class, 'show'])->name('status')->middleware(OptionalAuthenticate::class);
     $router->get('/robots.txt', [SeoController::class, 'robots']);
     $router->get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
@@ -100,6 +103,8 @@ return static function (Router $router): void {
     $router->group('', [Authenticate::class], static function (Router $r) use ($provider): void {
         $r->post('/logout', [LoginController::class, 'logout'])->name('logout');
         $r->post('/logout/all', [LoginController::class, 'logoutAll'])->name('logout.all');
+        $r->get('/consent', [ConsentController::class, 'show'])->name('consent');
+        $r->post('/consent', [ConsentController::class, 'accept'])->middleware([RateLimit::class, ['bucket' => 'consent', 'max' => 30, 'seconds' => 600]]);
         $r->get('/email/verification', [EmailVerificationController::class, 'notice'])->name('auth.verify.notice');
         $r->post('/email/verification/resend', [EmailVerificationController::class, 'resend']);
 
@@ -128,7 +133,7 @@ return static function (Router $router): void {
 
     // The application itself needs a confirmed email.
     $ulid = '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}';
-    $router->group('', [Authenticate::class, RequireVerifiedEmail::class], static function (Router $r) use ($token, $ulid): void {
+    $router->group('', [Authenticate::class, RequireVerifiedEmail::class, RequireConsent::class], static function (Router $r) use ($token, $ulid): void {
         $r->get('/app', [AppController::class, 'dashboard'])->name('app');
         $r->get('/workspaces/new', [WorkspaceController::class, 'create'])->name('workspace.new');
         // VK ID sends the browser back here (a fixed address registered in the VK application); the controller checks the workspace and the right.

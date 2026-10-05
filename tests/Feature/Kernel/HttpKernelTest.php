@@ -58,7 +58,7 @@ final class HttpKernelTest extends HttpTestCase
         }
         self::assertStringNotContainsString('unsafe-inline', $csp);
         self::assertStringNotContainsString('unsafe-eval', $csp);
-        self::assertSame(4, substr_count($response->body, 'nonce="' . $m[1] . '"'), 'every script tag carries the request nonce');
+        self::assertSame(5, substr_count($response->body, 'nonce="' . $m[1] . '"'), 'every script tag (including the cookie notice) carries the request nonce');
         self::assertStringNotContainsString('<script>', $response->body);
         self::assertStringNotContainsString('onclick', $response->body);
     }

@@ -35,7 +35,7 @@ return new class () implements Seeder {
                 'email' => $email,
                 'email_verified_at' => $now,
                 'name' => $name,
-                'consent_version' => 'seed',
+                'consent_version' => (new \App\Domain\Legal\LegalDocuments(dirname(__DIR__, 2) . '/resources/legal'))->consentVersion(),
                 'consent_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,

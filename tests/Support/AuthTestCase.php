@@ -103,7 +103,7 @@ abstract class AuthTestCase extends HttpTestCase
             'name' => $name,
             'password_hash' => $hash,
             'email_verified_at' => $verified ? $this->clock->now() : null,
-            'consent_version' => 'test',
+            'consent_version' => $this->app->container()->get(\App\Domain\Legal\LegalDocuments::class)->consentVersion(),
         ]);
         self::assertNotNull($user);
 
