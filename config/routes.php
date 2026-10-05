@@ -56,6 +56,7 @@ use App\Http\Middleware\ResolveWorkspace;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminAuditController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DesignController;
 use App\Http\Controllers\Site\ThemeController;
 use App\Http\Middleware\AdminAuditTrail;
@@ -68,10 +69,11 @@ use App\Http\Controllers\Admin\WorkspacesController;
 use App\Http\Middleware\DenyWhenImpersonating;
 use App\Http\Middleware\RequireAdminUnlock;
 use App\Http\Middleware\RequireStaff;
+use App\Http\Middleware\TrackVisit;
 use App\Kernel\Http\Router;
 
 return static function (Router $router): void {
-    $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(OptionalAuthenticate::class);
+    $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(TrackVisit::class, OptionalAuthenticate::class);
     $router->get('/healthz', [HealthController::class, 'show'])->name('health');
 
     // Public site: legal documents, the knowledge base, the status of the networks, and what search engines may read.
@@ -89,10 +91,10 @@ return static function (Router $router): void {
 
     // Guests only: signed-in visitors are sent to /app.
     $router->group('', [Guest::class], static function (Router $r) use ($provider): void {
-        $r->get('/register', [RegisterController::class, 'show'])->name('register');
+        $r->get('/register', [RegisterController::class, 'show'])->name('register')->middleware(TrackVisit::class);
         $r->post('/register', [RegisterController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'register', 'max' => 10, 'seconds' => 3600]]);
         $r->get('/register/done', [RegisterController::class, 'done'])->name('register.done');
-        $r->get('/login', [LoginController::class, 'show'])->name('login');
+        $r->get('/login', [LoginController::class, 'show'])->name('login')->middleware(TrackVisit::class);
         $r->post('/login', [LoginController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'login', 'max' => 20, 'seconds' => 600]]);
         $r->get('/login/2fa', [LoginController::class, 'twoFactorShow'])->name('login.2fa');
         $r->post('/login/2fa', [LoginController::class, 'twoFactorStore'])->middleware([RateLimit::class, ['bucket' => 'login-2fa', 'max' => 20, 'seconds' => 600]]);
@@ -290,7 +292,8 @@ return static function (Router $router): void {
         $a->group('', [RequireAdminUnlock::class, AdminAuditTrail::class], static function (Router $s): void {
             $ulid26 = '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}';
             $can = static fn (string $permission): array => [RequireStaffPermission::class, ['permission' => $permission]];
-            $s->get('', [AdminController::class, 'overview'])->name('admin')->middleware($can('dashboard.view'));
+            $s->get('', [DashboardController::class, 'index'])->name('admin')->middleware($can('dashboard.view'));
+            $s->post('/dashboard/refresh', [DashboardController::class, 'refresh'])->middleware($can('stats.view'));
             $s->get('/users', [UsersController::class, 'index'])->name('admin.users')->middleware($can('users.view'));
             $s->get('/users/{id:[0-9]{1,12}}', [UsersController::class, 'show'])->middleware($can('users.view'));
             $s->post('/users/{id:[0-9]{1,12}}/block', [UsersController::class, 'block'])->middleware($can('users.manage'));

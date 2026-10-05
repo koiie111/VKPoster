@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domain\Analytics\MetricsAggregator;
 use App\Domain\Auth\AuthMaintenance;
 use App\Domain\Billing\RenewalService;
 use App\Domain\Billing\WebhookEvents;
@@ -25,5 +26,7 @@ return static function (Schedule $schedule): void {
     $schedule->call('channels-health', '23 * * * *', [ChannelHealthService::class, 'enqueueDue']);
     // Hourly: trial reminders and endings, renewals and their retries, payments that stayed open, unpaid invoices. Each step is safe to repeat.
     $schedule->call('billing-tick', '41 * * * *', [RenewalService::class, 'tick']);
+    // Hourly: the business numbers of the last three days are counted again from the base tables (safe to repeat; see MetricsAggregator).
+    $schedule->call('metrics-aggregate', '12 * * * *', [MetricsAggregator::class, 'recent']);
     $schedule->call('webhook-events-prune', '47 3 * * *', [WebhookEvents::class, 'prune']);
 };

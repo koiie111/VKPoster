@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Domain\Admin\StaffAccess;
+use App\Domain\Analytics\ActivityTracker;
 use App\Domain\Auth\SessionRegistry;
 use App\Domain\User\UserRepository;
 use App\Http\Auth\Impersonation;
@@ -30,6 +31,7 @@ final class Authenticate implements MiddlewareInterface
         private readonly UserRepository $users,
         private readonly Impersonation $impersonation,
         private readonly StaffAccess $staffAccess,
+        private readonly ActivityTracker $activity,
     ) {
     }
 
@@ -61,6 +63,10 @@ final class Authenticate implements MiddlewareInterface
             return Response::redirect('/login');
         }
         $this->context->setUser($user);
+        // Staff acting as a customer do not make the customer "active".
+        if ($session !== null && $staffId === null) {
+            $this->activity->touch($session, $user->id);
+        }
 
         return $next($request->withAttribute('user', $user)->withAttribute('user_id', $user->id));
     }
