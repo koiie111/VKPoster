@@ -9,6 +9,7 @@ use App\Domain\Channel\ChannelRepository;
 use App\Domain\Post\CalendarItem;
 use App\Domain\Post\CalendarRepository;
 use App\Domain\Post\PostService;
+use App\Domain\Workspace\OnboardingChecklist;
 use App\Domain\Workspace\WorkspaceService;
 use App\Support\Clock;
 use App\Support\RuDates;
@@ -34,6 +35,7 @@ final class WorkspaceController
         private readonly ChannelRepository $channels,
         private readonly PostService $posts,
         private readonly Clock $clock,
+        private readonly OnboardingChecklist $onboarding,
     ) {
     }
 
@@ -63,6 +65,7 @@ final class WorkspaceController
             'upcoming' => array_map($row, $upcoming),
             'attention' => array_map($row, $this->calendar->needingAttention($context, $allowed, 5)),
             'base' => '/w/' . $context->workspacePublicId,
+            'onboarding' => $this->onboarding->for($context),
         ]);
     }
 

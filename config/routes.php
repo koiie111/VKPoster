@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Account\ConsentController;
+use App\Http\Controllers\Account\FeedbackController;
 use App\Http\Controllers\Account\LoginMethodsController;
 use App\Http\Controllers\Account\NotificationController;
 use App\Http\Controllers\Account\SecurityController;
@@ -103,6 +104,8 @@ return static function (Router $router): void {
     $router->group('', [Authenticate::class], static function (Router $r) use ($provider): void {
         $r->post('/logout', [LoginController::class, 'logout'])->name('logout');
         $r->post('/logout/all', [LoginController::class, 'logoutAll'])->name('logout.all');
+        $r->get('/feedback', [FeedbackController::class, 'show'])->name('feedback');
+        $r->post('/feedback', [FeedbackController::class, 'send'])->middleware([RateLimit::class, ['bucket' => 'feedback', 'max' => 10, 'seconds' => 3600]]);
         $r->get('/consent', [ConsentController::class, 'show'])->name('consent');
         $r->post('/consent', [ConsentController::class, 'accept'])->middleware([RateLimit::class, ['bucket' => 'consent', 'max' => 30, 'seconds' => 600]]);
         $r->get('/email/verification', [EmailVerificationController::class, 'notice'])->name('auth.verify.notice');

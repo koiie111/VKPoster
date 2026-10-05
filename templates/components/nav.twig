@@ -61,7 +61,8 @@
         {{ o.menu_item('Безопасность', href = '/account/security', icon = 'shield') }}
         {{ o.menu_item('Уведомления', href = '/account/notifications', icon = 'bell') }}
         {{ o.menu_item('Тарифы и оплата', href = '#', icon = 'credit-card') }}
-        {{ o.menu_item('Справка', href = '#', icon = 'circle-help') }}
+        {{ o.menu_item('Справка', href = '/help', icon = 'circle-help') }}
+        {{ o.menu_item('Сообщить о проблеме', href = '/feedback', icon = 'life-buoy') }}
         <form method="post" action="/logout">{{ csrf_field() }}{{ o.menu_item('Выйти', icon = 'log-out', type = 'submit') }}</form>
     </div>
 </div>

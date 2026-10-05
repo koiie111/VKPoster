@@ -200,6 +200,7 @@ return static function (Container $c, string $base): void {
         $view->registerFunction('my_workspaces', $nav->mine(...));
         $view->registerFunction('workspace_nav', $nav->items(...));
         $view->registerFunction('plan_card', $nav->planCard(...));
+        $view->registerFunction('platform_notices', $nav->platformNotices(...));
         $view->registerFunction('money', \App\Support\Money::format(...));
 
         return $view;

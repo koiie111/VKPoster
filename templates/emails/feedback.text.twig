@@ -1,0 +1,13 @@
+{% autoescape false %}Сообщение от пользователя:
+
+{{ message }}
+
+--
+Пользователь: {{ user }}
+Почта для ответа: {{ email }}
+Пространство: {{ workspace }}
+Страница: {{ page }}
+Браузер: {{ agent }}
+Время: {{ time }}
+Окружение: {{ environment }}
+{% endautoescape %}

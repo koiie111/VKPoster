@@ -73,6 +73,25 @@ final class PlatformStatus
         return array_values(array_filter($this->all(), static fn (PlatformHealth $h): bool => $h->isProblem()));
     }
 
+    /**
+     * The problems that matter to one workspace: only the networks it has channels in.
+     *
+     * @return list<PlatformHealth>
+     */
+    public function problemsFor(int $workspaceId): array
+    {
+        $problems = $this->problems();
+        if ($problems === []) {
+            return [];
+        }
+        $used = [];
+        foreach ($this->db->select('SELECT DISTINCT platform FROM channels WHERE workspace_id = ?', [$workspaceId]) as $row) {
+            $used[(string) $row['platform']] = true;
+        }
+
+        return array_values(array_filter($problems, static fn (PlatformHealth $h): bool => isset($used[$h->platform->value])));
+    }
+
     public function refresh(): void
     {
         try {
