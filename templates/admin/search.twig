@@ -1,0 +1,23 @@
+{#- Admin: search results. Variables: q, found (users, workspaces, payments, tickets), total. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = '' %}
+{% set tz = current_user().timezone %}
+{% block title %}Поиск · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Поиск', 'Человек, пространство, платёж или обращение: по номеру, почте или названию.') }}
+<form class="mb-6 flex flex-wrap items-end gap-3" method="get" action="/admin/search" role="search">
+    <div class="min-w-[16rem] flex-1">{{ f.input('q', 'Что ищем', value = q, placeholder = 'Почта, номер, название, номер платежа', attrs = {autofocus: ''}) }}</div>
+    {{ f.button('Найти', type = 'submit', icon = 'search') }}
+</form>
+{% if q and total == 0 %}{{ d.card(body = d.empty_state('Ничего не нашли', 'Проверьте написание. Искать можно по номеру или почте человека, названию пространства, номеру платежа или счёта и теме обращения.', 'search')) }}{% endif %}
+{% if found.users %}<section class="card mt-4 !p-0 overflow-hidden" aria-labelledby="su-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="su-h">Люди</h2>
+    <ul class="divide-y divide-line">{% for u in found.users %}<li><a class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-sunken" href="/admin/users/{{ u.id }}"><span><span class="block font-medium">{{ u.name }}</span><span class="block text-xs text-muted">{{ u.email ?? 'без почты' }} · № {{ u.id }}</span></span><span class="text-sm text-muted">{{ u.plan ?? '' }}</span></a></li>{% endfor %}</ul></section>{% endif %}
+{% if found.workspaces %}<section class="card mt-4 !p-0 overflow-hidden" aria-labelledby="sw-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="sw-h">Пространства</h2>
+    <ul class="divide-y divide-line">{% for w in found.workspaces %}<li><a class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-sunken" href="/admin/workspaces/{{ w.public_id }}"><span><span class="block font-medium">{{ w.name }}</span><span class="block text-xs text-muted">владелец: {{ w.owner_email ?? w.owner_name }}</span></span><span class="text-sm text-muted">{{ w.plan ?? '' }}</span></a></li>{% endfor %}</ul></section>{% endif %}
+{% if found.payments %}<section class="card mt-4 !p-0 overflow-hidden" aria-labelledby="sp-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="sp-h">Платежи</h2>
+    <ul class="divide-y divide-line">{% for p in found.payments %}<li><a class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-sunken" href="/admin/payments/{{ p.public_id }}"><span><span class="block font-medium">{{ money(p.amount, p.currency) }}</span><span class="block text-xs text-muted">{{ p.number }} · {{ p.customer_email }}</span></span><span class="text-sm text-muted">{{ p.created_at|date('d.m.Y', tz) }}</span></a></li>{% endfor %}</ul></section>{% endif %}
+{% if found.tickets %}<section class="card mt-4 !p-0 overflow-hidden" aria-labelledby="st-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="st-h">Обращения</h2>
+    <ul class="divide-y divide-line">{% for t in found.tickets %}<li><a class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-sunken" href="/admin/support/{{ t.public_id }}"><span><span class="block font-medium">{{ t.subject }}</span><span class="block text-xs text-muted">{{ t.user_name ?? t.email ?? 'аноним' }}</span></span><span class="text-sm text-muted">{{ t.updated_at|date('d.m.Y', tz) }}</span></a></li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

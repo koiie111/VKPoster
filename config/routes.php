@@ -59,6 +59,7 @@ use App\Http\Controllers\Admin\AdminAuditController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DesignController;
+use App\Http\Controllers\Admin\SearchController;
 use App\Http\Controllers\Admin\SupportController;
 use App\Http\Controllers\Admin\ContentController;
 use App\Http\Controllers\Admin\MailTemplatesController;
@@ -310,6 +311,7 @@ return static function (Router $router): void {
             $s->get('', [DashboardController::class, 'index'])->name('admin')->middleware($can('dashboard.view'));
             $s->post('/dashboard/refresh', [DashboardController::class, 'refresh'])->middleware($can('stats.view'));
             $s->get('/users', [UsersController::class, 'index'])->name('admin.users')->middleware($can('users.view'));
+            $s->get('/search', [SearchController::class, 'index'])->name('admin.search')->middleware($can('dashboard.view'));
             $s->get('/users/export', [UsersController::class, 'export'])->middleware($can('users.export'));
             $s->get('/users/{id:[0-9]{1,12}}', [UsersController::class, 'show'])->middleware($can('users.view'));
             $s->post('/users/{id:[0-9]{1,12}}/signout', [UsersController::class, 'signOut'])->middleware($can('users.manage'));
@@ -357,6 +359,8 @@ return static function (Router $router): void {
             $s->post('/design/reset', [DesignController::class, 'reset'])->middleware($can('design.manage'));
             $s->get('/settings', [SiteSettingsController::class, 'show'])->name('admin.settings')->middleware($can('settings.manage'));
             $s->post('/settings', [SiteSettingsController::class, 'save'])->middleware($can('settings.manage'));
+            $s->post('/settings/report', [SiteSettingsController::class, 'saveReport'])->middleware($can('settings.manage'));
+            $s->post('/settings/report/test', [SiteSettingsController::class, 'testReport'])->middleware($can('settings.manage'), [RateLimit::class, ['bucket' => 'admin-report-test', 'max' => 10, 'seconds' => 3600]]);
             $s->post('/settings/invites', [SiteSettingsController::class, 'createCode'])->middleware($can('settings.manage'));
             $s->post('/settings/invites/{id:[0-9]{1,12}}/revoke', [SiteSettingsController::class, 'revokeCode'])->middleware($can('settings.manage'));
             $s->get('/announcements', [AnnouncementsAdminController::class, 'index'])->name('admin.announcements')->middleware($can('content.manage'));

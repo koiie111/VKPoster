@@ -1,0 +1,4 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}Отчёт владельца за вчера{% endblock %}
+{% block content %}<div style="white-space:pre-line;">{{ body }}</div>{% endblock %}
+{% block footer %}Это ежедневный отчёт владельца {{ app_name }}. Время отправки и получателей можно изменить в админке, раздел «Настройки сайта».{% endblock %}

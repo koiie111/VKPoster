@@ -31,6 +31,19 @@
     </section>
 </form>
 
+<section class="card mt-6" aria-labelledby="rep-h"><h2 class="text-lg font-semibold" id="rep-h">Ежедневный отчёт владельцу</h2>
+    <p class="mt-1 text-sm text-muted">Выручка, регистрации, оплаты, ошибки публикаций и длина очереди за вчера. Приходит владельцам по почте и в личный Telegram (если подключён в уведомлениях).</p>
+    <form class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" method="post" action="/admin/settings/report">{{ csrf_field() }}
+        <div class="lg:col-span-4">{{ f.switch('enabled', 'Присылать отчёт каждый день', report.enabled, id = 'report-enabled') }}</div>
+        {{ f.input('hour', 'Во сколько (час, 0–23)', value = report.hour, id = 'report-hour') }}
+        {{ f.select('timezone', 'Часовой пояс', zones, value = report.timezone, id = 'report-zone') }}
+        <div class="flex items-end">{{ f.checkbox('email', 'По почте', report.email, id = 'report-email') }}</div>
+        <div class="flex items-end">{{ f.checkbox('telegram', 'В Telegram', report.telegram, id = 'report-tg') }}</div>
+        <div class="flex flex-wrap gap-2 lg:col-span-4">{{ f.button('Сохранить', type = 'submit', variant = 'secondary', icon = 'save') }}</div>
+    </form>
+    <form class="mt-3" method="post" action="/admin/settings/report/test">{{ csrf_field() }}{{ f.button('Прислать тестовый отчёт мне', type = 'submit', variant = 'ghost', icon = 'send') }}</form>
+</section>
+
 <section class="card mt-6" aria-labelledby="i-h"><h2 class="text-lg font-semibold" id="i-h">Коды приглашений</h2>
     <p class="mt-1 text-sm text-muted">Нужны, когда регистрация идёт по приглашениям. Код показывается один раз, дальше хранится только его след.</p>
     {% if new_code %}<div class="mt-3">{{ d.alert('success', 'Новый код: ' ~ new_code, 'Скопируйте его сейчас: потом его не показать.') }}</div>{% endif %}

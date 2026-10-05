@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domain\Admin\DailyReport;
 use App\Domain\Analytics\MetricsAggregator;
 use App\Domain\Auth\AuthMaintenance;
 use App\Domain\Billing\RenewalService;
@@ -28,5 +29,7 @@ return static function (Schedule $schedule): void {
     $schedule->call('billing-tick', '41 * * * *', [RenewalService::class, 'tick']);
     // Hourly: the business numbers of the last three days are counted again from the base tables (safe to repeat; see MetricsAggregator).
     $schedule->call('metrics-aggregate', '12 * * * *', [MetricsAggregator::class, 'recent']);
+    // Hourly: sends the owner's daily report when it is the chosen hour and today's has not gone out yet.
+    $schedule->call('daily-report', '5 * * * *', [DailyReport::class, 'tick']);
     $schedule->call('webhook-events-prune', '47 3 * * *', [WebhookEvents::class, 'prune']);
 };

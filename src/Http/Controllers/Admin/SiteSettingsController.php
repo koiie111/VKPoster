@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domain\Admin\DailyReport;
 use App\Domain\Auth\RegistrationGate;
 use App\Domain\Audit\AuditLog;
 use App\Domain\Settings\SiteSettings;
@@ -22,6 +23,9 @@ use App\Support\Clock;
  */
 final class SiteSettingsController
 {
+    /** Time zones offered for the report hour (the owner is in Russia; UTC for anybody else). */
+    private const ZONES = ['Europe/Kaliningrad' => 'Калининград', 'Europe/Moscow' => 'Москва', 'Europe/Samara' => 'Самара', 'Asia/Yekaterinburg' => 'Екатеринбург', 'Asia/Omsk' => 'Омск', 'Asia/Krasnoyarsk' => 'Красноярск', 'Asia/Irkutsk' => 'Иркутск', 'Asia/Yakutsk' => 'Якутск', 'Asia/Vladivostok' => 'Владивосток', 'Asia/Magadan' => 'Магадан', 'Asia/Kamchatka' => 'Камчатка', 'UTC' => 'UTC'];
+
     public function __construct(
         private readonly View $view,
         private readonly SiteSettings $site,
@@ -30,6 +34,7 @@ final class SiteSettingsController
         private readonly FormFlash $flash,
         private readonly StepUp $stepUp,
         private readonly Clock $clock,
+        private readonly DailyReport $report,
     ) {
     }
 
@@ -45,6 +50,8 @@ final class SiteSettingsController
             'requisites' => $this->site->requisites(),
             'max_workspaces' => $this->site->maxWorkspacesPerUser(),
             'codes' => $this->gate->codes(),
+            'report' => $this->report->config(),
+            'zones' => self::ZONES,
             'new_code' => $this->flash->session()->getFlash('admin.new_invite_code'),
         ]);
     }
@@ -76,6 +83,35 @@ final class SiteSettingsController
         $after = ['maintenance' => $this->site->maintenanceOn(), 'registration' => $this->site->registrationMode(), 'max_workspaces' => $this->site->maxWorkspacesPerUser()];
         $this->audit->record('admin.settings_changed', $staff->id, 'setting', 'site', ['before' => json_encode($before), 'after' => json_encode($after)]);
         $this->flash->toast($maintenance ? 'Настройки сохранены. Включён режим обслуживания: обычные пользователи видят страницу о работах.' : 'Настройки сохранены.');
+
+        return Response::redirect('/admin/settings');
+    }
+
+    public function saveReport(Request $request): Response
+    {
+        $staff = WorkspaceRequest::user($request);
+        $errors = $this->report->save([
+            'enabled' => $request->input('enabled') === '1' ? '1' : '',
+            'hour' => AdminInput::text($request, 'hour', 3),
+            'timezone' => AdminInput::text($request, 'timezone', 40),
+            'email' => $request->input('email') === '1' ? '1' : '',
+            'telegram' => $request->input('telegram') === '1' ? '1' : '',
+        ], $staff->id);
+        if ($errors !== []) {
+            $this->flash->toast(implode(' ', $errors), 'error');
+
+            return Response::redirect('/admin/settings');
+        }
+        $this->audit->record('admin.settings_changed', $staff->id, 'setting', 'report', ['after' => json_encode($this->report->config())]);
+        $this->flash->toast('Настройки отчёта сохранены.');
+
+        return Response::redirect('/admin/settings');
+    }
+
+    public function testReport(Request $request): Response
+    {
+        $sent = $this->report->send([WorkspaceRequest::user($request)]);
+        $this->flash->toast($sent === 0 ? 'Отправить некуда: включите почту или подключите Telegram в уведомлениях.' : 'Отчёт отправлен вам.', $sent === 0 ? 'warning' : 'success');
 
         return Response::redirect('/admin/settings');
     }
