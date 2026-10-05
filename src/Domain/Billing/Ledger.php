@@ -54,6 +54,61 @@ final class Ledger
         return (int) ($rows[0]['total'] ?? 0);
     }
 
+    /** Units of what staff can give: days of the plan, AI credits (stage 17), and money on the balance (kopecks). The unit is the entry's currency code. */
+    public const GRANT_UNITS = ['days' => 'DAY', 'credits' => 'CRD', 'balance' => 'RUB'];
+
+    /**
+     * Give a workspace days, credits or money by hand. One transaction of two entries: the expense account `grants:<unit>` is debited and the
+     * workspace's wallet `wallet:<unit>:<workspace>` credited, so the balance of the wallet is always the sum of what was granted (and
+     * later spent). The reason is part of the entry; who did it is in the audit log.
+     *
+     * @param string $unit key of `GRANT_UNITS`
+     * @return string id of the transaction
+     */
+    public function grant(string $workspacePublicId, string $unit, int $amount, string $reason): string
+    {
+        $code = self::GRANT_UNITS[$unit] ?? throw new \InvalidArgumentException('Unknown grant unit.');
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('A grant must be positive.');
+        }
+        $txn = (string) new Ulid();
+        $memo = mb_substr('Начисление вручную: ' . $reason, 0, 255);
+        $this->db->transaction(function (Connection $db) use ($workspacePublicId, $code, $amount, $memo, $txn): void {
+            $expense = $this->account($db, 'grants:' . $code, 'Начисления вручную (' . $code . ')', 'expense', $code === 'RUB' ? 'RUB' : $code);
+            $wallet = $this->account($db, 'wallet:' . $code . ':' . $workspacePublicId, 'Кошелёк пространства (' . $code . ')', 'liability', $code === 'RUB' ? 'RUB' : $code);
+            $now = DbTime::format($this->clock->now());
+            foreach ([[$expense, $amount], [$wallet, -$amount]] as [$account, $value]) {
+                $db->table('ledger_entries')->insert([
+                    'txn_id' => $txn,
+                    'account_id' => $account,
+                    'amount' => $value,
+                    'currency' => $code,
+                    'ref_type' => 'grant',
+                    'ref_id' => $txn,
+                    'memo' => $memo,
+                    'created_at' => $now,
+                ]);
+            }
+        });
+
+        return $txn;
+    }
+
+    /**
+     * What a workspace holds in its wallet, by unit key (`days`, `credits`, `balance`).
+     *
+     * @return array<string, int>
+     */
+    public function wallet(string $workspacePublicId): array
+    {
+        $result = array_fill_keys(array_keys(self::GRANT_UNITS), 0);
+        foreach (self::GRANT_UNITS as $key => $code) {
+            $result[$key] = -$this->balance('wallet:' . $code . ':' . $workspacePublicId);
+        }
+
+        return $result;
+    }
+
     /**
      * @param int $amount positive: money in; negative: money out
      */

@@ -1,4 +1,4 @@
-{#- Admin: users. Variables: q, result, base. -#}
+{#- Admin: users. Variables: filters, result, base, plan_options, source_options, sort, export_href. -#}
 {% extends 'layouts/admin.twig' %}
 {% import 'components/display.twig' as d %}
 {% import 'components/forms.twig' as f %}
@@ -6,23 +6,41 @@
 {% set tz = current_user().timezone %}
 {% block title %}Пользователи · Админка{% endblock %}
 {% block content %}
-{{ d.page_header('Пользователи', 'Всего найдено: ' ~ result.total ~ '.') }}
-<form class="mb-4 flex flex-wrap items-end gap-3" method="get" action="/admin/users" role="search">
-    <div class="min-w-[16rem] flex-1">{{ f.input('q', 'Найти пользователя', value = q, placeholder = 'Почта, имя или номер') }}</div>
-    {{ f.button('Найти', type = 'submit', variant = 'secondary', icon = 'search') }}
+{% set head_actions %}{% if admin_can('users.export') %}{{ f.button('Скачать CSV', variant = 'secondary', icon = 'download', href = export_href) }}{% endif %}{% endset %}
+{{ d.page_header('Пользователи', 'Найдено: ' ~ result.total ~ '. Ищите по почте, имени, номеру, домену почты (@mail.ru) или номеру во ВКонтакте и Telegram.', body = head_actions) }}
+<form class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" method="get" action="/admin/users" role="search">
+    <div class="sm:col-span-2">{{ f.input('q', 'Найти пользователя', value = filters.q ?? '', placeholder = 'Почта, имя, номер, @домен') }}</div>
+    {{ f.select('plan', 'Тариф', plan_options, value = filters.plan ?? '') }}
+    {{ f.select('status', 'Статус', {'': 'Любой', active: 'Активные', blocked: 'Заблокированные', staff: 'Сотрудники', unverified: 'Почта не подтверждена'}, value = filters.status ?? '') }}
+    {{ f.input('from', 'Зарегистрирован с', type = 'date', value = filters.from ?? '') }}
+    {{ f.input('to', 'Зарегистрирован по', type = 'date', value = filters.to ?? '') }}
+    {{ f.select('source', 'Источник', source_options, value = filters.source ?? '') }}
+    {{ f.select('activity', 'Активность за 30 дней', {'': 'Любая', active: 'Заходили', inactive: 'Не заходили'}, value = filters.activity ?? '') }}
+    <div class="flex items-end gap-3 sm:col-span-2 lg:col-span-4">{{ f.button('Применить', type = 'submit', variant = 'secondary', icon = 'search') }}{{ f.button('Сбросить', variant = 'ghost', href = '/admin/users') }}</div>
 </form>
 <div class="card !p-0 overflow-hidden">
 {% set rows %}
     {% for u in result.rows %}
     <tr>
-        <td><a class="flex items-center gap-3 hover:underline" href="/admin/users/{{ u.id }}">{{ d.avatar(u.name, size = 'sm') }}<span><span class="block font-medium">{{ u.name }}</span><span class="block text-xs text-muted">{{ u.email ?? 'без почты' }}</span></span></a></td>
+        <td><a class="flex items-center gap-3 hover:underline" href="/admin/users/{{ u.id }}">{{ d.avatar(u.name, size = 'sm') }}<span><span class="block font-medium">{{ u.name }}</span><span class="block text-xs text-muted">{{ u.email ?? 'без почты' }} · № {{ u.id }}</span></span></a></td>
+        <td>{{ u.plan ?? '—' }}</td>
         <td>{{ u.workspaces }}</td>
-        <td>{% if u.is_superadmin %}{{ d.badge('Сотрудник', 'primary') }} {% endif %}{% if u.status == 'blocked' %}{{ d.badge('Заблокирован', 'bad') }}{% elseif u.totp_enabled_at %}{{ d.badge('2FA', 'ok') }}{% endif %}</td>
+        <td>{% if u.is_staff %}{{ d.badge('Сотрудник', 'primary') }} {% endif %}{% if u.status == 'blocked' %}{{ d.badge('Заблокирован', 'bad') }}{% elseif u.email_verified_at is null %}{{ d.badge('Почта не подтверждена', 'warn') }}{% elseif u.totp_enabled_at %}{{ d.badge('2FA', 'ok') }}{% endif %}</td>
+        <td class="text-sm text-muted">{{ u.source }}</td>
+        <td class="whitespace-nowrap text-muted">{{ u.last_active ? u.last_active|date('d.m.Y') : '—' }}</td>
         <td class="whitespace-nowrap text-muted">{{ u.created_at|date('d.m.Y H:i', tz) }}</td>
     </tr>
     {% endfor %}
 {% endset %}
-{{ d.table([{label: 'Пользователь'}, {label: 'Пространств'}, {label: 'Статус'}, {label: 'Зарегистрирован'}], empty = result.rows is empty, empty_title = 'Никого не нашли', empty_text = 'Попробуйте другой запрос.', caption = 'Пользователи', body = rows) }}
+{{ d.table([
+    {label: 'Пользователь', sort_href: sort.links.name, sorted: sort.key == 'name' ? sort.dir : false},
+    {label: 'Тариф'},
+    {label: 'Пространств', sort_href: sort.links.workspaces, sorted: sort.key == 'workspaces' ? sort.dir : false},
+    {label: 'Статус'},
+    {label: 'Источник'},
+    {label: 'Заходил', sort_href: sort.links.activity, sorted: sort.key == 'activity' ? sort.dir : false},
+    {label: 'Зарегистрирован', sort_href: sort.links.created, sorted: sort.key == 'created' ? sort.dir : false}
+], empty = result.rows is empty, empty_title = 'Никого не нашли', empty_text = 'Попробуйте другой запрос или сбросьте фильтры.', caption = 'Пользователи', body = rows) }}
 </div>
 <div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
 {% endblock %}

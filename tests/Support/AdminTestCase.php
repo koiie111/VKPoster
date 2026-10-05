@@ -20,6 +20,13 @@ abstract class AdminTestCase extends BillingTestCase
 
     protected static int $staffCounter = 0;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Rows without a foreign key to the people survive the clean-up of users: start every test without them.
+        $this->db->execute('DELETE FROM data_requests');
+    }
+
     protected function tearDown(): void
     {
         // Settings written by a test (platform switches, colours) must not leak into the next one.
