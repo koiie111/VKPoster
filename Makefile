@@ -4,7 +4,7 @@ EXEC    ?= $(COMPOSE) exec -T app
 RUN     ?= $(COMPOSE) run --rm --no-deps -T app
 CMD     ?=
 
-.PHONY: init up down build sh logs console migrate seed test stan cs cs-fix audit docs check css css-watch css-check ui-snap a11y ui-behavior
+.PHONY: init up down build sh logs console migrate seed seed-demo test stan cs cs-fix audit docs check css css-watch css-check ui-snap a11y ui-behavior
 
 init: ## create .env and (re)generate APP_KEY unless it is a valid base64 32-byte key
 	@test -f .env || cp .env.example .env
@@ -39,6 +39,9 @@ migrate:
 
 seed:
 	$(EXEC) php bin/console seed
+
+seed-demo: ## 500 demo people with six months of channels, publications and payments (local only; replaces the previous demo data)
+	$(EXEC) php bin/console seed:demo
 
 test:
 	$(EXEC) composer test

@@ -104,7 +104,7 @@
                 },
                 scales: doughnut ? {} : {
                     x: { stacked: !!config.stacked, ticks: { color: text, maxRotation: 0, autoSkip: true }, grid: { display: false } },
-                    y: { stacked: !!config.stacked, ticks: { color: text, callback: function (v) { return format(v); } }, grid: { color: grid } }
+                    y: { stacked: !!config.stacked, beginAtZero: true, ticks: { color: text, callback: function (v) { return format(v); } }, grid: { color: grid } }
                 }
             }
         });

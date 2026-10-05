@@ -192,7 +192,7 @@ final class MetricsTest extends AdminTestCase
         self::assertSame(3, $byWeek['2026-08-31']['size']);
         self::assertSame(66.7, $byWeek['2026-08-31']['weeks'][1]);
         self::assertSame(33.3, $byWeek['2026-08-31']['weeks'][2]);
-        self::assertNull($cohorts[array_key_last($cohorts)]['weeks'][5], 'future weeks are blank');
+        self::assertNull($cohorts[7]['weeks'][5], 'future weeks are blank');
     }
 
     public function testEventsAreWrittenOnceAndFromAuditEntries(): void
