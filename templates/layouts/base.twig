@@ -9,6 +9,24 @@
     <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>
     {{ csrf_meta() }}
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    {#- Search engines: only pages that set `indexable` (landing, legal, help, status) may be indexed; everything else is behind a sign-in. -#}
+    <meta name="robots" content="{{ indexable is defined and indexable ? 'index,follow' : 'noindex,nofollow' }}">
+    {% if indexable is defined and indexable %}
+    {% set seo_title = seo_title is defined ? seo_title : app_name %}
+    {% set seo_text = seo_description is defined ? seo_description : 'Планируйте посты для Telegram, ВКонтакте и MAX в одном календаре: ' ~ app_name ~ ' опубликует их вовремя.' %}
+    <meta name="description" content="{{ seo_text }}">
+    <link rel="canonical" href="{{ app_url }}{{ canonical_path is defined ? canonical_path : '/' }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ app_name }}">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:title" content="{{ seo_title }}">
+    <meta property="og:description" content="{{ seo_text }}">
+    <meta property="og:url" content="{{ app_url }}{{ canonical_path is defined ? canonical_path : '/' }}">
+    <meta property="og:image" content="{{ app_url }}{{ asset('images/og.png') }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    {% endif %}
     <script src="{{ asset('js/theme.js') }}"></script>
     <link rel="stylesheet" href="{{ asset('app.css') }}">
     {% block head %}{% endblock %}
@@ -20,6 +38,8 @@
 <body class="min-h-screen {% block body_class %}{% endblock %}" x-data="dialogs">
     <a class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-toast focus:rounded-ctl focus:bg-surface focus:px-4 focus:py-2 focus:shadow-pop" href="#main">Перейти к содержимому</a>
     {% block body %}{% endblock %}
+    {% block after_body %}{% endblock %}
+    {% if cookie_choice() == '' %}{% include 'components/cookie-banner.twig' %}{% endif %}
     {{ o.toast_region(flash is defined ? flash : toasts()) }}
 </body>
 </html>

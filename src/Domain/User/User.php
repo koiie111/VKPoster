@@ -28,6 +28,7 @@ final class User
         public readonly bool $isSuperadmin,
         public readonly string $status,
         public readonly DateTimeImmutable $createdAt,
+        public readonly ?string $consentVersion = null,
     ) {
     }
 

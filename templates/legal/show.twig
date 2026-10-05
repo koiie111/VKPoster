@@ -1,0 +1,18 @@
+{#- A legal page. Variables: document, html (rendered Markdown), documents. -#}
+{% extends 'layouts/landing.twig' %}
+{% import 'components/display.twig' as d %}
+{% block title %}{{ document.title }} · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="mx-auto grid max-w-5xl gap-8 px-4 py-12 lg:grid-cols-[14rem_1fr]">
+    <nav class="lg:sticky lg:top-6 lg:self-start" aria-label="Документы">
+        <ul class="flex flex-col gap-1 text-sm">
+            {% for doc in documents %}<li><a class="block rounded-ctl px-3 py-2 hover:bg-sunken {{ doc.slug == document.slug ? 'bg-primary-soft font-semibold text-primary-softfg' : 'text-muted' }}" href="/legal/{{ doc.slug }}"{% if doc.slug == document.slug %} aria-current="page"{% endif %}>{{ doc.title }}</a></li>{% endfor %}
+        </ul>
+    </nav>
+    <article class="min-w-0">
+        <h1 class="text-3xl font-bold">{{ document.title }}</h1>
+        <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">Редакция от {{ document.version|date('d.m.Y') }}{% if document.draft %} {{ d.badge('Шаблон', 'warn') }}{% endif %}</p>
+        <div class="doc mt-6">{{ html|raw }}</div>
+    </article>
+</div>
+{% endblock %}

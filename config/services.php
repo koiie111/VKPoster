@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Domain\Auth\PasswordPolicy;
 use App\Domain\Billing\Entitlements;
+use App\Domain\Help\HelpArticles;
+use App\Domain\Legal\LegalDocuments;
+use App\Domain\Settings\Settings;
 use App\Domain\Billing\PriceCalculator;
 use App\Integrations\Payments\Fake\FakeGateway;
 use App\Integrations\Payments\GatewayRegistry;
@@ -149,7 +152,7 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Kernel\Security\RateLimiter::class),
         $c->get(\App\Domain\Audit\AuditLog::class),
         $c->get(\App\Domain\Workspace\WorkspaceService::class),
-        $c->get(Config::class)->string('auth.consent_version'),
+        $c->get(LegalDocuments::class)->consentVersion(),
     ));
 
     $c->factory(\App\Domain\Auth\Social\SocialAuthService::class, static fn (Container $c): \App\Domain\Auth\Social\SocialAuthService => new \App\Domain\Auth\Social\SocialAuthService(
@@ -159,8 +162,12 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Kernel\Security\RateLimiter::class),
         $c->get(Clock::class),
         $c->get(\App\Domain\Workspace\WorkspaceService::class),
-        $c->get(Config::class)->string('auth.consent_version'),
+        $c->get(LegalDocuments::class)->consentVersion(),
     ));
+
+    $c->factory(LegalDocuments::class, static fn (): LegalDocuments => new LegalDocuments($base . '/resources/legal'));
+
+    $c->factory(HelpArticles::class, static fn (): HelpArticles => new HelpArticles($base . '/resources/help'));
 
     $c->factory(HttpClientInterface::class, static fn (Container $c): HttpClientInterface => $c->get(GuzzleHttpClient::class));
 
@@ -251,6 +258,8 @@ return static function (Container $c, string $base): void {
             [$c->get(TelegramAdapter::class), $c->get(VkAdapter::class), $c->get(MaxAdapter::class), $c->get(FakeAdapter::class)],
             array_values(array_filter(array_map('strval', $config->array('platforms.enabled')), static fn (string $v): bool => $v !== '')),
             !$config->isProduction(),
+            // The owner can switch a platform off in the admin area (a kill switch for an outage or a lost key); read on every call.
+            static fn (): array => array_values(array_filter((array) $c->get(Settings::class)->get('platforms.off', []), 'is_string')),
         );
     });
     $c->factory(ConnectCodes::class, static fn (Container $c): ConnectCodes => new ConnectCodes(

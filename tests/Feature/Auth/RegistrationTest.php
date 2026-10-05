@@ -56,7 +56,7 @@ final class RegistrationTest extends AuthTestCase
         $this->post('/register', $this->form());
 
         $row = $this->db->select('SELECT password_hash, consent_version, consent_at, email_verified_at FROM users')[0];
-        self::assertSame('2026-10-01', $row['consent_version']);
+        self::assertSame($this->app->container()->get(\App\Domain\Legal\LegalDocuments::class)->consentVersion(), $row['consent_version']);
         self::assertNotNull($row['consent_at']);
         self::assertNull($row['email_verified_at']);
         self::assertStringStartsWith('$argon2id$', (string) $row['password_hash']);

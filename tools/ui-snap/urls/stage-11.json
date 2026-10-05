@@ -1,0 +1,8 @@
+[
+  { "name": "landing", "url": "/" },
+  { "name": "legal-offer", "url": "/legal/offer" },
+  { "name": "legal-privacy", "url": "/legal/privacy" },
+  { "name": "help-index", "url": "/help" },
+  { "name": "help-article", "url": "/help/connect-telegram" },
+  { "name": "status", "url": "/status" }
+]

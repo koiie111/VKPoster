@@ -19,15 +19,21 @@ final class PlatformRegistry
     private array $adapters = [];
 
     /** @var list<Platform> */
-    private array $enabled = [];
+    private array $configured = [];
+
+    /** @var (\Closure(): list<string>)|null */
+    private ?\Closure $switchedOff;
 
     /**
      * @param list<PlatformAdapter> $adapters every adapter that exists
      * @param list<string> $enabledNames the `PLATFORMS_ENABLED` flags
      * @param bool $allowFake whether the `fake` platform may be used (never in production)
+     * @param (\Closure(): list<string>)|null $switchedOff platforms the owner turned off in the admin area (asked on every call, so a change
+     *                                                     reaches long-running processes); a platform missing from the flags cannot be turned on this way
      */
-    public function __construct(array $adapters, array $enabledNames, bool $allowFake)
+    public function __construct(array $adapters, array $enabledNames, bool $allowFake, ?\Closure $switchedOff = null)
     {
+        $this->switchedOff = $switchedOff;
         foreach ($adapters as $adapter) {
             $this->adapters[$adapter->platform()->value] = $adapter;
         }
@@ -36,7 +42,7 @@ final class PlatformRegistry
             if ($platform === null || ($platform === Platform::Fake && !$allowFake) || !isset($this->adapters[$platform->value])) {
                 continue;
             }
-            $this->enabled[] = $platform;
+            $this->configured[] = $platform;
         }
     }
 
@@ -47,12 +53,24 @@ final class PlatformRegistry
      */
     public function enabled(): array
     {
-        return $this->enabled;
+        $off = $this->switchedOff === null ? [] : ($this->switchedOff)();
+
+        return array_values(array_filter($this->configured, static fn (Platform $p): bool => !in_array($p->value, $off, true)));
+    }
+
+    /**
+     * Platforms the flags allow, whether or not the owner has switched them off right now (the admin screen lists these).
+     *
+     * @return list<Platform>
+     */
+    public function configured(): array
+    {
+        return $this->configured;
     }
 
     public function isEnabled(Platform $platform): bool
     {
-        return in_array($platform, $this->enabled, true);
+        return in_array($platform, $this->enabled(), true);
     }
 
     /**

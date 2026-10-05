@@ -1,0 +1,17 @@
+{#- Knowledge base index. Variables: articles. -#}
+{% extends 'layouts/landing.twig' %}
+{% import 'components/display.twig' as d %}
+{% block title %}Справка · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-4xl px-4 py-12">
+    {{ d.page_header('Справка', 'Короткие инструкции: как подключить каналы, запланировать пост и разобраться с тарифом.') }}
+    <ul class="grid gap-4 sm:grid-cols-2">
+        {% for a in articles %}
+        <li class="card"><h2 class="text-lg font-semibold"><a class="hover:underline" href="/help/{{ a.slug }}">{{ a.title }}</a></h2>{% if a.summary %}<p class="mt-1 line-clamp-3 text-sm text-muted">{{ a.summary }}</p>{% endif %}</li>
+        {% else %}
+        <li class="sm:col-span-2">{{ d.empty_state('Статей пока нет', 'Скоро здесь появятся инструкции.', 'life-buoy') }}</li>
+        {% endfor %}
+    </ul>
+    <p class="mt-8 text-sm text-muted">Не нашли ответ? {% if current_user() %}В меню профиля выберите «Сообщить о проблеме».{% else %}Войдите и напишите нам из меню профиля: «Сообщить о проблеме».{% endif %}</p>
+</div>
+{% endblock %}

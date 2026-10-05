@@ -53,6 +53,7 @@ final class View
             'auto_reload' => $debug,
         ]);
         $this->twig->addGlobal('app_name', $config->string('app.name'));
+        $this->twig->addGlobal('app_url', rtrim($config->string('app.url'), '/'));
         $this->twig->addExtension($this->extension());
     }
 
@@ -106,9 +107,22 @@ final class View
                     new TwigFunction('toasts', $this->view->toasts(...)),
                     new TwigFunction('plan_limit_notice', $this->view->planLimitNotice(...)),
                     new TwigFunction('current_user', $this->view->currentUser(...)),
+                    new TwigFunction('cookie_choice', $this->view->cookieChoice(...)),
                 ];
             }
         };
+    }
+
+    /**
+     * What the visitor chose in the cookie notice: `all`, `necessary` or an empty string (nothing yet, the notice is shown).
+     *
+     * @internal Twig function.
+     */
+    public function cookieChoice(): string
+    {
+        $value = $this->context->request()?->cookie('cookie_consent');
+
+        return $value === 'all' || $value === 'necessary' ? $value : '';
     }
 
     /**

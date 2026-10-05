@@ -68,7 +68,21 @@ final class UserRepository
             throw $e;
         }
 
+        if (isset($data['consent_version'])) {
+            $this->db->table('user_consents')->insert(['user_id' => (int) $id, 'version' => $data['consent_version'], 'ip' => null, 'accepted_at' => $now]);
+        }
+
         return $this->find((int) $id);
+    }
+
+    /**
+     * Remember that the person accepted a version of the legal documents (the user row keeps the latest, `user_consents` the history).
+     */
+    public function recordConsent(int $id, string $version, ?string $ip): void
+    {
+        $now = DbTime::format($this->clock->now());
+        $this->db->table('users')->where('id', '=', $id)->update(['consent_version' => $version, 'consent_at' => $now, 'updated_at' => $now]);
+        $this->db->table('user_consents')->insert(['user_id' => $id, 'version' => $version, 'ip' => $ip, 'accepted_at' => $now]);
     }
 
     public function markVerified(int $id): void
@@ -193,6 +207,7 @@ final class UserRepository
             (int) $row['is_superadmin'] === 1,
             (string) $row['status'],
             DbTime::parse($row['created_at']) ?? new DateTimeImmutable('@0'),
+            is_string($row['consent_version'] ?? null) ? $row['consent_version'] : null,
         );
     }
 }

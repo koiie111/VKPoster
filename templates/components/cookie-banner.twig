@@ -1,0 +1,12 @@
+{#- Cookie notice shown until a choice is made. The buttons are wired by `cookie-banner.js` (it stores the choice in the `cookie_consent` cookie
+    and removes the banner). Only strictly necessary cookies are set before "Принять все"; there is no analytics yet, the choice is kept for when it appears. -#}
+<div class="fixed inset-x-0 bottom-0 z-toast p-3 sm:p-4" id="cookie-banner" role="region" aria-label="Использование cookies" data-cookie-banner>
+    <div class="mx-auto flex max-w-3xl flex-col gap-3 rounded-card border border-line bg-surface p-4 shadow-pop sm:flex-row sm:items-center">
+        <p class="text-sm text-muted">Мы используем только необходимые cookies: они нужны, чтобы вы могли войти и пользоваться сервисом. Аналитику включим только с вашего согласия. <a class="font-medium text-primary-text underline underline-offset-2" href="/legal/cookies">Подробнее о cookies</a></p>
+        <div class="flex shrink-0 flex-wrap gap-2">
+            <button type="button" class="btn btn-secondary btn-sm" data-cookie-choice="necessary">Только необходимые</button>
+            <button type="button" class="btn btn-primary btn-sm" data-cookie-choice="all">Принять все</button>
+        </div>
+    </div>
+</div>
+<script src="{{ asset('js/cookie-banner.js') }}" nonce="{{ csp_nonce() }}" defer></script>
