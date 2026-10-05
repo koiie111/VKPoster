@@ -69,7 +69,9 @@ final class ConsentTest extends WorkspaceTestCase
         self::assertTrue($documents->find('privacy')?->isDraft());
         self::assertFalse($documents->find('offer')?->isDraft());
         self::assertCount(2, $documents->required());
-        array_map('unlink', glob($dir . '/*') ?: []);
+        foreach (['offer', 'privacy', 'cookies'] as $name) {
+            unlink($dir . '/' . $name . '.md');
+        }
         rmdir($dir);
     }
 }
