@@ -4,5 +4,19 @@
   { "name": "legal-privacy", "url": "/legal/privacy" },
   { "name": "help-index", "url": "/help" },
   { "name": "help-article", "url": "/help/connect-telegram" },
-  { "name": "status", "url": "/status" }
+  { "name": "status", "url": "/status" },
+  { "name": "home-onboarding", "url": "/w/{ws}", "login_as": "social@ezposter.local" },
+  { "name": "feedback", "url": "/feedback", "login_as": "demo@ezposter.local" },
+  { "name": "admin-overview", "url": "/admin", "login_as": "staff@ezposter.local" },
+  { "name": "admin-users", "url": "/admin/users", "login_as": "staff@ezposter.local" },
+  { "name": "admin-user", "url": "/admin/users/1", "login_as": "staff@ezposter.local" },
+  { "name": "admin-workspaces", "url": "/admin/workspaces", "login_as": "staff@ezposter.local" },
+  { "name": "admin-subscriptions", "url": "/admin/subscriptions", "login_as": "staff@ezposter.local" },
+  { "name": "admin-payments", "url": "/admin/payments", "login_as": "staff@ezposter.local" },
+  { "name": "admin-plans", "url": "/admin/plans", "login_as": "staff@ezposter.local" },
+  { "name": "admin-plan-edit", "url": "/admin/plans/pro", "login_as": "staff@ezposter.local" },
+  { "name": "admin-promo", "url": "/admin/promo", "login_as": "staff@ezposter.local" },
+  { "name": "admin-queues", "url": "/admin/queues", "login_as": "staff@ezposter.local" },
+  { "name": "admin-channels", "url": "/admin/channels", "login_as": "staff@ezposter.local" },
+  { "name": "admin-platforms", "url": "/admin/platforms", "login_as": "staff@ezposter.local" }
 ]

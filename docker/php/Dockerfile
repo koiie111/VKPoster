@@ -56,5 +56,12 @@ COPY docker/php/php.ini /usr/local/etc/php/conf.d/50-app.ini
 COPY docker/php/php-prod.ini /usr/local/etc/php/conf.d/60-app-prod.ini
 COPY --chown=app:www-data . /var/www/html
 COPY --from=vendor --chown=app:www-data /app/vendor /var/www/html/vendor
-RUN sh scripts/build-css.sh
+RUN sh scripts/build-css.sh \
+    && mkdir -p storage/logs storage/cache/twig storage/tmp storage/media \
+    && chown -R app:www-data storage
 USER app
+
+# ---- web (nginx with the public files baked in; PHP runs in the `app` service) ----
+FROM nginx:1.27-alpine AS web
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY --from=prod /var/www/html/public /var/www/html/public

@@ -6,8 +6,10 @@ namespace App\Http\Middleware;
 
 use App\Domain\User\User;
 use App\Http\Auth\Impersonation;
+use App\Kernel\Config;
 use App\Kernel\Exception\HttpException;
 use App\Kernel\Http\Request;
+use App\Kernel\Http\RequestContext;
 use App\Kernel\Http\Response;
 use App\Kernel\Middleware\MiddlewareInterface;
 use App\Kernel\View\View;
@@ -20,8 +22,15 @@ use Closure;
  */
 final class RequireStaff implements MiddlewareInterface
 {
-    public function __construct(private readonly View $view, private readonly Impersonation $impersonation)
-    {
+    /** Set only by `/dev/login-as` (local development): the session of a seeded staff account without two-factor. */
+    public const DEV_SESSION_KEY = 'admin.dev_session';
+
+    public function __construct(
+        private readonly View $view,
+        private readonly Impersonation $impersonation,
+        private readonly RequestContext $context,
+        private readonly Config $config,
+    ) {
     }
 
     public function handle(Request $request, Closure $next): Response
@@ -30,7 +39,8 @@ final class RequireStaff implements MiddlewareInterface
         if (!$user instanceof User || !$user->isSuperadmin || $this->impersonation->active()) {
             throw new HttpException(404, 'Not found');
         }
-        if (!$user->hasTwoFactor()) {
+        $dev = $this->context->session()?->get(self::DEV_SESSION_KEY) === true && !$this->config->isProduction() && $this->config->bool('auth.dev_login');
+        if (!$user->hasTwoFactor() && !$dev) {
             return $this->view->response('admin/two_factor_required.twig', [], 403);
         }
 

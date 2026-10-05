@@ -22,7 +22,7 @@
         <td>{{ d.badge({pending: 'Ожидает', succeeded: 'Оплачен', failed: 'Не прошёл', refunded: 'Возвращён'}[p.status] ?? p.status, {succeeded: 'ok', failed: 'bad', pending: 'info', refunded: 'neutral'}[p.status] ?? 'neutral', dot = true) }}{% if p.refunded_amount > 0 and p.status != 'refunded' %}<span class="block text-xs text-muted">возвращено {{ money(p.refunded_amount, p.currency) }}</span>{% endif %}</td>
         <td class="whitespace-nowrap text-muted">{{ p.created_at|date('d.m.Y H:i', tz) }}</td>
         <td>{% if p.status == 'succeeded' and left > 0 %}
-            <form class="flex min-w-[15rem] flex-col gap-2" method="post" action="/admin/payments/{{ p.public_id }}/refund">
+            <form class="relative flex min-w-[15rem] flex-col gap-2" method="post" action="/admin/payments/{{ p.public_id }}/refund">
                 {{ csrf_field() }}
                 <label class="sr-only" for="amount-{{ p.public_id }}">Сумма возврата, ₽</label>
                 <input class="field" id="amount-{{ p.public_id }}" name="amount" inputmode="decimal" placeholder="Вся сумма: {{ money(left, p.currency) }}">

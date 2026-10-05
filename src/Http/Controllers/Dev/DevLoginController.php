@@ -7,7 +7,10 @@ namespace App\Http\Controllers\Dev;
 use App\Domain\User\UserRepository;
 use App\Http\Auth\SessionAuth;
 use App\Http\FormFlash;
+use App\Http\Middleware\RequireAdminUnlock;
+use App\Http\Middleware\RequireStaff;
 use App\Kernel\Config;
+use App\Support\Clock;
 use App\Kernel\Exception\HttpException;
 use App\Kernel\Http\Request;
 use App\Kernel\Http\Response;
@@ -24,6 +27,7 @@ final class DevLoginController
         private readonly UserRepository $users,
         private readonly SessionAuth $auth,
         private readonly FormFlash $flash,
+        private readonly Clock $clock,
     ) {
     }
 
@@ -39,7 +43,13 @@ final class DevLoginController
         if ($user === null) {
             throw new HttpException(404, 'Not found');
         }
-        $this->auth->signIn($request, $this->flash->session(), $user, false);
+        $session = $this->flash->session();
+        $this->auth->signIn($request, $session, $user, false);
+        if ($user->isSuperadmin) {
+            // Staff open the admin area without a code here (see RequireStaff); real accounts always need it.
+            $session->set(RequireAdminUnlock::SESSION_KEY, $this->clock->now()->getTimestamp());
+            $session->set(RequireStaff::DEV_SESSION_KEY, true);
+        }
 
         return Response::redirect('/app');
     }
