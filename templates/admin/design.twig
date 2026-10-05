@@ -1,0 +1,79 @@
+{#- Admin: site colours. Variables: color_groups (group => rows of token/label/light/dark/…_default), customised, changed, contrast. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'design' %}
+{% block title %}Дизайн и цвета · Админка{% endblock %}
+{% block head %}<script src="{{ asset('js/admin-design.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
+{% block content %}
+{% set head_actions %}{{ f.button('Сбросить все цвета', variant = 'secondary', icon = 'rotate-ccw', attrs = {'data-dialog-open': 'reset-all'}) }}{% endset %}
+{{ d.page_header('Дизайн и цвета', 'Задайте цвета сайта руками для светлой и тёмной темы. Изменения сразу действуют для всех. Если что-то пошло не так, «Сбросить» вернёт стандартные цвета.', body = head_actions) }}
+
+{% if customised.light or customised.dark %}
+<div class="mb-4">{{ d.alert('info', 'Часть цветов изменена', 'Светлая тема: ' ~ customised.light ~ ', тёмная тема: ' ~ customised.dark ~ ' (из ' ~ (color_groups|reduce((c, rows) => c + rows|length, 0)) ~ '). Остальные стандартные.') }}</div>
+{% endif %}
+
+<form method="post" action="/admin/design" data-design-form>
+    {{ csrf_field() }}
+    <div class="grid gap-6 xl:grid-cols-2">
+        {% for mode, title in {light: 'Светлая тема', dark: 'Тёмная тема'} %}
+        <section aria-labelledby="mode-{{ mode }}">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold" id="mode-{{ mode }}">{{ title }}</h2>
+                <button class="btn btn-ghost btn-sm" type="button" data-dialog-open="reset-{{ mode }}">{{ icon('rotate-ccw', 'h-4 w-4') }}Сбросить эту тему</button>
+            </div>
+            <div class="mb-4 rounded-card border border-line bg-bg p-4 text-fg" data-theme-preview="{{ mode }}" aria-label="Предпросмотр: {{ title|lower }}" role="group">
+                <div class="rounded-card border border-line bg-surface p-4">
+                    <p class="font-semibold">Так выглядит карточка</p>
+                    <p class="mt-1 text-sm text-muted">Вторичный текст, <a class="font-medium text-primary-text underline underline-offset-2" href="#" data-preview-link>ссылка</a> и поле ввода:</p>
+                    <input class="field mt-2" value="Текст в поле" aria-label="Пример поля" tabindex="-1" readonly>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <span class="btn btn-primary btn-sm" aria-hidden="true">Кнопка</span>
+                        <span class="btn btn-secondary btn-sm" aria-hidden="true">Вторая</span>
+                        {{ d.badge('Акцент', 'primary') }}{{ d.badge('Успех', 'ok') }}{{ d.badge('Внимание', 'warn') }}{{ d.badge('Ошибка', 'bad') }}{{ d.badge('Инфо', 'info') }}
+                    </div>
+                </div>
+            </div>
+            {% for group, rows in color_groups %}
+            <fieldset class="mb-4 card">
+                <legend class="px-1 text-sm font-semibold text-muted">{{ group }}</legend>
+                <ul class="divide-y divide-line">
+                    {% for row in rows %}
+                    {% set value = attribute(row, mode) %}{% set default = attribute(row, mode ~ '_default') %}
+                    <li class="flex flex-wrap items-center gap-3 py-2" data-color-row>
+                        <label class="min-w-0 flex-1 text-sm" for="c-{{ mode }}-{{ row.token }}">{{ row.label }}<span class="block text-xs text-muted">--{{ row.token }}</span></label>
+                        <code class="w-16 text-xs text-muted" data-color-hex>{{ value }}</code>
+                        <input class="h-10 w-14 cursor-pointer rounded-ctl border border-line bg-surface p-1" type="color" id="c-{{ mode }}-{{ row.token }}" name="{{ mode }}[{{ row.token }}]" value="{{ value }}" data-token="{{ row.token }}" data-default="{{ default }}">
+                        <button class="btn btn-ghost btn-sm {{ value == default ? 'invisible' : '' }}" type="button" data-color-default aria-label="{{ row.label }}: вернуть стандартный цвет" title="Вернуть стандартный цвет">{{ icon('rotate-ccw', 'h-4 w-4') }}</button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </fieldset>
+            {% endfor %}
+        </section>
+        {% endfor %}
+    </div>
+    <div class="sticky bottom-0 z-sticky -mx-4 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+        {{ f.button('Сохранить цвета', type = 'submit', icon = 'save') }}
+        <p class="text-sm text-muted">Формат цвета проверяется, а читаемость текста показана ниже.</p>
+    </div>
+</form>
+
+<section class="mt-8" aria-labelledby="contrast-h">
+    <h2 class="text-lg font-semibold" id="contrast-h">Проверка читаемости</h2>
+    <p class="mt-1 text-sm text-muted">Контраст текста и фона по рекомендации WCAG AA: не меньше 4,5. Показано для сохранённых цветов.</p>
+    <div class="mt-3 grid gap-4 lg:grid-cols-2">
+        {% for mode, title in {light: 'Светлая тема', dark: 'Тёмная тема'} %}
+        <div class="card !p-0 overflow-hidden">
+        {% set rows %}{% for r in contrast[mode] %}<tr><td>{{ r.label }}</td><td class="tabular-nums">{{ r.ratio|number_format(2, ',', ' ') }}</td><td>{{ d.badge(r.ok ? 'Читается' : 'Плохо читается', r.ok ? 'ok' : 'bad', dot = true) }}</td></tr>{% endfor %}{% endset %}
+        {{ d.table([{label: title}, {label: 'Контраст'}, {label: 'Итог'}], caption = 'Контраст: ' ~ title|lower, body = rows) }}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{{ o.confirm_dialog('reset-all', 'Сбросить все цвета?', 'Обе темы', 'Все ваши цвета будут удалены, вернутся стандартные цвета сайта.', '/admin/design/reset', 'Сбросить') }}
+{{ o.confirm_dialog('reset-light', 'Сбросить светлую тему?', 'Светлая тема', 'Её цвета вернутся к стандартным, тёмная тема не изменится.', '/admin/design/reset?scope=light', 'Сбросить') }}
+{{ o.confirm_dialog('reset-dark', 'Сбросить тёмную тему?', 'Тёмная тема', 'Её цвета вернутся к стандартным, светлая тема не изменится.', '/admin/design/reset?scope=dark', 'Сбросить') }}
+{% endblock %}

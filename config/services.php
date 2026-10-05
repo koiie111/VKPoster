@@ -211,6 +211,7 @@ return static function (Container $c, string $base): void {
         $view->registerFunction('plan_card', $nav->planCard(...));
         $view->registerFunction('platform_notices', $nav->platformNotices(...));
         $view->registerFunction('impersonating', $c->get(\App\Http\Auth\Impersonation::class)->target(...));
+        $view->registerFunction('theme_version', $c->get(\App\Domain\Design\ThemeColors::class)->version(...));
         $adminNav = $c->get(\App\Http\Admin\AdminNav::class);
         $view->registerFunction('admin_can', $adminNav->can(...));
         $view->registerFunction('admin_role', $adminNav->role(...));

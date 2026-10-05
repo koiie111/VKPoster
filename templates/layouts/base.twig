@@ -29,6 +29,7 @@
     {% endif %}
     <script src="{{ asset('js/theme.js') }}"></script>
     <link rel="stylesheet" href="{{ asset('app.css') }}">
+    {% if theme_version() %}<link rel="stylesheet" href="/theme.css?v={{ theme_version() }}">{% endif %}
     {% block head %}{% endblock %}
     <script src="{{ asset('vendor/htmx.min.js') }}" nonce="{{ csp_nonce() }}" defer></script>
     <script src="{{ asset('js/app.js') }}" nonce="{{ csp_nonce() }}" defer></script>

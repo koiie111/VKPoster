@@ -56,6 +56,8 @@ use App\Http\Middleware\ResolveWorkspace;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminAuditController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\DesignController;
+use App\Http\Controllers\Site\ThemeController;
 use App\Http\Middleware\AdminAuditTrail;
 use App\Http\Middleware\RequireStaffPermission;
 use App\Http\Controllers\Admin\BillingAdminController;
@@ -77,6 +79,7 @@ return static function (Router $router): void {
     $router->get('/help', [HelpController::class, 'index'])->name('help')->middleware(OptionalAuthenticate::class);
     $router->get('/help/{slug:[a-z0-9-]{1,60}}', [HelpController::class, 'show'])->name('help.show')->middleware(OptionalAuthenticate::class);
     $router->get('/status', [StatusController::class, 'show'])->name('status')->middleware(OptionalAuthenticate::class);
+    $router->get('/theme.css', [ThemeController::class, 'css']);
     $router->get('/robots.txt', [SeoController::class, 'robots']);
     $router->get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
@@ -311,6 +314,9 @@ return static function (Router $router): void {
             $s->post('/platforms', [OperationsController::class, 'savePlatforms'])->middleware($can('ops.manage'));
             $s->get('/audit', [AdminAuditController::class, 'index'])->name('admin.audit')->middleware($can('audit.view'));
             $s->get('/audit/export', [AdminAuditController::class, 'export'])->middleware($can('audit.view'));
+            $s->get('/design', [DesignController::class, 'show'])->name('admin.design')->middleware($can('design.manage'));
+            $s->post('/design', [DesignController::class, 'save'])->middleware($can('design.manage'));
+            $s->post('/design/reset', [DesignController::class, 'reset'])->middleware($can('design.manage'));
             $s->get('/staff', [StaffController::class, 'index'])->name('admin.staff')->middleware($can('staff.manage'));
             $s->post('/staff', [StaffController::class, 'assign'])->middleware($can('staff.manage'));
             $s->post('/staff/{id:[0-9]{1,12}}/remove', [StaffController::class, 'remove'])->middleware($can('staff.manage'));
