@@ -63,6 +63,7 @@ final class DemoData
         // Rows that have no foreign key to the people: the money journal entries of their payments, audit rows, events, activity.
         $this->db->execute("DELETE e FROM ledger_entries e JOIN payments p ON p.public_id = e.ref_id JOIN workspaces w ON w.id = p.workspace_id WHERE w.owner_id IN ($in)");
         $this->db->execute("DELETE FROM audit_log WHERE workspace_id IN (SELECT id FROM workspaces WHERE owner_id IN ($in)) AND action LIKE 'billing.%'");
+        $this->db->execute("DELETE FROM support_tickets WHERE email LIKE '%@" . self::DOMAIN . "'");
         $this->db->execute("DELETE FROM user_activity_days WHERE user_id IN ($in)");
         $this->db->execute("DELETE FROM analytics_events WHERE user_id IN ($in) OR visitor_id LIKE 'DEMO%'");
         $this->db->execute("DELETE FROM users WHERE id IN ($in)");
@@ -120,6 +121,7 @@ final class DemoData
             $summary['payments'] += $paid['payments'];
             $summary['refunds'] += $paid['refunds'];
         }
+        $this->tickets($users, $days);
         // Visitors who never signed up (the top of the funnel).
         $visits = (int) round($users * 9);
         for ($v = 0; $v < $visits; $v++) {
@@ -133,6 +135,28 @@ final class DemoData
         $this->aggregator->range($now->modify('-' . ($days + 35) . ' days'), $now);
 
         return $summary;
+    }
+
+    /**
+     * A few support tickets from the demo people, in every state, so the support pages have something to show.
+     */
+    private function tickets(int $users, int $days): void
+    {
+        $subjects = ['Не выходит пост в Telegram', 'Как подключить сообщество ВКонтакте?', 'Списали деньги дважды', 'Хочу сменить тариф', 'Пропал доступ к каналу', 'Вопрос по календарю'];
+        $ids = array_map(static fn (array $r): int => (int) $r['id'], $this->db->select('SELECT id FROM users WHERE email LIKE ? ORDER BY id LIMIT 12', ['%@' . self::DOMAIN]));
+        foreach (array_slice($ids, 0, min(count($subjects) * 2, max(1, intdiv($users, 5)))) as $i => $userId) {
+            $at = DbTime::format($this->moment->modify('-' . mt_rand(0, min($days, 20)) . ' days')->setTime(mt_rand(8, 20), mt_rand(0, 59)));
+            $status = ['open', 'open', 'pending', 'solved'][$i % 4];
+            $this->db->execute(
+                'INSERT INTO support_tickets (public_id, user_id, email, subject, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                [(string) new Ulid(), $userId, 'u' . ($i + 1) . '@' . self::DOMAIN, $subjects[$i % count($subjects)], $status, $i % 3 === 0 ? 'telegram' : 'form', $at, $at],
+            );
+            $ticketId = (int) $this->db->lastInsertId();
+            $this->db->execute('INSERT INTO support_messages (ticket_id, kind, author_id, body, created_at) VALUES (?, ?, ?, ?, ?)', [$ticketId, 'customer', $userId, 'Здравствуйте! Подскажите, пожалуйста, что делать: ' . mb_strtolower($subjects[$i % count($subjects)]) . '.', $at]);
+            if ($status !== 'open') {
+                $this->db->execute('INSERT INTO support_messages (ticket_id, kind, body, delivered_via, created_at) VALUES (?, ?, ?, ?, ?)', [$ticketId, 'staff', 'Спасибо за обращение, разобрались: всё должно работать.', 'email', $at]);
+            }
+        }
     }
 
     private function loadPlans(): void

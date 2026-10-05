@@ -4,6 +4,7 @@
 {% import 'components/overlay.twig' as o %}
 {% import 'components/nav.twig' as n %}
 {% import 'components/post.twig' as p %}
+{% import 'components/admin.twig' as a %}
 
 {% set nav_current = '' %}
 
@@ -14,6 +15,7 @@
 </section>
 {% endmacro %}
 {% block title %}Витрина компонентов · {{ app_name }}{% endblock %}
+{% block head %}<script src="{{ asset('vendor/chart.umd.min.js') }}" nonce="{{ csp_nonce() }}" defer></script><script src="{{ asset('js/admin-charts.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
 
 {% block content %}
 {% import _self as s %}
@@ -174,4 +176,23 @@
         {% for pl in ['vk', 'tg', 'max', 'ig'] %}<div><p class="mb-2 text-sm font-semibold text-muted">{{ pl|upper }}</p>{{ p.preview(pl, 'Кофейня «Зерно»', 'Новое меню уже в кофейне! Заходите попробовать тыквенный латте.') }}</div>{% endfor %}
     </div>
 {% endset %}{{ s.section('previews', 'Превью поста в соцсетях', body = _b27) }}
+
+{% set _adm %}
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {{ a.kpi('MRR', '3\u00a0600\u00a0₽', 12.5, 'Ежемесячная выручка') }}
+        {{ a.kpi('Отток клиентов', '4,2%', -8.0, null, false) }}
+        {{ a.kpi('Платящие', '94', 0, 'Без изменений') }}
+        {{ a.kpi('Нет данных', '—', null, 'Знаменатель равен нулю: не ноль, а прочерк') }}
+    </div>
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+        {{ a.chart('chart-demo', 'График: столбцы и таблица данных', {title: 'Демо', type: 'bar', stacked: true, format: 'money', currency: 'RUB', labels: ['01.10', '02.10', '03.10', '04.10'], datasets: [{label: 'ЮKassa', data: [120000, 90000, 150000, 60000], role: 'p'}, {label: 'Возвраты', data: [0, -30000, 0, 0], role: 'bad'}]}) }}
+        <div class="card flex flex-col gap-4">
+            <h3 class="font-semibold">Поле подтверждения и опасное действие</h3>
+            {{ a.step_up('ui-step-up') }}
+            <div>{{ f.button('Открыть диалог с кодом', variant = 'danger', attrs = {'data-dialog-open': 'ui-danger'}) }}</div>
+        </div>
+    </div>
+    {{ a.danger_dialog('ui-danger', 'Заблокировать аккаунт?', 'Анна Демо', 'Человек будет разлогинен везде. Для необратимых действий нужен свежий код.', '#', 'Заблокировать', fields = f.textarea('reason', 'Причина', rows = 2, id = 'ui-reason')) }}
+{% endset %}
+{{ s.section('admin', 'Админка: карточка показателя, график, подтверждение', _adm) }}
 {% endblock %}
