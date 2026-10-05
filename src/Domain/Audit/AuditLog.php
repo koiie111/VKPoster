@@ -28,6 +28,11 @@ final class AuditLog
      */
     public function record(string $action, ?int $actorId, ?string $subjectType = null, ?string $subjectId = null, array $meta = [], ?int $workspaceId = null): void
     {
+        // While support acts as the user (see Http\Auth\Impersonation), the entry says who really did it.
+        $staff = $this->context->session()?->get('auth.impersonator');
+        if (is_int($staff)) {
+            $meta['impersonator'] = $staff;
+        }
         $this->db->table('audit_log')->insert([
             'workspace_id' => $workspaceId,
             'actor_id' => $actorId,

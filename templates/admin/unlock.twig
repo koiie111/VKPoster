@@ -1,0 +1,14 @@
+{#- Fresh second factor for the back office. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% block title %}Вход в админку · {{ app_name }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold">Вход в админку</h1>
+<p class="mt-2 text-muted">Введите код из приложения-аутентификатора. Спросим снова через 8 часов.</p>
+<form class="mt-6 flex flex-col gap-4" method="post" action="/admin/unlock">
+    {{ csrf_field() }}
+    {{ f.input('code', 'Код из приложения', required = true, autocomplete = 'one-time-code', error = errors('code')|first, hint = 'Шесть цифр или резервный код.', attrs = {inputmode: 'numeric', autofocus: ''}) }}
+    {{ f.button('Войти', type = 'submit', block = true) }}
+</form>
+{% endblock %}

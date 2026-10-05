@@ -201,6 +201,7 @@ return static function (Container $c, string $base): void {
         $view->registerFunction('workspace_nav', $nav->items(...));
         $view->registerFunction('plan_card', $nav->planCard(...));
         $view->registerFunction('platform_notices', $nav->platformNotices(...));
+        $view->registerFunction('impersonating', $c->get(\App\Http\Auth\Impersonation::class)->target(...));
         $view->registerFunction('money', \App\Support\Money::format(...));
 
         return $view;

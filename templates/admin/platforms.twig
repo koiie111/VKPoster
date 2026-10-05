@@ -1,0 +1,19 @@
+{#- Admin: switch networks on and off and write a status notice. Variables: rows [{platform, on, notice}]. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'platforms' %}
+{% block title %}Соцсети · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Соцсети', 'Выключатель на случай сбоя или потери ключа и текст для баннера. Включить сеть, которой нет в PLATFORMS_ENABLED, отсюда нельзя.') }}
+<form class="card flex max-w-3xl flex-col gap-6" method="post" action="/admin/platforms">
+    {{ csrf_field() }}
+    {% for row in rows %}
+    <fieldset class="flex flex-col gap-3 border-b border-line pb-6 last:border-0 last:pb-0"><legend class="mb-1 text-lg font-semibold">{{ row.platform.label }}</legend>
+        {{ f.checkbox('on_' ~ row.platform.value, 'Сеть включена: публикации идут как обычно', checked = row.on, hint = 'Если снять отметку, новые подключения и публикации в эту сеть приостановятся, а в приложении появится баннер.') }}
+        {{ f.input('notice_' ~ row.platform.value, 'Текст для баннера (необязательно)', value = row.notice, hint = 'Показывается пользователям, у которых есть каналы в этой сети. Пусто: сообщение подберётся само.') }}
+    </fieldset>
+    {% else %}<p class="text-muted">Ни одна сеть не включена (PLATFORMS_ENABLED).</p>{% endfor %}
+    {% if rows %}<div>{{ f.button('Сохранить', type = 'submit') }}</div>{% endif %}
+</form>
+{% endblock %}

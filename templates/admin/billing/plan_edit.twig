@@ -1,0 +1,35 @@
+{#- Admin: edit a plan. Variables: plan, limits (key => label), features (key => label). -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'plans' %}
+{% block title %}{{ plan.name }} · Тарифы · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Тариф «' ~ plan.name ~ '»', 'Код: ' ~ plan.code ~ '. Пустое поле лимита значит «без ограничений».') }}
+{% if errors('form') %}<div class="mb-4">{% set list %}<ul class="mt-1 list-disc pl-5">{% for e in errors('form') %}<li>{{ e }}</li>{% endfor %}</ul>{% endset %}{{ d.alert('error', 'Не удалось сохранить', body = list) }}</div>{% endif %}
+<form class="card flex max-w-3xl flex-col gap-5" method="post" action="/admin/plans/{{ plan.code }}">
+    {{ csrf_field() }}
+    {{ f.input('name', 'Название', value = old('name', plan.name), required = true) }}
+    {% if not plan.free %}
+    <div class="grid gap-4 sm:grid-cols-2">
+        {{ f.input('price_month', 'Цена в месяц, ₽', value = old('price_month', plan.prices.month.RUB is defined ? plan.prices.month.RUB / 100 : ''), hint = 'Пусто: помесячной оплаты нет.') }}
+        {{ f.input('price_year', 'Цена в год, ₽', value = old('price_year', plan.prices.year.RUB is defined ? plan.prices.year.RUB / 100 : ''), hint = 'Пусто: годовой оплаты нет.') }}
+    </div>
+    {{ f.checkbox('is_public', 'Показывать на сайте и в сравнении тарифов', checked = old('is_public', plan.isPublic ? '1' : '') == '1') }}
+    {% endif %}
+    <fieldset><legend class="label">Лимиты</legend>
+        <div class="grid gap-4 sm:grid-cols-2">
+            {% for key, label in limits %}
+            {% set current = plan.limits[key] is defined ? plan.limits[key] : null %}
+            {{ f.input('limit_' ~ key, label, value = old('limit_' ~ key, current is null ? '' : (key == 'storage_bytes' ? current / 1048576 : current))) }}
+            {% endfor %}
+        </div>
+    </fieldset>
+    <fieldset><legend class="label">Возможности</legend>
+        <div class="grid gap-2 sm:grid-cols-2">
+            {% for key, label in features %}{{ f.checkbox('feature_' ~ key, label, checked = old('feature_' ~ key, plan.hasFeature(key) ? '1' : '') == '1') }}{% endfor %}
+        </div>
+    </fieldset>
+    <div class="flex flex-wrap gap-2">{{ f.button('Сохранить', type = 'submit') }}{{ f.button('Отмена', variant = 'secondary', href = '/admin/plans') }}</div>
+</form>
+{% endblock %}

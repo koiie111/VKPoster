@@ -11,7 +11,9 @@
 {#- Prototype pages (/dev/proto/*) are opened by guests and show demo data; real pages have a signed-in user and only link to what exists. -#}
 {% set me = current_user() %}
 {% set demo = me is null %}
-{% set ws = demo ? null : current_workspace() %}
+{#- The back office is not inside a workspace: no switcher, no plan card. -#}
+{% set ws = (demo or shell_badge is defined) ? null : current_workspace() %}
+{% set acting_as = demo ? null : impersonating() %}
 {% set ws_list = ws ? my_workspaces() : [] %}
 {% set items = nav_items is defined ? nav_items : (demo ? [
     {id: 'dashboard', label: 'Обзор', icon: 'layout-dashboard', href: '/app'},
@@ -24,6 +26,12 @@
     {id: 'settings', label: 'Безопасность', icon: 'settings', href: '/account/security'}
 ] : workspace_nav()) %}
 {% set current = nav_current is defined ? nav_current : '' %}
+{% if acting_as %}
+<div class="sticky top-0 z-toast flex flex-wrap items-center justify-center gap-x-4 gap-y-2 bg-warn px-4 py-2 text-sm font-semibold text-primary-fg" role="status">
+    <span>Вы вошли как {{ acting_as.name }}{% if acting_as.email %} ({{ acting_as.email }}){% endif %}. Оплата и безопасность аккаунта недоступны, все действия записываются.</span>
+    <form method="post" action="/impersonation/stop">{{ csrf_field() }}<button class="btn btn-secondary btn-sm" type="submit">Выйти из этого режима</button></form>
+</div>
+{% endif %}
 <div class="lg:grid lg:min-h-screen lg:grid-cols-[16rem_1fr]">
     <aside class="hidden border-r border-line bg-surface lg:block">
         <div class="sticky top-0 flex h-screen flex-col gap-6 overflow-y-auto p-4">

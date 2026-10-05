@@ -1,0 +1,30 @@
+{#- Admin overview. Variables: accounts, publications, queues, channels, problems, unfilled_documents. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'overview' %}
+{% block title %}Обзор · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Обзор', 'Что происходит в сервисе. Полный бизнес-дашборд (выручка, воронки, когорты) появится на следующем этапе.') }}
+{% if unfilled_documents %}
+<div class="mb-4">{% set docs_list %}<ul class="mt-1 list-disc pl-5">{% for doc in unfilled_documents %}<li><a class="font-medium underline underline-offset-2" href="/legal/{{ doc.slug }}">{{ doc.title }}</a>: незаполненных мест {{ doc.count }}</li>{% endfor %}</ul>{% endset %}{{ d.alert('warning', 'Юридические документы ещё не заполнены', 'Тексты лежат в resources/legal/. Пока в них есть места в двойных квадратных скобках, на сайте они помечены как шаблон.', docs_list) }}</div>
+{% endif %}
+{% if problems %}
+<div class="mb-4">{% set problems_list %}<ul class="mt-1 list-disc pl-5">{% for h in problems %}<li>{{ h.platform.label }}: {{ h.notice }}</li>{% endfor %}</ul>{% endset %}{{ d.alert('error', 'Есть проблемы с соцсетями', body = problems_list) }}</div>
+{% endif %}
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="card"><p class="text-sm text-muted">Пользователей</p><p class="mt-1 text-3xl font-bold">{{ accounts.users }}</p><p class="text-sm text-muted">за неделю: +{{ accounts.users_week }}</p></div>
+    <div class="card"><p class="text-sm text-muted">Пространств</p><p class="mt-1 text-3xl font-bold">{{ accounts.workspaces }}</p></div>
+    <div class="card"><p class="text-sm text-muted">В очереди задач</p><p class="mt-1 text-3xl font-bold">{{ queues.queues|reduce((sum, n) => sum + n, 0) }}</p><p class="text-sm text-muted"><a class="underline underline-offset-2" href="/admin/queues">Очереди</a></p></div>
+    <div class="card"><p class="text-sm text-muted">Упавших задач</p><p class="mt-1 text-3xl font-bold {{ queues.failed ? 'text-bad-fg' : '' }}">{{ queues.failed }}</p><p class="text-sm text-muted"><a class="underline underline-offset-2" href="/admin/queues">Разобрать</a></p></div>
+</div>
+<div class="mt-6 grid gap-4 lg:grid-cols-2">
+    <section class="card" aria-labelledby="plans-h"><h2 class="text-lg font-semibold" id="plans-h">Подписки по тарифам</h2>
+        {% if accounts.plans %}<ul class="mt-3 divide-y divide-line">{% for row in accounts.plans %}<li class="flex justify-between gap-3 py-2"><span>{{ row.plan }} <span class="text-sm text-muted">· {{ {trialing: 'пробный период', active: 'активна', past_due: 'просрочена'}[row.status] ?? row.status }}</span></span><span class="font-semibold tabular-nums">{{ row.count }}</span></li>{% endfor %}</ul>
+        {% else %}<p class="mt-3 text-muted">Подписок пока нет.</p>{% endif %}
+    </section>
+    <section class="card" aria-labelledby="pubs-h"><h2 class="text-lg font-semibold" id="pubs-h">Публикации за 24 часа</h2>
+        {% if publications %}<ul class="mt-3 divide-y divide-line">{% for platform, counts in publications %}<li class="py-2"><p class="font-medium">{{ {telegram: 'Telegram', vk: 'ВКонтакте', max: 'MAX', fake: 'Тестовая сеть', instagram: 'Instagram'}[platform] ?? platform }}</p><p class="text-sm text-muted">{% for status, n in counts %}{{ {sent: 'вышло', queued: 'ждут', sending: 'идёт отправка', failed: 'не вышло', unknown: 'неизвестно', cancelled: 'отменено'}[status] ?? status }}: {{ n }}{{ not loop.last ? ' · ' : '' }}{% endfor %}</p></li>{% endfor %}</ul>
+        {% else %}<p class="mt-3 text-muted">За последние сутки публикаций не было.</p>{% endif %}
+    </section>
+</div>
+{% endblock %}

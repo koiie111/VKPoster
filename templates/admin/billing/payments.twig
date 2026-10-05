@@ -1,0 +1,38 @@
+{#- Admin: payments. Variables: status, q, result, base. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'payments' %}
+{% set tz = current_user().timezone %}
+{% block title %}Платежи · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Платежи', 'Всего найдено: ' ~ result.total ~ '. Возврат делается через платёжную систему и записывается в журнал проводок.') }}
+<form class="mb-4 flex flex-wrap items-end gap-3" method="get" action="/admin/payments" role="search">
+    <div class="min-w-[12rem]">{{ f.select('status', 'Статус', {'': 'Все', pending: 'Ожидает', succeeded: 'Оплачен', failed: 'Не прошёл', refunded: 'Возвращён'}, value = status) }}</div>
+    <div class="min-w-[14rem] flex-1">{{ f.input('q', 'Найти платёж', value = q, placeholder = 'Номер платежа или счёта, пространства, почта') }}</div>
+    {{ f.button('Найти', type = 'submit', variant = 'secondary', icon = 'search') }}
+</form>
+<div class="card !p-0 overflow-hidden">
+{% set rows %}
+    {% for p in result.rows %}
+    {% set left = p.amount - p.refunded_amount %}
+    <tr>
+        <td><span class="block font-medium">{{ money(p.amount, p.currency) }}</span><span class="block text-xs text-muted">{{ p.number }} · {{ p.provider }}</span></td>
+        <td><a class="hover:underline" href="/admin/workspaces/{{ p.workspace_public_id }}">{{ p.workspace_name }}</a><span class="block text-xs text-muted">{{ p.plan }} · {{ p.customer_email }}</span></td>
+        <td>{{ d.badge({pending: 'Ожидает', succeeded: 'Оплачен', failed: 'Не прошёл', refunded: 'Возвращён'}[p.status] ?? p.status, {succeeded: 'ok', failed: 'bad', pending: 'info', refunded: 'neutral'}[p.status] ?? 'neutral', dot = true) }}{% if p.refunded_amount > 0 and p.status != 'refunded' %}<span class="block text-xs text-muted">возвращено {{ money(p.refunded_amount, p.currency) }}</span>{% endif %}</td>
+        <td class="whitespace-nowrap text-muted">{{ p.created_at|date('d.m.Y H:i', tz) }}</td>
+        <td>{% if p.status == 'succeeded' and left > 0 %}
+            <form class="flex min-w-[15rem] flex-col gap-2" method="post" action="/admin/payments/{{ p.public_id }}/refund">
+                {{ csrf_field() }}
+                <label class="sr-only" for="amount-{{ p.public_id }}">Сумма возврата, ₽</label>
+                <input class="field" id="amount-{{ p.public_id }}" name="amount" inputmode="decimal" placeholder="Вся сумма: {{ money(left, p.currency) }}">
+                <label class="flex items-start gap-2 text-xs text-muted"><input class="mt-0.5" type="checkbox" name="confirm" value="1" required>Возврат нельзя отменить</label>
+                <button class="btn btn-danger btn-sm" type="submit">Вернуть деньги</button>
+            </form>{% endif %}</td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Сумма'}, {label: 'Пространство'}, {label: 'Статус'}, {label: 'Дата'}, {label: 'Возврат'}], empty = result.rows is empty, empty_title = 'Платежей нет', empty_text = 'Здесь появятся оплаты тарифов.', caption = 'Платежи', body = rows) }}
+</div>
+<div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
+{% endblock %}
