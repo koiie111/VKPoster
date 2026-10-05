@@ -10,6 +10,8 @@ use App\Domain\Billing\BillingService;
 use App\Domain\Billing\PaymentRepository;
 use App\Domain\Billing\PlanEditor;
 use App\Domain\Billing\PlanRepository;
+use App\Domain\Admin\FinanceExport;
+use App\Http\Admin\AdminInput;
 use App\Http\Admin\StepUp;
 use App\Http\FormFlash;
 use App\Http\WorkspaceRequest;
@@ -33,32 +35,37 @@ final class BillingAdminController
         private readonly PlanEditor $editor,
         private readonly FormFlash $flash,
         private readonly StepUp $stepUp,
+        private readonly FinanceExport $export,
+        private readonly \App\Domain\Admin\AdminAuditReader $audit,
     ) {
     }
 
     public function payments(Request $request): Response
     {
+        $tz = WorkspaceRequest::user($request)->timezone;
         $status = WorkspaceRequest::text($request->input('status'));
         $query = WorkspaceRequest::text($request->input('q'));
-        $page = $request->input('page');
-        $params = array_filter(['status' => $status, 'q' => $query], static fn (string $v): bool => $v !== '');
+        $provider = AdminInput::choice($request, 'provider', ['yookassa', 'tbank', 'fake']);
+        $params = ['status' => $status, 'q' => $query, 'provider' => $provider, 'from' => AdminInput::text($request, 'from', 10), 'to' => AdminInput::text($request, 'to', 10)];
 
         return $this->view->response('admin/billing/payments.twig', [
+            'filters' => array_filter($params, static fn (string $v): bool => $v !== ''),
             'status' => $status,
             'q' => $query,
-            'result' => $this->directory->payments($status, $query, is_string($page) && ctype_digit($page) ? (int) $page : 1),
-            'base' => '/admin/payments' . ($params === [] ? '' : '?' . http_build_query($params)),
+            'result' => $this->directory->payments($status, $query, AdminInput::page($request), $provider, AdminInput::date($request, 'from', $tz), AdminInput::date($request, 'to', $tz, true)),
+            'base' => '/admin/payments' . AdminInput::query($params),
+            'fees' => $this->export->fees(),
+            'providers' => $this->export->providers(),
         ]);
     }
 
     public function subscriptions(Request $request): Response
     {
         $status = WorkspaceRequest::text($request->input('status'));
-        $page = $request->input('page');
 
         return $this->view->response('admin/billing/subscriptions.twig', [
             'status' => $status,
-            'result' => $this->directory->subscriptions($status, is_string($page) && ctype_digit($page) ? (int) $page : 1),
+            'result' => $this->directory->subscriptions($status, AdminInput::page($request)),
             'base' => '/admin/subscriptions' . ($status === '' ? '' : '?status=' . rawurlencode($status)),
         ]);
     }
@@ -67,13 +74,15 @@ final class BillingAdminController
     {
         $staff = WorkspaceRequest::user($request);
         $payment = $this->payments->findByPublicId($paymentId) ?? throw new HttpException(404, 'Not found');
-        if (($denied = $this->stepUp->guard($request, $staff, '/admin/payments')) !== null) {
+        $back = $request->input('back');
+        $backTo = is_string($back) && preg_match('#^/admin/payments(/[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26})?$#', $back) === 1 ? $back : '/admin/payments';
+        if (($denied = $this->stepUp->guard($request, $staff, $backTo)) !== null) {
             return $denied;
         }
         if ($request->input('confirm') !== '1') {
             $this->flash->toast('Подтвердите, что возврат нельзя отменить.', 'error');
 
-            return Response::redirect('/admin/payments');
+            return Response::redirect($backTo);
         }
         $left = $payment->amount - $payment->refundedAmount;
         $raw = trim(str_replace([' ', "\u{00A0}"], '', WorkspaceRequest::text($request->input('amount'))));
@@ -89,7 +98,7 @@ final class BillingAdminController
             $this->flash->toast($e->getMessage(), 'error');
         }
 
-        return Response::redirect('/admin/payments');
+        return Response::redirect($backTo);
     }
 
     public function plans(): Response
@@ -102,6 +111,7 @@ final class BillingAdminController
         $plan = $this->plans->findByCode($code) ?? throw new HttpException(404, 'Not found');
 
         return $this->view->response('admin/billing/plan_edit.twig', [
+            'history' => $this->audit->page(['action' => 'admin.plan_updated', 'subject' => $plan->code], 1)['rows'],
             'plan' => $plan,
             'limits' => PlanEditor::LIMITS,
             'features' => PlanEditor::FEATURES,

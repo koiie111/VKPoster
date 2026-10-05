@@ -144,10 +144,22 @@ final class AdminDirectory
     /**
      * @return array{rows: list<array<string, mixed>>, total: int, pages: int, page: int}
      */
-    public function payments(string $status, string $query, int $page): array
+    public function payments(string $status, string $query, int $page, string $provider = '', ?DateTimeImmutable $from = null, ?DateTimeImmutable $to = null): array
     {
         $where = '1 = 1';
         $bindings = [];
+        if ($provider !== '') {
+            $where .= ' AND pay.provider = ?';
+            $bindings[] = $provider;
+        }
+        if ($from !== null) {
+            $where .= ' AND pay.created_at >= ?';
+            $bindings[] = \App\Support\DbTime::format($from);
+        }
+        if ($to !== null) {
+            $where .= ' AND pay.created_at < ?';
+            $bindings[] = \App\Support\DbTime::format($to);
+        }
         if (in_array($status, ['pending', 'succeeded', 'failed', 'refunded'], true)) {
             $where .= ' AND pay.status = ?';
             $bindings[] = $status;
@@ -182,6 +194,11 @@ final class AdminDirectory
         if (in_array($status, ['trialing', 'active', 'past_due'], true)) {
             $where .= ' AND s.status = ?';
             $bindings[] = $status;
+        } elseif ($status === 'canceled') {
+            // Paid up to the end of the period and then not renewed.
+            $where .= ' AND s.cancel_at_period_end = 1 AND s.current_period_end IS NOT NULL';
+        } elseif ($status === 'free') {
+            $where .= ' AND s.current_period_end IS NULL AND s.status = \'active\'';
         }
         $from = 'FROM subscriptions s JOIN workspaces w ON w.id = s.workspace_id JOIN plans p ON p.id = s.plan_id WHERE ' . $where;
         $total = $this->count('SELECT COUNT(*) AS c ' . $from, $bindings);
@@ -193,6 +210,91 @@ final class AdminDirectory
         );
 
         return ['rows' => array_map($this->dates(...), $rows), 'total' => $total, 'pages' => $pages, 'page' => $page];
+    }
+
+    /**
+     * One payment with its invoice, workspace and the owner's email, or null.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function payment(string $publicId): ?array
+    {
+        $rows = $this->db->select(
+            'SELECT pay.id, pay.public_id, pay.provider, pay.provider_payment_id, pay.status, pay.provider_status, pay.amount, pay.currency, pay.refunded_amount, pay.error_message, pay.created_at, pay.updated_at, '
+            . 'i.number, i.kind, i.period, i.customer_email, i.paid_at, i.period_start, i.period_end, w.public_id AS workspace_public_id, w.name AS workspace_name, p.name AS plan '
+            . 'FROM payments pay JOIN invoices i ON i.id = pay.invoice_id JOIN workspaces w ON w.id = pay.workspace_id JOIN plans p ON p.id = i.plan_id WHERE pay.public_id = ?',
+            [strtoupper($publicId)],
+        );
+
+        return $rows === [] ? null : $this->dates($rows[0]);
+    }
+
+    /**
+     * Journal entries of one payment (the money journal), newest first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function paymentLedger(string $publicId): array
+    {
+        return array_map($this->dates(...), $this->db->select(
+            'SELECT e.ref_type, e.amount, e.currency, e.memo, e.created_at, a.code FROM ledger_entries e JOIN ledger_accounts a ON a.id = e.account_id WHERE e.ref_id = ? OR e.ref_id LIKE ? ORDER BY e.id DESC',
+            [strtoupper($publicId), 'refund-' . strtoupper($publicId) . '%'],
+        ));
+    }
+
+    /**
+     * Notifications a provider sent about one payment.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function paymentWebhooks(string $provider, ?string $providerPaymentId): array
+    {
+        if ($providerPaymentId === null) {
+            return [];
+        }
+
+        return array_map($this->dates(...), $this->db->select(
+            'SELECT id, type, outcome, detail, payload, received_at FROM webhook_events WHERE provider = ? AND payment_ref = ? ORDER BY id DESC LIMIT 20',
+            [$provider, $providerPaymentId],
+        ));
+    }
+
+    /**
+     * The webhook journal.
+     *
+     * @return array{rows: list<array<string, mixed>>, total: int, pages: int, page: int}
+     */
+    public function webhooks(string $provider, string $outcome, int $page): array
+    {
+        $where = '1 = 1';
+        $bindings = [];
+        if ($provider !== '') {
+            $where .= ' AND provider = ?';
+            $bindings[] = $provider;
+        }
+        if ($outcome !== '') {
+            $where .= ' AND outcome = ?';
+            $bindings[] = $outcome;
+        }
+        $total = $this->count('SELECT COUNT(*) AS c FROM webhook_events WHERE ' . $where, $bindings);
+        [$page, $pages, $offset] = $this->paging($total, $page);
+        $rows = $this->db->select('SELECT id, provider, event_id, type, payment_ref, outcome, detail, received_at FROM webhook_events WHERE ' . $where . ' ORDER BY id DESC LIMIT ' . self::PAGE_SIZE . ' OFFSET ' . $offset, $bindings);
+
+        return ['rows' => array_map($this->dates(...), $rows), 'total' => $total, 'pages' => $pages, 'page' => $page];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function webhook(int $id): ?array
+    {
+        $rows = $this->db->select(
+            'SELECT e.id, e.provider, e.event_id, e.type, e.payment_ref, e.outcome, e.detail, e.payload, e.received_at, pay.public_id AS payment_public_id FROM webhook_events e '
+            . 'LEFT JOIN payments pay ON pay.provider = e.provider AND pay.provider_payment_id = e.payment_ref WHERE e.id = ?',
+            [$id],
+        );
+
+        return $rows === [] ? null : $this->dates($rows[0]);
     }
 
     /**

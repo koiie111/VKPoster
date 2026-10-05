@@ -309,7 +309,7 @@ final class BillingService
 
             throw new HttpException(403, 'Forbidden');
         }
-        if (!$this->webhookEvents->begin($event)) {
+        if (!$this->webhookEvents->begin($event, $request->rawBody)) {
             return $gateway->webhookAck();
         }
 

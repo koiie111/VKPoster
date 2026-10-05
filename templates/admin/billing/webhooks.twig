@@ -1,0 +1,26 @@
+{#- Admin: provider notification journal. Variables: filters, result, base. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'webhooks' %}
+{% set tz = current_user().timezone %}
+{% block title %}Уведомления провайдеров · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Уведомления провайдеров', 'Всё, что платёжные системы присылали нам: найдено ' ~ result.total ~ '. Хранятся 90 дней.') }}
+<form class="mb-4 flex flex-wrap items-end gap-3" method="get" action="/admin/webhooks" role="search">
+    <div class="min-w-[10rem]">{{ f.select('provider', 'Провайдер', {'': 'Все', yookassa: 'ЮKassa', tbank: 'Т-Банк', fake: 'Тестовый'}, value = filters.provider) }}</div>
+    <div class="min-w-[10rem]">{{ f.select('outcome', 'Итог', {'': 'Любой', received: 'Получено', processed: 'Обработано', ignored: 'Пропущено', rejected: 'Отклонено'}, value = filters.outcome) }}</div>
+    {{ f.button('Показать', type = 'submit', variant = 'secondary', icon = 'filter') }}
+</form>
+<div class="card !p-0 overflow-hidden">
+{% set rows %}{% for w in result.rows %}<tr>
+    <td class="whitespace-nowrap text-muted">{{ w.received_at|date('d.m.Y H:i:s', tz) }}</td>
+    <td class="font-medium">{{ w.provider }}<span class="block text-xs text-muted">{{ w.type }}</span></td>
+    <td class="break-all text-xs text-muted">{{ w.payment_ref ?? '—' }}</td>
+    <td>{{ d.badge({received: 'Получено', processed: 'Обработано', ignored: 'Пропущено', rejected: 'Отклонено'}[w.outcome] ?? w.outcome, {processed: 'ok', rejected: 'bad', ignored: 'neutral', received: 'info'}[w.outcome] ?? 'neutral') }}<span class="block text-xs text-muted">{{ w.detail }}</span></td>
+    <td>{{ f.button('Открыть', variant = 'ghost', size = 'sm', href = '/admin/webhooks/' ~ w.id) }}</td>
+</tr>{% endfor %}{% endset %}
+{{ d.table([{label: 'Когда'}, {label: 'Провайдер и событие'}, {label: 'Платёж у провайдера'}, {label: 'Итог'}, {label: ''}], empty = result.rows is empty, empty_title = 'Уведомлений нет', empty_text = 'Измените фильтры.', caption = 'Уведомления провайдеров', body = rows) }}
+</div>
+<div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
+{% endblock %}

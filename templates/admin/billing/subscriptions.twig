@@ -8,7 +8,7 @@
 {% block content %}
 {{ d.page_header('Подписки', 'Всего найдено: ' ~ result.total ~ '. Тариф выдают на карточке пространства.') }}
 <form class="mb-4 flex flex-wrap items-end gap-3" method="get" action="/admin/subscriptions" role="search">
-    <div class="min-w-[14rem]">{{ f.select('status', 'Состояние', {'': 'Все', trialing: 'Пробный период', active: 'Активные', past_due: 'Просроченные'}, value = status) }}</div>
+    <div class="min-w-[14rem]">{{ f.select('status', 'Состояние', {'': 'Все', trialing: 'Пробный период', active: 'Активные', past_due: 'В отсрочке (платёж не прошёл)', canceled: 'Отменены (не продлятся)', free: 'Бесплатный тариф'}, value = status) }}</div>
     {{ f.button('Показать', type = 'submit', variant = 'secondary', icon = 'filter') }}
 </form>
 <div class="card !p-0 overflow-hidden">

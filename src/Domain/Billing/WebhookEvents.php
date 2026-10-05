@@ -20,9 +20,10 @@ final class WebhookEvents
     }
 
     /**
+     * @param string|null $rawBody the notification as received; it is stored with personal and secret fields masked
      * @return bool false when this delivery was already seen
      */
-    public function begin(WebhookEvent $event): bool
+    public function begin(WebhookEvent $event, ?string $rawBody = null): bool
     {
         try {
             $this->db->table('webhook_events')->insert([
@@ -31,6 +32,7 @@ final class WebhookEvents
                 'type' => mb_substr($event->type, 0, 64),
                 'payment_ref' => $event->providerPaymentId === null ? null : mb_substr($event->providerPaymentId, 0, 128),
                 'outcome' => 'received',
+                'payload' => $rawBody === null || $rawBody === '' ? null : WebhookMask::apply($rawBody),
                 'received_at' => DbTime::format($this->clock->now()),
             ]);
         } catch (\PDOException $e) {
