@@ -1,0 +1,37 @@
+{#- Admin: landing texts and FAQ. Variables: blocks, saved, faq, faq_custom, faq_slots. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'content' %}
+{% block title %}Тексты главной · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Тексты главной страницы', 'Пустое поле — текст по умолчанию (он показан серой подсказкой). {app_name} подставит название сервиса.') }}
+<p class="mb-4 text-sm"><a class="underline underline-offset-2" href="/admin/content">← Тексты и документы</a> · <a class="underline underline-offset-2" href="/" target="_blank" rel="noopener">Открыть главную</a></p>
+<div class="grid gap-4 lg:grid-cols-2">
+    <form class="card flex flex-col gap-4" method="post" action="/admin/content/texts">{{ csrf_field() }}
+        <h2 class="text-lg font-semibold">Тексты</h2>
+        {% for key, b in blocks %}
+            {% if b.long %}{{ f.textarea('t[' ~ key ~ ']', b.label, value = saved[key] ?? '', rows = 3, max = 600, placeholder = b.default, id = 'tx-' ~ key|replace({'.': '-'})) }}
+            {% else %}{{ f.input('t[' ~ key ~ ']', b.label, value = saved[key] ?? '', placeholder = b.default, id = 'tx-' ~ key|replace({'.': '-'})) }}{% endif %}
+        {% endfor %}
+        <div>{{ f.button('Сохранить тексты', type = 'submit', icon = 'save') }}</div>
+    </form>
+    <form class="card flex flex-col gap-4" method="post" action="/admin/content/faq">{{ csrf_field() }}
+        <h2 class="text-lg font-semibold">Вопросы и ответы</h2>
+        <p class="text-sm text-muted">{{ faq_custom ? 'Показан ваш список.' : 'Сейчас показан стандартный список.' }} Пустые вопросы убираются; если не останется ни одного, вернётся стандартный список. В ответе можно написать {trial_days}: подставится длина пробного периода.</p>
+        {% for item in faq %}
+        <fieldset class="flex flex-col gap-2 border-t border-line pt-3"><legend class="sr-only">Вопрос {{ loop.index }}</legend>
+            {{ f.input('q[]', 'Вопрос ' ~ loop.index, value = item[0], id = 'faq-q-' ~ loop.index) }}
+            {{ f.textarea('a[]', 'Ответ', value = item[1], rows = 3, max = 1200, id = 'faq-a-' ~ loop.index) }}
+        </fieldset>
+        {% endfor %}
+        {% if faq|length < faq_slots %}
+        <fieldset class="flex flex-col gap-2 border-t border-line pt-3"><legend class="sr-only">Новый вопрос</legend>
+            {{ f.input('q[]', 'Новый вопрос', id = 'faq-q-new') }}
+            {{ f.textarea('a[]', 'Ответ', rows = 3, max = 1200, id = 'faq-a-new') }}
+        </fieldset>
+        {% endif %}
+        <div>{{ f.button('Сохранить вопросы', type = 'submit', icon = 'save') }}</div>
+    </form>
+</div>
+{% endblock %}

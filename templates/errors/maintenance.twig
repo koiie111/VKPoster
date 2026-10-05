@@ -1,0 +1,13 @@
+{#- Shown to everybody but staff while maintenance mode is on. Variables: message. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% block title %}Технические работы · {{ app_name }}{% endblock %}
+{% block content %}
+<div class="text-center">
+    <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-info-soft text-info-fg">{{ icon('refresh-cw', 'h-7 w-7') }}</span>
+    <h1 class="mt-4 text-2xl font-bold">Технические работы</h1>
+    <p class="mt-2 text-muted">{{ message }}</p>
+    <div class="mt-6">{{ f.button('Обновить страницу', variant = 'secondary', href = '/') }}</div>
+</div>
+{% endblock %}
+{% block auth_footer %}Посты по расписанию выходят как обычно.{% endblock %}

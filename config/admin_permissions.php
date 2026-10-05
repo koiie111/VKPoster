@@ -39,6 +39,7 @@ return static fn (Env $env): array => [
     'content.manage' => ['superadmin', 'content'],
     'design.manage' => ['superadmin', 'content'],
     'campaigns.manage' => ['superadmin', 'content'],
+    'support.view' => ['superadmin', 'support'],
     'support.manage' => ['superadmin', 'support'],
 
     // The site itself, the staff and the trail of what they did.

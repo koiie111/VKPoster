@@ -113,6 +113,7 @@ final class UsersController
             'notes' => $this->directory->notes($person->id),
             'journal' => $this->directory->journal($person->id),
             'attribution' => $this->directory->attribution($person->id),
+            'tickets' => $this->staff->can($viewer, 'support.view') ? $this->directory->tickets($person->id) : [],
             'can_grant' => $this->staff->can($viewer, 'grants.manage'),
             'target_is_staff' => $this->staff->isStaff($person),
         ]);

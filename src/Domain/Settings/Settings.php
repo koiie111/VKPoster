@@ -9,9 +9,11 @@ use App\Support\Clock;
 use App\Support\DbTime;
 
 /**
- * Settings the owner changes in the admin area without a deploy (stored in `app_settings`, any JSON value).
- * Reads are cached inside the process for a few seconds, so a long-running worker notices a change quickly but does not ask the database
- * on every call; `set()` drops the cache of the process that made the change.
+ * Settings the owner changes in the admin area without a deploy (stored in `app_settings`, any JSON value; secrets never go here).
+ * Reads are cached twice: inside the process for a few seconds (a long-running worker notices a change quickly without asking anybody on
+ * every call) and in Redis for minutes (every web process shares one copy instead of reading the table). `set()` and `forget()` write the
+ * table and drop the Redis copy, so a change shows up everywhere within the process cache time. Redis trouble is not an error: the table
+ * is the truth.
  */
 final class Settings
 {
@@ -22,7 +24,10 @@ final class Settings
 
     private int $loadedAt = 0;
 
-    public function __construct(private readonly Connection $db, private readonly Clock $clock)
+    private const REDIS_KEY = 'app:settings';
+    private const REDIS_TTL = 300;
+
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly ?\Redis $redis = null)
     {
     }
 
@@ -41,13 +46,22 @@ final class Settings
             . 'ON DUPLICATE KEY UPDATE value_json = VALUES(value_json), updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)',
             [$name, $json, $actorId, DbTime::format($this->clock->now())],
         );
-        $this->cache = null;
+        $this->invalidate();
     }
 
     public function forget(string $name): void
     {
         $this->db->execute('DELETE FROM app_settings WHERE name = ?', [$name]);
+        $this->invalidate();
+    }
+
+    private function invalidate(): void
+    {
         $this->cache = null;
+        try {
+            $this->redis?->del(self::REDIS_KEY);
+        } catch (\Throwable) {
+        }
     }
 
     /**
@@ -58,12 +72,34 @@ final class Settings
         if ($this->cache !== null && time() - $this->loadedAt < self::TTL_SECONDS) {
             return $this->cache;
         }
-        $values = [];
-        foreach ($this->db->select('SELECT name, value_json FROM app_settings') as $row) {
-            $values[(string) $row['name']] = json_decode((string) $row['value_json'], true);
+        $values = $this->fromRedis();
+        if ($values === null) {
+            $values = [];
+            foreach ($this->db->select('SELECT name, value_json FROM app_settings') as $row) {
+                $values[(string) $row['name']] = json_decode((string) $row['value_json'], true);
+            }
+            try {
+                $this->redis?->setex(self::REDIS_KEY, self::REDIS_TTL, json_encode($values, JSON_THROW_ON_ERROR));
+            } catch (\Throwable) {
+            }
         }
         $this->loadedAt = time();
 
         return $this->cache = $values;
+    }
+
+    /**
+     * @return array<string, mixed>|null null when Redis has no copy (or cannot be asked)
+     */
+    private function fromRedis(): ?array
+    {
+        try {
+            $json = $this->redis?->get(self::REDIS_KEY);
+            $decoded = is_string($json) ? json_decode($json, true, 512, JSON_THROW_ON_ERROR) : null;
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_array($decoded) ? $decoded : null;
     }
 }

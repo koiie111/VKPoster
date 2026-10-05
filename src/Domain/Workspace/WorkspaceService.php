@@ -23,6 +23,7 @@ final class WorkspaceService
         private readonly AuditLog $audit,
         private readonly Entitlements $entitlements,
         private readonly SubscriptionService $subscriptions,
+        private readonly \App\Domain\Settings\SiteSettings $site,
     ) {
     }
 
@@ -47,13 +48,15 @@ final class WorkspaceService
     }
 
     /**
-     * Create an additional workspace. Null when the person already owns `OWNED_LIMIT` of them.
+     * Create an additional workspace. Null when the person already owns `OWNED_LIMIT` of them (or the lower limit the owner of the service set).
      *
      * @throws \App\Domain\Billing\PlanLimitException when the person's plans allow no more workspaces
      */
     public function create(User $user, string $name): ?Workspace
     {
-        if ($this->workspaces->countOwnedBy($user->id) >= self::OWNED_LIMIT) {
+        // The owner of the service may set a lower limit than the built-in one (admin area, site settings).
+        $site = $this->site->maxWorkspacesPerUser();
+        if ($this->workspaces->countOwnedBy($user->id) >= ($site > 0 ? min($site, self::OWNED_LIMIT) : self::OWNED_LIMIT)) {
             return null;
         }
         $this->entitlements->assertCanCreateWorkspace($user->id);

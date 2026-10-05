@@ -1,6 +1,7 @@
 {#- Owner/staff back office: the app shell with its own navigation (grouped by section, only what the signed-in role may open) and an "Админка" mark. -#}
 {% extends 'layouts/app.twig' %}
 {% set shell_badge = admin_role() ? 'Админка · ' ~ admin_role().label : 'Админка' %}
+{% set support_open = admin_can('support.view') ? admin_support_open() : 0 %}
 {% set groups = [
     {heading: 'Бизнес', items: [
         {id: 'overview', label: 'Обзор', icon: 'layout-dashboard', href: '/admin', can: 'dashboard.view'},
@@ -22,8 +23,16 @@
         {id: 'channels', label: 'Каналы', icon: 'share-2', href: '/admin/channels', can: 'system.view'},
         {id: 'platforms', label: 'Соцсети', icon: 'zap', href: '/admin/platforms', can: 'system.view'}
     ]},
+    {heading: 'Клиенты', items: [
+        {id: 'support', label: 'Поддержка', icon: 'life-buoy', href: '/admin/support', can: 'support.view', badge: support_open},
+        {id: 'campaigns', label: 'Рассылки', icon: 'mail', href: '/admin/campaigns', can: 'campaigns.manage'},
+        {id: 'announcements', label: 'Объявления', icon: 'megaphone', href: '/admin/announcements', can: 'content.manage'}
+    ]},
     {heading: 'Сайт', items: [
-        {id: 'design', label: 'Дизайн и цвета', icon: 'palette', href: '/admin/design', can: 'design.manage'}
+        {id: 'content', label: 'Тексты и документы', icon: 'file-text', href: '/admin/content', can: 'content.manage'},
+        {id: 'mail_templates', label: 'Письма сервиса', icon: 'mail', href: '/admin/mail-templates', can: 'content.manage'},
+        {id: 'design', label: 'Дизайн и цвета', icon: 'palette', href: '/admin/design', can: 'design.manage'},
+        {id: 'settings', label: 'Настройки сайта', icon: 'settings', href: '/admin/settings', can: 'settings.manage'}
     ]},
     {heading: 'Доступ', items: [
         {id: 'staff', label: 'Сотрудники', icon: 'shield-check', href: '/admin/staff', can: 'staff.manage'},

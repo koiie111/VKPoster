@@ -10,6 +10,7 @@ use App\Domain\User\UserRepository;
 use App\Domain\Workspace\WorkspaceService;
 use App\Kernel\Security\PasswordHasher;
 use App\Kernel\Security\RateLimiter;
+use App\Support\Clock;
 
 /**
  * Sign-up and email confirmation.
@@ -31,16 +32,21 @@ final class RegistrationService
         private readonly AuditLog $audit,
         private readonly WorkspaceService $workspaces,
         private readonly string $consentVersion,
+        private readonly Clock $clock,
     ) {
     }
 
-    public function register(string $email, string $name, string $password): void
+    /**
+     * @param bool $marketing whether the person ticked the box for news and offers (a separate consent from the terms)
+     * @return bool true when a new account was created, false when the address already had one
+     */
+    public function register(string $email, string $name, string $password, bool $marketing = false): bool
     {
         $email = UserRepository::normalizeEmail($email);
         // Always hash, even when the address is taken, so response time does not depend on it.
         $hash = $this->hasher->hash($password);
         $user = $this->users->findByEmail($email) === null
-            ? $this->users->create(['email' => $email, 'name' => trim($name), 'password_hash' => $hash, 'consent_version' => $this->consentVersion])
+            ? $this->users->create(['email' => $email, 'name' => trim($name), 'password_hash' => $hash, 'consent_version' => $this->consentVersion, 'marketing_opt_in_at' => $marketing ? $this->clock->now() : null])
             : null;
 
         if ($user === null) {
@@ -49,11 +55,13 @@ final class RegistrationService
                 $this->mailer->accountExists($email);
             }
 
-            return;
+            return false;
         }
         $this->audit->record('auth.register', $user->id, 'user', (string) $user->id);
         $this->workspaces->createPersonal($user);
         $this->sendVerification($user);
+
+        return true;
     }
 
     /**

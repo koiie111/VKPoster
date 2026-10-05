@@ -1,0 +1,27 @@
+{#- Admin: system email texts. Variables: templates (key, title, edited), editing (key, title, placeholders, subject, body, preview, edited) or null. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'mail_templates' %}
+{% block title %}Письма сервиса · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Письма сервиса', 'Подтверждения, сброс пароля, приглашения и другие письма. Можно переписать тему и текст; пока вы ничего не меняли, уходит текст из шаблона.') }}
+<div class="grid gap-4 lg:grid-cols-[1fr_2fr]">
+    <nav class="card !p-2" aria-label="Письма"><ul class="flex flex-col">{% for t in templates %}<li><a class="nav-link" href="/admin/mail-templates/{{ t.key }}"{% if editing and editing.key == t.key %} aria-current="page"{% endif %}><span class="flex-1">{{ t.title }}</span>{% if t.edited %}{{ d.badge('изменено', 'primary') }}{% endif %}</a></li>{% endfor %}</ul></nav>
+    {% if editing %}
+    <div class="flex flex-col gap-4">
+        <form class="card flex flex-col gap-4" method="post" action="/admin/mail-templates/{{ editing.key }}">{{ csrf_field() }}
+            <h2 class="text-lg font-semibold">{{ editing.title }}</h2>
+            {{ f.input('subject', 'Тема письма', value = editing.subject, hint = 'Пусто — тема из шаблона.', id = 'mt-subject') }}
+            {{ f.textarea('body', 'Текст письма', value = editing.body, rows = 10, max = 5000, hint = 'Markdown. Пусто — текст из шаблона. Подстановки: ' ~ editing.placeholders|keys|map(k => '{' ~ k ~ '}')|join(', ') ~ '.', id = 'mt-body') }}
+            <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm text-muted">{% for k, label in editing.placeholders %}<dt class="font-mono">{{ '{' ~ k ~ '}' }}</dt><dd>{{ label }}</dd>{% endfor %}</dl>
+            <div class="flex flex-wrap gap-2">{{ f.button('Сохранить', type = 'submit', icon = 'save') }}</div>
+        </form>
+        {% if editing.preview %}<section class="card" aria-labelledby="pv-h"><h2 class="text-lg font-semibold" id="pv-h">Как выглядит (с примерами вместо подстановок)</h2><div class="mt-3 rounded-ctl border border-line bg-sunken p-3 text-sm [&_a]:underline">{{ editing.preview|raw }}</div></section>{% endif %}
+        {% if editing.edited %}<form method="post" action="/admin/mail-templates/{{ editing.key }}/reset">{{ csrf_field() }}{{ f.button('Вернуть текст из шаблона', type = 'submit', variant = 'secondary', icon = 'rotate-ccw') }}</form>{% endif %}
+    </div>
+    {% else %}
+    <div class="card"><p class="text-muted">Выберите письмо слева.</p></div>
+    {% endif %}
+</div>
+{% endblock %}

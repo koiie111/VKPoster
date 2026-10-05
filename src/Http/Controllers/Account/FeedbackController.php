@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Account;
 
 use App\Domain\Notification\FeedbackMailer;
+use App\Domain\Support\Tickets;
 use App\Http\FormFlash;
 use App\Http\WorkspaceNav;
 use App\Http\WorkspaceRequest;
@@ -24,6 +25,7 @@ final class FeedbackController
         private readonly FeedbackMailer $mailer,
         private readonly WorkspaceNav $nav,
         private readonly FormFlash $flash,
+        private readonly Tickets $tickets,
     ) {
     }
 
@@ -46,6 +48,8 @@ final class FeedbackController
             return Response::redirect('/feedback' . ($from === '' ? '' : '?from=' . rawurlencode($from)));
         }
         $this->mailer->send($user, $this->nav->current(), $message, $from, $request->header('user-agent') ?? '');
+        // The same message is a ticket in the admin area, with what the service knows about the person's plan and failed posts.
+        $this->tickets->open($user, $user->email, mb_substr((string) preg_replace('/\s+/', ' ', $message), 0, 80), $message, 'form', $this->tickets->contextFor($user) + ($from === '' ? [] : ['page' => $from]));
         $this->flash->toast('Спасибо! Мы получили сообщение и ответим на вашу почту.');
 
         return Response::redirect('/app');

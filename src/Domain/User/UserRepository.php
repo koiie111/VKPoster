@@ -41,7 +41,7 @@ final class UserRepository
     /**
      * Insert a user. Returns null when the email is already taken (also under a concurrent insert).
      *
-     * @param array{email: ?string, name: string, password_hash: ?string, email_verified_at?: ?DateTimeImmutable, consent_version?: ?string, is_superadmin?: bool, timezone?: string} $data
+     * @param array{email: ?string, name: string, password_hash: ?string, email_verified_at?: ?DateTimeImmutable, consent_version?: ?string, marketing_opt_in_at?: ?DateTimeImmutable, is_superadmin?: bool, timezone?: string} $data
      */
     public function create(array $data): ?User
     {
@@ -58,6 +58,7 @@ final class UserRepository
                 'is_superadmin' => ($data['is_superadmin'] ?? false) ? 1 : 0,
                 'consent_version' => $data['consent_version'] ?? null,
                 'consent_at' => isset($data['consent_version']) ? $now : null,
+                'marketing_opt_in_at' => isset($data['marketing_opt_in_at']) ? DbTime::format($data['marketing_opt_in_at']) : null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);

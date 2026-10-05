@@ -20,7 +20,7 @@ use App\Http\Controllers\Admin\WorkspacesController;
 use App\Http\Middleware\DenyWhenImpersonating;
 use App\Http\Middleware\RequireAdminUnlock;
 use App\Http\Middleware\RequireStaff;
-use App\Tests\Support\BillingTestCase;
+use App\Tests\Support\AdminTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
@@ -39,74 +39,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(AdminDirectory::class)]
 #[CoversClass(FailedJobs::class)]
 #[CoversClass(PlanEditor::class)]
-final class AdminAreaTest extends BillingTestCase
+final class AdminAreaTest extends AdminTestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->restorePriceList();
-    }
-
-    protected function tearDown(): void
-    {
-        $this->restorePriceList();
-        parent::tearDown();
-    }
-
-    /**
-     * The tests here edit the shared price list: put every plan back as `config/billing.php` defines it.
-     */
-    private function restorePriceList(): void
-    {
-        $catalog = (require dirname(__DIR__, 3) . '/config/billing.php')(new \App\Kernel\Env([]))['catalog'];
-        foreach ($catalog as $code => $definition) {
-            $this->db->execute('UPDATE plans SET name = ?, limits_json = ?, features_json = ?, is_public = 1 WHERE code = ?', [$definition['name'], json_encode($definition['limits']), json_encode(array_values($definition['features'])), $code]);
-            $planId = (int) $this->db->select('SELECT id FROM plans WHERE code = ?', [$code])[0]['id'];
-            $this->db->execute('DELETE FROM plan_prices WHERE plan_id = ?', [$planId]);
-            foreach ($definition['prices'] as $period => $amount) {
-                $this->db->table('plan_prices')->insert(['plan_id' => $planId, 'period' => $period, 'currency' => 'RUB', 'amount' => $amount]);
-            }
-        }
-    }
-
-    /** The staff member: signed in, two-factor on, and (by default) unlocked for the admin area. */
-    private function staff(bool $unlock = true, bool $twoFactor = true): User
-    {
-        $staff = $this->createUser('boss@example.com', true, null, 'Босс');
-        $this->app->container()->get(UserRepository::class)->setSuperadmin($staff->id, true);
-        $this->actAs($staff);
-        if ($twoFactor) {
-            $this->enableTwoFactor($staff);
-        }
-        if ($unlock) {
-            $this->unlock($staff);
-        }
-        $fresh = $this->app->container()->get(UserRepository::class)->find($staff->id);
-        self::assertNotNull($fresh);
-
-        return $fresh;
-    }
-
-    /**
-     * The form fields of a dangerous action plus a fresh authenticator code (the previous code's time step is spent, so the clock moves on).
-     *
-     * @param array<string, string> $fields
-     * @return array<string, string>
-     */
-    private function confirm(array $fields = []): array
-    {
-        $this->clock->advance(31);
-        $staff = $this->db->select('SELECT id FROM users WHERE is_superadmin = 1 LIMIT 1')[0]['id'];
-
-        return $fields + ['confirm_code' => $this->totpCode((int) $staff)];
-    }
-
-    private function unlock(User $staff): void
-    {
-        $response = $this->post('/admin/unlock', ['code' => $this->totpCode($staff->id)]);
-        self::assertSame('/admin', $response->header('Location'));
-    }
-
     public function testGuestsAndOrdinaryUsersDoNotSeeTheAdminArea(): void
     {
         $this->useBrowser();
@@ -122,7 +56,7 @@ final class AdminAreaTest extends BillingTestCase
 
     public function testStaffWithoutTwoFactorAreAskedToSwitchItOn(): void
     {
-        $this->staff(false, false);
+        $this->staff(unlock: false, twoFactor: false);
         $page = $this->get('/admin');
         self::assertSame(403, $page->status);
         self::assertStringContainsString('Сначала включите двухфакторную защиту', $page->body);
@@ -130,7 +64,7 @@ final class AdminAreaTest extends BillingTestCase
 
     public function testStaffNeedAFreshCodeBeforeTheAdminPagesOpen(): void
     {
-        $staff = $this->staff(false);
+        $staff = $this->staff(unlock: false);
         $first = $this->get('/admin/users');
         self::assertSame('/admin/unlock', $first->header('Location'));
         self::assertSame(200, $this->get('/admin/unlock')->status);
@@ -249,7 +183,7 @@ final class AdminAreaTest extends BillingTestCase
         self::assertStringNotContainsString('Вы вошли как', $this->getApp()->body);
         // Back as the staff member, whose admin lock closed after the idle hour.
         self::assertSame('/admin/unlock', $this->get('/admin')->header('Location'));
-        $this->unlock($staff);
+        $this->unlockAdmin($staff);
 
         $this->post('/admin/users/' . $owner->id . '/impersonate', $this->confirm());
         $this->app->container()->get(UserRepository::class)->setSuperadmin($staff->id, false);

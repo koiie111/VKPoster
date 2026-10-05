@@ -1,0 +1,18 @@
+{#- Admin: content index. Variables: documents, kinds. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'content' %}
+{% block title %}Тексты и документы · Админка{% endblock %}
+{% block content %}
+{% set actions %}{{ f.button('Тексты лендинга и вопросы', variant = 'secondary', href = '/admin/content/texts', icon = 'pencil') }}{{ f.button('Новая статья или документ', href = '/admin/content/new', icon = 'plus') }}{% endset %}
+{{ d.page_header('Тексты и документы', 'Юридические документы, статьи справки и тексты главной страницы. Каждое сохранение — новая версия; пока она не опубликована, на сайте прежний текст.', body = actions) }}
+<div class="card !p-0 overflow-hidden">
+{% set rows %}{% for doc in documents %}<tr>
+    <td class="font-medium"><a class="hover:underline" href="/admin/content/{{ doc.kind }}/{{ doc.slug }}">{{ doc.title }}</a><span class="block text-xs text-muted">{{ kinds[doc.kind] }} · {{ doc.slug }}</span></td>
+    <td class="text-sm text-muted">{{ doc.version ? 'версия ' ~ doc.version ~ (doc.required ? ', нужно согласие' : '') : '' }}</td>
+    <td>{{ d.badge(doc.edited ? 'Изменён в админке' : 'Из файла', doc.edited ? 'primary' : 'neutral') }}{% if doc.drafts %} {{ d.badge('есть черновик', 'warn') }}{% endif %}</td>
+</tr>{% endfor %}{% endset %}
+{{ d.table([{label: 'Документ'}, {label: 'Версия'}, {label: 'Источник'}], caption = 'Документы', body = rows) }}
+</div>
+{% endblock %}

@@ -47,5 +47,13 @@
             <div>{{ f.button('Сохранить', type = 'submit') }}</div>
         </form>
     </section>
+    <section class="card" aria-labelledby="mk-title">
+        <h2 class="text-lg font-semibold" id="mk-title">Новости и предложения</h2>
+        <p class="mt-1 text-sm text-muted">Редкие письма о новых возможностях и акциях. Письма об аккаунте, оплате и проблемах с постами приходят в любом случае.</p>
+        <form class="mt-4 flex flex-col gap-4" method="post" action="/account/notifications/marketing">{{ csrf_field() }}
+            {{ f.checkbox('marketing', 'Присылать новости и предложения по почте', marketing, id = 'marketing') }}
+            <div>{{ f.button('Сохранить', type = 'submit', variant = 'secondary') }}</div>
+        </form>
+    </section>
 </div>
 {% endblock %}

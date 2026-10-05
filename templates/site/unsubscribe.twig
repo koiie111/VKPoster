@@ -1,0 +1,17 @@
+{#- Unsubscribe page. Variables: already, action, done. -#}
+{% extends 'layouts/auth.twig' %}
+{% import 'components/forms.twig' as f %}
+{% block title %}Отписка от рассылки · {{ app_name }}{% endblock %}
+{% block content %}
+{% if done %}
+<h1 class="text-2xl font-bold">Вы отписались</h1>
+<p class="mt-2 text-muted">Новости и предложения больше не придут. Письма о вашем аккаунте (подтверждения, платежи, проблемы с постами) мы по-прежнему отправляем: они нужны для работы сервиса.</p>
+{% elseif already %}
+<h1 class="text-2xl font-bold">Вы уже отписаны</h1>
+<p class="mt-2 text-muted">Новости и предложения вам не приходят. Передумаете, включите рассылку в настройках уведомлений.</p>
+{% else %}
+<h1 class="text-2xl font-bold">Отписаться от новостей?</h1>
+<p class="mt-2 text-muted">Мы перестанем присылать новости и предложения. Письма о вашем аккаунте продолжат приходить.</p>
+<form class="mt-6" method="post" action="{{ action }}">{{ f.button('Отписаться', type = 'submit', block = true) }}</form>
+{% endif %}
+{% endblock %}

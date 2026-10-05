@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Auth;
 
 use App\Domain\Auth\PasswordPolicy;
+use App\Domain\Auth\RegistrationGate;
 use App\Domain\Auth\RegistrationService;
 use App\Domain\User\UserRepository;
 use App\Http\Auth\SocialFlow;
@@ -26,13 +27,14 @@ final class RegisterController
         private readonly RegistrationService $registration,
         private readonly FormFlash $flash,
         private readonly SocialFlow $social,
+        private readonly RegistrationGate $gate,
     ) {
     }
 
     public function show(): Response
     {
         // Telegram's widget is loaded on the sign-in page only; here its button leads there.
-        return $this->view->response('auth/register.twig', ['social' => ['buttons' => $this->social->buttons(), 'telegram' => null]]);
+        return $this->view->response('auth/register.twig', ['social' => ['buttons' => $this->social->buttons(), 'telegram' => null], 'mode' => $this->gate->mode()]);
     }
 
     public function store(Request $request): Response
@@ -42,6 +44,8 @@ final class RegisterController
             'email' => mb_strtolower($this->text($request->input('email'))),
             'password' => is_string($request->input('password')) ? $request->input('password') : '',
             'consent' => $request->input('consent'),
+            'marketing' => $request->input('marketing') === '1' ? '1' : '',
+            'invite' => $this->text($request->input('invite')),
         ];
         $validation = $this->validator->make($input, [
             'name' => 'required|string|min:2|max:100',
@@ -58,12 +62,19 @@ final class RegisterController
         if ($input['consent'] !== '1') {
             $errors['consent'] = ['Чтобы создать аккаунт, согласитесь на обработку персональных данных.'];
         }
+        $refusal = $this->gate->refusal($input['invite']);
+        if ($refusal !== null) {
+            $errors[$this->gate->mode() === 'invite' ? 'invite' : 'form'] = [$refusal];
+        }
         if ($errors !== []) {
             $this->flash->invalid($input + ['consent' => $input['consent'] === '1' ? '1' : ''], $errors);
 
             return Response::redirect('/register');
         }
-        $this->registration->register($input['email'], $input['name'], $input['password']);
+        // The code is spent only when an account was really made (an address that already has one does not burn it).
+        if ($this->registration->register($input['email'], $input['name'], $input['password'], $input['marketing'] === '1') && $this->gate->mode() === 'invite') {
+            $this->gate->consume($input['invite']);
+        }
         $this->flash->session()->flash('register.email', $input['email']);
 
         return Response::redirect('/register/done');

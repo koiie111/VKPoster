@@ -25,4 +25,6 @@ enum SocialStatus
     case EmailExists;
     /** Nobody knows this provider account yet: offer to create an account (after consent). */
     case NewAccount;
+    /** Nobody knows this provider account and the owner has closed registration (or opened it by invitation only). */
+    case RegistrationClosed;
 }

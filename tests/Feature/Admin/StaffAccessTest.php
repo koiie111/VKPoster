@@ -79,6 +79,12 @@ final class StaffAccessTest extends AdminTestCase
             if (str_starts_with($regex, '[0-9]')) {
                 return '1';
             }
+            if (preg_match('/^[a-z]+(\|[a-z]+)+$/', $regex) === 1) {
+                return explode('|', $regex)[0];
+            }
+            if ($m[1] === 'slug') {
+                return 'terms';
+            }
 
             return 'pro';
         }, $route->pattern);

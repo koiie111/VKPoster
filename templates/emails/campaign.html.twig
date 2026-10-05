@@ -1,0 +1,5 @@
+{#- A marketing email: the editor's text (already turned into safe HTML), the unsubscribe link in the footer. Variables: subject, body_html, unsubscribe. -#}
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}{{ subject }}{% endblock %}
+{% block content %}{{ body_html|raw }}{% endblock %}
+{% block footer %}Вы получили это письмо, потому что согласились на новости и предложения {{ app_name }}. <a href="{{ unsubscribe }}" style="color:#6b6a7c;">Отписаться</a>{% endblock %}

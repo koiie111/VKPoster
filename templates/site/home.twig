@@ -9,14 +9,14 @@
     <div class="grid items-center gap-10 lg:grid-cols-[1.05fr_1fr]">
         <div>
             <p class="mb-4">{{ d.badge('Telegram, ВКонтакте и MAX', 'primary') }}</p>
-            <h1 class="text-4xl font-bold leading-tight sm:text-5xl" id="hero-title">Пишите посты заранее. Публикуем вовремя.</h1>
-            <p class="mt-5 max-w-xl text-lg text-muted">Один календарь для всех ваших каналов и сообществ. Напишите пост один раз, выберите время, и {{ app_name }} опубликует его сам, а если что-то пойдёт не так, сообщит вам.</p>
+            <h1 class="text-4xl font-bold leading-tight sm:text-5xl" id="hero-title">{{ site_text('hero.title') }}</h1>
+            <p class="mt-5 max-w-xl text-lg text-muted">{{ site_text('hero.text') }}</p>
             <div class="mt-8 flex flex-wrap gap-3">
                 {% if me %}{{ f.button('Открыть сервис', href = '/app', icon = 'rocket') }}
                 {% else %}{{ f.button('Попробовать бесплатно', href = url('register'), icon = 'rocket') }}{% endif %}
                 {{ f.button('Как это работает', variant = 'secondary', href = '#how') }}
             </div>
-            <p class="mt-4 text-sm text-muted">Без банковской карты. После пробного периода останется бесплатный тариф.</p>
+            <p class="mt-4 text-sm text-muted">{{ site_text('hero.note') }}</p>
         </div>
         {#- The picture of the product is built from the same markup as the real calendar, with demo data. It is decoration for sighted users only. -#}
         <div class="rounded-card border border-line bg-surface p-3 shadow-pop sm:p-4" aria-hidden="true">
@@ -55,7 +55,7 @@
 </section>
 
 <section id="features" class="mx-auto mt-20 max-w-6xl px-4" aria-labelledby="features-title">
-    <h2 class="text-center text-3xl font-bold" id="features-title">Всё, чтобы посты выходили без вашего участия</h2>
+    <h2 class="text-center text-3xl font-bold" id="features-title">{{ site_text('features.title') }}</h2>
     <p class="mx-auto mt-3 max-w-2xl text-center text-muted">Календарь, редактор и надёжная очередь публикации. Остальное мы не усложняем.</p>
     <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {% for item in [
@@ -75,7 +75,7 @@
 </section>
 
 <section id="how" class="mx-auto mt-20 max-w-6xl px-4" aria-labelledby="how-title">
-    <h2 class="text-center text-3xl font-bold" id="how-title">Три шага до первого поста</h2>
+    <h2 class="text-center text-3xl font-bold" id="how-title">{{ site_text('how.title') }}</h2>
     <ol class="mt-10 grid gap-4 md:grid-cols-3">
         {% for step in [
             {n: '1', t: 'Подключите канал', x: 'Добавьте бота в администраторы канала и отправьте код, либо войдите через ВКонтакте. Это занимает пару минут.', h: '/help/connect-telegram', hl: 'Как подключить Telegram'},
@@ -88,7 +88,7 @@
 </section>
 
 <section id="pricing" class="mx-auto mt-20 max-w-6xl px-4" aria-labelledby="pricing-title">
-    <h2 class="text-center text-3xl font-bold" id="pricing-title">Тарифы</h2>
+    <h2 class="text-center text-3xl font-bold" id="pricing-title">{{ site_text('pricing.title') }}</h2>
     <p class="mx-auto mt-3 max-w-2xl text-center text-muted">Начните с пробного периода: {{ trial_days }} дней тарифа «Про» без карты. Потом выберите подходящий тариф или оставайтесь на бесплатном.</p>
     <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {% for plan in plans %}
@@ -110,7 +110,7 @@
 </section>
 
 <section id="faq" class="mx-auto mt-20 max-w-3xl px-4" aria-labelledby="faq-title">
-    <h2 class="text-center text-3xl font-bold" id="faq-title">Вопросы и ответы</h2>
+    <h2 class="text-center text-3xl font-bold" id="faq-title">{{ site_text('faq.title') }}</h2>
     <div class="mt-8 flex flex-col gap-3">
         {% for item in faq %}
         <details class="card group !p-0">
@@ -123,7 +123,7 @@
 
 <section class="mx-auto mt-20 max-w-4xl px-4" aria-labelledby="cta-title">
     <div class="rounded-card bg-primary-soft p-8 text-center text-primary-softfg sm:p-12">
-        <h2 class="text-3xl font-bold" id="cta-title">Попробуйте первый пост сегодня</h2>
+        <h2 class="text-3xl font-bold" id="cta-title">{{ site_text('cta.title') }}</h2>
         <p class="mx-auto mt-3 max-w-xl">Регистрация занимает минуту. {{ trial_days }} дней тарифа «Про» в подарок, карта не нужна.</p>
         <div class="mt-6">{% if me %}{{ f.button('Открыть сервис', href = '/app', icon = 'rocket') }}{% else %}{{ f.button('Попробовать бесплатно', href = url('register'), icon = 'rocket') }}{% endif %}</div>
     </div>

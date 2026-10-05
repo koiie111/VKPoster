@@ -24,14 +24,34 @@ abstract class AdminTestCase extends BillingTestCase
     {
         parent::setUp();
         // Rows without a foreign key to the people survive the clean-up of users: start every test without them.
-        $this->db->execute('DELETE FROM data_requests');
+        foreach (['data_requests', 'invite_codes', 'cms_pages', 'cms_blocks', 'announcements', 'mail_templates', 'email_campaigns', 'support_tickets'] as $table) {
+            $this->db->execute('DELETE FROM ' . $table);
+        }
+        $this->restorePriceList();
     }
 
     protected function tearDown(): void
     {
-        // Settings written by a test (platform switches, colours) must not leak into the next one.
+        // What a test changed for everybody (settings, the price list) must not leak into the next one.
         $this->db->execute('DELETE FROM app_settings');
+        $this->restorePriceList();
         parent::tearDown();
+    }
+
+    /**
+     * The tests here edit the shared price list: put every plan back as `config/billing.php` defines it.
+     */
+    protected function restorePriceList(): void
+    {
+        $catalog = (require dirname(__DIR__, 2) . '/config/billing.php')(new \App\Kernel\Env([]))['catalog'];
+        foreach ($catalog as $code => $definition) {
+            $this->db->execute('UPDATE plans SET name = ?, limits_json = ?, features_json = ?, is_public = 1 WHERE code = ?', [$definition['name'], json_encode($definition['limits']), json_encode(array_values($definition['features'])), $code]);
+            $planId = (int) $this->db->select('SELECT id FROM plans WHERE code = ?', [$code])[0]['id'];
+            $this->db->execute('DELETE FROM plan_prices WHERE plan_id = ?', [$planId]);
+            foreach ($definition['prices'] as $period => $amount) {
+                $this->db->table('plan_prices')->insert(['plan_id' => $planId, 'period' => $period, 'currency' => 'RUB', 'amount' => $amount]);
+            }
+        }
     }
 
     /**

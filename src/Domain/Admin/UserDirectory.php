@@ -358,6 +358,20 @@ final class UserDirectory
     }
 
     /**
+     * Support tickets of the person (the table is made by the support stage; an empty list until then is never an error).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function tickets(int $userId): array
+    {
+        return array_map(static function (array $r): array {
+            $r['updated_at'] = DbTime::parse($r['updated_at']);
+
+            return $r;
+        }, $this->db->select('SELECT public_id, subject, status, updated_at FROM support_tickets WHERE user_id = ? ORDER BY id DESC LIMIT 20', [$userId]));
+    }
+
+    /**
      * Where the person came from at sign-up (UTM tags, referring site, first page); null when nothing was recorded.
      *
      * @return array<string, mixed>|null

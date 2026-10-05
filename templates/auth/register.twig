@@ -7,9 +7,12 @@
 {% block content %}
 <h1 class="text-2xl font-bold">Создайте аккаунт</h1>
 <p class="mt-1 text-muted">Это займёт минуту. Карта не нужна.</p>
-{% if errors() %}<div class="mt-5">{{ d.alert('error', 'Не получилось создать аккаунт', 'Проверьте поля, отмеченные красным.') }}</div>{% endif %}
+{% if mode == 'closed' %}<div class="mt-5">{{ d.alert('warning', 'Регистрация сейчас закрыта', 'Загляните позже. Если у вас уже есть аккаунт, просто войдите.') }}</div>{% endif %}
+{% if errors('form') %}<div class="mt-5">{{ d.alert('error', 'Не получилось создать аккаунт', errors('form')|first) }}</div>
+{% elseif errors() %}<div class="mt-5">{{ d.alert('error', 'Не получилось создать аккаунт', 'Проверьте поля, отмеченные красным.') }}</div>{% endif %}
 <form class="mt-6 flex flex-col gap-4" method="post" action="/register">
     {{ csrf_field() }}
+    {% if mode == 'invite' %}{{ f.input('invite', 'Код приглашения', value = old('invite'), required = true, autocomplete = 'off', error = errors('invite')|first, hint = 'Регистрация идёт по приглашениям.') }}{% endif %}
     {{ f.input('name', 'Как вас зовут', value = old('name'), required = true, autocomplete = 'name', placeholder = 'Анна', error = errors('name')|first, attrs = {autofocus: ''}) }}
     {{ f.input('email', 'Почта', type = 'email', value = old('email'), required = true, autocomplete = 'email', placeholder = 'anna@example.com', error = errors('email')|first, hint = 'Сюда придёт письмо для подтверждения.') }}
     {{ f.input('password', 'Пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 10 символов. Лучше длинная фраза, чем сложное слово.', attrs = {minlength: 10, maxlength: 128}) }}
@@ -18,7 +21,8 @@
         <p class="hint -mt-2">Читайте: <a class="text-primary-text underline underline-offset-2" href="/legal/offer" target="_blank" rel="noopener">публичная оферта</a>, <a class="text-primary-text underline underline-offset-2" href="/legal/privacy" target="_blank" rel="noopener">политика обработки персональных данных</a>.</p>
         {% if errors('consent') %}<p class="flex items-start gap-1.5 text-sm font-medium text-bad-fg" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ errors('consent')|first }}</span></p>{% endif %}
     </div>
-    {{ f.button('Создать аккаунт', type = 'submit', block = true) }}
+    {{ f.checkbox('marketing', 'Присылайте мне новости и предложения сервиса (необязательно)', checked = old('marketing') == '1', hint = 'Можно отказаться в любой момент по ссылке в письме.') }}
+    {{ f.button('Создать аккаунт', type = 'submit', block = true, disabled = mode == 'closed') }}
 </form>
 {% if social.buttons|length %}
 {{ soc.divider('или зарегистрируйтесь через') }}
