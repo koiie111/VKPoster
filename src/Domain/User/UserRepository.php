@@ -41,7 +41,7 @@ final class UserRepository
     /**
      * Insert a user. Returns null when the email is already taken (also under a concurrent insert).
      *
-     * @param array{email: ?string, name: string, password_hash: ?string, email_verified_at?: ?DateTimeImmutable, consent_version?: ?string, is_superadmin?: bool, timezone?: string} $data
+     * @param array{email: ?string, name: string, password_hash: ?string, email_verified_at?: ?DateTimeImmutable, consent_version?: ?string, marketing_opt_in_at?: ?DateTimeImmutable, is_superadmin?: bool, timezone?: string} $data
      */
     public function create(array $data): ?User
     {
@@ -58,6 +58,7 @@ final class UserRepository
                 'is_superadmin' => ($data['is_superadmin'] ?? false) ? 1 : 0,
                 'consent_version' => $data['consent_version'] ?? null,
                 'consent_at' => isset($data['consent_version']) ? $now : null,
+                'marketing_opt_in_at' => isset($data['marketing_opt_in_at']) ? DbTime::format($data['marketing_opt_in_at']) : null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
@@ -184,9 +185,16 @@ final class UserRepository
         $this->db->table('users')->where('id', '=', $id)->update(['is_superadmin' => $value ? 1 : 0, 'updated_at' => DbTime::format($this->clock->now())]);
     }
 
-    public function setStatus(int $id, string $status): void
+    /**
+     * @param string|null $reason shown to the person when they try to sign in while blocked; forgotten when the status is not `blocked`
+     */
+    public function setStatus(int $id, string $status, ?string $reason = null): void
     {
-        $this->db->table('users')->where('id', '=', $id)->update(['status' => $status, 'updated_at' => DbTime::format($this->clock->now())]);
+        $this->db->table('users')->where('id', '=', $id)->update([
+            'status' => $status,
+            'block_reason' => $status === User::STATUS_BLOCKED ? $reason : null,
+            'updated_at' => DbTime::format($this->clock->now()),
+        ]);
     }
 
     /**
@@ -208,6 +216,7 @@ final class UserRepository
             (string) $row['status'],
             DbTime::parse($row['created_at']) ?? new DateTimeImmutable('@0'),
             is_string($row['consent_version'] ?? null) ? $row['consent_version'] : null,
+            is_string($row['block_reason'] ?? null) ? $row['block_reason'] : null,
         );
     }
 }

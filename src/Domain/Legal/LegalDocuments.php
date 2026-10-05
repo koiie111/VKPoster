@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domain\Legal;
 
+use App\Kernel\Database\Connection;
 use App\Support\Markdown;
 
 /**
- * Registry of the legal pages. The files are the source of truth (reviewed and versioned in git); the consent version is the
- * newest version among the required documents, so raising one of them makes everybody confirm the new text at the next sign-in.
+ * Registry of the legal pages. The files are the starting point (reviewed and versioned in git); a text published in the admin area
+ * (`cms_pages`) replaces the file of the same name. The consent version is the newest version among the required documents, so publishing a
+ * new version of one of them makes everybody confirm the new text at the next sign-in.
  */
 final class LegalDocuments
 {
@@ -18,8 +20,16 @@ final class LegalDocuments
     /** @var array<string, LegalDocument>|null */
     private ?array $documents = null;
 
-    public function __construct(private readonly string $dir)
+    public function __construct(private readonly string $dir, private readonly ?Connection $db = null)
     {
+    }
+
+    /**
+     * Drop what was read, so the next call reads again (after a document was published in the admin area).
+     */
+    public function forget(): void
+    {
+        $this->documents = null;
     }
 
     /**
@@ -78,6 +88,41 @@ final class LegalDocuments
             );
         }
 
-        return $this->documents = $documents;
+        foreach ($this->published() as $slug => $document) {
+            $documents[$slug] = $document;
+        }
+        // The known pages keep their order; a page added in the admin area follows them.
+        $ordered = [];
+        foreach (self::SLUGS as $slug) {
+            if (isset($documents[$slug])) {
+                $ordered[$slug] = $documents[$slug];
+            }
+        }
+        ksort($documents);
+
+        return $this->documents = $ordered + $documents;
+    }
+
+    /**
+     * The live revision of every document edited in the admin area: the newest published one.
+     *
+     * @return array<string, LegalDocument>
+     */
+    private function published(): array
+    {
+        if ($this->db === null) {
+            return [];
+        }
+        $result = [];
+        foreach ($this->db->select("SELECT c.slug, c.title, c.version, c.required, c.body_md FROM cms_pages c JOIN (SELECT slug, MAX(id) AS id FROM cms_pages WHERE kind = 'legal' AND status = 'published' GROUP BY slug) m ON m.id = c.id") as $row) {
+            $slug = (string) $row['slug'];
+            if (preg_match('/^[a-z]{3,20}$/', $slug) !== 1) {
+                continue;
+            }
+            $version = is_string($row['version']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $row['version']) === 1 ? $row['version'] : '0000-00-00';
+            $result[$slug] = new LegalDocument($slug, (string) $row['title'], $version, (int) $row['required'] === 1, (string) $row['body_md']);
+        }
+
+        return $result;
     }
 }

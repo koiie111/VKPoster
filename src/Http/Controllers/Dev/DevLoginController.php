@@ -28,6 +28,7 @@ final class DevLoginController
         private readonly SessionAuth $auth,
         private readonly FormFlash $flash,
         private readonly Clock $clock,
+        private readonly \App\Domain\Admin\StaffAccess $staff,
     ) {
     }
 
@@ -45,7 +46,8 @@ final class DevLoginController
         }
         $session = $this->flash->session();
         $this->auth->signIn($request, $session, $user, false);
-        if ($user->isSuperadmin) {
+        if ($this->staff->isStaff($user)) {
+            $session->set(RequireAdminUnlock::LAST_SEEN_KEY, $this->clock->now()->getTimestamp());
             // Staff open the admin area without a code here (see RequireStaff); real accounts always need it.
             $session->set(RequireAdminUnlock::SESSION_KEY, $this->clock->now()->getTimestamp());
             $session->set(RequireStaff::DEV_SESSION_KEY, true);

@@ -20,6 +20,7 @@ use App\Kernel\Console\Command\MigrateStatusCommand;
 use App\Kernel\Console\Command\QueueWorkCommand;
 use App\Kernel\Console\Command\ScheduleRunCommand;
 use App\Kernel\Console\Command\SeedCommand;
+use App\Kernel\Console\Command\SeedDemoCommand;
 use App\Kernel\Console\Command\MaxPollCommand;
 use App\Kernel\Console\Command\MaxWebhookCommand;
 use App\Kernel\Console\Command\TelegramPollCommand;
@@ -41,6 +42,7 @@ try {
         MigrateStatusCommand::class,
         MigrateFreshCommand::class,
         SeedCommand::class,
+        SeedDemoCommand::class,
         QueueWorkCommand::class,
         ScheduleRunCommand::class,
         KeyGenerateCommand::class,

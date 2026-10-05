@@ -1,0 +1,26 @@
+{#- Admin: support tickets. Variables: filters, result, base, statuses, mine. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'support' %}
+{% set tz = current_user().timezone %}
+{% block title %}Поддержка · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Поддержка', 'Обращения из формы «Сообщить о проблеме» и из Telegram-бота. Найдено: ' ~ result.total ~ '.') }}
+<form class="mb-4 grid gap-3 sm:grid-cols-4" method="get" action="/admin/support" role="search">
+    {{ f.select('status', 'Состояние', {'': 'Любое'}|merge(statuses), value = filters.status) }}
+    {{ f.select('assignee', 'Кому назначено', {'': 'Кому угодно', none: 'Никому', (mine): 'Мне'}, value = filters.assignee) }}
+    <div class="sm:col-span-2">{{ f.input('q', 'Найти', value = filters.q, placeholder = 'Тема, почта или номер обращения') }}</div>
+    <div class="flex items-end gap-3">{{ f.button('Показать', type = 'submit', variant = 'secondary', icon = 'search') }}{{ f.button('Сбросить', variant = 'ghost', href = '/admin/support') }}</div>
+</form>
+<div class="card !p-0 overflow-hidden">
+{% set rows %}{% for t in result.rows %}<tr>
+    <td class="font-medium"><a class="hover:underline" href="/admin/support/{{ t.public_id }}">{{ t.subject }}</a><span class="block text-xs text-muted">{{ t.user_name ?? t.email ?? 'аноним' }} · {{ {form: 'форма', telegram: 'Telegram', email: 'почта'}[t.source] ?? t.source }}</span></td>
+    <td>{{ d.badge(statuses[t.status] ?? t.status, {open: 'warn', pending: 'info', solved: 'ok'}[t.status] ?? 'neutral', dot = true) }}</td>
+    <td class="text-sm text-muted">{{ t.assignee_name ?? 'никому' }}</td>
+    <td class="whitespace-nowrap text-muted">{{ t.updated_at|date('d.m.Y H:i', tz) }}</td>
+</tr>{% endfor %}{% endset %}
+{{ d.table([{label: 'Обращение'}, {label: 'Состояние'}, {label: 'Назначено'}, {label: 'Обновлено'}], empty = result.rows is empty, empty_title = 'Обращений нет', empty_text = 'Когда клиент напишет, обращение появится здесь.', caption = 'Обращения', body = rows) }}
+</div>
+<div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
+{% endblock %}

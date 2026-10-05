@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Audit;
 
+use App\Domain\Analytics\Analytics;
 use App\Kernel\Database\Connection;
 use App\Kernel\Http\RequestContext;
 use App\Support\Clock;
@@ -19,6 +20,7 @@ final class AuditLog
         private readonly Connection $db,
         private readonly Clock $clock,
         private readonly RequestContext $context,
+        private readonly Analytics $analytics,
     ) {
     }
 
@@ -43,5 +45,10 @@ final class AuditLog
             'meta_json' => $meta === [] ? null : json_encode($meta, JSON_THROW_ON_ERROR),
             'created_at' => DbTime::format($this->clock->now()),
         ]);
+        // The business event behind the audit entry (a registration, a payment). A failure here must never undo the action that was audited.
+        try {
+            $this->analytics->fromAudit($action, $actorId, $subjectId, $meta, $workspaceId);
+        } catch (\Throwable) {
+        }
     }
 }

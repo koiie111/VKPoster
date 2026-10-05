@@ -35,6 +35,7 @@ final class SocialAuthService
         private readonly Clock $clock,
         private readonly WorkspaceService $workspaces,
         private readonly string $consentVersion,
+        private readonly \App\Domain\Auth\RegistrationGate $gate,
     ) {
     }
 
@@ -51,7 +52,7 @@ final class SocialAuthService
             }
             $owner = $this->users->find($identity->userId);
             if ($owner === null) {
-                return new SocialResult(SocialStatus::NewAccount);
+                return $this->newAccount();
             }
             if ($owner->isBlocked()) {
                 return new SocialResult(SocialStatus::Blocked, $owner);
@@ -76,7 +77,16 @@ final class SocialAuthService
             return new SocialResult(SocialStatus::EmailExists);
         }
 
-        return new SocialResult(SocialStatus::NewAccount);
+        return $this->newAccount();
+    }
+
+    /**
+     * A new account is offered only while registration is open: an invitation code cannot travel through a social sign-in, so in
+     * the invitation mode the person registers by email with the code first and links the social account afterwards.
+     */
+    private function newAccount(): SocialResult
+    {
+        return new SocialResult($this->gate->mode() === 'open' ? SocialStatus::NewAccount : SocialStatus::RegistrationClosed);
     }
 
     /**

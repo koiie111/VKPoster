@@ -6,6 +6,7 @@ namespace App\Kernel;
 
 use App\Http\Middleware\RememberLogin;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\Maintenance;
 use App\Http\Middleware\StartSession;
 use App\Http\Middleware\VerifyCsrf;
 use App\Kernel\Exception\HttpException;
@@ -22,13 +23,13 @@ use RuntimeException;
 /**
  * Wires the container, routes and the global middleware pipeline, and turns a `Request` into a `Response`.
  *
- * Global middleware order (outermost first): SecurityHeaders → ErrorHandler → StartSession → RememberLogin → VerifyCsrf,
+ * Global middleware order (outermost first): SecurityHeaders → ErrorHandler → StartSession → RememberLogin → Maintenance → VerifyCsrf,
  * then the matched route's own middleware, then the controller. SecurityHeaders wraps ErrorHandler on
  * purpose: error pages (404, 419, 500) must carry the same CSP and headers as normal pages.
  */
 final class Application
 {
-    private const GLOBAL_MIDDLEWARE = [SecurityHeaders::class, ErrorHandler::class, StartSession::class, RememberLogin::class, VerifyCsrf::class];
+    private const GLOBAL_MIDDLEWARE = [SecurityHeaders::class, ErrorHandler::class, StartSession::class, RememberLogin::class, Maintenance::class, VerifyCsrf::class];
 
     private function __construct(
         private readonly Container $container,

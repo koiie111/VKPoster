@@ -11,7 +11,7 @@
             {% block content %}{% endblock %}
         </td></tr>
         <tr><td style="padding:16px 4px;font-size:13px;line-height:1.5;color:#6b6a7c;">
-            Это автоматическое письмо от сервиса {{ app_name }}. Отвечать на него не нужно.
+            {% block footer %}Это автоматическое письмо от сервиса {{ app_name }}. Отвечать на него не нужно.{% endblock %}
         </td></tr>
     </table>
 </td></tr></table>

@@ -13,7 +13,7 @@ use App\Kernel\Queue\Worker;
  */
 final class QueueWorkCommand implements Command
 {
-    public function __construct(private readonly Worker $worker)
+    public function __construct(private readonly Worker $worker, private readonly \App\Support\Heartbeat $heartbeat)
     {
     }
 
@@ -41,6 +41,7 @@ final class QueueWorkCommand implements Command
                 $max = max(1, (int) substr($arg, 11));
             }
         }
+        $this->worker->onPulse(fn () => $this->heartbeat->beat('worker'));
         $out->line(sprintf('Worker started on queue "%s".', $queue));
         $this->worker->work($queue, $sleep, $max);
         $out->line('Worker stopped.');

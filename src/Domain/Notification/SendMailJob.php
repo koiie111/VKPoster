@@ -43,16 +43,19 @@ final class SendMailJob extends AbstractJob
         return ['to' => $this->to, 'subject' => $this->subject, 'template' => $this->template, 'data' => $this->dataEncrypted];
     }
 
-    public function handle(Mailer $mailer, View $view, Crypto $crypto): void
+    public function handle(Mailer $mailer, View $view, Crypto $crypto, MailTemplates $templates): void
     {
         $decoded = json_decode($crypto->decrypt($this->dataEncrypted), true, 16, JSON_THROW_ON_ERROR);
         $data = is_array($decoded) ? $decoded : [];
-        $data['subject'] = $this->subject;
+        // The owner may have rewritten the subject and the text in the admin area; otherwise the written template is used.
+        $subject = $templates->subject($this->template, $this->subject, $data);
+        $data['subject'] = $subject;
+        $edited = $templates->render($this->template, $data, $subject);
         $mailer->send(new MailMessage(
             $this->to,
-            $this->subject,
-            $view->render('emails/' . $this->template . '.html.twig', $data),
-            $view->render('emails/' . $this->template . '.text.twig', $data),
+            $subject,
+            $edited['html'] ?? $view->render('emails/' . $this->template . '.html.twig', $data),
+            $edited['text'] ?? $view->render('emails/' . $this->template . '.text.twig', $data),
         ));
     }
 }

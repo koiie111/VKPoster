@@ -1,0 +1,52 @@
+{#- Back office components: re-confirmation field, danger dialog with extra fields, KPI card, chart canvas, filter bar helpers. -#}
+
+{#- The authenticator-code field that every dangerous admin form carries (checked by App\Http\Admin\StepUp). -#}
+{% macro step_up(id = 'confirm-code') -%}
+<div class="flex flex-col">
+    <label class="label" for="{{ id }}">Код подтверждения</label>
+    <input class="field" id="{{ id }}" name="confirm_code" inputmode="numeric" autocomplete="one-time-code" maxlength="20" required aria-describedby="{{ id }}-hint">
+    <p class="hint" id="{{ id }}-hint">Код из приложения-аутентификатора (или резервный код). Мы просим его для необратимых действий.</p>
+</div>
+{%- endmacro %}
+
+{#- Like confirm_dialog, but with extra fields (`fields` HTML) and the re-confirmation code. Open with data-dialog-open="{id}". -#}
+{% macro danger_dialog(id, title, object_name, text, action, confirm_label = 'Подтвердить', fields = '', danger = true) -%}
+{% import _self as a %}
+<dialog class="dlg" id="{{ id }}" aria-labelledby="{{ id }}-title" aria-describedby="{{ id }}-desc" data-dialog-light-dismiss>
+    <form method="post" action="{{ action }}" class="p-5">
+        {{ csrf_field() }}
+        <div class="flex gap-4">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full {{ danger ? 'bg-bad-soft text-bad-fg' : 'bg-warn-soft text-warn-fg' }}">{{ icon('triangle-alert', 'h-5 w-5') }}</span>
+            <div class="min-w-0 flex-1">
+                <h2 class="text-lg font-semibold" id="{{ id }}-title">{{ title }}</h2>
+                <p class="mt-1 text-sm text-muted" id="{{ id }}-desc"><strong class="break-words text-fg">«{{ object_name }}»</strong>. {{ text }}</p>
+                <div class="mt-4 flex flex-col gap-4">{{ fields }}{{ a.step_up(id ~ '-code') }}</div>
+            </div>
+        </div>
+        <div class="mt-6 flex flex-wrap justify-end gap-3">
+            <button type="button" class="btn btn-secondary" data-dialog-close>Отмена</button>
+            <button type="submit" class="btn {{ danger ? 'btn-danger' : 'btn-primary' }}">{{ confirm_label }}</button>
+        </div>
+    </form>
+</dialog>
+{%- endmacro %}
+
+{#- A number with a caption and, optionally, the change against the previous period. `delta` is a percent (or null), `good_up` tells which direction is good. -#}
+{% macro kpi(label, value, delta = null, hint = null, good_up = true, href = null) -%}
+<div class="card">
+    <p class="text-sm text-muted">{% if href %}<a class="underline-offset-2 hover:underline" href="{{ href }}">{{ label }}</a>{% else %}{{ label }}{% endif %}</p>
+    <p class="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">{{ value }}</p>
+    {% if delta is not null %}
+    {% set up = delta > 0 %}{% set good = delta == 0 ? null : (up == good_up) %}
+    <p class="mt-1 text-sm font-medium tabular-nums {{ good is null ? 'text-muted' : (good ? 'text-ok-fg' : 'text-bad-fg') }}">{{ delta > 0 ? '▲ +' : (delta < 0 ? '▼ ' : '') }}{{ delta|number_format(1, ',', ' ') }}%<span class="font-normal text-muted"> к прошлому периоду</span></p>
+    {% elseif hint %}<p class="mt-1 text-sm text-muted">{{ hint }}</p>{% endif %}
+</div>
+{%- endmacro %}
+
+{#- A chart drawn by js/admin-charts.js from the JSON in `config` (type, labels, datasets). The table below it is the accessible version of the same numbers. -#}
+{% macro chart(id, title, config, height = 'h-64') -%}
+<figure class="card" aria-labelledby="{{ id }}-t">
+    <figcaption class="text-lg font-semibold" id="{{ id }}-t">{{ title }}</figcaption>
+    <div class="mt-3 {{ height }}"><canvas id="{{ id }}" role="img" aria-label="{{ title }}" data-chart="{{ config|json_encode }}"></canvas></div>
+</figure>
+{%- endmacro %}

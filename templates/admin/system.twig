@@ -1,0 +1,37 @@
+{#- Admin: system state. Variables: queue, checks, build, errors. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/admin.twig' as a %}
+{% set nav_current = 'system' %}
+{% block title %}Состояние системы · Админка{% endblock %}
+{% block content %}
+{% set tz = current_user().timezone %}
+{{ d.page_header('Состояние системы', 'Работают ли процессы, базы и диск, и что сейчас в очереди.') }}
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {{ a.kpi('Ждут в очереди', queue.waiting, hint = 'В работе сейчас: ' ~ queue.running, href = '/admin/queues') }}
+    {{ a.kpi('Самая старая задача', queue.oldest_seconds is null ? 'нет' : (queue.oldest_seconds < 120 ? queue.oldest_seconds ~ ' с' : (queue.oldest_seconds // 60) ~ ' мин'), hint = 'Сколько она ждёт, не будучи взятой') }}
+    {{ a.kpi('Упавших задач', queue.failed, hint = queue.failed ? 'Нужно разобрать' : 'Всё в порядке', href = '/admin/queues') }}
+    {{ a.kpi('Попыток отправки в минуту', queue.attempts_per_minute|number_format(1, ',', ' '), hint = 'За последние 15 минут') }}
+</div>
+<section class="mt-8" aria-labelledby="chk-h"><h2 class="mb-3 text-lg font-semibold" id="chk-h">Проверки</h2>
+    <div class="card !p-0 overflow-hidden">
+    {% set rows %}{% for c in checks %}<tr><td class="font-medium">{{ c.name }}</td><td>{{ d.badge({ok: 'Работает', warn: 'Внимание', bad: 'Проблема'}[c.state], {ok: 'ok', warn: 'warn', bad: 'bad'}[c.state], dot = true) }}</td><td class="text-sm text-muted">{{ c.text }}</td></tr>{% endfor %}{% endset %}
+    {{ d.table([{label: 'Что проверяем'}, {label: 'Состояние'}, {label: 'Подробности'}], caption = 'Проверки системы', body = rows) }}
+    </div>
+</section>
+<div class="mt-8 grid gap-4 lg:grid-cols-2">
+    <section class="card" aria-labelledby="ver-h"><h2 class="text-lg font-semibold" id="ver-h">Версия</h2>
+        <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm"><dt class="text-muted">Версия</dt><dd>{{ build.version }}</dd><dt class="text-muted">Выкатили</dt><dd>{{ build.deployed_at ? build.deployed_at|date('d.m.Y H:i', tz) : 'не указано (APP_DEPLOYED_AT)' }}</dd><dt class="text-muted">Окружение</dt><dd>{{ build.environment }}</dd><dt class="text-muted">PHP</dt><dd>{{ build.php }}</dd></dl>
+    </section>
+    <section class="card" aria-labelledby="q-h"><h2 class="text-lg font-semibold" id="q-h">Очереди</h2>
+        {% if queue.queues %}<ul class="mt-3 divide-y divide-line">{% for name, n in queue.queues %}<li class="flex justify-between gap-3 py-2"><span>{{ name }}</span><span class="tabular-nums">{{ n }}</span></li>{% endfor %}</ul>{% else %}<p class="mt-3 text-muted">Очереди пусты.</p>{% endif %}
+    </section>
+</div>
+<section class="mt-8" aria-labelledby="log-h"><h2 class="text-lg font-semibold" id="log-h">Последние ошибки</h2>
+    <p class="mb-3 mt-1 text-sm text-muted">Из журнала сервера. Подробности и данные людей здесь не показываются, секреты скрыты.</p>
+    <div class="card !p-0 overflow-hidden">
+    {% set rows %}{% for e in errors %}<tr><td class="whitespace-nowrap text-muted">{{ e.at ? e.at|date('d.m.Y H:i:s', tz) : '' }}</td><td>{{ d.badge(e.level, 'bad') }}</td><td class="break-words font-medium">{{ e.message }}</td><td class="break-words text-sm text-muted">{{ e.exception }}{{ e.where ? ' · ' ~ e.where : '' }}</td></tr>{% endfor %}{% endset %}
+    {{ d.table([{label: 'Когда'}, {label: 'Уровень'}, {label: 'Сообщение'}, {label: 'Где'}], empty = errors is empty, empty_title = 'Ошибок нет', empty_text = 'В журнале нет свежих ошибок.', caption = 'Последние ошибки', body = rows) }}
+    </div>
+</section>
+{% endblock %}

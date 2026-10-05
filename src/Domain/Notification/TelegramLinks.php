@@ -80,6 +80,16 @@ final class TelegramLinks
         return $row === null ? null : ['chat_id' => (int) $row['chat_id'], 'username' => is_string($row['username'] ?? null) ? $row['username'] : null];
     }
 
+    /**
+     * The person whose private chat this is (null for a chat nobody linked).
+     */
+    public function userByChat(int $chatId): ?int
+    {
+        $row = $this->db->select('SELECT user_id FROM telegram_links WHERE chat_id = ?', [$chatId])[0] ?? null;
+
+        return $row === null ? null : (int) $row['user_id'];
+    }
+
     public function unlink(int $userId): void
     {
         $this->db->table('telegram_links')->where('user_id', '=', $userId)->delete();

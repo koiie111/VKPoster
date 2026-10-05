@@ -50,6 +50,7 @@ final class ComponentsTest extends TestCase
 {% import 'components/post.twig' as p %}
 {% import 'components/calendar.twig' as c %}
 {% import 'components/nav.twig' as n %}
+{% import 'components/admin.twig' as a %}
 {{ f.button(x, attrs = {'data-x': x}) }}
 {{ f.icon_button('plus', x) }}
 {{ f.input('a', x, value = x, hint = x, error = x, placeholder = x) }}
@@ -77,6 +78,9 @@ final class ComponentsTest extends TestCase
 {{ n.user_menu(x, x) }}
 {{ n.workspace_switcher(x, [{name: x, href: x}]) }}
 {{ o.toast_region([{text: x, kind: x}]) }}
+{{ a.kpi(x, x, 1.5, x, true, x) }}{{ a.kpi(x, x, null, x) }}
+{{ a.chart('ch', x, {title: x, type: 'bar', labels: [x], datasets: [{label: x, data: [1]}]}) }}
+{{ a.danger_dialog('dd', x, x, x, x, x, fields = x) }}{{ a.step_up('su') }}
 TWIG);
 
         $html = $this->view()->render('probe.twig', ['x' => self::PAYLOAD]);

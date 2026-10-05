@@ -37,6 +37,9 @@ final class SymfonyMailer implements Mailer
                 ->subject($message->subject)
                 ->text($message->text)
                 ->html($message->html);
+            foreach ($message->headers as $name => $value) {
+                $email->getHeaders()->addTextHeader($name, $value);
+            }
             $this->transport()->send($email);
         } catch (TransportExceptionInterface | MimeException $e) {
             // Never include the message: it can carry one-time links.

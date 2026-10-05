@@ -1,0 +1,52 @@
+{#- Admin: one ticket. Variables: ticket, messages, statuses. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'support' %}
+{% set tz = current_user().timezone %}
+{% block title %}{{ ticket.subject }} · Поддержка · Админка{% endblock %}
+{% block content %}
+{{ d.page_header(ticket.subject, 'Обращение от ' ~ ticket.created_at|date('d.m.Y H:i', tz) ~ ' · ' ~ ({form: 'из формы', telegram: 'из Telegram', email: 'по почте'}[ticket.source] ?? ticket.source)) }}
+<div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+    <div class="flex flex-col gap-4">
+        <section class="card" aria-labelledby="th-h"><h2 class="sr-only" id="th-h">Переписка</h2>
+            <ul class="flex flex-col gap-4">{% for m in messages %}
+                <li class="rounded-ctl border p-3 {{ m.kind == 'note' ? 'border-warn bg-warn-soft text-warn-fg' : (m.kind == 'staff' ? 'border-line bg-primary-soft text-primary-softfg' : 'border-line bg-surface') }}">
+                    <p class="text-xs">{{ {customer: 'Клиент', staff: 'Поддержка', note: 'Внутренняя заметка (клиент не видит)'}[m.kind] }}{{ m.author ? ' · ' ~ m.author : '' }} · {{ m.created_at|date('d.m.Y H:i', tz) }}{{ m.delivered_via ? ' · отправлено: ' ~ ({email: 'на почту', telegram: 'в Telegram', none: 'никуда (нет контакта)'}[m.delivered_via] ?? m.delivered_via) : '' }}</p>
+                    <p class="mt-1 whitespace-pre-line break-words">{{ m.body }}</p>
+                </li>{% endfor %}</ul>
+        </section>
+        {% if admin_can('support.manage') %}
+        <form class="card flex flex-col gap-3" method="post" action="/admin/support/{{ ticket.public_id }}/reply">{{ csrf_field() }}
+            {{ f.textarea('body', 'Ответ или заметка', rows = 5, max = 4000, required = true, hint = ticket.source == 'telegram' ? 'Ответ уйдёт в Telegram клиента.' : (ticket.email ? 'Ответ уйдёт на ' ~ ticket.email ~ '.' : 'У обращения нет почты: ответ записать можно, отправить некуда.'), id = 'reply-body') }}
+            <div class="flex flex-wrap gap-2">
+                <button class="btn btn-primary" type="submit" name="kind" value="reply">Ответить клиенту</button>
+                <button class="btn btn-secondary" type="submit" name="kind" value="note">Записать заметку (не отправляется)</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+    <div class="flex flex-col gap-4">
+        <section class="card" aria-labelledby="who-h"><h2 class="text-lg font-semibold" id="who-h">Кто пишет</h2>
+            <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                <dt class="text-muted">Человек</dt><dd>{% if ticket.user_id %}<a class="underline underline-offset-2" href="/admin/users/{{ ticket.user_id }}">{{ ticket.user_name }}</a>{% else %}не определён{% endif %}</dd>
+                <dt class="text-muted">Почта</dt><dd class="break-all">{{ ticket.email ?? '—' }}</dd>
+                <dt class="text-muted">Состояние</dt><dd>{{ statuses[ticket.status] ?? ticket.status }}</dd>
+                <dt class="text-muted">Назначено</dt><dd>{{ ticket.assignee_name ?? 'никому' }}</dd>
+            </dl>
+        </section>
+        {% if ticket.context %}
+        <section class="card" aria-labelledby="ctx-h"><h2 class="text-lg font-semibold" id="ctx-h">Что мы знали на тот момент</h2>
+            <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">{% for k, v in ticket.context %}<dt class="text-muted">{{ {plan: 'Тариф', registered: 'Зарегистрирован', page: 'Страница', error_1: 'Ошибка 1', error_2: 'Ошибка 2', error_3: 'Ошибка 3'}[k] ?? k }}</dt><dd class="break-words">{{ v }}</dd>{% endfor %}</dl>
+        </section>
+        {% endif %}
+        {% if admin_can('support.manage') %}
+        <form class="card flex flex-col gap-3" method="post" action="/admin/support/{{ ticket.public_id }}">{{ csrf_field() }}
+            {{ f.select('status', 'Состояние', statuses, value = ticket.status, id = 'ticket-status') }}
+            {{ f.select('assignee', 'Назначить', {'': 'Не менять', me: 'Мне', none: 'Снять назначение'}, id = 'ticket-assignee') }}
+            {{ f.button('Сохранить', type = 'submit', variant = 'secondary') }}
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

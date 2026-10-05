@@ -77,3 +77,13 @@
 Цены, лимиты, пробный период (14 дней Pro), лесенка повторов (за 3 дня до конца, через 1 и 3 дня, затем ежедневно все 3 дня отсрочки) лежат в `config/billing.php`; цены и лимиты после первой миграции живут в БД.
 
 Обязательные переменные проверяются при старте (`Config::load`): если чего-то нет, приложение и `bin/console` не запускаются, а в журнал попадает имя переменной без значения. В `config/*.php` env читается только через `Env`; прямых `getenv()` в коде нет.
+
+
+## Админка (этап 20)
+
+| Переменная | По умолчанию | Назначение |
+|---|---|---|
+| `ADMIN_IP_ALLOWLIST` | пусто | Адреса и сети через запятую; если задано, `/admin` отвечает 404 всем остальным |
+| `APP_VERSION`, `APP_DEPLOYED_AT` | пусто | Что выкачено; показывается на странице «Состояние системы» (ставит деплой) |
+
+Остальное, что владелец меняет без выкладки, лежит в таблице `app_settings` (кэш в Redis): `site.maintenance`, `site.maintenance_message`, `site.registration`, `site.support_email`, `site.support_telegram`, `site.requisites`, `limits.max_workspaces_per_user`, `platforms.off`, `status.notices`, `design.colors`, `finance.fee_percent`, `report.*`, `campaigns.per_minute`, `metrics.refreshed_at`. Секретов там нет.

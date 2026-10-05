@@ -1,0 +1,36 @@
+{#- Admin: announcements. Variables: notices, form (item being edited or null), levels, plans. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'announcements' %}
+{% set tz = current_user().timezone %}
+{% block title %}Объявления · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Объявления', 'Сообщения внутри сервиса: об акции, о работах, о новой возможности. Показываются сверху, пока идёт срок.') }}
+<div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+    <section class="card !p-0 overflow-hidden" aria-labelledby="l-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="l-h">Все объявления</h2>
+    {% set rows %}{% for n in notices %}<tr>
+        <td class="font-medium"><a class="hover:underline" href="/admin/announcements/{{ n.id }}">{{ n.title }}</a><span class="block text-xs text-muted">{{ levels[n.level] ?? n.level }} · {{ n.plans ? 'тарифы: ' ~ n.plans|join(', ') : 'все тарифы' }}{{ n.platforms ? ' · сети: ' ~ n.platforms|join(', ') : '' }}</span></td>
+        <td class="text-sm text-muted">{{ n.starts_at|date('d.m.Y H:i', tz) }}{{ n.ends_at ? ' — ' ~ n.ends_at|date('d.m.Y H:i', tz) : ' и дальше' }}</td>
+        <td>{{ d.badge(n.live ? 'Показывается' : (n.is_active ? 'Ждёт срока' : 'Выключено'), n.live ? 'ok' : 'neutral', dot = true) }}</td>
+        <td class="whitespace-nowrap">
+            <form class="inline" method="post" action="/admin/announcements/{{ n.id }}/toggle">{{ csrf_field() }}<button class="btn btn-ghost btn-sm" type="submit">{{ n.is_active ? 'Выключить' : 'Включить' }}</button></form>
+            <form class="inline" method="post" action="/admin/announcements/{{ n.id }}/delete">{{ csrf_field() }}<button class="btn btn-ghost btn-sm" type="submit">Удалить</button></form>
+        </td>
+    </tr>{% endfor %}{% endset %}
+    {{ d.table([{label: 'Объявление'}, {label: 'Срок'}, {label: 'Состояние'}, {label: ''}], empty = notices is empty, empty_title = 'Объявлений нет', empty_text = 'Создайте первое справа.', caption = 'Объявления', body = rows) }}
+    </section>
+    <section class="card" aria-labelledby="f-h"><h2 class="text-lg font-semibold" id="f-h">{{ form ? 'Изменить объявление' : 'Новое объявление' }}</h2>
+        <form class="mt-3 flex flex-col gap-4" method="post" action="/admin/announcements{{ form ? '/' ~ form.id : '' }}">{{ csrf_field() }}
+            {{ f.input('title', 'Заголовок', value = form.title ?? '', required = true) }}
+            {{ f.textarea('body', 'Текст', value = form.body ?? '', rows = 3, max = 1000, id = 'ann-body') }}
+            {{ f.select('level', 'Вид', levels, value = form.level ?? 'info') }}
+            <fieldset><legend class="label">Кому показывать: тарифы</legend><div class="flex flex-col gap-1">{% for code, name in plans %}{{ f.checkbox('plans[]', name, checked = form and code in form.plans, value = code, id = 'plan-' ~ code) }}{% endfor %}</div><p class="hint">Ничего не отмечено — всем тарифам.</p></fieldset>
+            <fieldset><legend class="label">Кому показывать: сети каналов</legend><div class="flex flex-col gap-1">{% for code, name in {telegram: 'Telegram', vk: 'ВКонтакте', max: 'MAX'} %}{{ f.checkbox('platforms[]', name, checked = form and code in form.platforms, value = code, id = 'pf-' ~ code) }}{% endfor %}</div><p class="hint">Ничего не отмечено — всем.</p></fieldset>
+            {{ f.input('starts', 'Показывать с', type = 'datetime-local', value = form and form.starts_at ? form.starts_at|date('Y-m-d\\TH:i', tz) : '', hint = 'Пусто — сразу. Время ваше (' ~ tz ~ ').', id = 'ann-start') }}
+            {{ f.input('ends', 'Показывать до', type = 'datetime-local', value = form and form.ends_at ? form.ends_at|date('Y-m-d\\TH:i', tz) : '', hint = 'Пусто — без конца.', id = 'ann-end') }}
+            <div class="flex gap-2">{{ f.button('Сохранить', type = 'submit') }}{% if form %}{{ f.button('Отмена', variant = 'ghost', href = '/admin/announcements') }}{% endif %}</div>
+        </form>
+    </section>
+</div>
+{% endblock %}

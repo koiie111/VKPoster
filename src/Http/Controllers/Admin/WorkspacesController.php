@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Domain\Admin\AdminDirectory;
+use App\Domain\Audit\AuditLog;
 use App\Domain\Billing\BillingPeriod;
 use App\Domain\Billing\PlanRepository;
 use App\Domain\Billing\SubscriptionService;
 use App\Domain\Workspace\WorkspaceRepository;
+use App\Http\Admin\StepUp;
 use App\Http\FormFlash;
 use App\Http\WorkspaceRequest;
 use App\Kernel\Exception\HttpException;
@@ -28,6 +30,8 @@ final class WorkspacesController
         private readonly PlanRepository $plans,
         private readonly SubscriptionService $subscriptions,
         private readonly FormFlash $flash,
+        private readonly StepUp $stepUp,
+        private readonly AuditLog $audit,
     ) {
     }
 
@@ -59,6 +63,10 @@ final class WorkspacesController
     {
         $staff = WorkspaceRequest::user($request);
         $workspace = $this->workspaces->findByPublicId($publicId) ?? throw new HttpException(404, 'Not found');
+        if (($denied = $this->stepUp->guard($request, $staff, '/admin/workspaces/' . $publicId)) !== null) {
+            return $denied;
+        }
+        $before = $this->directory->workspace($publicId);
         $plan = $this->plans->findByCode(WorkspaceRequest::text($request->input('plan')));
         $period = BillingPeriod::tryFrom(WorkspaceRequest::text($request->input('period')));
         if ($plan === null || $period === null) {
@@ -67,6 +75,7 @@ final class WorkspacesController
             return Response::redirect('/admin/workspaces/' . $publicId);
         }
         $subscription = $this->subscriptions->grant($workspace->id, $plan, $period, $staff->id);
+        $this->audit->record('admin.grant', $staff->id, 'workspace', $publicId, ['kind' => 'plan', 'before' => (string) ($before['plan_code'] ?? 'none'), 'after' => $plan->code . '/' . $period->value], $workspace->id);
         $this->flash->toast('Тариф «' . $plan->name . '» выдан' . ($subscription->currentPeriodEnd === null ? '.' : ' до ' . $subscription->currentPeriodEnd->format('d.m.Y') . '.'));
 
         return Response::redirect('/admin/workspaces/' . $publicId);

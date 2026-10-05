@@ -318,3 +318,28 @@ erDiagram
 Этап 11: `app_settings` (имя → JSON: `platforms.off` выключенные сети, `status.notices` тексты баннера; меняются в админке) и `user_consents` (история согласий пользователя с версией документов, для 152-ФЗ; удаляется вместе с пользователем).
 
 Команды: `make migrate`, `make console CMD="migrate:status"`, `migrate:rollback` (последний batch), `migrate:fresh` (удаляет все таблицы; в production отключена), `seed` (dev-данные из `database/seeds/`; в production отключена).
+
+### Админка (этап 20)
+
+Миграции `2026_10_05_000016`–`000020`; все обратимы.
+
+| Таблица | Назначение |
+|---|---|
+| `staff_members` | Роль сотрудника (`finance`, `support`, `content`, `analyst`) для пользователя; владелец — `users.is_superadmin`. Права ролей в `config/admin_permissions.php` |
+| `admin_notes` | Приватные заметки персонала о человеке |
+| `users.block_reason` | Причина блокировки, её видит человек при входе |
+| `analytics_events` | Сырой поток событий (визиты, регистрация, оплаты, пробный период); без внешних ключей; `once_key` защищает от повторов |
+| `user_activity_days` | (человек, день) для DAU/WAU/MAU и удержания |
+| `user_attribution` | Источник первого визита (UTM, реферер, страница) на человека |
+| `metrics_daily` | Дневные агрегаты `(день, метрика, разрез) → значение`; пересчитываются за последние 3 дня |
+| `data_requests` | Запросы по 152-ФЗ (выгрузка, удаление); живут дольше аккаунта |
+| `webhook_events.payload` | Копия уведомления провайдера без данных карты, контактов и подписей |
+| `cms_pages`, `cms_blocks` | Ревизии юридических документов и статей справки; тексты лендинга и FAQ |
+| `announcements`, `announcement_dismissals` | Объявления в приложении и закрытие их людьми |
+| `support_tickets`, `support_messages` | Обращения (форма, Telegram) и переписка с заметками |
+| `users.marketing_opt_in_at`, `users.marketing_unsubscribed_at` | Согласие на новости и отписка |
+| `email_campaigns`, `email_campaign_recipients` | Рассылки и получатели с итогом |
+| `mail_templates` | Переписанные тексты системных писем |
+| `invite_codes` | Коды приглашений (только хэш) |
+
+Начисления вручную пишутся в `ledger_entries` (`ref_type = grant`, валюты `DAY`, `CRD`, `RUB`; счета `grants:<ед>` и `wallet:<ед>:<пространство>`).

@@ -1,0 +1,142 @@
+[
+  {
+    "name": "admin-dashboard",
+    "url": "/admin?period=90",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-dashboard-analyst",
+    "url": "/admin?period=30",
+    "login_as": "analyst@ezposter.local"
+  },
+  {
+    "name": "admin-stats",
+    "url": "/admin/stats?days=7",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-system",
+    "url": "/admin/system",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-users",
+    "url": "/admin/users",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-users-filtered",
+    "url": "/admin/users?plan=pro&activity=active&sort=activity&dir=desc",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-user-card",
+    "url": "/admin/search?q=u5%40demo.ezposter.local",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-search",
+    "url": "/admin/search?q=demo",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-privacy",
+    "url": "/admin/privacy",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-payments",
+    "url": "/admin/payments",
+    "login_as": "finance@ezposter.local"
+  },
+  {
+    "name": "admin-payment",
+    "url": "/admin/payments",
+    "login_as": "finance@ezposter.local",
+    "actions": [
+      {
+        "click": "table a[href^=\"/admin/payments/0\"]"
+      }
+    ]
+  },
+  {
+    "name": "admin-webhooks",
+    "url": "/admin/webhooks",
+    "login_as": "finance@ezposter.local"
+  },
+  {
+    "name": "admin-plan-edit",
+    "url": "/admin/plans/pro",
+    "login_as": "finance@ezposter.local"
+  },
+  {
+    "name": "admin-support",
+    "url": "/admin/support",
+    "login_as": "support@ezposter.local"
+  },
+  {
+    "name": "admin-support-ticket",
+    "url": "/admin/support",
+    "login_as": "support@ezposter.local",
+    "actions": [
+      {
+        "click": "table a[href^=\"/admin/support/0\"]"
+      }
+    ]
+  },
+  {
+    "name": "admin-campaigns",
+    "url": "/admin/campaigns",
+    "login_as": "content@ezposter.local"
+  },
+  {
+    "name": "admin-campaign-new",
+    "url": "/admin/campaigns/new",
+    "login_as": "content@ezposter.local"
+  },
+  {
+    "name": "admin-announcements",
+    "url": "/admin/announcements",
+    "login_as": "content@ezposter.local"
+  },
+  {
+    "name": "admin-content",
+    "url": "/admin/content",
+    "login_as": "content@ezposter.local"
+  },
+  {
+    "name": "admin-document",
+    "url": "/admin/content/legal/offer",
+    "login_as": "content@ezposter.local"
+  },
+  {
+    "name": "admin-texts",
+    "url": "/admin/content/texts",
+    "login_as": "content@ezposter.local"
+  },
+  {
+    "name": "admin-mail-templates",
+    "url": "/admin/mail-templates/verify_email",
+    "login_as": "content@ezposter.local"
+  },
+  {
+    "name": "admin-design",
+    "url": "/admin/design",
+    "login_as": "content@ezposter.local"
+  },
+  {
+    "name": "admin-settings",
+    "url": "/admin/settings",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-staff",
+    "url": "/admin/staff",
+    "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "admin-audit",
+    "url": "/admin/audit",
+    "login_as": "staff@ezposter.local"
+  }
+]

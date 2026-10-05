@@ -1,0 +1,7 @@
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}{{ subject_line }}{% endblock %}
+{% block content %}
+<p style="margin:0 0 12px;font-size:13px;color:#6b6a7c;">Ответ поддержки на ваше обращение «{{ subject_line }}»</p>
+<div style="white-space:pre-line;">{{ body }}</div>
+<p style="margin:20px 0 0;font-size:14px;color:#6b6a7c;">Чтобы продолжить разговор, ответьте через форму «Сообщить о проблеме» в сервисе или напишите боту в Telegram.</p>
+{% endblock %}

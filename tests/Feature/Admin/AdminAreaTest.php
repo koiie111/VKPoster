@@ -20,7 +20,7 @@ use App\Http\Controllers\Admin\WorkspacesController;
 use App\Http\Middleware\DenyWhenImpersonating;
 use App\Http\Middleware\RequireAdminUnlock;
 use App\Http\Middleware\RequireStaff;
-use App\Tests\Support\BillingTestCase;
+use App\Tests\Support\AdminTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
@@ -39,60 +39,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(AdminDirectory::class)]
 #[CoversClass(FailedJobs::class)]
 #[CoversClass(PlanEditor::class)]
-final class AdminAreaTest extends BillingTestCase
+final class AdminAreaTest extends AdminTestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->restorePriceList();
-    }
-
-    protected function tearDown(): void
-    {
-        $this->restorePriceList();
-        parent::tearDown();
-    }
-
-    /**
-     * The tests here edit the shared price list: put every plan back as `config/billing.php` defines it.
-     */
-    private function restorePriceList(): void
-    {
-        $catalog = (require dirname(__DIR__, 3) . '/config/billing.php')(new \App\Kernel\Env([]))['catalog'];
-        foreach ($catalog as $code => $definition) {
-            $this->db->execute('UPDATE plans SET name = ?, limits_json = ?, features_json = ?, is_public = 1 WHERE code = ?', [$definition['name'], json_encode($definition['limits']), json_encode(array_values($definition['features'])), $code]);
-            $planId = (int) $this->db->select('SELECT id FROM plans WHERE code = ?', [$code])[0]['id'];
-            $this->db->execute('DELETE FROM plan_prices WHERE plan_id = ?', [$planId]);
-            foreach ($definition['prices'] as $period => $amount) {
-                $this->db->table('plan_prices')->insert(['plan_id' => $planId, 'period' => $period, 'currency' => 'RUB', 'amount' => $amount]);
-            }
-        }
-    }
-
-    /** The staff member: signed in, two-factor on, and (by default) unlocked for the admin area. */
-    private function staff(bool $unlock = true, bool $twoFactor = true): User
-    {
-        $staff = $this->createUser('boss@example.com', true, null, 'Босс');
-        $this->app->container()->get(UserRepository::class)->setSuperadmin($staff->id, true);
-        $this->actAs($staff);
-        if ($twoFactor) {
-            $this->enableTwoFactor($staff);
-        }
-        if ($unlock) {
-            $this->unlock($staff);
-        }
-        $fresh = $this->app->container()->get(UserRepository::class)->find($staff->id);
-        self::assertNotNull($fresh);
-
-        return $fresh;
-    }
-
-    private function unlock(User $staff): void
-    {
-        $response = $this->post('/admin/unlock', ['code' => $this->totpCode($staff->id)]);
-        self::assertSame('/admin', $response->header('Location'));
-    }
-
     public function testGuestsAndOrdinaryUsersDoNotSeeTheAdminArea(): void
     {
         $this->useBrowser();
@@ -108,7 +56,7 @@ final class AdminAreaTest extends BillingTestCase
 
     public function testStaffWithoutTwoFactorAreAskedToSwitchItOn(): void
     {
-        $this->staff(false, false);
+        $this->staff(unlock: false, twoFactor: false);
         $page = $this->get('/admin');
         self::assertSame(403, $page->status);
         self::assertStringContainsString('Сначала включите двухфакторную защиту', $page->body);
@@ -116,7 +64,7 @@ final class AdminAreaTest extends BillingTestCase
 
     public function testStaffNeedAFreshCodeBeforeTheAdminPagesOpen(): void
     {
-        $staff = $this->staff(false);
+        $staff = $this->staff(unlock: false);
         $first = $this->get('/admin/users');
         self::assertSame('/admin/unlock', $first->header('Location'));
         self::assertSame(200, $this->get('/admin/unlock')->status);
@@ -169,7 +117,7 @@ final class AdminAreaTest extends BillingTestCase
         $this->app->container()->get(\App\Domain\Auth\SessionRegistry::class)->register($victim->id, 'victim-session-id', '203.0.113.5', 'ua');
         self::assertSame($victim->id, $this->app->container()->get(\App\Domain\Auth\SessionRegistry::class)->activeUserId('victim-session-id'));
 
-        $response = $this->post('/admin/users/' . $victim->id . '/block');
+        $response = $this->post('/admin/users/' . $victim->id . '/block', $this->confirm(['reason' => 'Спам']));
         self::assertSame('/admin/users/' . $victim->id, $response->header('Location'));
         $row = $this->db->select('SELECT status FROM users WHERE id = ?', [$victim->id])[0];
         self::assertSame('blocked', $row['status']);
@@ -186,8 +134,8 @@ final class AdminAreaTest extends BillingTestCase
         $other = $this->createUser('boss2@example.com');
         $this->app->container()->get(UserRepository::class)->setSuperadmin($other->id, true);
 
-        $this->post('/admin/users/' . $staff->id . '/block');
-        $this->post('/admin/users/' . $other->id . '/block');
+        $this->post('/admin/users/' . $staff->id . '/block', $this->confirm(['reason' => 'Спам']));
+        $this->post('/admin/users/' . $other->id . '/block', $this->confirm(['reason' => 'Спам']));
         self::assertSame(['active', 'active'], array_column($this->db->select('SELECT status FROM users WHERE id IN (?, ?) ORDER BY id', [$staff->id, $other->id]), 'status'));
     }
 
@@ -196,7 +144,7 @@ final class AdminAreaTest extends BillingTestCase
         $staff = $this->staff();
         [$owner, $workspace] = $this->ownerWithWorkspace('customer@example.com', 'Клиент');
 
-        $start = $this->post('/admin/users/' . $owner->id . '/impersonate');
+        $start = $this->post('/admin/users/' . $owner->id . '/impersonate', $this->confirm());
         self::assertSame('/app', $start->header('Location'));
         $home = $this->getApp();
         self::assertSame(200, $home->status);
@@ -228,15 +176,16 @@ final class AdminAreaTest extends BillingTestCase
     {
         $staff = $this->staff();
         [$owner] = $this->ownerWithWorkspace('customer@example.com', 'Клиент');
-        $this->post('/admin/users/' . $owner->id . '/impersonate');
+        $this->post('/admin/users/' . $owner->id . '/impersonate', $this->confirm());
         self::assertSame(200, $this->getApp()->status);
 
         $this->clock->advance(Impersonation::TTL + 5);
         self::assertStringNotContainsString('Вы вошли как', $this->getApp()->body);
-        // Back as the staff member.
-        self::assertSame(200, $this->get('/admin')->status);
+        // Back as the staff member, whose admin lock closed after the idle hour.
+        self::assertSame('/admin/unlock', $this->get('/admin')->header('Location'));
+        $this->unlockAdmin($staff);
 
-        $this->post('/admin/users/' . $owner->id . '/impersonate');
+        $this->post('/admin/users/' . $owner->id . '/impersonate', $this->confirm());
         $this->app->container()->get(UserRepository::class)->setSuperadmin($staff->id, false);
         self::assertSame('/login', $this->get('/app')->header('Location'));
     }
@@ -246,12 +195,12 @@ final class AdminAreaTest extends BillingTestCase
         $staff = $this->staff();
         $other = $this->createUser('boss2@example.com');
         $this->app->container()->get(UserRepository::class)->setSuperadmin($other->id, true);
-        $this->post('/admin/users/' . $other->id . '/impersonate');
+        $this->post('/admin/users/' . $other->id . '/impersonate', $this->confirm());
         self::assertSame(200, $this->get('/admin')->status, 'still the staff member');
 
         $victim = $this->createUser('victim@example.com');
         $this->app->container()->get(UserRepository::class)->setStatus($victim->id, 'blocked');
-        $this->post('/admin/users/' . $victim->id . '/impersonate');
+        $this->post('/admin/users/' . $victim->id . '/impersonate', $this->confirm());
         self::assertSame(200, $this->get('/admin')->status);
         self::assertSame([], $this->db->select("SELECT 1 FROM audit_log WHERE action = 'admin.impersonation_started' AND actor_id = ?", [$staff->id]));
     }
@@ -261,13 +210,13 @@ final class AdminAreaTest extends BillingTestCase
         $staff = $this->staff();
         [, $workspace] = $this->ownerWithWorkspace('customer@example.com');
 
-        $response = $this->post('/admin/workspaces/' . $workspace->publicId . '/grant', ['plan' => 'agency', 'period' => 'year']);
+        $response = $this->post('/admin/workspaces/' . $workspace->publicId . '/grant', $this->confirm(['plan' => 'agency', 'period' => 'year']));
         self::assertSame('/admin/workspaces/' . $workspace->publicId, $response->header('Location'));
         self::assertSame('Агентство', $this->subscriptionPlanName($workspace));
         self::assertNotSame([], $this->db->select("SELECT 1 FROM audit_log WHERE action = 'billing.plan_granted' AND actor_id = ?", [$staff->id]));
         self::assertStringContainsString('Агентство', $this->get('/admin/subscriptions?status=active')->body);
 
-        $this->post('/admin/workspaces/' . $workspace->publicId . '/grant', ['plan' => 'nope', 'period' => 'month']);
+        $this->post('/admin/workspaces/' . $workspace->publicId . '/grant', $this->confirm(['plan' => 'nope', 'period' => 'month']));
         self::assertSame('Агентство', $this->subscriptionPlanName($workspace));
     }
 
@@ -283,15 +232,15 @@ final class AdminAreaTest extends BillingTestCase
         [, $payment] = $this->payWithFake($workspace, $owner, 'pro');
 
         self::assertStringContainsString('payer@example.com', $this->get('/admin/payments?status=succeeded')->body);
-        $this->post('/admin/payments/' . $payment->publicId . '/refund', ['amount' => '100']);
+        $this->post('/admin/payments/' . $payment->publicId . '/refund', $this->confirm(['amount' => '100']));
         self::assertSame(0, (int) $this->db->select('SELECT refunded_amount FROM payments WHERE public_id = ?', [$payment->publicId])[0]['refunded_amount']);
 
-        $this->post('/admin/payments/' . $payment->publicId . '/refund', ['amount' => '100,50', 'confirm' => '1']);
+        $this->post('/admin/payments/' . $payment->publicId . '/refund', $this->confirm(['amount' => '100,50', 'confirm' => '1']));
         self::assertSame(10050, (int) $this->db->select('SELECT refunded_amount FROM payments WHERE public_id = ?', [$payment->publicId])[0]['refunded_amount']);
 
-        $this->post('/admin/payments/' . $payment->publicId . '/refund', ['confirm' => '1']);
+        $this->post('/admin/payments/' . $payment->publicId . '/refund', $this->confirm(['confirm' => '1']));
         self::assertSame('refunded', $this->db->select('SELECT status FROM payments WHERE public_id = ?', [$payment->publicId])[0]['status']);
-        self::assertSame(404, $this->post('/admin/payments/01JZZZZZZZZZZZZZZZZZZZZZZZ/refund', ['confirm' => '1'])->status);
+        self::assertSame(404, $this->post('/admin/payments/01JZZZZZZZZZZZZZZZZZZZZZZZ/refund', $this->confirm(['confirm' => '1']))->status);
     }
 
     public function testPlanPricesCanBeChangedAndTheLandingFollows(): void
@@ -299,12 +248,12 @@ final class AdminAreaTest extends BillingTestCase
         $this->staff();
         self::assertStringContainsString('Тариф «Про»', $this->text($this->get('/admin/plans/pro')));
 
-        $bad = $this->post('/admin/plans/pro', ['name' => 'Про', 'price_month' => 'много', 'price_year' => '', 'limit_channels' => '30']);
+        $bad = $this->post('/admin/plans/pro', $this->confirm(['name' => 'Про', 'price_month' => 'много', 'price_year' => '', 'limit_channels' => '30']));
         self::assertSame('/admin/plans/pro', $bad->header('Location'));
         self::assertStringContainsString('положительным числом', $this->get('/admin/plans/pro')->body);
 
         $body = ['name' => 'Про', 'is_public' => '1', 'price_month' => '1 111', 'price_year' => '11111,5', 'limit_channels' => '33', 'limit_posts_per_month' => '', 'limit_storage_bytes' => '2048', 'feature_api' => '1'];
-        $ok = $this->post('/admin/plans/pro', $body);
+        $ok = $this->post('/admin/plans/pro', $this->confirm($body));
         self::assertSame('/admin/plans', $ok->header('Location'));
         $plan = $this->plans()->findByCode('pro');
         self::assertNotNull($plan);
@@ -323,10 +272,10 @@ final class AdminAreaTest extends BillingTestCase
     public function testFreePlanCannotGetAPriceAndPaidPlanNeedsOne(): void
     {
         $this->staff();
-        $this->post('/admin/plans/free', ['name' => 'Free', 'price_month' => '100', 'limit_channels' => '2', 'limit_posts_per_month' => '30']);
+        $this->post('/admin/plans/free', $this->confirm(['name' => 'Free', 'price_month' => '100', 'limit_channels' => '2', 'limit_posts_per_month' => '30']));
         self::assertNull($this->plans()->free()->priceFor(BillingPeriod::Month));
 
-        $this->post('/admin/plans/start', ['name' => 'Старт', 'price_month' => '', 'price_year' => '']);
+        $this->post('/admin/plans/start', $this->confirm(['name' => 'Старт', 'price_month' => '', 'price_year' => '']));
         self::assertNotNull($this->plans()->findByCode('start')?->priceFor(BillingPeriod::Month));
     }
 

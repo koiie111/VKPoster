@@ -1,0 +1,49 @@
+{#- Admin: requests about personal data (152-FZ). Variables: requests, types. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
+{% set nav_current = 'privacy' %}
+{% set tz = current_user().timezone %}
+{% block title %}Запросы по 152-ФЗ · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Запросы по 152-ФЗ', 'Человек вправе получить копию своих данных и потребовать их удаления. Здесь запросы записываются и выполняются. Финансовые записи, которые обязаны храниться по закону, при удалении остаются.') }}
+<div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+    <section class="card !p-0 overflow-hidden" aria-labelledby="req-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="req-h">Запросы</h2>
+    {% set rows %}
+        {% for r in requests %}
+        <tr>
+            <td class="font-medium">{{ types[r.type] ?? r.type }}<span class="block text-xs text-muted">{{ r.created_at|date('d.m.Y H:i', tz) }}</span></td>
+            <td>{% if r.user_id %}<a class="hover:underline" href="/admin/users/{{ r.user_id }}">{{ r.email ?? ('№ ' ~ r.user_id) }}</a>{% else %}{{ r.email ?? 'неизвестный человек' }}{% endif %}{% if r.note %}<span class="block text-xs text-muted">{{ r.note }}</span>{% endif %}</td>
+            <td>{{ d.badge({open: 'Открыт', done: 'Выполнен', rejected: 'Отклонён'}[r.status] ?? r.status, {open: 'warn', done: 'ok', rejected: 'neutral'}[r.status] ?? 'neutral', dot = true) }}</td>
+            <td>
+                {% if r.status == 'open' and r.user_id %}
+                <div class="flex min-w-[14rem] flex-col gap-2">
+                    {{ f.button('Скачать ZIP', variant = 'secondary', size = 'sm', icon = 'download', href = '/admin/privacy/' ~ r.public_id ~ '/download?format=zip') }}
+                    {{ f.button('Скачать JSON', variant = 'ghost', size = 'sm', href = '/admin/privacy/' ~ r.public_id ~ '/download?format=json') }}
+                    {% if r.type == 'delete' %}
+                    <form class="flex flex-col gap-2" method="post" action="/admin/privacy/{{ r.public_id }}/anonymize">{{ csrf_field() }}
+                        <label class="sr-only" for="an-{{ r.public_id }}">Код подтверждения</label>
+                        <input class="field" id="an-{{ r.public_id }}" name="confirm_code" inputmode="numeric" autocomplete="one-time-code" placeholder="Код из аутентификатора" required>
+                        <button class="btn btn-danger btn-sm" type="submit">Удалить аккаунт</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if r.status == 'open' %}<form class="mt-2" method="post" action="/admin/privacy/{{ r.public_id }}/reject">{{ csrf_field() }}<button class="btn btn-ghost btn-sm" type="submit">Закрыть без выполнения</button></form>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    {% endset %}
+    {{ d.table([{label: 'Запрос'}, {label: 'Человек'}, {label: 'Статус'}, {label: 'Действия'}], empty = requests is empty, empty_title = 'Запросов нет', empty_text = 'Когда человек попросит выгрузку или удаление, запишите запрос справа.', caption = 'Запросы по 152-ФЗ', body = rows) }}
+    </section>
+    <section class="card" aria-labelledby="new-h"><h2 class="text-lg font-semibold" id="new-h">Записать запрос</h2>
+        <form class="mt-3 flex flex-col gap-4" method="post" action="/admin/privacy">{{ csrf_field() }}
+            {{ f.input('user', 'Почта или номер человека', required = true) }}
+            {{ f.select('type', 'Что просит', types, required = true) }}
+            {{ f.textarea('note', 'Пометка', rows = 3, max = 1000, hint = 'Откуда пришёл запрос и когда') }}
+            {{ f.button('Записать запрос', type = 'submit') }}
+        </form>
+    </section>
+</div>
+{% endblock %}

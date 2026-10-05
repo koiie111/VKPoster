@@ -2,6 +2,7 @@
 {% extends 'layouts/admin.twig' %}
 {% import 'components/display.twig' as d %}
 {% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
 {% set nav_current = 'workspaces' %}
 {% set tz = current_user().timezone %}
 {% block title %}{{ workspace.name }} · Админка{% endblock %}
@@ -20,6 +21,7 @@
             {{ csrf_field() }}
             <div class="min-w-[9rem] flex-1">{{ f.select('plan', 'Выдать тариф', plans|reduce((carry, p) => carry|merge({(p.code): p.name}), {}), value = workspace.plan_code) }}</div>
             <div class="min-w-[8rem]">{{ f.select('period', 'На срок', {month: 'Месяц', year: 'Год'}) }}</div>
+            <div class="min-w-[10rem]">{{ a.step_up('grant-code') }}</div>
             {{ f.button('Выдать', type = 'submit') }}
         </form>
         <p class="hint">Срок считается от сегодня, платёж не создаётся. Действие попадёт в журнал.</p>

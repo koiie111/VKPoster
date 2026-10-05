@@ -1,0 +1,20 @@
+{#- Admin: campaigns. Variables: campaigns (rows with stats). -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'campaigns' %}
+{% set tz = current_user().timezone %}
+{% block title %}Рассылки · Админка{% endblock %}
+{% block content %}
+{% set actions %}{{ f.button('Новая рассылка', href = '/admin/campaigns/new', icon = 'plus') }}{% endset %}
+{{ d.page_header('Рассылки', 'Письма с новостями и предложениями. Получают только те, кто на них согласился и не отписался.', body = actions) }}
+<div class="card !p-0 overflow-hidden">
+{% set rows %}{% for c in campaigns %}<tr>
+    <td class="font-medium"><a class="hover:underline" href="/admin/campaigns/{{ c.public_id }}">{{ c.name }}</a><span class="block text-xs text-muted">{{ c.subject }}</span></td>
+    <td>{{ d.badge({draft: 'Черновик', sending: 'Отправляется', done: 'Отправлена', cancelled: 'Остановлена'}[c.status] ?? c.status, {draft: 'neutral', sending: 'info', done: 'ok', cancelled: 'warn'}[c.status] ?? 'neutral', dot = true) }}</td>
+    <td class="text-sm tabular-nums">{% if c.status != 'draft' %}ушло {{ c.stats.sent }} из {{ c.stats.total }}{% if c.stats.failed %}, ошибок {{ c.stats.failed }}{% endif %}{% if c.stats.unsubscribed %}, отписались {{ c.stats.unsubscribed }}{% endif %}{% else %}—{% endif %}</td>
+    <td class="whitespace-nowrap text-muted">{{ c.created_at|date('d.m.Y', tz) }}</td>
+</tr>{% endfor %}{% endset %}
+{{ d.table([{label: 'Рассылка'}, {label: 'Состояние'}, {label: 'Итоги'}, {label: 'Создана'}], empty = campaigns is empty, empty_title = 'Рассылок ещё не было', empty_text = 'Напишите первое письмо и выберите, кому его отправить.', empty_action = 'Новая рассылка', empty_href = '/admin/campaigns/new', caption = 'Рассылки', body = rows) }}
+</div>
+{% endblock %}

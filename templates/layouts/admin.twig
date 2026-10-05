@@ -1,16 +1,47 @@
-{#- Owner/staff back office: the app shell with its own navigation and an "Админка" mark. -#}
+{#- Owner/staff back office: the app shell with its own navigation (grouped by section, only what the signed-in role may open) and an "Админка" mark. -#}
 {% extends 'layouts/app.twig' %}
-{% set shell_badge = 'Админка' %}
-{% set nav_items = [
-    {id: 'overview', label: 'Обзор', icon: 'layout-dashboard', href: '/admin'},
-    {id: 'users', label: 'Пользователи', icon: 'users', href: '/admin/users'},
-    {id: 'workspaces', label: 'Пространства', icon: 'building-2', href: '/admin/workspaces'},
-    {id: 'subscriptions', label: 'Подписки', icon: 'repeat', href: '/admin/subscriptions'},
-    {id: 'payments', label: 'Платежи', icon: 'credit-card', href: '/admin/payments'},
-    {id: 'plans', label: 'Тарифы и цены', icon: 'tag', href: '/admin/plans'},
-    {id: 'promo', label: 'Промокоды', icon: 'star', href: '/admin/promo'},
-    {id: 'queues', label: 'Очереди', icon: 'refresh-cw', href: '/admin/queues'},
-    {id: 'channels', label: 'Каналы', icon: 'share-2', href: '/admin/channels'},
-    {id: 'platforms', label: 'Соцсети', icon: 'zap', href: '/admin/platforms'},
-    {id: 'back', label: 'В приложение', icon: 'house', href: '/app'}
+{% set shell_badge = admin_role() ? 'Админка · ' ~ admin_role().label : 'Админка' %}
+{% set support_open = admin_can('support.view') ? admin_support_open() : 0 %}
+{% set groups = [
+    {heading: 'Бизнес', items: [
+        {id: 'overview', label: 'Обзор', icon: 'layout-dashboard', href: '/admin', can: 'dashboard.view'},
+        {id: 'users', label: 'Пользователи', icon: 'users', href: '/admin/users', can: 'users.view'},
+        {id: 'workspaces', label: 'Пространства', icon: 'building-2', href: '/admin/workspaces', can: 'workspaces.view'},
+        {id: 'privacy', label: 'Запросы по 152-ФЗ', icon: 'shield', href: '/admin/privacy', can: 'privacy.manage'}
+    ]},
+    {heading: 'Деньги', items: [
+        {id: 'subscriptions', label: 'Подписки', icon: 'repeat', href: '/admin/subscriptions', can: 'finance.view'},
+        {id: 'payments', label: 'Платежи', icon: 'credit-card', href: '/admin/payments', can: 'finance.view'},
+        {id: 'webhooks', label: 'Уведомления провайдеров', icon: 'zap', href: '/admin/webhooks', can: 'finance.view'},
+        {id: 'plans', label: 'Тарифы и цены', icon: 'tag', href: '/admin/plans', can: 'finance.view'},
+        {id: 'promo', label: 'Промокоды', icon: 'star', href: '/admin/promo', can: 'finance.view'}
+    ]},
+    {heading: 'Система', items: [
+        {id: 'stats', label: 'Публикации и сети', icon: 'activity', href: '/admin/stats', can: 'stats.view'},
+        {id: 'system', label: 'Состояние системы', icon: 'server', href: '/admin/system', can: 'system.view'},
+        {id: 'queues', label: 'Очереди', icon: 'refresh-cw', href: '/admin/queues', can: 'system.view'},
+        {id: 'channels', label: 'Каналы', icon: 'share-2', href: '/admin/channels', can: 'system.view'},
+        {id: 'platforms', label: 'Соцсети', icon: 'zap', href: '/admin/platforms', can: 'system.view'}
+    ]},
+    {heading: 'Клиенты', items: [
+        {id: 'support', label: 'Поддержка', icon: 'life-buoy', href: '/admin/support', can: 'support.view', badge: support_open},
+        {id: 'campaigns', label: 'Рассылки', icon: 'mail', href: '/admin/campaigns', can: 'campaigns.manage'},
+        {id: 'announcements', label: 'Объявления', icon: 'megaphone', href: '/admin/announcements', can: 'content.manage'}
+    ]},
+    {heading: 'Сайт', items: [
+        {id: 'content', label: 'Тексты и документы', icon: 'file-text', href: '/admin/content', can: 'content.manage'},
+        {id: 'mail_templates', label: 'Письма сервиса', icon: 'mail', href: '/admin/mail-templates', can: 'content.manage'},
+        {id: 'design', label: 'Дизайн и цвета', icon: 'palette', href: '/admin/design', can: 'design.manage'},
+        {id: 'settings', label: 'Настройки сайта', icon: 'settings', href: '/admin/settings', can: 'settings.manage'}
+    ]},
+    {heading: 'Доступ', items: [
+        {id: 'staff', label: 'Сотрудники', icon: 'shield-check', href: '/admin/staff', can: 'staff.manage'},
+        {id: 'audit', label: 'Журнал действий', icon: 'scroll-text', href: '/admin/audit', can: 'audit.view'}
+    ]}
 ] %}
+{% set built = [] %}
+{% for group in groups %}
+    {% set visible = group.items|filter(i => admin_can(i.can)) %}
+    {% if visible %}{% set built = built|merge([{heading: group.heading}])|merge(visible) %}{% endif %}
+{% endfor %}
+{% set nav_items = built|merge([{id: 'back', label: 'В приложение', icon: 'house', href: '/app'}]) %}

@@ -153,7 +153,7 @@ final class ConsoleTest extends TestCase
         $worker->stop();
         $out = new Output();
 
-        $code = (new QueueWorkCommand($worker))->run(['--queue=default', '--sleep=1', '--max-jobs=1'], $out);
+        $code = (new QueueWorkCommand($worker, $app->container()->get(\App\Support\Heartbeat::class)))->run(['--queue=default', '--sleep=1', '--max-jobs=1'], $out);
 
         self::assertSame(0, $code);
         self::assertStringContainsString('Worker stopped', $out->contents());

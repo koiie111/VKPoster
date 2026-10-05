@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Account;
 
+use App\Domain\Notification\MarketingConsent;
 use App\Domain\Notification\NotificationSettings;
 use App\Domain\Notification\NotificationType;
 use App\Domain\Notification\TelegramLinks;
@@ -26,6 +27,7 @@ final class NotificationController
         private readonly NotificationSettings $settings,
         private readonly TelegramLinks $links,
         private readonly Config $config,
+        private readonly MarketingConsent $marketing,
     ) {
     }
 
@@ -45,6 +47,7 @@ final class NotificationController
         return $this->view->response('account/notifications.twig', [
             'user' => $user,
             'types' => $types,
+            'marketing' => $this->marketing->isSubscribed($user->id),
             'has_email' => $user->email !== null && $user->isVerified(),
             'telegram' => $link,
             'bot_configured' => $this->config->string('platforms.telegram.bot_token') !== '' && $botName !== '',
@@ -63,6 +66,23 @@ final class NotificationController
         }
         $this->settings->save($user->id, $choices);
         $this->flash->toast('Настройки уведомлений сохранены.');
+
+        return Response::redirect('/account/notifications');
+    }
+
+    /**
+     * The separate choice to receive news and offers (off unless the person ticked it at sign-up or here).
+     */
+    public function saveMarketing(Request $request): Response
+    {
+        $user = WorkspaceRequest::user($request);
+        if ($request->input('marketing') === '1') {
+            $this->marketing->subscribe($user->id);
+            $this->flash->toast('Будем присылать новости и предложения. Отказаться можно в любой момент.');
+        } else {
+            $this->marketing->unsubscribe($user->id);
+            $this->flash->toast('Новости и предложения отключены.');
+        }
 
         return Response::redirect('/account/notifications');
     }

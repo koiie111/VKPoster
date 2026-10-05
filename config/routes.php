@@ -6,6 +6,7 @@ use App\Http\Controllers\Account\ConsentController;
 use App\Http\Controllers\Account\FeedbackController;
 use App\Http\Controllers\Account\LoginMethodsController;
 use App\Http\Controllers\Account\NotificationController;
+use App\Http\Controllers\Account\AnnouncementController;
 use App\Http\Controllers\Account\SecurityController;
 use App\Http\Controllers\Account\TwoFactorController;
 use App\Http\Controllers\AppController;
@@ -54,6 +55,24 @@ use App\Http\Middleware\RequireConsent;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\ResolveWorkspace;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AdminAuditController;
+use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DesignController;
+use App\Http\Controllers\Admin\SearchController;
+use App\Http\Controllers\Admin\SupportController;
+use App\Http\Controllers\Admin\ContentController;
+use App\Http\Controllers\Admin\MailTemplatesController;
+use App\Http\Controllers\Admin\CampaignsController;
+use App\Http\Controllers\Admin\AnnouncementsAdminController;
+use App\Http\Controllers\Admin\SiteSettingsController;
+use App\Http\Controllers\Admin\FinanceController;
+use App\Http\Controllers\Admin\PrivacyController;
+use App\Http\Controllers\Admin\StatsController;
+use App\Http\Controllers\Site\ThemeController;
+use App\Http\Controllers\Site\UnsubscribeController;
+use App\Http\Middleware\AdminAuditTrail;
+use App\Http\Middleware\RequireStaffPermission;
 use App\Http\Controllers\Admin\BillingAdminController;
 use App\Http\Controllers\Admin\ImpersonationController;
 use App\Http\Controllers\Admin\OperationsController;
@@ -62,10 +81,11 @@ use App\Http\Controllers\Admin\WorkspacesController;
 use App\Http\Middleware\DenyWhenImpersonating;
 use App\Http\Middleware\RequireAdminUnlock;
 use App\Http\Middleware\RequireStaff;
+use App\Http\Middleware\TrackVisit;
 use App\Kernel\Http\Router;
 
 return static function (Router $router): void {
-    $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(OptionalAuthenticate::class);
+    $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(TrackVisit::class, OptionalAuthenticate::class);
     $router->get('/healthz', [HealthController::class, 'show'])->name('health');
 
     // Public site: legal documents, the knowledge base, the status of the networks, and what search engines may read.
@@ -73,6 +93,9 @@ return static function (Router $router): void {
     $router->get('/help', [HelpController::class, 'index'])->name('help')->middleware(OptionalAuthenticate::class);
     $router->get('/help/{slug:[a-z0-9-]{1,60}}', [HelpController::class, 'show'])->name('help.show')->middleware(OptionalAuthenticate::class);
     $router->get('/status', [StatusController::class, 'show'])->name('status')->middleware(OptionalAuthenticate::class);
+    $router->get('/theme.css', [ThemeController::class, 'css']);
+    $router->get('/unsubscribe/{user:[0-9]{1,12}}', [UnsubscribeController::class, 'show']);
+    $router->post('/unsubscribe/{user:[0-9]{1,12}}', [UnsubscribeController::class, 'confirm'])->withoutCsrf();
     $router->get('/robots.txt', [SeoController::class, 'robots']);
     $router->get('/sitemap.xml', [SeoController::class, 'sitemap']);
 
@@ -82,10 +105,10 @@ return static function (Router $router): void {
 
     // Guests only: signed-in visitors are sent to /app.
     $router->group('', [Guest::class], static function (Router $r) use ($provider): void {
-        $r->get('/register', [RegisterController::class, 'show'])->name('register');
+        $r->get('/register', [RegisterController::class, 'show'])->name('register')->middleware(TrackVisit::class);
         $r->post('/register', [RegisterController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'register', 'max' => 10, 'seconds' => 3600]]);
         $r->get('/register/done', [RegisterController::class, 'done'])->name('register.done');
-        $r->get('/login', [LoginController::class, 'show'])->name('login');
+        $r->get('/login', [LoginController::class, 'show'])->name('login')->middleware(TrackVisit::class);
         $r->post('/login', [LoginController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'login', 'max' => 20, 'seconds' => 600]]);
         $r->get('/login/2fa', [LoginController::class, 'twoFactorShow'])->name('login.2fa');
         $r->post('/login/2fa', [LoginController::class, 'twoFactorStore'])->middleware([RateLimit::class, ['bucket' => 'login-2fa', 'max' => 20, 'seconds' => 600]]);
@@ -133,6 +156,8 @@ return static function (Router $router): void {
             $a->post('/account/login-methods/' . $provider . '/unlink', [LoginMethodsController::class, 'unlink']);
             $a->get('/account/notifications', [NotificationController::class, 'show'])->name('account.notifications');
             $a->post('/account/notifications', [NotificationController::class, 'save']);
+            $a->post('/account/notifications/marketing', [NotificationController::class, 'saveMarketing']);
+            $a->post('/announcements/{id:[0-9]{1,12}}/dismiss', [AnnouncementController::class, 'dismiss']);
             $a->post('/account/notifications/telegram/link', [NotificationController::class, 'linkTelegram'])->middleware([RateLimit::class, ['bucket' => 'telegram-link', 'max' => 10, 'seconds' => 3600]]);
             $a->post('/account/notifications/telegram/unlink', [NotificationController::class, 'unlinkTelegram']);
             $a->post('/account/2fa/start', [TwoFactorController::class, 'start']);
@@ -275,33 +300,104 @@ return static function (Router $router): void {
         });
     });
 
-    // The back office. Superadmins only (anybody else gets 404), two-factor protected, with a fresh code every 8 hours and its own rate limit.
+    // The back office. Staff only (anybody else gets 404), two-factor protected, with a fresh code every 8 hours (and after 30 idle minutes) and
+    // its own rate limit. Every route names the permission it needs (`config/admin_permissions.php`); every change is audited.
     $router->group('/admin', [Authenticate::class, RequireVerifiedEmail::class, [RateLimit::class, ['bucket' => 'admin', 'max' => 600, 'seconds' => 600]], RequireStaff::class], static function (Router $a): void {
         $a->get('/unlock', [AdminController::class, 'unlockShow'])->name('admin.unlock');
         $a->post('/unlock', [AdminController::class, 'unlock'])->middleware([RateLimit::class, ['bucket' => 'admin-unlock', 'max' => 10, 'seconds' => 600]]);
-        $a->group('', [RequireAdminUnlock::class], static function (Router $s): void {
-            $s->get('', [AdminController::class, 'overview'])->name('admin');
-            $s->get('/users', [UsersController::class, 'index'])->name('admin.users');
-            $s->get('/users/{id:[0-9]{1,12}}', [UsersController::class, 'show']);
-            $s->post('/users/{id:[0-9]{1,12}}/block', [UsersController::class, 'block']);
-            $s->post('/users/{id:[0-9]{1,12}}/unblock', [UsersController::class, 'unblock']);
-            $s->post('/users/{id:[0-9]{1,12}}/impersonate', [UsersController::class, 'impersonate'])->middleware([RateLimit::class, ['bucket' => 'admin-impersonate', 'max' => 30, 'seconds' => 3600]]);
-            $s->get('/workspaces', [WorkspacesController::class, 'index'])->name('admin.workspaces');
-            $s->get('/workspaces/{publicId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}', [WorkspacesController::class, 'show']);
-            $s->post('/workspaces/{publicId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}/grant', [WorkspacesController::class, 'grant']);
-            $s->get('/subscriptions', [BillingAdminController::class, 'subscriptions'])->name('admin.subscriptions');
-            $s->get('/payments', [BillingAdminController::class, 'payments'])->name('admin.payments');
-            $s->post('/payments/{paymentId:' . '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}' . '}/refund', [BillingAdminController::class, 'refund'])->middleware([RateLimit::class, ['bucket' => 'admin-refund', 'max' => 30, 'seconds' => 3600]]);
-            $s->get('/plans', [BillingAdminController::class, 'plans'])->name('admin.plans');
-            $s->get('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'editPlan']);
-            $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan']);
-            $s->get('/promo', [OperationsController::class, 'promo'])->name('admin.promo');
-            $s->get('/queues', [OperationsController::class, 'queues'])->name('admin.queues');
-            $s->post('/queues/failed/{id:[0-9]{1,12}}/retry', [OperationsController::class, 'retry']);
-            $s->post('/queues/failed/{id:[0-9]{1,12}}/discard', [OperationsController::class, 'discard']);
-            $s->get('/channels', [OperationsController::class, 'channels'])->name('admin.channels');
-            $s->get('/platforms', [OperationsController::class, 'platforms'])->name('admin.platforms');
-            $s->post('/platforms', [OperationsController::class, 'savePlatforms']);
+        $a->group('', [RequireAdminUnlock::class, AdminAuditTrail::class], static function (Router $s): void {
+            $ulid26 = '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}';
+            $can = static fn (string $permission): array => [RequireStaffPermission::class, ['permission' => $permission]];
+            $s->get('', [DashboardController::class, 'index'])->name('admin')->middleware($can('dashboard.view'));
+            $s->post('/dashboard/refresh', [DashboardController::class, 'refresh'])->middleware($can('stats.view'));
+            $s->get('/users', [UsersController::class, 'index'])->name('admin.users')->middleware($can('users.view'));
+            $s->get('/search', [SearchController::class, 'index'])->name('admin.search')->middleware($can('dashboard.view'));
+            $s->get('/users/export', [UsersController::class, 'export'])->middleware($can('users.export'));
+            $s->get('/users/{id:[0-9]{1,12}}', [UsersController::class, 'show'])->middleware($can('users.view'));
+            $s->post('/users/{id:[0-9]{1,12}}/signout', [UsersController::class, 'signOut'])->middleware($can('users.manage'));
+            $s->post('/users/{id:[0-9]{1,12}}/reset-2fa', [UsersController::class, 'resetTwoFactor'])->middleware($can('users.secure'));
+            $s->post('/users/{id:[0-9]{1,12}}/verify-email', [UsersController::class, 'verifyEmail'])->middleware($can('users.manage'));
+            $s->post('/users/{id:[0-9]{1,12}}/note', [UsersController::class, 'note'])->middleware($can('users.manage'));
+            $s->post('/users/{id:[0-9]{1,12}}/grant', [UsersController::class, 'grant'])->middleware($can('grants.manage'));
+            $s->get('/privacy', [PrivacyController::class, 'index'])->name('admin.privacy')->middleware($can('privacy.manage'));
+            $s->post('/privacy', [PrivacyController::class, 'open'])->middleware($can('privacy.manage'));
+            $s->get('/privacy/{publicId:' . $ulid26 . '}/download', [PrivacyController::class, 'download'])->middleware($can('privacy.manage'));
+            $s->post('/privacy/{publicId:' . $ulid26 . '}/anonymize', [PrivacyController::class, 'anonymize'])->middleware($can('privacy.manage'));
+            $s->post('/privacy/{publicId:' . $ulid26 . '}/reject', [PrivacyController::class, 'reject'])->middleware($can('privacy.manage'));
+            $s->post('/users/{id:[0-9]{1,12}}/block', [UsersController::class, 'block'])->middleware($can('users.manage'));
+            $s->post('/users/{id:[0-9]{1,12}}/unblock', [UsersController::class, 'unblock'])->middleware($can('users.manage'));
+            $s->post('/users/{id:[0-9]{1,12}}/impersonate', [UsersController::class, 'impersonate'])->middleware($can('users.impersonate'), [RateLimit::class, ['bucket' => 'admin-impersonate', 'max' => 30, 'seconds' => 3600]]);
+            $s->get('/workspaces', [WorkspacesController::class, 'index'])->name('admin.workspaces')->middleware($can('workspaces.view'));
+            $s->get('/workspaces/{publicId:' . $ulid26 . '}', [WorkspacesController::class, 'show'])->middleware($can('workspaces.view'));
+            $s->post('/workspaces/{publicId:' . $ulid26 . '}/grant', [WorkspacesController::class, 'grant'])->middleware($can('grants.manage'));
+            $s->get('/subscriptions', [BillingAdminController::class, 'subscriptions'])->name('admin.subscriptions')->middleware($can('finance.view'));
+            $s->get('/payments', [BillingAdminController::class, 'payments'])->name('admin.payments')->middleware($can('finance.view'));
+            $s->get('/payments/export', [FinanceController::class, 'exportCsv'])->middleware($can('finance.view'));
+            $s->post('/payments/fees', [FinanceController::class, 'saveFees'])->middleware($can('finance.manage'));
+            $s->get('/payments/{paymentId:' . $ulid26 . '}', [FinanceController::class, 'payment'])->middleware($can('finance.view'));
+            $s->post('/payments/{paymentId:' . $ulid26 . '}/reconcile', [FinanceController::class, 'reconcile'])->middleware($can('finance.manage'), [RateLimit::class, ['bucket' => 'admin-reconcile', 'max' => 60, 'seconds' => 3600]]);
+            $s->get('/webhooks', [FinanceController::class, 'webhooks'])->name('admin.webhooks')->middleware($can('finance.view'));
+            $s->get('/webhooks/{id:[0-9]{1,12}}', [FinanceController::class, 'webhook'])->middleware($can('finance.view'));
+            $s->post('/webhooks/{id:[0-9]{1,12}}/replay', [FinanceController::class, 'replay'])->middleware($can('finance.manage'), [RateLimit::class, ['bucket' => 'admin-reconcile', 'max' => 60, 'seconds' => 3600]]);
+            $s->post('/payments/{paymentId:' . $ulid26 . '}/refund', [BillingAdminController::class, 'refund'])->middleware($can('finance.manage'), [RateLimit::class, ['bucket' => 'admin-refund', 'max' => 30, 'seconds' => 3600]]);
+            $s->get('/plans', [BillingAdminController::class, 'plans'])->name('admin.plans')->middleware($can('finance.view'));
+            $s->get('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'editPlan'])->middleware($can('plans.manage'));
+            $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan'])->middleware($can('plans.manage'));
+            $s->get('/promo', [OperationsController::class, 'promo'])->name('admin.promo')->middleware($can('finance.view'));
+            $s->get('/stats', [StatsController::class, 'publishing'])->name('admin.stats')->middleware($can('stats.view'));
+            $s->get('/system', [StatsController::class, 'system'])->name('admin.system')->middleware($can('system.view'));
+            $s->get('/queues', [OperationsController::class, 'queues'])->name('admin.queues')->middleware($can('system.view'));
+            $s->post('/queues/failed/{id:[0-9]{1,12}}/retry', [OperationsController::class, 'retry'])->middleware($can('ops.manage'));
+            $s->post('/queues/failed/{id:[0-9]{1,12}}/discard', [OperationsController::class, 'discard'])->middleware($can('ops.manage'));
+            $s->get('/channels', [OperationsController::class, 'channels'])->name('admin.channels')->middleware($can('system.view'));
+            $s->get('/platforms', [OperationsController::class, 'platforms'])->name('admin.platforms')->middleware($can('system.view'));
+            $s->post('/platforms', [OperationsController::class, 'savePlatforms'])->middleware($can('ops.manage'));
+            $s->get('/audit', [AdminAuditController::class, 'index'])->name('admin.audit')->middleware($can('audit.view'));
+            $s->get('/audit/export', [AdminAuditController::class, 'export'])->middleware($can('audit.view'));
+            $s->get('/design', [DesignController::class, 'show'])->name('admin.design')->middleware($can('design.manage'));
+            $s->post('/design', [DesignController::class, 'save'])->middleware($can('design.manage'));
+            $s->post('/design/reset', [DesignController::class, 'reset'])->middleware($can('design.manage'));
+            $s->get('/settings', [SiteSettingsController::class, 'show'])->name('admin.settings')->middleware($can('settings.manage'));
+            $s->post('/settings', [SiteSettingsController::class, 'save'])->middleware($can('settings.manage'));
+            $s->post('/settings/report', [SiteSettingsController::class, 'saveReport'])->middleware($can('settings.manage'));
+            $s->post('/settings/report/test', [SiteSettingsController::class, 'testReport'])->middleware($can('settings.manage'), [RateLimit::class, ['bucket' => 'admin-report-test', 'max' => 10, 'seconds' => 3600]]);
+            $s->post('/settings/invites', [SiteSettingsController::class, 'createCode'])->middleware($can('settings.manage'));
+            $s->post('/settings/invites/{id:[0-9]{1,12}}/revoke', [SiteSettingsController::class, 'revokeCode'])->middleware($can('settings.manage'));
+            $s->get('/announcements', [AnnouncementsAdminController::class, 'index'])->name('admin.announcements')->middleware($can('content.manage'));
+            $s->post('/announcements', [AnnouncementsAdminController::class, 'save'])->middleware($can('content.manage'));
+            $s->get('/announcements/{id:[0-9]{1,12}}', [AnnouncementsAdminController::class, 'edit'])->middleware($can('content.manage'));
+            $s->post('/announcements/{id:[0-9]{1,12}}', [AnnouncementsAdminController::class, 'save'])->middleware($can('content.manage'));
+            $s->post('/announcements/{id:[0-9]{1,12}}/toggle', [AnnouncementsAdminController::class, 'toggle'])->middleware($can('content.manage'));
+            $s->post('/announcements/{id:[0-9]{1,12}}/delete', [AnnouncementsAdminController::class, 'delete'])->middleware($can('content.manage'));
+            $s->get('/campaigns', [CampaignsController::class, 'index'])->name('admin.campaigns')->middleware($can('campaigns.manage'));
+            $s->get('/campaigns/new', [CampaignsController::class, 'create'])->middleware($can('campaigns.manage'));
+            $s->post('/campaigns', [CampaignsController::class, 'save'])->middleware($can('campaigns.manage'));
+            $s->get('/campaigns/{publicId:' . $ulid26 . '}', [CampaignsController::class, 'show'])->middleware($can('campaigns.manage'));
+            $s->post('/campaigns/{publicId:' . $ulid26 . '}', [CampaignsController::class, 'save'])->middleware($can('campaigns.manage'));
+            $s->post('/campaigns/{publicId:' . $ulid26 . '}/test', [CampaignsController::class, 'test'])->middleware($can('campaigns.manage'), [RateLimit::class, ['bucket' => 'admin-campaign-test', 'max' => 30, 'seconds' => 3600]]);
+            $s->post('/campaigns/{publicId:' . $ulid26 . '}/start', [CampaignsController::class, 'start'])->middleware($can('campaigns.manage'));
+            $s->post('/campaigns/{publicId:' . $ulid26 . '}/cancel', [CampaignsController::class, 'cancel'])->middleware($can('campaigns.manage'));
+            $s->get('/mail-templates', [MailTemplatesController::class, 'index'])->name('admin.mail_templates')->middleware($can('content.manage'));
+            $s->get('/mail-templates/{template:[a-z0-9_]{1,40}}', [MailTemplatesController::class, 'edit'])->middleware($can('content.manage'));
+            $s->post('/mail-templates/{template:[a-z0-9_]{1,40}}', [MailTemplatesController::class, 'save'])->middleware($can('content.manage'));
+            $s->post('/mail-templates/{template:[a-z0-9_]{1,40}}/reset', [MailTemplatesController::class, 'reset'])->middleware($can('content.manage'));
+            $s->get('/content', [ContentController::class, 'index'])->name('admin.content')->middleware($can('content.manage'));
+            $s->get('/content/new', [ContentController::class, 'newDocument'])->middleware($can('content.manage'));
+            $s->get('/content/texts', [ContentController::class, 'texts'])->middleware($can('content.manage'));
+            $s->post('/content/texts', [ContentController::class, 'saveTexts'])->middleware($can('content.manage'));
+            $s->post('/content/faq', [ContentController::class, 'saveFaq'])->middleware($can('content.manage'));
+            $s->post('/content/preview', [ContentController::class, 'preview'])->middleware($can('content.manage'));
+            $s->post('/content', [ContentController::class, 'save'])->middleware($can('content.manage'));
+            $s->post('/content/revisions/{id:[0-9]{1,12}}/restore', [ContentController::class, 'restore'])->middleware($can('content.manage'));
+            $s->get('/content/{kind:legal|help}/{slug:[a-z0-9-]{1,60}}', [ContentController::class, 'document'])->middleware($can('content.manage'));
+            $s->post('/content/{kind:legal|help}/{slug:[a-z0-9-]{1,60}}/discard', [ContentController::class, 'discard'])->middleware($can('content.manage'));
+            $s->get('/support', [SupportController::class, 'index'])->name('admin.support')->middleware($can('support.view'));
+            $s->get('/support/{publicId:' . $ulid26 . '}', [SupportController::class, 'show'])->middleware($can('support.view'));
+            $s->post('/support/{publicId:' . $ulid26 . '}/reply', [SupportController::class, 'reply'])->middleware($can('support.manage'));
+            $s->post('/support/{publicId:' . $ulid26 . '}', [SupportController::class, 'update'])->middleware($can('support.manage'));
+            $s->get('/staff', [StaffController::class, 'index'])->name('admin.staff')->middleware($can('staff.manage'));
+            $s->post('/staff', [StaffController::class, 'assign'])->middleware($can('staff.manage'));
+            $s->post('/staff/{id:[0-9]{1,12}}/remove', [StaffController::class, 'remove'])->middleware($can('staff.manage'));
         });
     });
 

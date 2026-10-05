@@ -1,0 +1,9 @@
+{#- Admin: Markdown preview of an unsaved text. Variables: html, title. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'content' %}
+{% block title %}Предпросмотр · Админка{% endblock %}
+{% block content %}
+{{ d.page_header(title ?: 'Предпросмотр', 'Так текст выглядит на сайте. Он ещё не сохранён.') }}
+<article class="card max-w-3xl [&_a]:underline [&_h1]:text-2xl [&_h2]:mt-4 [&_h2]:text-xl [&_ul]:list-disc [&_ul]:pl-5">{{ html|raw }}</article>
+{% endblock %}

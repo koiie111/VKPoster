@@ -1,4 +1,4 @@
-{#- Admin: payments. Variables: status, q, result, base. -#}
+{#- Admin: payments. Variables: filters, status, q, result, base, fees, providers. -#}
 {% extends 'layouts/admin.twig' %}
 {% import 'components/display.twig' as d %}
 {% import 'components/forms.twig' as f %}
@@ -7,32 +7,47 @@
 {% block title %}Платежи · Админка{% endblock %}
 {% block content %}
 {{ d.page_header('Платежи', 'Всего найдено: ' ~ result.total ~ '. Возврат делается через платёжную систему и записывается в журнал проводок.') }}
-<form class="mb-4 flex flex-wrap items-end gap-3" method="get" action="/admin/payments" role="search">
-    <div class="min-w-[12rem]">{{ f.select('status', 'Статус', {'': 'Все', pending: 'Ожидает', succeeded: 'Оплачен', failed: 'Не прошёл', refunded: 'Возвращён'}, value = status) }}</div>
-    <div class="min-w-[14rem] flex-1">{{ f.input('q', 'Найти платёж', value = q, placeholder = 'Номер платежа или счёта, пространства, почта') }}</div>
-    {{ f.button('Найти', type = 'submit', variant = 'secondary', icon = 'search') }}
+<form class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5" method="get" action="/admin/payments" role="search">
+    {{ f.select('status', 'Статус', {'': 'Все', pending: 'Ожидает', succeeded: 'Оплачен', failed: 'Не прошёл', refunded: 'Возвращён'}, value = status) }}
+    {{ f.select('provider', 'Провайдер', {'': 'Все', yookassa: 'ЮKassa', tbank: 'Т-Банк', fake: 'Тестовый'}, value = filters.provider ?? '') }}
+    {{ f.input('from', 'С даты', type = 'date', value = filters.from ?? '') }}
+    {{ f.input('to', 'По дату', type = 'date', value = filters.to ?? '') }}
+    <div class="sm:col-span-2 lg:col-span-5">{{ f.input('q', 'Найти платёж', value = q, placeholder = 'Номер платежа или счёта, пространства, почта') }}</div>
+    <div class="flex items-end gap-3 sm:col-span-2 lg:col-span-5">{{ f.button('Найти', type = 'submit', variant = 'secondary', icon = 'search') }}{{ f.button('Сбросить', variant = 'ghost', href = '/admin/payments') }}</div>
 </form>
 <div class="card !p-0 overflow-hidden">
 {% set rows %}
     {% for p in result.rows %}
-    {% set left = p.amount - p.refunded_amount %}
     <tr>
-        <td><span class="block font-medium">{{ money(p.amount, p.currency) }}</span><span class="block text-xs text-muted">{{ p.number }} · {{ p.provider }}</span></td>
+        <td><a class="block font-medium hover:underline" href="/admin/payments/{{ p.public_id }}">{{ money(p.amount, p.currency) }}</a><span class="block text-xs text-muted">{{ p.number }} · {{ p.provider }}</span></td>
         <td><a class="hover:underline" href="/admin/workspaces/{{ p.workspace_public_id }}">{{ p.workspace_name }}</a><span class="block text-xs text-muted">{{ p.plan }} · {{ p.customer_email }}</span></td>
         <td>{{ d.badge({pending: 'Ожидает', succeeded: 'Оплачен', failed: 'Не прошёл', refunded: 'Возвращён'}[p.status] ?? p.status, {succeeded: 'ok', failed: 'bad', pending: 'info', refunded: 'neutral'}[p.status] ?? 'neutral', dot = true) }}{% if p.refunded_amount > 0 and p.status != 'refunded' %}<span class="block text-xs text-muted">возвращено {{ money(p.refunded_amount, p.currency) }}</span>{% endif %}</td>
         <td class="whitespace-nowrap text-muted">{{ p.created_at|date('d.m.Y H:i', tz) }}</td>
-        <td>{% if p.status == 'succeeded' and left > 0 %}
-            <form class="relative flex min-w-[15rem] flex-col gap-2" method="post" action="/admin/payments/{{ p.public_id }}/refund">
-                {{ csrf_field() }}
-                <label class="sr-only" for="amount-{{ p.public_id }}">Сумма возврата, ₽</label>
-                <input class="field" id="amount-{{ p.public_id }}" name="amount" inputmode="decimal" placeholder="Вся сумма: {{ money(left, p.currency) }}">
-                <label class="flex items-start gap-2 text-xs text-muted"><input class="mt-0.5" type="checkbox" name="confirm" value="1" required>Возврат нельзя отменить</label>
-                <button class="btn btn-danger btn-sm" type="submit">Вернуть деньги</button>
-            </form>{% endif %}</td>
+        <td>{{ f.button('Подробнее', variant = 'ghost', size = 'sm', href = '/admin/payments/' ~ p.public_id) }}</td>
     </tr>
     {% endfor %}
 {% endset %}
-{{ d.table([{label: 'Сумма'}, {label: 'Пространство'}, {label: 'Статус'}, {label: 'Дата'}, {label: 'Возврат'}], empty = result.rows is empty, empty_title = 'Платежей нет', empty_text = 'Здесь появятся оплаты тарифов.', caption = 'Платежи', body = rows) }}
+{{ d.table([{label: 'Сумма'}, {label: 'Пространство'}, {label: 'Статус'}, {label: 'Дата'}, {label: ''}], empty = result.rows is empty, empty_title = 'Платежей нет', empty_text = 'Здесь появятся оплаты тарифов.', caption = 'Платежи', body = rows) }}
 </div>
 <div class="mt-4">{{ d.pagination(result.page, result.pages, base) }}</div>
+
+<div class="mt-8 grid gap-4 lg:grid-cols-2">
+    <section class="card" aria-labelledby="exp-h"><h2 class="text-lg font-semibold" id="exp-h">Выгрузка для бухгалтерии</h2>
+        <p class="mt-1 text-sm text-muted">Оплаченные счета за период в CSV (открывается в Excel): дата, сумма, провайдер, комиссия, чек.</p>
+        <form class="mt-3 grid gap-3 sm:grid-cols-2" method="get" action="/admin/payments/export">
+            {{ f.input('from', 'С даты', type = 'date', required = true, id = 'exp-from') }}
+            {{ f.input('to', 'По дату', type = 'date', required = true, id = 'exp-to') }}
+            <div class="sm:col-span-2">{{ f.button('Скачать CSV', type = 'submit', icon = 'download') }}</div>
+        </form>
+    </section>
+    {% if admin_can('finance.manage') %}
+    <section class="card" aria-labelledby="fee-h"><h2 class="text-lg font-semibold" id="fee-h">Комиссии провайдеров</h2>
+        <p class="mt-1 text-sm text-muted">Провайдеры не всегда сообщают комиссию, поэтому в выгрузке она считается по проценту, который вы укажете. Пустое поле — комиссии в выгрузке не будет.</p>
+        <form class="mt-3 grid gap-3 sm:grid-cols-2" method="post" action="/admin/payments/fees">{{ csrf_field() }}
+            {% for provider in providers %}{{ f.input('fee[' ~ provider ~ ']', provider ~ ', %', value = fees[provider] ?? '', hint = 'Например 2,8', id = 'fee-' ~ provider) }}{% else %}<p class="text-muted sm:col-span-2">Платежей пока нет.</p>{% endfor %}
+            {% if providers %}<div class="sm:col-span-2">{{ f.button('Сохранить', type = 'submit', variant = 'secondary') }}</div>{% endif %}
+        </form>
+    </section>
+    {% endif %}
+</div>
 {% endblock %}

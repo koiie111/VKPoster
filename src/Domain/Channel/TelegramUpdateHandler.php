@@ -47,6 +47,8 @@ final class TelegramUpdateHandler
         private readonly RateLimiter $limiter,
         private readonly LoggerInterface $logger,
         private readonly TelegramLinks $links,
+        private readonly \App\Domain\Support\Tickets $tickets,
+        private readonly \App\Domain\User\UserRepository $users,
     ) {
     }
 
@@ -102,7 +104,13 @@ final class TelegramUpdateHandler
                 return;
             }
             if (str_starts_with($text, '/start') || str_starts_with($text, '/connect') || str_starts_with($text, '/help')) {
-                $client->sendMessage($chatId, "Я публикую посты по расписанию. Чтобы подключить канал:\n1. Получите код на странице «Каналы» в сервисе.\n2. Добавьте меня администратором канала с правом «Публикация сообщений».\n3. Напишите в канале: /connect КОД");
+                $client->sendMessage($chatId, "Я публикую посты по расписанию. Чтобы подключить канал:\n1. Получите код на странице «Каналы» в сервисе.\n2. Добавьте меня администратором канала с правом «Публикация сообщений».\n3. Напишите в канале: /connect КОД\n\nЕсли что-то не работает, просто напишите сюда, и вопрос получит поддержка.");
+
+                return;
+            }
+            // Any other text (not a command) from a person whose chat is linked to an account is a message to support.
+            if (!str_starts_with($text, '/')) {
+                $this->toSupport($client, $chatId, $text);
             }
 
             return;
@@ -172,6 +180,25 @@ final class TelegramUpdateHandler
         $this->codes->attachChannel($code['id'], $result['channel']->id);
         $this->service->afterConnect($context, $result['channel'], $info, $client);
         $cleanup();
+    }
+
+    /**
+     * A private message from a linked chat becomes (or continues) a support ticket; a chat nobody linked is told how to link it.
+     */
+    private function toSupport(TelegramClient $client, int $chatId, string $text): void
+    {
+        if (!$this->limiter->attempt('tg-support:' . $chatId, 20, 3600)->allowed) {
+            return;
+        }
+        $userId = $this->links->userByChat($chatId);
+        $user = $userId === null ? null : $this->users->find($userId);
+        if ($user === null || $user->isBlocked()) {
+            $client->sendMessage($chatId, 'Чтобы написать в поддержку отсюда, подключите этот чат в сервисе: «Уведомления» → «Подключить Telegram». Либо напишите нам через форму «Сообщить о проблеме».');
+
+            return;
+        }
+        $this->tickets->fromTelegram($user, $chatId, $text, $this->tickets->contextFor($user));
+        $client->sendMessage($chatId, 'Спасибо, сообщение получено. Поддержка ответит сюда же.');
     }
 
     /**

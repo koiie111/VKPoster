@@ -1,24 +1,103 @@
-{#- Admin overview. Variables: accounts, publications, queues, channels, problems, unfilled_documents. -#}
+{#- Admin dashboard. Variables: accounts, publications, queues, channels, problems, unfilled_documents, show_money, show_numbers, periods,
+    and (when statistics are visible) filters, *_options, cards, charts, plans_mix, funnel, cohorts, refreshed_at, has_data, previous_label. -#}
 {% extends 'layouts/admin.twig' %}
 {% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
 {% set nav_current = 'overview' %}
 {% block title %}Обзор · Админка{% endblock %}
+{% block head %}{% if charts is defined and charts %}<script src="{{ asset('vendor/chart.umd.min.js') }}" nonce="{{ csp_nonce() }}" defer></script><script src="{{ asset('js/admin-charts.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endif %}{% endblock %}
 {% block content %}
-{{ d.page_header('Обзор', 'Что происходит в сервисе. Полный бизнес-дашборд (выручка, воронки, когорты) появится на следующем этапе.') }}
+{% set tz = current_user().timezone %}
+{% set refresh_form %}{% if show_numbers or show_money %}<form method="post" action="/admin/dashboard/refresh">{{ csrf_field() }}{{ f.button('Пересчитать цифры', type = 'submit', variant = 'secondary', icon = 'refresh-cw') }}</form>{% endif %}{% endset %}
+{{ d.page_header('Обзор', 'Деньги, пользователи и публикации. Дни считаются по UTC' ~ (refreshed_at is defined and refreshed_at ? '; цифры обновлены ' ~ refreshed_at|date('d.m.Y H:i', tz) : '') ~ '.', body = refresh_form) }}
+
 {% if unfilled_documents %}
 <div class="mb-4">{% set docs_list %}<ul class="mt-1 list-disc pl-5">{% for doc in unfilled_documents %}<li><a class="font-medium underline underline-offset-2" href="/legal/{{ doc.slug }}">{{ doc.title }}</a>: незаполненных мест {{ doc.count }}</li>{% endfor %}</ul>{% endset %}{{ d.alert('warning', 'Юридические документы ещё не заполнены', 'Тексты лежат в resources/legal/. Пока в них есть места в двойных квадратных скобках, на сайте они помечены как шаблон.', docs_list) }}</div>
 {% endif %}
 {% if problems %}
 <div class="mb-4">{% set problems_list %}<ul class="mt-1 list-disc pl-5">{% for h in problems %}<li>{{ h.platform.label }}: {{ h.notice }}</li>{% endfor %}</ul>{% endset %}{{ d.alert('error', 'Есть проблемы с соцсетями', body = problems_list) }}</div>
 {% endif %}
+
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <div class="card"><p class="text-sm text-muted">Пользователей</p><p class="mt-1 text-3xl font-bold">{{ accounts.users }}</p><p class="text-sm text-muted">за неделю: +{{ accounts.users_week }}</p></div>
-    <div class="card"><p class="text-sm text-muted">Пространств</p><p class="mt-1 text-3xl font-bold">{{ accounts.workspaces }}</p></div>
-    <div class="card"><p class="text-sm text-muted">В очереди задач</p><p class="mt-1 text-3xl font-bold">{{ queues.queues|reduce((sum, n) => sum + n, 0) }}</p><p class="text-sm text-muted"><a class="underline underline-offset-2" href="/admin/queues">Очереди</a></p></div>
-    <div class="card"><p class="text-sm text-muted">Упавших задач</p><p class="mt-1 text-3xl font-bold {{ queues.failed ? 'text-bad-fg' : '' }}">{{ queues.failed }}</p><p class="text-sm text-muted"><a class="underline underline-offset-2" href="/admin/queues">Разобрать</a></p></div>
+    {{ a.kpi('Пользователей', accounts.users, hint = 'за неделю: +' ~ accounts.users_week) }}
+    {{ a.kpi('Пространств', accounts.workspaces) }}
+    {% if admin_can('system.view') %}
+    {{ a.kpi('В очереди задач', queues.queues|reduce((sum, n) => sum + n, 0), hint = 'Очереди', href = '/admin/queues') }}
+    {{ a.kpi('Упавших задач', queues.failed, hint = queues.failed ? 'Нужно разобрать' : 'Всё в порядке', href = '/admin/queues') }}
+    {% endif %}
 </div>
-<div class="mt-6 grid gap-4 lg:grid-cols-2">
-    <section class="card" aria-labelledby="plans-h"><h2 class="text-lg font-semibold" id="plans-h">Подписки по тарифам</h2>
+
+{% if filters is defined %}
+<form class="card mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6" method="get" action="/admin" aria-label="Фильтры дашборда" data-filter-form>
+    {{ f.select('period', 'Период', periods, value = filters.period) }}
+    {{ f.input('from', 'С', type = 'date', value = filters.from) }}
+    {{ f.input('to', 'По', type = 'date', value = filters.to) }}
+    {% if show_money %}{{ f.select('plan', 'Тариф', plan_options, value = filters.plan) }}{% endif %}
+    {{ f.select('source', 'Источник', source_options, value = filters.source) }}
+    {{ f.select('platform', 'Сеть', platform_options, value = filters.platform) }}
+    {% if show_money %}{{ f.select('currency', 'Валюта', currency_options, value = filters.currency) }}{% endif %}
+    <div class="flex items-end gap-2 lg:col-span-2">{{ f.button('Применить', type = 'submit', icon = 'filter') }}{{ f.button('Сбросить', variant = 'ghost', href = '/admin') }}</div>
+    <p class="text-sm text-muted sm:col-span-2 lg:col-span-6">Сравнение идёт с предыдущим периодом такой же длины ({{ previous_label }}). Суммы показаны в одной валюте; разные валюты не складываются. «С» и «По» работают при периоде «Свой период».</p>
+</form>
+
+{% if not has_data and not cards|length %}
+<div class="mt-6">{{ d.card(body = d.empty_state('Данных пока нет', 'Цифры считаются раз в час. Если сервис только запущен, нажмите «Пересчитать цифры».', 'chart-column')) }}</div>
+{% endif %}
+
+{% for group in cards %}
+<section class="mt-8" aria-labelledby="g-{{ loop.index }}">
+    <h2 class="mb-3 text-lg font-semibold" id="g-{{ loop.index }}">{{ group.group }}</h2>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {% for c in group.items %}{{ a.kpi(c.label, c.value, c.delta, c.hint, c.good_up) }}{% endfor %}
+    </div>
+</section>
+{% endfor %}
+
+{% if charts %}
+<section class="mt-8" aria-labelledby="charts-h"><h2 class="mb-3 text-lg font-semibold" id="charts-h">Графики</h2>
+    <div class="grid gap-4 xl:grid-cols-2">
+        {% for key, chart in charts %}{{ a.chart('chart-' ~ key, chart.title, chart) }}{% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% if funnel %}
+<section class="mt-8" aria-labelledby="funnel-h"><h2 class="text-lg font-semibold" id="funnel-h">Воронка</h2>
+    <p class="mb-3 mt-1 text-sm text-muted">Люди, которые зарегистрировались в выбранный период, и как далеко они дошли. Первый шаг — визиты на сайт за период.</p>
+    <div class="card !p-0 overflow-hidden">
+    {% set rows %}{% for s in funnel %}<tr>
+        <td class="font-medium">{{ s.label }}</td>
+        <td class="tabular-nums">{{ s.count }}</td>
+        <td class="min-w-[10rem]">{% if s.of_first is not null %}{{ d.progress(s.of_first, 100, aria_label = s.label ~ ': доля от первого шага', value_text = s.of_first|number_format(1, ',', ' ') ~ '%') }}{% else %}—{% endif %}</td>
+        <td class="tabular-nums text-muted">{{ s.of_previous is not null ? s.of_previous|number_format(1, ',', ' ') ~ '% от прошлого шага' : '' }}</td>
+    </tr>{% endfor %}{% endset %}
+    {{ d.table([{label: 'Шаг'}, {label: 'Людей'}, {label: 'Доля от первого шага'}, {label: 'Переход'}], caption = 'Воронка', body = rows) }}
+    </div>
+</section>
+{% endif %}
+
+{% if cohorts %}
+{% set heat = [[40, 'bg-primary/40'], [30, 'bg-primary/30'], [20, 'bg-primary/20'], [10, 'bg-primary/10'], [0.1, 'bg-primary/5']] %}
+<section class="mt-8" aria-labelledby="cohort-h"><h2 class="text-lg font-semibold" id="cohort-h">Удержание по неделям</h2>
+    <p class="mb-3 mt-1 text-sm text-muted">Строка — неделя регистрации. Столбец — сколько процентов этих людей вернулись на n-й неделе после регистрации (0 — неделя регистрации).</p>
+    <div class="card !p-0 overflow-hidden">
+    {% set rows %}{% for c in cohorts %}<tr>
+        <td class="whitespace-nowrap font-medium">{{ c.cohort|date('d.m.Y') }}<span class="block text-xs text-muted">{{ c.size }} чел.</span></td>
+        {% for w in c.weeks %}
+        {% set klass = '' %}{% if w is not null %}{% for h in heat %}{% if klass == '' and w >= h[0] %}{% set klass = h[1] %}{% endif %}{% endfor %}{% endif %}
+        <td class="text-center tabular-nums {{ klass }}">{{ w is null ? '' : w|number_format(0, ',', ' ') ~ '%' }}</td>
+        {% endfor %}
+    </tr>{% endfor %}{% endset %}
+    {% set head = [{label: 'Неделя'}] %}{% for i in 0..7 %}{% set head = head|merge([{label: i, class: 'text-center'}]) %}{% endfor %}
+    {{ d.table(head, caption = 'Удержание по неделям', body = rows) }}
+    </div>
+</section>
+{% endif %}
+{% endif %}
+
+<div class="mt-8 grid gap-4 lg:grid-cols-2">
+    <section class="card" aria-labelledby="plans-h"><h2 class="text-lg font-semibold" id="plans-h">Подписки по тарифам (сейчас)</h2>
         {% if accounts.plans %}<ul class="mt-3 divide-y divide-line">{% for row in accounts.plans %}<li class="flex justify-between gap-3 py-2"><span>{{ row.plan }} <span class="text-sm text-muted">· {{ {trialing: 'пробный период', active: 'активна', past_due: 'просрочена'}[row.status] ?? row.status }}</span></span><span class="font-semibold tabular-nums">{{ row.count }}</span></li>{% endfor %}</ul>
         {% else %}<p class="mt-3 text-muted">Подписок пока нет.</p>{% endif %}
     </section>

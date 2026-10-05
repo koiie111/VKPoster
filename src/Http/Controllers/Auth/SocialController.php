@@ -214,7 +214,11 @@ final class SocialController
                     $this->login->journal($result->user->id, 'blocked', $request->ip(), $request->header('user-agent') ?? '');
                 }
 
-                return $this->failure('login', 'Аккаунт заблокирован. Напишите в поддержку, и мы разберёмся.');
+                $reason = $result->user?->blockReason;
+
+                return $this->failure('login', 'Аккаунт заблокирован.' . ($reason !== null && $reason !== '' ? ' Причина: ' . rtrim($reason, '.') . '.' : '') . ' Напишите в поддержку, и мы разберёмся.');
+            case SocialStatus::RegistrationClosed:
+                return $this->failure('login', 'Новые аккаунты сейчас создаются только по приглашениям (или регистрация закрыта). Если у вас есть код приглашения, зарегистрируйтесь по почте и позже привяжите этот способ входа.');
             case SocialStatus::EmailExists:
                 $this->flow->holdPendingLink($profile);
                 $this->flash->invalid([], ['notice' => sprintf(

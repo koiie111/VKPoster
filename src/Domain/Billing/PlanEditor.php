@@ -112,7 +112,11 @@ final class PlanEditor
                 }
             }
         });
-        $this->audit->record('admin.plan_updated', $actorId, 'plan', $plan->code, ['month' => $prices['month'] ?? null, 'year' => $prices['year'] ?? null]);
+        // The history of a price list: what it was and what it became, in the words of the plan form (money in kopecks, limits as typed).
+        $this->audit->record('admin.plan_updated', $actorId, 'plan', $plan->code, [
+            'before' => json_encode(['name' => $plan->name, 'month' => $plan->priceFor(BillingPeriod::Month), 'year' => $plan->priceFor(BillingPeriod::Year), 'public' => $plan->isPublic, 'limits' => $plan->limits, 'features' => $plan->features], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            'after' => json_encode(['name' => $name, 'month' => $prices['month'] ?? null, 'year' => $prices['year'] ?? null, 'public' => ($input['is_public'] ?? '') === '1' || $plan->isFree(), 'limits' => $limits, 'features' => $features], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        ]);
 
         return [];
     }

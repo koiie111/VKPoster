@@ -1,0 +1,4 @@
+{#- A system email whose text was edited in the admin area. Variables: subject, body_html (safe HTML made from Markdown). -#}
+{% extends 'emails/_layout.html.twig' %}
+{% block preheader %}{{ subject }}{% endblock %}
+{% block content %}{{ body_html|raw }}{% endblock %}

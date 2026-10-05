@@ -153,6 +153,7 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Domain\Audit\AuditLog::class),
         $c->get(\App\Domain\Workspace\WorkspaceService::class),
         $c->get(LegalDocuments::class)->consentVersion(),
+        $c->get(Clock::class),
     ));
 
     $c->factory(\App\Domain\Auth\Social\SocialAuthService::class, static fn (Container $c): \App\Domain\Auth\Social\SocialAuthService => new \App\Domain\Auth\Social\SocialAuthService(
@@ -163,15 +164,18 @@ return static function (Container $c, string $base): void {
         $c->get(Clock::class),
         $c->get(\App\Domain\Workspace\WorkspaceService::class),
         $c->get(LegalDocuments::class)->consentVersion(),
+        $c->get(\App\Domain\Auth\RegistrationGate::class),
     ));
 
-    $c->factory(LegalDocuments::class, static fn (): LegalDocuments => new LegalDocuments($base . '/resources/legal'));
+    $c->factory(LegalDocuments::class, static fn (Container $c): LegalDocuments => new LegalDocuments($base . '/resources/legal', $c->get(Connection::class)));
 
-    $c->factory(HelpArticles::class, static fn (): HelpArticles => new HelpArticles($base . '/resources/help'));
+    $c->factory(HelpArticles::class, static fn (Container $c): HelpArticles => new HelpArticles($base . '/resources/help', $c->get(Connection::class)));
 
     $c->factory(HttpClientInterface::class, static fn (Container $c): HttpClientInterface => $c->get(GuzzleHttpClient::class));
 
     $c->factory(Translator::class, static fn (): Translator => new Translator($base . '/resources/lang', 'ru'));
+
+    $c->factory(Settings::class, static fn (Container $c): Settings => new Settings($c->get(Connection::class), $c->get(Clock::class), $c->get(\Redis::class)));
 
     $c->factory(Permissions::class, static function (Container $c): Permissions {
         $matrix = [];
@@ -180,6 +184,15 @@ return static function (Container $c, string $base): void {
         }
 
         return new Permissions($matrix);
+    });
+
+    $c->factory(\App\Domain\Admin\StaffAccess::class, static function (Container $c): \App\Domain\Admin\StaffAccess {
+        $matrix = [];
+        foreach ($c->get(Config::class)->array('admin_permissions') as $permission => $roles) {
+            $matrix[(string) $permission] = is_array($roles) ? array_values(array_filter($roles, 'is_string')) : [];
+        }
+
+        return new \App\Domain\Admin\StaffAccess($c->get(Connection::class), $c->get(Clock::class), $matrix);
     });
 
     $c->factory(View::class, static function (Container $c) use ($base): View {
@@ -202,11 +215,28 @@ return static function (Container $c, string $base): void {
         $view->registerFunction('plan_card', $nav->planCard(...));
         $view->registerFunction('platform_notices', $nav->platformNotices(...));
         $view->registerFunction('impersonating', $c->get(\App\Http\Auth\Impersonation::class)->target(...));
+        $view->registerFunction('theme_version', $c->get(\App\Domain\Design\ThemeColors::class)->version(...));
+        $view->registerFunction('site_text', $c->get(\App\Domain\Content\SiteContent::class)->text(...));
+        $view->registerFunction('announcements', $c->get(\App\Http\AnnouncementFeed::class)->current(...));
+        $view->registerFunction('admin_support_open', $c->get(\App\Domain\Support\Tickets::class)->openCount(...));
+        $view->registerFunction('bytes', \App\Domain\Admin\SystemStatus::bytes(...));
+        $adminNav = $c->get(\App\Http\Admin\AdminNav::class);
+        $view->registerFunction('admin_can', $adminNav->can(...));
+        $view->registerFunction('admin_role', $adminNav->role(...));
         $view->registerFunction('money', \App\Support\Money::format(...));
 
         return $view;
     });
 
+    $c->factory(\App\Domain\Admin\SystemStatus::class, static fn (Container $c): \App\Domain\Admin\SystemStatus => new \App\Domain\Admin\SystemStatus(
+        $c->get(Connection::class),
+        $c->get(\Redis::class),
+        $c->get(\App\Support\Heartbeat::class),
+        $c->get(Clock::class),
+        $c->get(Config::class),
+        $base . '/storage/logs/app.log',
+        $base . '/storage',
+    ));
     $c->factory(MediaStorage::class, static fn (Container $c): MediaStorage => MediaStorageFactory::create($c->get(Config::class), $base));
     $c->factory(MediaLimits::class, static fn (Container $c): MediaLimits => MediaLimits::fromConfig($c->get(Config::class)));
     $c->factory(VideoProbe::class, static fn (): VideoProbe => new FfprobeVideoProbe());

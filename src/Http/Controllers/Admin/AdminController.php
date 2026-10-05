@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Domain\Admin\AdminStats;
 use App\Domain\Audit\AuditLog;
 use App\Domain\Auth\LoginService;
-use App\Domain\Legal\LegalDocuments;
-use App\Domain\Status\PlatformStatus;
 use App\Http\FormFlash;
 use App\Http\Middleware\RequireAdminUnlock;
 use App\Http\WorkspaceRequest;
@@ -18,39 +15,17 @@ use App\Kernel\View\View;
 use App\Support\Clock;
 
 /**
- * Admin entrance: the second-factor unlock page and the overview with the numbers that matter on day one.
+ * Admin entrance: the second-factor unlock page (the dashboard itself is `DashboardController`).
  */
 final class AdminController
 {
     public function __construct(
         private readonly View $view,
-        private readonly AdminStats $stats,
-        private readonly LegalDocuments $legal,
-        private readonly PlatformStatus $status,
         private readonly LoginService $login,
         private readonly AuditLog $audit,
         private readonly FormFlash $flash,
         private readonly Clock $clock,
     ) {
-    }
-
-    public function overview(): Response
-    {
-        $unfilled = [];
-        foreach ($this->legal->all() as $document) {
-            if ($document->isDraft()) {
-                $unfilled[] = ['title' => $document->title, 'count' => $document->placeholders(), 'slug' => $document->slug];
-            }
-        }
-
-        return $this->view->response('admin/overview.twig', [
-            'accounts' => $this->stats->accounts(),
-            'publications' => $this->stats->publications(),
-            'queues' => $this->stats->queues(),
-            'channels' => $this->stats->channels(),
-            'problems' => $this->status->problems(),
-            'unfilled_documents' => $unfilled,
-        ]);
     }
 
     public function unlockShow(Request $request): Response
@@ -77,6 +52,7 @@ final class AdminController
             return Response::redirect('/admin/unlock');
         }
         $session->set(RequireAdminUnlock::SESSION_KEY, $this->clock->now()->getTimestamp());
+        $session->set(RequireAdminUnlock::LAST_SEEN_KEY, $this->clock->now()->getTimestamp());
         $this->audit->record('admin.unlocked', $user->id, 'user', (string) $user->id);
         $intended = $session->pull('admin.intended');
 

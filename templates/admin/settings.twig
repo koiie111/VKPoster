@@ -1,0 +1,66 @@
+{#- Admin: site settings. Variables: maintenance, maintenance_message, registration, modes, support_email, support_telegram, requisites, max_workspaces, codes, new_code. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
+{% set nav_current = 'settings' %}
+{% set tz = current_user().timezone %}
+{% block title %}Настройки сайта · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Настройки сайта', 'Переключатели, которые действуют сразу, без выкладки новой версии. Пароли и ключи здесь не хранятся: они остаются в настройках сервера.') }}
+{% if maintenance %}<div class="mb-4">{{ d.alert('warning', 'Включён режим обслуживания', 'Обычные пользователи видят страницу о работах. Сотрудники работают как обычно.') }}</div>{% endif %}
+<form class="grid gap-4 lg:grid-cols-2" method="post" action="/admin/settings">
+    {{ csrf_field() }}
+    <section class="card flex flex-col gap-4" aria-labelledby="m-h"><h2 class="text-lg font-semibold" id="m-h">Режим обслуживания</h2>
+        {{ f.switch('maintenance', 'Закрыть сервис на технические работы', maintenance, hint = 'Публикации по расписанию продолжают выходить: закрывается только сайт.') }}
+        {{ f.textarea('maintenance_message', 'Что увидят люди', value = maintenance_message, rows = 3, max = 500, id = 'maintenance-message') }}
+    </section>
+    <section class="card flex flex-col gap-4" aria-labelledby="r-h"><h2 class="text-lg font-semibold" id="r-h">Регистрация</h2>
+        {{ f.select('registration', 'Кто может зарегистрироваться', modes, value = registration, hint = 'Закрыть или оставить только приглашения можно лишь с кодом из приложения.') }}
+        {{ f.input('max_workspaces', 'Сколько пространств может быть у одного человека', value = max_workspaces, hint = '0 — без ограничений. Лимит тарифа действует отдельно.') }}
+    </section>
+    <section class="card flex flex-col gap-4" aria-labelledby="c-h"><h2 class="text-lg font-semibold" id="c-h">Контакты</h2>
+        {{ f.input('support_email', 'Почта поддержки', type = 'email', value = support_email, hint = 'Её видят клиенты.') }}
+        {{ f.input('support_telegram', 'Telegram поддержки', value = support_telegram, placeholder = '@support_bot') }}
+        {{ f.textarea('requisites', 'Реквизиты', value = requisites, rows = 5, max = 3000, hint = 'Короткий текст для подвала и страниц с документами.', id = 'requisites') }}
+    </section>
+    <section class="card flex flex-col gap-4 lg:col-span-2" aria-labelledby="s-h"><h2 class="text-lg font-semibold" id="s-h">Подтверждение</h2>
+        <p class="text-sm text-muted">Включение обслуживания и закрытие регистрации касаются всех клиентов, поэтому нужен код из приложения-аутентификатора.</p>
+        <div class="max-w-xs">{{ a.step_up('settings-code') }}</div>
+        <div>{{ f.button('Сохранить', type = 'submit', icon = 'save') }}</div>
+    </section>
+</form>
+
+<section class="card mt-6" aria-labelledby="rep-h"><h2 class="text-lg font-semibold" id="rep-h">Ежедневный отчёт владельцу</h2>
+    <p class="mt-1 text-sm text-muted">Выручка, регистрации, оплаты, ошибки публикаций и длина очереди за вчера. Приходит владельцам по почте и в личный Telegram (если подключён в уведомлениях).</p>
+    <form class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" method="post" action="/admin/settings/report">{{ csrf_field() }}
+        <div class="lg:col-span-4">{{ f.switch('enabled', 'Присылать отчёт каждый день', report.enabled, id = 'report-enabled') }}</div>
+        {{ f.input('hour', 'Во сколько (час, 0–23)', value = report.hour, id = 'report-hour') }}
+        {{ f.select('timezone', 'Часовой пояс', zones, value = report.timezone, id = 'report-zone') }}
+        <div class="flex items-end">{{ f.checkbox('email', 'По почте', report.email, id = 'report-email') }}</div>
+        <div class="flex items-end">{{ f.checkbox('telegram', 'В Telegram', report.telegram, id = 'report-tg') }}</div>
+        <div class="flex flex-wrap gap-2 lg:col-span-4">{{ f.button('Сохранить', type = 'submit', variant = 'secondary', icon = 'save') }}</div>
+    </form>
+    <form class="mt-3" method="post" action="/admin/settings/report/test">{{ csrf_field() }}{{ f.button('Прислать тестовый отчёт мне', type = 'submit', variant = 'ghost', icon = 'send') }}</form>
+</section>
+
+<section class="card mt-6" aria-labelledby="i-h"><h2 class="text-lg font-semibold" id="i-h">Коды приглашений</h2>
+    <p class="mt-1 text-sm text-muted">Нужны, когда регистрация идёт по приглашениям. Код показывается один раз, дальше хранится только его след.</p>
+    {% if new_code %}<div class="mt-3">{{ d.alert('success', 'Новый код: ' ~ new_code, 'Скопируйте его сейчас: потом его не показать.') }}</div>{% endif %}
+    <form class="mt-4 grid gap-3 sm:grid-cols-4" method="post" action="/admin/settings/invites">{{ csrf_field() }}
+        {{ f.input('note', 'Кому', placeholder = 'Партнёр, блог, друзья', id = 'invite-note') }}
+        {{ f.input('max_uses', 'Сколько раз можно использовать', value = '1', id = 'invite-uses') }}
+        {{ f.input('days', 'Сколько дней действует', placeholder = 'пусто — без срока', id = 'invite-days') }}
+        <div class="flex items-end">{{ f.button('Создать код', type = 'submit', variant = 'secondary', icon = 'plus') }}</div>
+    </form>
+    <div class="mt-4 overflow-hidden rounded-card border border-line">
+    {% set rows %}{% for c in codes %}<tr>
+        <td class="font-mono">…{{ c.hint }}<span class="block text-xs text-muted">{{ c.note }}</span></td>
+        <td class="tabular-nums">{{ c.uses }} из {{ c.max_uses }}</td>
+        <td class="text-sm text-muted">{{ c.revoked_at ? 'отозван' : (c.expires_at ? 'до ' ~ c.expires_at|date('d.m.Y', tz) : 'без срока') }}</td>
+        <td>{% if not c.revoked_at %}<form method="post" action="/admin/settings/invites/{{ c.id }}/revoke">{{ csrf_field() }}<button class="btn btn-ghost btn-sm" type="submit">Отозвать</button></form>{% endif %}</td>
+    </tr>{% endfor %}{% endset %}
+    {{ d.table([{label: 'Код'}, {label: 'Использован'}, {label: 'Срок'}, {label: ''}], empty = codes is empty, empty_title = 'Кодов нет', empty_text = 'Создайте код выше.', caption = 'Коды приглашений', body = rows) }}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,65 @@
+{#- Admin: one payment. Variables: payment, webhooks, ledger, can_refund. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
+{% set nav_current = 'payments' %}
+{% set tz = current_user().timezone %}
+{% set left = payment.amount - payment.refunded_amount %}
+{% block title %}Платёж {{ payment.number }} · Админка{% endblock %}
+{% block content %}
+{% set actions %}{% if admin_can('finance.manage') %}<form method="post" action="/admin/payments/{{ payment.public_id }}/reconcile">{{ csrf_field() }}{{ f.button('Сверить с провайдером', type = 'submit', variant = 'secondary', icon = 'refresh-cw') }}</form>{% endif %}{% endset %}
+{{ d.page_header('Платёж ' ~ money(payment.amount, payment.currency), 'Счёт ' ~ payment.number ~ ' · ' ~ payment.provider, body = actions) }}
+<div class="grid gap-4 lg:grid-cols-2">
+    <section class="card" aria-labelledby="p-h"><h2 class="text-lg font-semibold" id="p-h">Платёж</h2>
+        <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt class="text-muted">Статус у нас</dt><dd>{{ d.badge({pending: 'Ожидает', succeeded: 'Оплачен', failed: 'Не прошёл', refunded: 'Возвращён'}[payment.status] ?? payment.status, {succeeded: 'ok', failed: 'bad', pending: 'info', refunded: 'neutral'}[payment.status] ?? 'neutral', dot = true) }}</dd>
+            <dt class="text-muted">Статус у провайдера</dt><dd>{{ payment.provider_status ?? '—' }}</dd>
+            <dt class="text-muted">Номер у провайдера</dt><dd class="break-all">{{ payment.provider_payment_id ?? '—' }}</dd>
+            <dt class="text-muted">Сумма</dt><dd>{{ money(payment.amount, payment.currency) }}{% if payment.refunded_amount > 0 %}, возвращено {{ money(payment.refunded_amount, payment.currency) }}{% endif %}</dd>
+            <dt class="text-muted">Создан</dt><dd>{{ payment.created_at|date('d.m.Y H:i', tz) }}</dd>
+            <dt class="text-muted">Обновлён</dt><dd>{{ payment.updated_at|date('d.m.Y H:i', tz) }}</dd>
+            {% if payment.error_message %}<dt class="text-muted">Ошибка</dt><dd class="text-bad-fg">{{ payment.error_message }}</dd>{% endif %}
+        </dl>
+    </section>
+    <section class="card" aria-labelledby="i-h"><h2 class="text-lg font-semibold" id="i-h">Счёт и плательщик</h2>
+        <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt class="text-muted">Номер счёта</dt><dd>{{ payment.number }}</dd>
+            <dt class="text-muted">Что куплено</dt><dd>{{ payment.plan }}, {{ {month: 'месяц', year: 'год'}[payment.period] ?? payment.period }} ({{ {new: 'новая подписка', renewal: 'продление', upgrade: 'повышение тарифа'}[payment.kind] ?? payment.kind }})</dd>
+            <dt class="text-muted">Период</dt><dd>{{ payment.period_start|date('d.m.Y', tz) }} — {{ payment.period_end|date('d.m.Y', tz) }}</dd>
+            <dt class="text-muted">Пространство</dt><dd><a class="hover:underline" href="/admin/workspaces/{{ payment.workspace_public_id }}">{{ payment.workspace_name }}</a></dd>
+            <dt class="text-muted">Почта для чека</dt><dd>{{ payment.customer_email }}</dd>
+            <dt class="text-muted">Оплачен</dt><dd>{{ payment.paid_at ? payment.paid_at|date('d.m.Y H:i', tz) : 'нет' }}</dd>
+        </dl>
+    </section>
+</div>
+
+{% if can_refund and admin_can('finance.manage') %}
+<section class="card mt-4" aria-labelledby="r-h"><h2 class="text-lg font-semibold" id="r-h">Вернуть деньги</h2>
+    <p class="mt-1 text-sm text-muted">Можно вернуть до {{ money(left, payment.currency) }}. Возврат нельзя отменить.</p>
+    <form class="mt-3 grid max-w-xl gap-3" method="post" action="/admin/payments/{{ payment.public_id }}/refund">{{ csrf_field() }}
+        <input type="hidden" name="back" value="/admin/payments/{{ payment.public_id }}">
+        {{ f.input('amount', 'Сумма возврата, ₽', placeholder = 'Вся сумма: ' ~ money(left, payment.currency), hint = 'Оставьте пустым, чтобы вернуть всё', id = 'refund-amount') }}
+        {{ a.step_up('refund-code') }}
+        <label class="flex items-start gap-2 text-sm text-muted"><input class="mt-0.5" type="checkbox" name="confirm" value="1" required>Я понимаю, что возврат нельзя отменить</label>
+        <div>{{ f.button('Вернуть деньги', type = 'submit', variant = 'danger') }}</div>
+    </form>
+</section>
+{% endif %}
+
+<section class="card mt-4 !p-0 overflow-hidden" aria-labelledby="w-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="w-h">Уведомления провайдера</h2>
+<p class="px-5 text-sm text-muted">Хранится копия уведомления без данных карты, контактов и подписей.</p>
+{% set rows %}{% for w in webhooks %}<tr>
+    <td class="whitespace-nowrap text-muted">{{ w.received_at|date('d.m.Y H:i:s', tz) }}</td>
+    <td class="font-medium">{{ w.type }}</td>
+    <td>{{ d.badge({received: 'Получено', processed: 'Обработано', ignored: 'Пропущено', rejected: 'Отклонено'}[w.outcome] ?? w.outcome, {processed: 'ok', rejected: 'bad', ignored: 'neutral', received: 'info'}[w.outcome] ?? 'neutral') }}<span class="block text-xs text-muted">{{ w.detail }}</span></td>
+    <td>{{ f.button('Открыть', variant = 'ghost', size = 'sm', href = '/admin/webhooks/' ~ w.id) }}</td>
+</tr>{% endfor %}{% endset %}
+{{ d.table([{label: 'Когда'}, {label: 'Событие'}, {label: 'Итог'}, {label: ''}], empty = webhooks is empty, empty_title = 'Уведомлений не было', empty_text = 'Провайдер ещё ничего не присылал по этому платежу.', caption = 'Уведомления', body = rows) }}
+</section>
+
+<section class="card mt-4 !p-0 overflow-hidden" aria-labelledby="l-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="l-h">Журнал проводок</h2>
+{% set rows %}{% for e in ledger %}<tr><td class="whitespace-nowrap text-muted">{{ e.created_at|date('d.m.Y H:i', tz) }}</td><td>{{ {payment: 'Оплата', refund: 'Возврат'}[e.ref_type] ?? e.ref_type }}</td><td class="text-sm text-muted">{{ e.code }}</td><td class="tabular-nums">{{ money(e.amount, e.currency) }}</td></tr>{% endfor %}{% endset %}
+{{ d.table([{label: 'Когда'}, {label: 'Что'}, {label: 'Счёт'}, {label: 'Сумма'}], empty = ledger is empty, empty_title = 'Проводок нет', empty_text = 'Деньги по этому платежу ещё не проведены.', caption = 'Проводки', body = rows) }}
+</section>
+{% endblock %}

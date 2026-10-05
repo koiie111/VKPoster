@@ -1,42 +1,138 @@
-{#- Admin: one user. Variables: person, workspaces, activity. -#}
+{#- Admin: one user. Variables: person, role, summary, workspaces, owned, identities, sessions, payments, channels, publications, notes, journal, attribution, can_grant, target_is_staff. -#}
 {% extends 'layouts/admin.twig' %}
 {% import 'components/display.twig' as d %}
 {% import 'components/forms.twig' as f %}
 {% import 'components/overlay.twig' as o %}
+{% import 'components/admin.twig' as a %}
 {% set nav_current = 'users' %}
 {% set tz = current_user().timezone %}
+{% set me_id = current_user().id %}
+{% set own_account = person.id == me_id %}
 {% block title %}{{ person.name }} · Админка{% endblock %}
 {% block content %}
 {% set actions %}
-    {% if not person.is_superadmin and person.id != current_user().id %}
+    {% if not target_is_staff and not own_account %}
         {% if person.status != 'blocked' %}
-        <form method="post" action="/admin/users/{{ person.id }}/impersonate">{{ csrf_field() }}{{ f.button('Войти как этот человек', type = 'submit', variant = 'secondary', icon = 'eye') }}</form>
-        {{ f.button('Заблокировать', variant = 'danger', attrs = {'data-dialog-open': 'block-user'}) }}
-        {% else %}
+        {% if admin_can('users.impersonate') %}{{ f.button('Войти как этот человек', variant = 'secondary', icon = 'eye', attrs = {'data-dialog-open': 'impersonate-user'}) }}{% endif %}
+        {% if admin_can('users.manage') %}{{ f.button('Заблокировать', variant = 'danger', attrs = {'data-dialog-open': 'block-user'}) }}{% endif %}
+        {% elseif admin_can('users.manage') %}
         <form method="post" action="/admin/users/{{ person.id }}/unblock">{{ csrf_field() }}{{ f.button('Разблокировать', type = 'submit') }}</form>
         {% endif %}
     {% endif %}
 {% endset %}
-{{ d.page_header(person.name, person.email ?? 'Без почты (вход через соцсеть)', body = actions) }}
+{{ d.page_header(person.name, (person.email ?? 'Без почты (вход через соцсеть)') ~ ' · № ' ~ person.id, body = actions) }}
+
+{% if person.status == 'blocked' %}<div class="mb-4">{{ d.alert('error', 'Аккаунт заблокирован', person.blockReason ?? 'Причина не указана.') }}</div>{% endif %}
+
 <div class="grid gap-4 lg:grid-cols-2">
     <section class="card" aria-labelledby="about-h"><h2 class="text-lg font-semibold" id="about-h">Аккаунт</h2>
         <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <dt class="text-muted">Номер</dt><dd>{{ person.id }}</dd>
-            <dt class="text-muted">Статус</dt><dd>{{ person.status == 'blocked' ? 'Заблокирован' : 'Активен' }}{% if person.is_superadmin %}, сотрудник{% endif %}</dd>
-            <dt class="text-muted">Почта подтверждена</dt><dd>{{ person.email_verified_at ? person.email_verified_at|date('d.m.Y H:i', tz) : 'нет' }}</dd>
-            <dt class="text-muted">Двухфакторная защита</dt><dd>{{ person.totp_enabled_at ? 'включена' : 'выключена' }}</dd>
-            <dt class="text-muted">Согласие с документами</dt><dd>{{ person.consent_version ?? 'нет' }}{% if person.consent_at %} ({{ person.consent_at|date('d.m.Y', tz) }}){% endif %}</dd>
-            <dt class="text-muted">Зарегистрирован</dt><dd>{{ person.created_at|date('d.m.Y H:i', tz) }}</dd>
+            <dt class="text-muted">Статус</dt><dd>{{ person.status == 'blocked' ? 'Заблокирован' : 'Активен' }}{% if role %}, {{ role.label|lower }}{% endif %}</dd>
+            <dt class="text-muted">Почта подтверждена</dt><dd>{{ person.emailVerifiedAt ? person.emailVerifiedAt|date('d.m.Y H:i', tz) : 'нет' }}</dd>
+            <dt class="text-muted">Двухфакторная защита</dt><dd>{{ person.totpEnabledAt ? 'включена' : 'выключена' }}</dd>
+            <dt class="text-muted">Согласие с документами</dt><dd>{{ person.consentVersion ?? 'нет' }}</dd>
+            <dt class="text-muted">Часовой пояс</dt><dd>{{ person.timezone }}</dd>
+            <dt class="text-muted">Зарегистрирован</dt><dd>{{ person.createdAt|date('d.m.Y H:i', tz) }}</dd>
+            <dt class="text-muted">Заходил в последний раз</dt><dd>{{ summary and summary.last_active ? summary.last_active|date('d.m.Y') : '—' }}</dd>
+            <dt class="text-muted">Пришёл из</dt><dd>{% if attribution %}{{ attribution.utm_source ?? attribution.referrer ?? 'напрямую' }}{% if attribution.utm_medium %} / {{ attribution.utm_medium }}{% endif %}{% if attribution.utm_campaign %} / {{ attribution.utm_campaign }}{% endif %}{% else %}неизвестно{% endif %}</dd>
         </dl>
+        {% if not target_is_staff and not own_account %}
+        <div class="mt-4 flex flex-wrap gap-2 border-t border-line pt-4">
+            {% if admin_can('users.manage') %}
+            <form method="post" action="/admin/users/{{ person.id }}/signout">{{ csrf_field() }}{{ f.button('Разлогинить везде', type = 'submit', variant = 'secondary', size = 'sm') }}</form>
+            {% if not person.emailVerifiedAt and person.email %}<form method="post" action="/admin/users/{{ person.id }}/verify-email">{{ csrf_field() }}{{ f.button('Подтвердить почту', type = 'submit', variant = 'secondary', size = 'sm') }}</form>{% endif %}
+            {% endif %}
+            {% if admin_can('users.secure') and person.totpEnabledAt %}{{ f.button('Сбросить 2FA', variant = 'secondary', size = 'sm', attrs = {'data-dialog-open': 'reset-2fa'}) }}{% endif %}
+            {% if admin_can('privacy.manage') %}
+            <form method="post" action="/admin/privacy">{{ csrf_field() }}<input type="hidden" name="user" value="{{ person.id }}"><input type="hidden" name="back" value="/admin/users/{{ person.id }}"><input type="hidden" name="type" value="export">{{ f.button('Открыть запрос на выгрузку', type = 'submit', variant = 'ghost', size = 'sm') }}</form>
+            {% endif %}
+        </div>
+        {% endif %}
     </section>
-    <section class="card" aria-labelledby="ws-h"><h2 class="text-lg font-semibold" id="ws-h">Пространства</h2>
-        {% if workspaces %}<ul class="mt-3 divide-y divide-line">{% for w in workspaces %}<li class="py-2"><a class="font-medium hover:underline" href="/admin/workspaces/{{ w.public_id }}">{{ w.name }}</a><p class="text-sm text-muted">{{ w.owner_id == person.id ? 'владелец' : w.role }} · {{ w.plan ?? 'без тарифа' }}</p></li>{% endfor %}</ul>
+
+    <section class="card" aria-labelledby="ws-h"><h2 class="text-lg font-semibold" id="ws-h">Пространства и роли</h2>
+        {% if workspaces %}<ul class="mt-3 divide-y divide-line">{% for w in workspaces %}<li class="py-2">{% if admin_can('workspaces.view') %}<a class="font-medium hover:underline" href="/admin/workspaces/{{ w.public_id }}">{{ w.name }}</a>{% else %}<span class="font-medium">{{ w.name }}</span>{% endif %}<p class="text-sm text-muted">{{ w.owner_id == person.id ? 'владелец' : w.role }} · {{ w.plan ?? 'без тарифа' }}</p></li>{% endfor %}</ul>
         {% else %}<p class="mt-3 text-muted">Не состоит ни в одном пространстве.</p>{% endif %}
     </section>
+
+    <section class="card" aria-labelledby="id-h"><h2 class="text-lg font-semibold" id="id-h">Способы входа и устройства</h2>
+        {% if identities %}<ul class="mt-3 divide-y divide-line text-sm">{% for i in identities %}<li class="py-2"><span class="font-medium">{{ {vkid: 'ВК ID', yandex: 'Яндекс', google: 'Google', telegram: 'Telegram'}[i.provider] ?? i.provider }}</span> <span class="text-muted">· {{ i.display_name ?? i.email ?? i.provider_user_id }} · привязан {{ i.linked_at|date('d.m.Y', tz) }}</span></li>{% endfor %}</ul>{% else %}<p class="mt-3 text-sm text-muted">Входит только по почте и паролю.</p>{% endif %}
+        <h3 class="mt-4 text-sm font-semibold">Сейчас вошёл на устройствах: {{ sessions|length }}</h3>
+        {% if sessions %}<ul class="mt-2 divide-y divide-line text-sm">{% for s in sessions %}<li class="py-2"><span class="break-words">{{ s.user_agent ?: 'устройство без названия' }}</span><span class="block text-muted">{{ s.ip }} · был {{ s.last_seen_at|date('d.m.Y H:i', tz) }}</span></li>{% endfor %}</ul>{% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="note-h"><h2 class="text-lg font-semibold" id="note-h">Заметки сотрудников</h2>
+        <p class="mt-1 text-sm text-muted">Видны только персоналу, человек их не видит.</p>
+        {% if notes %}<ul class="mt-3 divide-y divide-line text-sm">{% for n in notes %}<li class="py-2"><p class="whitespace-pre-line break-words">{{ n.body }}</p><p class="text-xs text-muted">{{ n.author ?? 'сотрудник' }} · {{ n.created_at|date('d.m.Y H:i', tz) }}</p></li>{% endfor %}</ul>{% endif %}
+        {% if admin_can('users.manage') %}
+        <form class="mt-3 flex flex-col gap-3" method="post" action="/admin/users/{{ person.id }}/note">{{ csrf_field() }}
+            {{ f.textarea('body', 'Новая заметка', rows = 3, max = 2000, required = true, id = 'note-body') }}
+            <div>{{ f.button('Добавить заметку', type = 'submit', variant = 'secondary', size = 'sm') }}</div>
+        </form>
+        {% endif %}
+    </section>
 </div>
-<section class="card mt-4" aria-labelledby="act-h"><h2 class="text-lg font-semibold" id="act-h">Последние действия</h2>
-    {% if activity %}<ul class="mt-3 divide-y divide-line text-sm">{% for a in activity %}<li class="flex flex-wrap justify-between gap-2 py-2"><span>{{ a.action }}{% if a.subject_type %} <span class="text-muted">· {{ a.subject_type }} {{ a.subject_id }}</span>{% endif %}</span><span class="text-muted">{{ a.created_at|date('d.m.Y H:i', tz) }}{% if a.ip %} · {{ a.ip }}{% endif %}</span></li>{% endfor %}</ul>
+
+{% if owned %}
+<section class="card mt-4" aria-labelledby="own-h"><h2 class="text-lg font-semibold" id="own-h">Тариф и кошелёк пространств, которыми владеет</h2>
+    <div class="mt-3 overflow-x-auto" tabindex="0" role="region" aria-label="Тарифы и кошельки">
+    <table class="tbl"><thead><tr><th scope="col">Пространство</th><th scope="col">Тариф</th><th scope="col">Оплачено до</th><th scope="col">Кошелёк</th></tr></thead><tbody>
+    {% for w in owned %}<tr>
+        <td>{% if admin_can('workspaces.view') %}<a class="font-medium hover:underline" href="/admin/workspaces/{{ w.public_id }}">{{ w.name }}</a>{% else %}{{ w.name }}{% endif %}</td>
+        <td>{{ w.plan ?? 'без тарифа' }}{% if w.subscription %}<span class="block text-xs text-muted">{{ {trialing: 'пробный период', active: 'активна', past_due: 'просрочена'}[w.subscription] ?? w.subscription }}{{ w.cancel_at_period_end ? ', не продлится' : '' }}</span>{% endif %}</td>
+        <td class="whitespace-nowrap">{{ w.current_period_end ? w.current_period_end|date('d.m.Y', tz) : '—' }}</td>
+        <td class="text-sm text-muted">{{ w.wallet.days }} дн. · {{ w.wallet.credits }} кредитов · {{ money(w.wallet.balance) }}</td>
+    </tr>{% endfor %}
+    </tbody></table></div>
+    {% if can_grant and not target_is_staff %}
+    <div class="mt-4 border-t border-line pt-4">{{ f.button('Начислить дни, кредиты или деньги', variant = 'secondary', size = 'sm', icon = 'plus', attrs = {'data-dialog-open': 'grant-dialog'}) }}
+    <p class="hint">Начисления идут через журнал проводок, причина обязательна.</p></div>
+    {% endif %}
+</section>
+{% endif %}
+
+{% if payments %}
+<section class="card mt-4 !p-0 overflow-hidden" aria-labelledby="pay-h"><h2 class="px-5 pt-5 text-lg font-semibold" id="pay-h">Платежи</h2>
+{% set rows %}{% for p in payments %}<tr>
+    <td class="font-medium">{{ money(p.amount, p.currency) }}<span class="block text-xs text-muted">{{ p.number }} · {{ p.provider }} · {{ p.plan }}</span></td>
+    <td>{{ d.badge({pending: 'Ожидает', succeeded: 'Оплачен', failed: 'Не прошёл', refunded: 'Возвращён'}[p.status] ?? p.status, {succeeded: 'ok', failed: 'bad', pending: 'info', refunded: 'neutral'}[p.status] ?? 'neutral', dot = true) }}</td>
+    <td class="whitespace-nowrap text-muted">{{ p.created_at|date('d.m.Y H:i', tz) }}</td>
+</tr>{% endfor %}{% endset %}
+{{ d.table([{label: 'Сумма'}, {label: 'Статус'}, {label: 'Дата'}], caption = 'Платежи', body = rows) }}
+</section>
+{% endif %}
+
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+    <section class="card" aria-labelledby="ch-h"><h2 class="text-lg font-semibold" id="ch-h">Каналы</h2>
+        {% if channels %}<ul class="mt-3 divide-y divide-line text-sm">{% for c in channels %}<li class="flex flex-wrap items-center justify-between gap-2 py-2"><span><span class="font-medium">{{ c.title }}</span> <span class="text-muted">· {{ c.platform }}</span>{% if c.last_error %}<span class="block text-xs text-bad-fg">{{ c.last_error }}</span>{% endif %}</span>{{ d.status_badge(c.status == 'active' ? 'connected' : c.status) }}</li>{% endfor %}</ul>{% else %}<p class="mt-3 text-muted">Каналов нет.</p>{% endif %}
+    </section>
+    <section class="card" aria-labelledby="pub-h"><h2 class="text-lg font-semibold" id="pub-h">Последние публикации</h2>
+        {% if publications %}<ul class="mt-3 divide-y divide-line text-sm">{% for p in publications %}<li class="py-2"><span class="font-medium">{{ p.channel_name }}</span> <span class="text-muted">· {{ p.platform }} · {{ p.due_at|date('d.m.Y H:i', tz) }}</span><span class="block">{{ {sent: 'вышла', failed: 'не вышла', unknown: 'исход неизвестен', queued: 'ждёт', sending: 'отправляется', cancelled: 'отменена'}[p.status] ?? p.status }}{% if p.error_message %}: <span class="text-bad-fg">{{ p.error_message }}</span>{% endif %}</span></li>{% endfor %}</ul>{% else %}<p class="mt-3 text-muted">Публикаций не было.</p>{% endif %}
+    </section>
+</div>
+
+{% if tickets %}
+<section class="card mt-4" aria-labelledby="tk-h"><h2 class="text-lg font-semibold" id="tk-h">Обращения в поддержку</h2>
+    <ul class="mt-3 divide-y divide-line text-sm">{% for t in tickets %}<li class="flex flex-wrap items-center justify-between gap-2 py-2"><a class="font-medium hover:underline" href="/admin/support/{{ t.public_id }}">{{ t.subject }}</a><span class="text-muted">{{ {open: 'ждёт ответа', pending: 'ждём клиента', solved: 'решён'}[t.status] ?? t.status }} · {{ t.updated_at|date('d.m.Y', tz) }}</span></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="card mt-4" aria-labelledby="act-h"><h2 class="text-lg font-semibold" id="act-h">Журнал: что делал человек и что делали с его аккаунтом</h2>
+    {% if journal %}<ul class="mt-3 divide-y divide-line text-sm">{% for entry in journal %}<li class="flex flex-wrap justify-between gap-2 py-2"><span>{{ entry.label }}{% if entry.actor_id and entry.actor_id != person.id %} <span class="text-muted">· сотрудник № {{ entry.actor_id }}</span>{% endif %}</span><span class="text-muted">{{ entry.created_at|date('d.m.Y H:i', tz) }}{% if entry.ip %} · {{ entry.ip }}{% endif %}</span></li>{% endfor %}</ul>
     {% else %}<p class="mt-3 text-muted">Записей нет.</p>{% endif %}
 </section>
-{{ o.confirm_dialog('block-user', 'Заблокировать аккаунт?', person.name, 'Человек будет разлогинен на всех устройствах и не сможет войти, пока вы его не разблокируете.', '/admin/users/' ~ person.id ~ '/block', 'Заблокировать') }}
+
+{% set block_fields %}{{ f.textarea('reason', 'Причина', rows = 3, max = 500, required = true, hint = 'Человек увидит её, когда попробует войти.', id = 'block-reason') }}{% endset %}
+{{ a.danger_dialog('block-user', 'Заблокировать аккаунт?', person.name, 'Человек будет разлогинен на всех устройствах и не сможет войти, пока вы его не разблокируете.', '/admin/users/' ~ person.id ~ '/block', 'Заблокировать', fields = block_fields) }}
+{{ a.danger_dialog('impersonate-user', 'Войти под этим человеком?', person.name, 'Вы увидите сервис его глазами на час. Оплата и безопасность аккаунта будут закрыты, все действия попадут в журнал.', '/admin/users/' ~ person.id ~ '/impersonate', 'Войти', danger = false) }}
+{{ a.danger_dialog('reset-2fa', 'Сбросить двухфакторную защиту?', person.name, 'Человек потерял устройство и резервные коды. Он будет разлогинен везде и включит защиту заново. Убедитесь, что это он (например, по письму с его почты).', '/admin/users/' ~ person.id ~ '/reset-2fa', 'Сбросить') }}
+{% if owned and can_grant %}
+{% set grant_fields %}
+    {{ f.select('workspace', 'Пространство', owned|reduce((c, w) => c|merge({(w.public_id): w.name}), {}), required = true, id = 'grant-workspace') }}
+    {{ f.select('unit', 'Что начислить', {days: 'Дни тарифа', credits: 'Кредиты', balance: 'Деньги на баланс (₽)'}, required = true, id = 'grant-unit') }}
+    {{ f.input('amount', 'Сколько', required = true, hint = 'Дни и кредиты — целое число, деньги — в рублях, например 500 или 99,50', id = 'grant-amount') }}
+    {{ f.input('reason', 'Причина', required = true, hint = 'Например: компенсация за сбой 03.10. Останется в журнале.', id = 'grant-reason') }}
+{% endset %}
+{{ a.danger_dialog('grant-dialog', 'Начислить вручную', person.name, 'Дни продлевают оплаченный или пробный период. Кредиты и деньги ложатся в кошелёк пространства.', '/admin/users/' ~ person.id ~ '/grant', 'Начислить', fields = grant_fields, danger = false) }}
+{% endif %}
 {% endblock %}

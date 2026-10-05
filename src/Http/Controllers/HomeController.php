@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Domain\Billing\BillingPeriod;
+use App\Domain\Content\SiteContent;
 use App\Domain\Billing\Plan;
 use App\Domain\Billing\PlanPresenter;
 use App\Domain\Billing\PlanRepository;
@@ -22,6 +23,7 @@ final class HomeController
         private readonly View $view,
         private readonly PlanRepository $plans,
         private readonly Config $config,
+        private readonly SiteContent $content,
     ) {
     }
 
@@ -38,7 +40,7 @@ final class HomeController
         }
         $faq = [];
         /** @var list<array{0: string, 1: string}> $items */
-        $items = require dirname(__DIR__, 3) . '/resources/site/faq.php';
+        $items = $this->content->faq() ?? require dirname(__DIR__, 3) . '/resources/site/faq.php';
         foreach ($items as [$question, $answer]) {
             $faq[] = ['q' => $question, 'a' => str_replace('{trial_days}', (string) $trialDays, $answer)];
         }
