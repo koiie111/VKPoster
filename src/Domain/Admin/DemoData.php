@@ -151,7 +151,7 @@ final class DemoData
         foreach ($weights as $key => $weight) {
             $roll -= $weight;
             if ($roll <= 0) {
-                return (string) $key;
+                return $key;
             }
         }
 
@@ -286,13 +286,14 @@ final class DemoData
         $periodEnd = null;
         $period = null;
         $status = 'active';
+        $trialing = false;
         $trialEnds = null;
         $lastFailure = null;
         if ($trialAt !== null && $trialAt <= $now) {
             $this->db->execute('INSERT INTO audit_log (workspace_id, actor_id, action, subject_type, created_at) VALUES (?, NULL, ?, ?, ?)', [$workspaceId, 'billing.trial_started', 'subscription', DbTime::format($trialAt)]);
             $trialEnds = $trialAt->modify('+7 days');
             if ($trialEnds > $now) {
-                $status = 'trialing';
+                $trialing = true;
                 $plan = 'pro';
                 $periodEnd = $trialEnds;
                 $periodStart = $trialAt;
@@ -358,8 +359,8 @@ final class DemoData
         $this->db->execute(
             'INSERT INTO subscriptions (public_id, workspace_id, plan_id, status, period, currency, price_amount, current_period_start, current_period_end, trial_ends_at, cancel_at_period_end, last_failure, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
-                (string) new Ulid(), $workspaceId, $planId, $status === 'trialing' ? 'trialing' : ($plan === 'free' ? 'active' : $status), $plan === 'free' || $status === 'trialing' ? null : $period, 'RUB',
-                $plan === 'free' || $period === null || $status === 'trialing' ? 0 : $this->plans[$plan][$period],
+                (string) new Ulid(), $workspaceId, $planId, $trialing ? 'trialing' : ($plan === 'free' ? 'active' : $status), $plan === 'free' || $trialing ? null : $period, 'RUB',
+                $plan === 'free' || $period === null ? 0 : $this->plans[$plan][$period],
                 $periodStart === null ? null : DbTime::format($periodStart), $periodEnd === null ? null : DbTime::format($periodEnd), $trialEnds === null ? null : DbTime::format($trialEnds),
                 $plan !== 'free' && mt_rand(1, 100) <= 5 ? 1 : 0, $lastFailure, DbTime::format($registered), DbTime::format($now),
             ],
