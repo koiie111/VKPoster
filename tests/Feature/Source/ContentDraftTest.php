@@ -109,6 +109,20 @@ final class ContentDraftTest extends PostTestCase
         self::assertSame(2, $this->db->table('source_image_variants')->where('kind', '=', 'original')->count());
     }
 
+    public function testOrdinaryPostsPublishAsBeforeAndTheOriginGuardLeavesThemAlone(): void
+    {
+        [$ctx] = $this->fixture();
+        $channel = $this->app->container()->get(\App\Domain\Channel\ChannelRepository::class)->all($ctx)[0];
+
+        $post = $this->service()->schedule($ctx, null, $this->draft('Обычный пост без источника', [$channel]), $this->clock->now(), true);
+        $this->drain();
+
+        self::assertNull($this->app->container()->get(ContentOriginGuard::class)->problem($post), 'a post without an origin row has no provenance to check');
+        self::assertSame(0, $this->db->table('content_post_origins')->count());
+        self::assertCount(1, $this->fake->published);
+        self::assertSame('sent', ($this->db->table('publications')->first() ?? throw new \LogicException('Missing publication'))['status']);
+    }
+
     public function testRejectionAfterSchedulingBlocksPublisherAndPreservesDuplicateGuard(): void
     {
         [$ctx, $source, $item, $revision, $text] = $this->fixture();
