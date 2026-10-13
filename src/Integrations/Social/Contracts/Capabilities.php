@@ -26,6 +26,10 @@ final class Capabilities
         public readonly string $textFormat = 'plain',
         /** How many posts one channel may publish a day (0 = no limit known); the editor warns before it is exceeded. */
         public readonly int $maxPostsPerDay = 0,
+        /** The network downloads media from a public link instead of receiving files: requests carry `PublishMedia::$url`, not a local path. */
+        public readonly bool $publicMediaUrls = false,
+        /** The network has several kinds of post to choose from (Instagram: post, Reels, Stories): the editor shows the choice. */
+        public readonly bool $postFormats = false,
     ) {
     }
 }

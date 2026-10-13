@@ -81,6 +81,7 @@ final class PostForm
             'pin' => self::flag($source['pin'] ?? null),
             'delete_after_minutes' => $value !== '' && ctype_digit($value) && strlen($value) <= 6 ? (int) $value * $unit : null,
             'first_comment' => self::string($source['first_comment'] ?? null),
+            'format' => self::string($source['format'] ?? null),
         ]);
     }
 

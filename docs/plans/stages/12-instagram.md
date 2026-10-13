@@ -7,15 +7,15 @@ Meta признана в РФ экстремистской организаци�
 **а)** делаем и включаем; **б)** делаем, но выключено по умолчанию (`PLATFORMS_ENABLED` без `instagram`); **в)** пропускаем этап.
 
 ## Задачи (если а или б)
-- [ ] ADR: Instagram API with Instagram Login (`graph.instagram.com`) или через Facebook Login (страница FB). Требования: Business/Creator аккаунт, права `instagram_business_basic`, `instagram_business_content_publish`, App Review.
-- [ ] OAuth-коннектор, долгоживущий токен (60 дней) + автообновление до истечения, health check.
-- [ ] Публичная раздача медиа: S3-хранилище (minio в dev → любое S3 в prod) + подписанные URL с TTL; в dev — через туннель.
-- [ ] Публикация: контейнер (`/media`) → ожидание `status_code=FINISHED` (опрос с backoff) → `/media_publish`. Фото, карусель (до 10), Reels, Stories. Проверка суточного лимита публикаций через `content_publishing_limit` до планирования.
-- [ ] Первый комментарий, ALT-текст (если поддерживается), удаление (если API позволяет — иначе capability = false).
-- [ ] Требования к медиа (соотношения сторон 4:5…1.91:1, длительность Reels) — в capabilities и автокадрирование из этапа 05.
+- [x] ADR: Instagram API with Instagram Login (`graph.instagram.com`) или через Facebook Login (страница FB). Требования: Business/Creator аккаунт, права `instagram_business_basic`, `instagram_business_content_publish`, App Review. → [ADR 0010](../../adr/0010-instagram-api.md), выбран Instagram Login.
+- [x] OAuth-коннектор, долгоживущий токен (60 дней) + автообновление до истечения, health check.
+- [x] Публичная раздача медиа: подписанные URL с TTL через `/media/{id}/{variant}` (S3 как хранилище поддерживается, отдельная публичная раздача из S3 не нужна, ADR 0010 п. 5); в dev — через туннель.
+- [x] Публикация: контейнер (`/media`) → ожидание `status_code=FINISHED` (опрос с backoff) → `/media_publish`. Фото, карусель (до 10), Reels, Stories. Проверка суточного лимита публикаций через `content_publishing_limit` до планирования.
+- [x] Первый комментарий, удаление (API не позволяет — `delete = false`). ALT-текст: у файлов медиатеки нет поля описания, перенесено в техдолг.
+- [x] Требования к медиа (соотношения сторон 4:5…1.91:1, длительность Reels) — в capabilities и автокадрирование из этапа 05.
 
 ## Тесты
-Фикстуры, ожидание обработки контейнера, ошибки (`IN_PROGRESS` долго, `ERROR`), лимит.
+Готово: фикстуры, ожидание обработки контейнера, ошибки (`IN_PROGRESS` долго, `ERROR`), лимит.
 
 ## Проверка владельцем
 1. Решение а/б/в.

@@ -6,6 +6,7 @@ namespace App\Domain\Channel;
 
 use App\Integrations\Social\Contracts\ErrorKind;
 use App\Integrations\Social\Contracts\PlatformError;
+use App\Integrations\Social\Instagram\InstagramOAuth;
 use App\Integrations\Social\Vk\VkOAuth;
 use App\Kernel\Database\Connection;
 use App\Kernel\Security\Crypto;
@@ -15,7 +16,7 @@ use Psr\Log\LoggerInterface;
 use Redis;
 
 /**
- * Keeps the OAuth access token of a credential fresh (VK: it lives an hour). The refresh token is single use, so two workers must never
+ * Keeps the OAuth access token of a credential fresh (VK: it lives an hour; Instagram: about 60 days, and it is extended itself, there is no refresh token). The refresh token is single use, so two workers must never
  * refresh the same credential at once: the one that gets the Redis lock refreshes and stores the new pair, the others wait for it and
  * read the result. A refresh that VK refuses ends as an `auth` error (the person has to reconnect); one that could not reach VK is `temporary`
  * and leaves the stored pair untouched.
@@ -24,6 +25,8 @@ final class OAuthRefresher
 {
     /** Refresh when fewer than this many seconds are left, so a long upload does not start with a token about to expire. */
     private const MARGIN = 300;
+    /** Instagram tokens last two months and can be extended only while valid: extend them in the last week. */
+    private const INSTAGRAM_MARGIN = 7 * 86400;
     private const LOCK_SECONDS = 30;
     private const WAIT_SECONDS = 12;
 
@@ -31,6 +34,7 @@ final class OAuthRefresher
         private readonly Connection $db,
         private readonly Crypto $crypto,
         private readonly VkOAuth $vk,
+        private readonly InstagramOAuth $instagram,
         private readonly Redis $redis,
         private readonly Clock $clock,
         private readonly LoggerInterface $logger,
@@ -47,7 +51,7 @@ final class OAuthRefresher
     {
         $row = $this->row($channel);
         if ($row === null) {
-            throw new PlatformError(ErrorKind::Auth, 'The channel has no stored credential.', 'Доступ к ВКонтакте не найден. Подключите сообщество заново.');
+            throw new PlatformError(ErrorKind::Auth, 'The channel has no stored credential.', 'Доступ к ' . $channel->platform->label() . ' не найден. Подключите канал заново.');
         }
         if ($this->isFresh($row)) {
             return $this->crypto->decrypt((string) $row['secret_enc']);
@@ -60,7 +64,7 @@ final class OAuthRefresher
         }
         try {
             // Somebody may have refreshed between our first read and the lock.
-            $row = $this->row($channel) ?? throw new PlatformError(ErrorKind::Auth, 'The credential disappeared.', 'Доступ к ВКонтакте не найден. Подключите сообщество заново.');
+            $row = $this->row($channel) ?? throw new PlatformError(ErrorKind::Auth, 'The credential disappeared.', 'Доступ к ' . $channel->platform->label() . ' не найден. Подключите канал заново.');
             if ($this->isFresh($row)) {
                 return $this->crypto->decrypt((string) $row['secret_enc']);
             }
@@ -77,6 +81,9 @@ final class OAuthRefresher
      */
     private function refresh(array $row): string
     {
+        if (($row['platform'] ?? null) === 'instagram') {
+            return $this->extendInstagram($row);
+        }
         $refreshEnc = is_string($row['refresh_enc'] ?? null) ? $row['refresh_enc'] : '';
         $deviceId = is_string($row['device_id'] ?? null) ? $row['device_id'] : '';
         if ($refreshEnc === '' || $deviceId === '') {
@@ -88,6 +95,26 @@ final class OAuthRefresher
         $this->db->table('platform_credentials')->where('id', '=', (int) $row['id'])->update([
             'secret_enc' => $this->crypto->encrypt($tokens->accessToken),
             'refresh_enc' => $this->crypto->encrypt($tokens->refreshToken),
+            'expires_at' => DbTime::format($now->modify(sprintf('+%d seconds', $tokens->expiresIn))),
+            'updated_at' => DbTime::format($now),
+        ]);
+        $this->logger->info('oauth.refreshed', ['credential' => (int) $row['id']]);
+
+        return $tokens->accessToken;
+    }
+
+    /**
+     * Instagram: the access token itself is exchanged for a fresh one with a new expiry.
+     *
+     * @param array<string, mixed> $row
+     * @throws PlatformError
+     */
+    private function extendInstagram(array $row): string
+    {
+        $tokens = $this->instagram->refresh($this->crypto->decrypt((string) $row['secret_enc']));
+        $now = $this->clock->now();
+        $this->db->table('platform_credentials')->where('id', '=', (int) $row['id'])->update([
+            'secret_enc' => $this->crypto->encrypt($tokens->accessToken),
             'expires_at' => DbTime::format($now->modify(sprintf('+%d seconds', $tokens->expiresIn))),
             'updated_at' => DbTime::format($now),
         ]);
@@ -112,7 +139,7 @@ final class OAuthRefresher
             }
         }
 
-        throw new PlatformError(ErrorKind::Temporary, 'Waited for a concurrent token refresh in vain.', 'ВКонтакте обновляет доступ. Попробуем ещё раз чуть позже.');
+        throw new PlatformError(ErrorKind::Temporary, 'Waited for a concurrent token refresh in vain.', $channel->platform->label() . ' обновляет доступ. Попробуем ещё раз чуть позже.');
     }
 
     /**
@@ -121,8 +148,9 @@ final class OAuthRefresher
     private function isFresh(array $row): bool
     {
         $expires = DbTime::parse($row['expires_at'] ?? null);
+        $margin = ($row['platform'] ?? null) === 'instagram' ? self::INSTAGRAM_MARGIN : self::MARGIN;
 
-        return $expires === null || $expires > $this->clock->now()->modify(sprintf('+%d seconds', self::MARGIN));
+        return $expires === null || $expires > $this->clock->now()->modify(sprintf('+%d seconds', $margin));
     }
 
     /**

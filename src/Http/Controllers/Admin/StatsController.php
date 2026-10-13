@@ -42,7 +42,7 @@ final class StatsController
         $from = $now->modify('-' . $days . ' days');
         $hours = $this->stats->errorsByHour($now, 48);
         $labels = array_map(static fn (string $h): string => substr($h, 8, 2) . '.' . substr($h, 5, 2) . ' ' . substr($h, 11, 5), $hours['hours']);
-        $roles = ['telegram' => 'info', 'vk' => 'p', 'max' => 'warn'];
+        $roles = ['telegram' => 'info', 'vk' => 'p', 'max' => 'warn', 'instagram' => 'bad'];
         $datasets = [];
         foreach ($hours['platforms'] as $platform => $values) {
             $datasets[] = ['label' => $platform, 'data' => $values, 'role' => $roles[$platform] ?? 'muted'];

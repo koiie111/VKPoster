@@ -21,6 +21,7 @@ use App\Http\Controllers\Dev\FakePaymentController;
 use App\Http\Controllers\Dev\DevLoginController;
 use App\Http\Controllers\Dev\DevUiController;
 use App\Http\Controllers\Channels\ChannelController;
+use App\Http\Controllers\Channels\InstagramConnectController;
 use App\Http\Controllers\Channels\MaxConnectController;
 use App\Http\Controllers\Channels\VkConnectController;
 use App\Http\Controllers\Sources\SourceController;
@@ -186,6 +187,7 @@ return static function (Router $router): void {
         $r->get('/workspaces/new', [WorkspaceController::class, 'create'])->name('workspace.new');
         // VK ID sends the browser back here (a fixed address registered in the VK application); the controller checks the workspace and the right.
         $r->get('/channels/connect/vk/callback', [VkConnectController::class, 'callback'])->middleware([RateLimit::class, ['bucket' => 'vk-callback', 'max' => 30, 'seconds' => 600]]);
+        $r->get('/channels/connect/instagram/callback', [InstagramConnectController::class, 'callback'])->middleware([RateLimit::class, ['bucket' => 'instagram-callback', 'max' => 30, 'seconds' => 600]]);
         $r->post('/workspaces', [WorkspaceController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'workspace-create', 'max' => 10, 'seconds' => 3600]]);
         $r->post('/invitations/' . $token . '/accept', [InvitationController::class, 'accept'])->middleware([RateLimit::class, ['bucket' => 'invitation-accept', 'max' => 20, 'seconds' => 3600]]);
 
@@ -294,6 +296,8 @@ return static function (Router $router): void {
                 $c->get('/connect/vk/start', [VkConnectController::class, 'start'])->middleware([RateLimit::class, ['bucket' => 'vk-connect', 'max' => 30, 'seconds' => 3600]]);
                 $c->get('/connect/vk/choose', [VkConnectController::class, 'choose']);
                 $c->post('/connect/vk/choose', [VkConnectController::class, 'connect'])->middleware([RateLimit::class, ['bucket' => 'vk-choose', 'max' => 30, 'seconds' => 3600]]);
+                $c->get('/connect/instagram', [InstagramConnectController::class, 'show']);
+                $c->get('/connect/instagram/start', [InstagramConnectController::class, 'start'])->middleware([RateLimit::class, ['bucket' => 'instagram-connect', 'max' => 30, 'seconds' => 3600]]);
                 $c->get('/connect/telegram', [ChannelController::class, 'connectTelegram']);
                 $c->post('/connect/telegram/code', [ChannelController::class, 'issueCode'])->middleware([RateLimit::class, ['bucket' => 'channel-code', 'max' => 20, 'seconds' => 3600]]);
                 $c->get('/connect/telegram/status/{codeId:' . $ulid . '}', [ChannelController::class, 'codeStatus'])->middleware([RateLimit::class, ['bucket' => 'channel-code-status', 'max' => 600, 'seconds' => 600]]);

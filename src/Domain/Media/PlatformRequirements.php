@@ -45,7 +45,9 @@ final class PlatformRequirements
                 }
                 $range = $rules['image_ratio'] ?? null;
                 $ratio = $media->ratio();
-                if (is_array($range) && $ratio !== null && count($range) === 2 && ($ratio < (float) $range[0] - 0.001 || $ratio > (float) $range[1] + 0.001)) {
+                // Platforms that take their pictures as public links get the nearest allowed crop when the post goes out (`image_crop`).
+                $fixable = ($rules['image_crop'] ?? false) === true;
+                if (($includeFixable || !$fixable) && is_array($range) && $ratio !== null && count($range) === 2 && ($ratio < (float) $range[0] - 0.001 || $ratio > (float) $range[1] + 0.001)) {
                     $problems[] = sprintf('%s: соотношение сторон фото должно быть от %s до %s.', $name, self::ratioText((float) $range[0]), self::ratioText((float) $range[1]));
                 }
                 break;

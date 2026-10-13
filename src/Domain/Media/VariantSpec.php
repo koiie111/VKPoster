@@ -15,6 +15,9 @@ final class VariantSpec
 
     public const DEFAULT_MAX_EDGE = 2560;
 
+    /** Size ceiling of a JPEG-only rendition (`-jpg`): what Instagram accepts for a photo. */
+    public const JPEG_MAX_BYTES = 8 * 1024 * 1024;
+
     /**
      * @param string $watermarkId public id of a specific watermark, or null for the workspace default (when `$watermark` is on)
      */
@@ -24,6 +27,8 @@ final class VariantSpec
         public readonly ?string $watermarkId = null,
         public readonly int $maxEdge = self::DEFAULT_MAX_EDGE,
         public readonly ?int $maxBytes = null,
+        /** Always encode as JPEG (transparency is flattened onto white): for networks that take nothing else. */
+        public readonly bool $jpeg = false,
     ) {
         if (!array_key_exists($crop, self::RATIOS)) {
             throw new \InvalidArgumentException('Unknown crop: ' . $crop);
@@ -35,16 +40,17 @@ final class VariantSpec
      */
     public static function fromSlug(string $slug): ?self
     {
-        if (preg_match('/^(original|1x1|4x5|191x100|9x16)(-wm)?$/', $slug, $m) !== 1) {
+        if (preg_match('/^(original|1x1|4x5|191x100|9x16)(-wm)?(-jpg)?$/', $slug, $m) !== 1) {
             return null;
         }
+        $jpeg = ($m[3] ?? '') === '-jpg';
 
-        return new self($m[1], ($m[2] ?? '') === '-wm');
+        return new self($m[1], ($m[2] ?? '') === '-wm', null, self::DEFAULT_MAX_EDGE, $jpeg ? self::JPEG_MAX_BYTES : null, $jpeg);
     }
 
     public function slug(): string
     {
-        return $this->crop . ($this->watermark ? '-wm' : '');
+        return $this->crop . ($this->watermark ? '-wm' : '') . ($this->jpeg ? '-jpg' : '');
     }
 
     public function ratio(): ?float
@@ -57,6 +63,6 @@ final class VariantSpec
      */
     public function transforms(): bool
     {
-        return $this->crop !== 'original' || $this->watermark || $this->maxBytes !== null;
+        return $this->crop !== 'original' || $this->watermark || $this->maxBytes !== null || $this->jpeg;
     }
 }

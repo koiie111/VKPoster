@@ -136,13 +136,13 @@ final class ImageProcessor
     /**
      * Cut the largest centred rectangle of aspect `$ratio` (width / height) out of the picture, shrink it so
      * that the long side is at most `$maxEdge`, optionally stamp a watermark, and encode it so that the file is
-     * at most `$maxBytes`. JPEG stays JPEG; pictures with transparency stay PNG unless they cannot fit.
+     * at most `$maxBytes`. JPEG stays JPEG; pictures with transparency stay PNG unless they cannot fit or `$jpegOnly` is set.
      *
      * @param array{path: string, position: string, opacity: int, scale: int, margin: int}|null $watermark
      * @return array{width: int, height: int, mime: string}
      * @throws MediaException
      */
-    public function render(string $src, string $dest, ?float $ratio, int $maxEdge, ?int $maxBytes, ?array $watermark): array
+    public function render(string $src, string $dest, ?float $ratio, int $maxEdge, ?int $maxBytes, ?array $watermark, bool $jpegOnly = false): array
     {
         try {
             $this->limit();
@@ -160,7 +160,7 @@ final class ImageProcessor
             if ($watermark !== null) {
                 $this->stamp($image, $watermark);
             }
-            $mime = $hasAlpha ? 'image/png' : 'image/jpeg';
+            $mime = $hasAlpha && !$jpegOnly ? 'image/png' : 'image/jpeg';
             if ($mime === 'image/jpeg' && $image->getImageAlphaChannel()) {
                 $image->setImageBackgroundColor(new ImagickPixel('white'));
                 $image->setImageAlphaChannel(Imagick::ALPHACHANNEL_REMOVE);

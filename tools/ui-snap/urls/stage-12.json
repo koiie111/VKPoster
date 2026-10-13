@@ -1,0 +1,12 @@
+[
+  {
+    "name": "instagram-connect",
+    "url": "/w/{ws}/channels/connect/instagram",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "channels-menu-instagram",
+    "url": "/w/{ws}/channels",
+    "login_as": "demo@ezposter.local"
+  }
+]

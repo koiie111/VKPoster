@@ -6,9 +6,11 @@ namespace App\Domain\Post;
 
 use App\Domain\Media\Media;
 use App\Domain\Media\MediaException;
+use App\Domain\Media\MediaKind;
 use App\Domain\Media\MediaLimits;
 use App\Domain\Media\MediaRepository;
 use App\Domain\Media\MediaService;
+use App\Domain\Media\MediaUrls;
 use App\Domain\Media\VariantService;
 use App\Domain\Media\VariantSpec;
 use App\Domain\Workspace\WorkspaceContext;
@@ -33,6 +35,7 @@ final class PublishRequestBuilder
         private readonly MediaStorage $storage,
         private readonly MediaService $service,
         private readonly MediaLimits $limits,
+        private readonly MediaUrls $urls,
     ) {
     }
 
@@ -47,7 +50,11 @@ final class PublishRequestBuilder
         $temporary = [];
         try {
             foreach ($this->mediaFor($context, $resolved->mediaIds) as $item) {
-                $files[] = $withFiles ? $this->prepare($context, $item, $resolved->variant->platform, $temporary) : new PublishMedia($item->kind, '', $item->originalName, $item->mime);
+                $files[] = match (true) {
+                    !$withFiles => new PublishMedia($item->kind, '', $item->originalName, $item->mime),
+                    $capabilities->publicMediaUrls => $this->publicLink($item, $resolved->variant->platform),
+                    default => $this->prepare($context, $item, $resolved->variant->platform, $temporary),
+                };
             }
         } catch (\Throwable $e) {
             foreach ($temporary as $file) {
@@ -64,6 +71,7 @@ final class PublishRequestBuilder
             $capabilities->silent && $options->silent,
             $capabilities->textFormat === 'html' ? 'html' : null,
             $capabilities->disablePreview && $options->disablePreview,
+            $options->format,
         ), $temporary);
     }
 
@@ -80,6 +88,34 @@ final class PublishRequestBuilder
         }
 
         return $found;
+    }
+
+    /**
+     * For networks that download media themselves: a signed, expiring link to the file instead of a copy. Pictures go out as JPEG and,
+     * when their shape is outside what the network takes, cropped to the nearest allowed ratio (the stage 05 renditions).
+     *
+     * @throws PostException
+     */
+    private function publicLink(Media $item, Platform $platform): PublishMedia
+    {
+        if ($item->kind === MediaKind::Document) {
+            throw new PostException('Файл «' . $item->originalName . '» — документ, а ' . $platform->label() . ' документы не принимает.');
+        }
+        if ($item->kind === MediaKind::Video) {
+            return new PublishMedia($item->kind, '', $item->originalName, $item->mime, $this->urls->signed($item, 'original'));
+        }
+        if ($item->animated) {
+            throw new PostException('Файл «' . $item->originalName . '» — анимация, а ' . $platform->label() . ' принимает только обычные фото. Загрузите его как видео.');
+        }
+        $range = $this->limits->platforms[$platform->value]['image_ratio'] ?? null;
+        $ratio = $item->ratio();
+        $crop = 'original';
+        if (is_array($range) && count($range) === 2 && $ratio !== null) {
+            $crop = $ratio < (float) $range[0] - 0.001 ? '4x5' : ($ratio > (float) $range[1] + 0.001 ? '191x100' : 'original');
+        }
+        $spec = new VariantSpec($crop, false, null, VariantSpec::DEFAULT_MAX_EDGE, VariantSpec::JPEG_MAX_BYTES, true);
+
+        return new PublishMedia($item->kind, '', $item->originalName, 'image/jpeg', $this->urls->signed($item, $spec->slug()));
     }
 
     /**
