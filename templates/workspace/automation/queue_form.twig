@@ -1,0 +1,38 @@
+{#- New or changed queue. Variables: queue (or null), days, times (day => text), channels, selected, timezone, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+
+{% set nav_current = 'queues' %}
+{% block title %}{{ queue ? 'Настройки очереди' : 'Новая очередь' }} · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Очереди', href: base ~ '/queues'}, {label: queue ? queue.name : 'Новая очередь'}]) }}
+<div class="mt-3">{{ d.page_header(queue ? 'Настройки очереди' : 'Новая очередь', 'Напишите, в какие дни и во сколько выходят посты. Время указывайте по часовому поясу пространства: ' ~ timezone ~ '.') }}</div>
+<form method="post" action="{{ base }}/queues/{{ queue ? queue.publicId : '' }}" class="card flex max-w-3xl flex-col gap-6" novalidate>
+    {{ csrf_field() }}
+    {% if errors('form') %}{{ d.alert('error', 'Очередь не сохранена', errors('form')|first) }}{% endif %}
+    {{ f.input('name', 'Название очереди', value = old('name', queue ? queue.name : ''), required = true, placeholder = 'Например, «Будни»', attrs = {maxlength: 100}) }}
+    <fieldset class="flex flex-col gap-3">
+        <legend class="label">Слоты</legend>
+        <p class="hint !mt-0">В каждой строке напишите время через запятую: 10:00, 15:00. Если в какой-то день постов быть не должно, оставьте строку пустой.</p>
+        {% set old_slots = old('slots', times) %}
+        <div class="grid gap-3 sm:grid-cols-2">
+            {% for number, name in days %}
+            {{ f.input('slots[' ~ number ~ ']', name, value = old_slots[number] ?? '', placeholder = '10:00, 15:00', id = 'slot-' ~ number, attrs = {maxlength: 200}) }}
+            {% endfor %}
+        </div>
+    </fieldset>
+    <fieldset class="flex flex-col gap-3">
+        <legend class="label">В какие каналы выходят посты очереди<span class="text-bad-fg" aria-hidden="true"> *</span></legend>
+        {% set chosen = old('channels', selected) %}
+        {% if channels is empty %}<p class="text-sm text-muted">Сначала подключите канал в разделе «Каналы».</p>{% endif %}
+        {% for ch in channels %}
+        {{ f.checkbox('channels[]', ch.name, checked = ch.id in chosen, value = ch.id, hint = ch.platform_label, id = 'queue-ch-' ~ ch.id) }}
+        {% endfor %}
+    </fieldset>
+    <div class="flex flex-wrap items-center gap-3 border-t border-line pt-5">
+        {{ f.button(queue ? 'Сохранить очередь' : 'Создать очередь', type = 'submit', icon = 'save') }}
+        {{ f.button('Отмена', variant = 'ghost', href = base ~ '/queues' ~ (queue ? '/' ~ queue.publicId : '')) }}
+    </div>
+</form>
+{% endblock %}

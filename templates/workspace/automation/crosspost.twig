@@ -1,0 +1,42 @@
+{#- Cross-posting rules. Variables: rules, sources, can_manage, has_feature, limit, plan, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+
+{% set nav_current = 'automation' %}
+{% block title %}Кросспостинг · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Автоматизация', href: base ~ '/automation'}, {label: 'Кросспостинг'}]) }}
+{% set head %}{% if can_manage and sources %}{{ f.button('Новое правило', href = base ~ '/crosspost/new', icon = 'plus') }}{% endif %}{% endset %}
+<div class="mt-3">{{ d.page_header('Кросспостинг из Telegram', 'Пост в вашем Telegram-канале сам уходит в другие каналы: в черновики на проверку или сразу в публикацию.', body = head) }}</div>
+{% if not has_feature %}<div class="mb-5">{{ d.alert('info', 'Кросспостинг есть на тарифах «Старт» и выше', 'Посмотрите тарифы: на «Старте» одно правило, на старших без ограничений.') }}</div>
+{% elseif limit is not null %}<p class="mb-5 text-sm text-muted">На тарифе «{{ plan }}» можно включить правил: {{ limit }}.</p>{% endif %}
+{% if rules is empty %}
+<div class="card">
+    {% if sources is empty %}{{ d.empty_state('Нужен Telegram-канал', 'Кросспостинг берёт посты из Telegram-канала, который подключён через бота сервиса. Подключите такой канал в разделе «Каналы».', 'share-2', 'Подключить канал', base ~ '/channels/connect/telegram') }}
+    {% else %}{{ d.empty_state('Правил пока нет', 'Создайте правило: откуда брать посты, куда переносить и что менять в тексте.', 'share-2', can_manage ? 'Создать правило' : null, can_manage ? base ~ '/crosspost/new' : null) }}{% endif %}
+</div>
+{% else %}
+<ul class="grid gap-4">
+    {% for r in rules %}
+    <li class="card flex flex-wrap items-start gap-x-4 gap-y-3">
+        <div class="min-w-0 flex-1 basis-64">
+            <p class="flex flex-wrap items-center gap-2 font-semibold"><span class="break-words">{{ r.name }}</span>{{ d.badge(r.enabled ? 'Включено' : 'Выключено', r.enabled ? 'ok' : 'neutral') }}</p>
+            <p class="text-sm text-muted">Из «{{ r.source }}» в {{ r.targets|map(t => '«' ~ t ~ '»')|join(', ') ?: 'каналы отключены' }} · {{ r.mode }}{% if r.delay %}, задержка {{ r.delay }}{% endif %}</p>
+            <p class="text-sm text-muted">Перенесено постов: {{ r.created }}{% if r.last_run %} · последний раз {{ r.last_run }}{% endif %}</p>
+            {% if r.last_note %}<p class="mt-1 text-sm text-muted">{{ r.last_note }}</p>{% endif %}
+        </div>
+        {% if can_manage %}
+        <div class="flex flex-wrap items-center gap-2">
+            <form method="post" action="{{ base }}/crosspost/{{ r.id }}/{{ r.enabled ? 'disable' : 'enable' }}">{{ csrf_field() }}{{ f.button(r.enabled ? 'Выключить' : 'Включить', variant = 'secondary', size = 'sm', type = 'submit', icon = r.enabled ? 'pause' : 'play') }}</form>
+            {{ f.button('Изменить', variant = 'secondary', size = 'sm', href = base ~ '/crosspost/' ~ r.id ~ '/edit', icon = 'pencil') }}
+            {{ f.button('Удалить', variant = 'ghost', size = 'sm', icon = 'trash-2', attrs = {'data-dialog-open': 'del-cp-' ~ r.id}) }}
+            {{ o.confirm_dialog('del-cp-' ~ r.id, 'Удалить правило?', r.name, 'Посты, которые оно уже перенесло, останутся.', base ~ '/crosspost/' ~ r.id ~ '/delete') }}
+        </div>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

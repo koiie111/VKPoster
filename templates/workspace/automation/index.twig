@@ -1,0 +1,26 @@
+{#- The automation hub. Variables: cards (title, text, icon, href, count, locked), base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+
+{% set nav_current = 'automation' %}
+{% block title %}Автоматизация · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Автоматизация', 'Всё, что публикует за вас: повторы, перенос постов из Telegram, ленты сайтов, загрузка из таблицы и очереди со слотами.') }}
+<ul class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    {% for card in cards %}
+    <li class="card flex flex-col gap-3">
+        <div class="flex items-start gap-3">
+            <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ctl bg-primary-soft text-primary-softfg" aria-hidden="true">{{ icon(card.icon, 'h-5 w-5') }}</span>
+            <div class="min-w-0">
+                <h2 class="font-semibold"><a class="hover:underline focus-visible:underline" href="{{ card.href }}">{{ card.title }}</a></h2>
+                <p class="mt-1 text-sm text-muted">{{ card.text }}</p>
+            </div>
+        </div>
+        <p class="mt-auto flex flex-wrap items-center gap-2 text-sm">
+            {% if card.count is not null %}{{ d.badge(card.count == 0 ? 'Пока нет' : 'Настроено: ' ~ card.count, card.count == 0 ? 'neutral' : 'primary') }}{% endif %}
+            {% if card.locked %}{{ d.badge('Нужен другой тариф', 'warn', icon = 'lock') }}{% endif %}
+        </p>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}

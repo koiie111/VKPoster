@@ -13,8 +13,9 @@
 {% set actions %}
     {% if editable %}{{ f.button('Изменить', href = base ~ '/posts/' ~ post.publicId ~ '/edit', icon = 'pencil') }}{% endif %}
     {% if can_duplicate %}<form method="post" action="{{ base }}/posts/{{ post.publicId }}/duplicate">{{ csrf_field() }}{{ f.button('Дублировать', variant = 'secondary', type = 'submit', icon = 'copy') }}</form>{% endif %}
-    {% if can_cancel or can_delete or can_edit_published %}
+    {% if can_cancel or can_delete or can_edit_published or can_plan %}
         {% set menu %}
+            {% if can_plan %}{{ o.menu_item('Повторять этот пост', href = base ~ '/recurring?post=' ~ post.publicId, icon = 'repeat') }}{% endif %}
             {% if can_edit_published %}{{ o.menu_item('Изменить текст', icon = 'pencil', attrs = {'data-dialog-open': 'edit-published'}) }}{% endif %}
             {% if can_cancel %}{{ o.menu_item('Отменить публикацию', icon = 'circle-x', attrs = {'data-dialog-open': 'cancel-post'}) }}{% endif %}
             {% if can_delete %}{{ o.menu_item('Удалить пост', icon = 'trash-2', danger = true, attrs = {'data-dialog-open': 'delete-post'}) }}{% endif %}
@@ -95,6 +96,25 @@
                 {% endfor %}
             </ul>
         </section>
+
+        {% if in_queue %}
+        <section class="card" aria-labelledby="queue-title">
+            <h2 class="mb-1 text-lg font-semibold" id="queue-title">Очередь</h2>
+            <p class="text-sm text-muted">Пост стоит в очереди «<a class="font-medium text-primary-text underline underline-offset-2" href="{{ base }}/queues/{{ in_queue.id }}">{{ in_queue.name }}</a>»: время его выхода подбирается по слотам.</p>
+        </section>
+        {% elseif queue_choices %}
+        <section class="card" aria-labelledby="queue-title">
+            <h2 class="mb-1 text-lg font-semibold" id="queue-title">Очередь</h2>
+            <p class="mb-3 text-sm text-muted">Поставьте пост в очередь, и он выйдет в ближайший свободный слот.</p>
+            <form method="post" action="{{ base }}/posts/{{ post.publicId }}/queue" class="flex flex-wrap items-end gap-3">
+                {{ csrf_field() }}
+                <div class="min-w-0 flex-1 basis-48">{{ f.select('queue', 'Очередь', queue_choices|reduce((c, q) => c|merge({(q.id): q.name}), {}), id = 'queue-for-post') }}</div>
+                {{ f.button('Поставить в очередь', type = 'submit', variant = 'secondary', icon = 'clock') }}
+            </form>
+        </section>
+        {% endif %}
+
+        {% if triggers.can_manage or triggers.rows %}{% set panel = triggers %}{% include 'workspace/automation/_triggers.twig' %}{% endif %}
     </div>
 
     <aside class="flex flex-col gap-6" aria-label="Сведения о посте">

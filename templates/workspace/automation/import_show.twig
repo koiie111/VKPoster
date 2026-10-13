@@ -1,0 +1,48 @@
+{#- One checked file. Variables: batch, rows, more, ok, bad, timezone, schedule, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+
+{% set nav_current = 'automation' %}
+{% block title %}{{ batch.filename }} · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Автоматизация', href: base ~ '/automation'}, {label: 'Загрузка из файла', href: base ~ '/import'}, {label: batch.filename}]) }}
+<div class="mt-3">{{ d.page_header(batch.filename, schedule ? 'Посты будут запланированы по датам из таблицы (' ~ timezone ~ ').' : 'Посты будут сохранены в черновики.') }}</div>
+
+{% if batch.status == 'preview' %}
+    <div class="mb-5">
+        {% if ok == 0 %}{{ d.alert('error', 'Импортировать нечего', 'Ни одна строка не прошла проверку. Исправьте таблицу по подсказкам ниже и загрузите её снова.')
+        }}{% elseif bad > 0 %}{{ d.alert('warning', 'В части строк есть ошибки', 'Без ошибок: ' ~ ok ~ ' из ' ~ (ok + bad) ~ '. Если продолжить, импортируются только они, остальные пропустим.') }}
+        {% else %}{{ d.alert('success', 'Всё в порядке', 'Все строки (' ~ ok ~ ') готовы к импорту.') }}{% endif %}
+    </div>
+    <div class="mb-5 flex flex-wrap items-center gap-3">
+        {% if ok > 0 %}<form method="post" action="{{ base }}/import/{{ batch.publicId }}/confirm">{{ csrf_field() }}{{ f.button('Импортировать ' ~ ok ~ (ok == 1 ? ' пост' : ' постов'), type = 'submit', icon = 'check') }}</form>{% endif %}
+        {% if bad > 0 %}{{ f.button('Скачать список ошибок', variant = 'secondary', href = base ~ '/import/' ~ batch.publicId ~ '/errors.csv', icon = 'download') }}{% endif %}
+        {{ f.button('Загрузить другой файл', variant = 'ghost', href = base ~ '/import') }}
+    </div>
+{% elseif batch.status == 'done' %}
+    <div class="mb-5">{{ d.alert(batch.failed ? 'warning' : 'success', 'Готово: создано постов ' ~ batch.createdCount, batch.failed ? 'Не получилось создать ' ~ batch.failed|length ~ ' из-за ошибок. Подробности — в списке ниже.' : (schedule ? 'Посты стоят в календаре.' : 'Посты лежат в черновиках.')) }}</div>
+    <div class="mb-5 flex flex-wrap items-center gap-3">
+        {{ f.button(schedule ? 'Открыть календарь' : 'Открыть черновики', href = base ~ '/calendar', icon = 'calendar-days') }}
+        {% if batch.failed or bad > 0 %}{{ f.button('Скачать список ошибок', variant = 'secondary', href = base ~ '/import/' ~ batch.publicId ~ '/errors.csv', icon = 'download') }}{% endif %}
+    </div>
+{% else %}
+    <div class="mb-5" aria-live="polite">{{ d.alert('info', 'Идёт импорт', 'Скачиваем файлы по ссылкам и создаём посты. Обновите страницу через минуту.') }}</div>
+    <div class="mb-5">{{ f.button('Обновить', variant = 'secondary', href = base ~ '/import/' ~ batch.publicId, icon = 'refresh-cw') }}</div>
+{% endif %}
+
+{% set body %}
+    {% for r in rows %}
+    <tr>
+        <td class="whitespace-nowrap">{{ r.line }}</td>
+        <td>{% if r.errors %}{{ d.badge('Ошибка', 'bad') }}{% elseif r.failed %}{{ d.badge('Не создан', 'warn') }}{% elseif batch.status == 'done' %}{{ d.badge('Создан', 'ok') }}{% else %}{{ d.badge('Готово', 'ok') }}{% endif %}</td>
+        <td class="whitespace-nowrap">{{ r.when ?? '—' }}</td>
+        <td>{{ r.channels ?: '—' }}</td>
+        <td class="min-w-[12rem] break-words">{{ r.text ?: '—' }}{% if r.media %} <span class="text-muted">· файлов: {{ r.media }}</span>{% endif %}</td>
+        <td class="min-w-[12rem] text-sm">{% for e in r.errors %}<p class="text-bad-fg">{{ e }}</p>{% endfor %}{% if r.failed %}<p class="text-warn-fg">{{ r.failed }}</p>{% endif %}</td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Строка'}, {label: 'Статус'}, {label: 'Когда'}, {label: 'Каналы'}, {label: 'Текст'}, {label: 'Что не так'}], caption = 'Строки файла', body = body) }}
+{% if more %}<p class="mt-3 text-sm text-muted">Показаны первые 200 строк, ещё {{ more }} не показаны. Полный список ошибок можно скачать.</p>{% endif %}
+{% endblock %}

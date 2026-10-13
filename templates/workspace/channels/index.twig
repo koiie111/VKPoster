@@ -51,6 +51,7 @@
             {% endif %}
             <div class="order-2 ml-auto sm:order-3{{ ch.attention ? ' sm:ml-0' : '' }}">
                 {% set m %}
+                    {{ o.menu_item('Правила «если → то»', href = base ~ '/' ~ ch.id ~ '/triggers', icon = 'zap') }}
                     {{ o.menu_item('Переименовать', icon = 'pencil', attrs = {'data-dialog-open': 'rename-' ~ ch.id}) }}
                     {% if not ch.attention %}{{ o.menu_item('Проверить сейчас', icon = 'refresh-cw', type = 'submit', attrs = {'form': 'check-' ~ ch.id}) }}{% endif %}
                     {% if ch.is_paused %}{{ o.menu_item('Возобновить', icon = 'play', type = 'submit', attrs = {'form': 'resume-' ~ ch.id}) }}

@@ -26,6 +26,7 @@ final class PostForm
         public readonly string $intent,
         public readonly string $date,
         public readonly string $time,
+        public readonly string $queue = '',
     ) {
     }
 
@@ -54,9 +55,10 @@ final class PostForm
 
         return new self(
             new PostDraft(trim(self::string($all['text'] ?? null)), self::ids($all['media'] ?? null), self::options($all), $perNetwork, $variants),
-            in_array($intent, ['draft', 'schedule', 'now'], true) ? $intent : 'draft',
+            in_array($intent, ['draft', 'schedule', 'now', 'queue'], true) ? $intent : 'draft',
             self::string($all['publish_date'] ?? null),
             self::string($all['publish_time'] ?? null),
+            self::string($all['queue'] ?? null),
         );
     }
 

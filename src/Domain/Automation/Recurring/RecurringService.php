@@ -77,7 +77,8 @@ final class RecurringService
     public function setEnabled(WorkspaceContext $context, RecurringPost $recurring, bool $enabled): void
     {
         $this->authorize($context);
-        $next = $enabled ? $recurring->rule->next($this->clock->now(), $recurring->doneCount) : null;
+        // A paused rule keeps its next time (it only stops making copies); a rule without a next time is finished.
+        $next = $enabled ? $recurring->rule->next($this->clock->now(), $recurring->doneCount) : $recurring->nextRunAt;
         if ($enabled && $next === null) {
             throw new AutomationException('Повторы по этому правилу закончились. Создайте новое.');
         }

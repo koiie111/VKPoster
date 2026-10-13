@@ -1,0 +1,30 @@
+{#- Queues. Variables: queues (id, name, paused, slots, waiting, next), can_manage, has_feature, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+
+{% set nav_current = 'queues' %}
+{% block title %}Очереди · {{ app_name }}{% endblock %}
+{% block content %}
+{% set head %}{% if can_manage %}{{ f.button('Новая очередь', href = base ~ '/queues/new', icon = 'plus') }}{% endif %}{% endset %}
+{{ d.page_header('Очереди', 'Задайте расписание один раз: посты сами встанут в ближайшее свободное время.', body = head) }}
+{% if not has_feature %}
+<div class="mb-5">{{ d.alert('info', 'Очереди есть на тарифах «Старт» и выше', 'Посмотрите тарифы: на них очереди, повторы и правила «если → то».') }}</div>
+{% endif %}
+{% if queues is empty %}
+<div class="card">{{ d.empty_state('Очередей пока нет', can_manage ? 'Создайте очередь, например «Будни: 10:00 и 15:00». В неё можно ставить посты одной кнопкой.' : 'Очереди создают редакторы и администраторы.', 'clock', can_manage ? 'Создать очередь' : null, can_manage ? base ~ '/queues/new' : null) }}</div>
+{% else %}
+<ul class="grid gap-4">
+    {% for q in queues %}
+    <li class="card flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div class="min-w-0 flex-1 basis-56">
+            <p class="flex flex-wrap items-center gap-2 font-semibold"><a class="break-words hover:underline" href="{{ base }}/queues/{{ q.id }}">{{ q.name }}</a>{% if q.paused %}{{ d.status_badge('paused') }}{% endif %}</p>
+            <p class="text-sm text-muted">{{ q.slots }}</p>
+            <p class="text-sm text-muted">Ждут своей очереди: {{ q.waiting }}{% if q.next and not q.paused %} · ближайший слот: {{ q.next }}{% endif %}</p>
+        </div>
+        {{ f.button('Открыть', variant = 'secondary', size = 'sm', href = base ~ '/queues/' ~ q.id) }}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

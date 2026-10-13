@@ -51,6 +51,9 @@ final class PostController
         private readonly PlatformRegistry $registry,
         private readonly Permissions $permissions,
         private readonly Clock $clock,
+        private readonly \App\Domain\Automation\Queue\QueueService $queueService,
+        private readonly \App\Domain\Automation\Queue\QueueRepository $queues,
+        private readonly \App\Http\Controllers\Automation\TriggerPanel $triggerPanel,
     ) {
     }
 
@@ -126,6 +129,13 @@ final class PostController
                 $this->flash->toast('Пост запланирован на ' . $when . ' (' . ScheduleTime::label($context->timezone, $this->clock->now()) . ').');
 
                 return Response::redirect($base . '/calendar?date=' . ($post->scheduledAt?->setTimezone($zone)->format('Y-m-d') ?? ''));
+            case 'queue':
+                $queue = $this->queues->find($context, $form->queue);
+                $placed = $this->posts->findById($context, $post->id) ?? $post;
+                $time = $placed->scheduledAt === null ? '' : ' Выйдет ' . RuDates::full($placed->scheduledAt->setTimezone($zone)) . '.';
+                $this->flash->toast('Пост стоит в очереди «' . ($queue?->name ?? '') . '».' . $time);
+
+                return Response::redirect($base . '/queues/' . ($queue?->publicId ?? ''));
             case 'now':
                 $this->flash->toast('Пост отправлен на публикацию. Через минуту он появится в каналах.');
 
@@ -147,6 +157,15 @@ final class PostController
         }
         if ($form->intent === 'now') {
             return $this->service->schedule($context, $existing, $form->draft, $this->clock->now(), true);
+        }
+        if ($form->intent === 'queue') {
+            $queue = $this->queues->find($context, $form->queue) ?? throw new PostException('Выберите очередь.');
+            $post = $this->service->saveDraft($context, $existing, $form->draft);
+            try {
+                return $this->queueService->enqueue($context, $post, $queue);
+            } catch (\App\Domain\Automation\AutomationException $e) {
+                throw new PostException($e->getMessage(), [], $e->forbidden, false, $e->planLimit);
+            }
         }
 
         return $this->service->schedule($context, $existing, $form->draft, ScheduleTime::parse($form->date, $form->time, $context->timezone, $this->clock->now()));
@@ -274,8 +293,24 @@ final class PostController
             'can_delete' => $this->service->canEdit($context, $post) && $sent === 0 && $post->status !== PostStatus::Publishing,
             'can_edit_published' => $canPlan && $editableText,
             'media_count' => count($post->mediaIds),
+            'queue_choices' => $canPlan && in_array($post->status, [PostStatus::Draft, PostStatus::Scheduled], true) && $this->queues->entryOfPost($context, $post->id) === null ? array_map(static fn (\App\Domain\Automation\Queue\PostQueue $q): array => ['id' => $q->publicId, 'name' => $q->name], $this->queues->all($context)) : [],
+            'in_queue' => $this->queueOf($context, $post),
+            'triggers' => $this->triggerPanel->forPost($context, $post),
             'base' => '/w/' . $context->workspacePublicId,
         ]);
+    }
+
+    /**
+     * The queue the post waits in, for the post's page.
+     *
+     * @return array{id: string, name: string}|null
+     */
+    private function queueOf(WorkspaceContext $context, Post $post): ?array
+    {
+        $entry = $this->queues->entryOfPost($context, $post->id);
+        $queue = $entry === null ? null : $this->queues->findById($context, $entry->queueId);
+
+        return $queue === null ? null : ['id' => $queue->publicId, 'name' => $queue->name];
     }
 
     /**
@@ -531,6 +566,7 @@ final class PostController
             'errors' => $errors,
             'can_publish' => $this->permissions->allows($context->role, 'posts.publish'),
             'can_template' => $this->permissions->allows($context->role, 'posts.draft'),
+            'queues' => array_map(static fn (\App\Domain\Automation\Queue\PostQueue $q): array => ['id' => $q->publicId, 'name' => $q->name], $this->permissions->allows($context->role, 'posts.publish') ? $this->queues->all($context) : []),
             'templates' => array_map(static fn (array $t): array => ['id' => $t['id'], 'name' => $t['name']], array_slice($this->templates->all($context), 0, 30)),
             'action' => '/w/' . $context->workspacePublicId . '/posts' . ($post === null ? '' : '/' . $post->publicId),
             'autosave' => $post === null || $post->status === PostStatus::Draft,

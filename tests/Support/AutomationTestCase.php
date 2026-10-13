@@ -34,6 +34,14 @@ abstract class AutomationTestCase extends PostTestCase
         $this->channel = $this->fakeChannel($this->workspace, $this->owner);
     }
 
+    protected function tearDown(): void
+    {
+        // PHPUnit keeps every test object until the whole run ends; letting go of the application (a container with all services)
+        // keeps the memory of a full run, with its 2000+ tests, below the 256 MB of the PHP image.
+        parent::tearDown();
+        unset($this->app, $this->db, $this->context, $this->channel, $this->workspace, $this->owner, $this->http, $this->fake, $this->mailer, $this->clock);
+    }
+
     protected function queues(): QueueService
     {
         return $this->app->container()->get(QueueService::class);
