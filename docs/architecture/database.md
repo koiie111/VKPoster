@@ -329,6 +329,20 @@ erDiagram
 
 Команды: `make migrate`, `make console CMD="migrate:status"`, `migrate:rollback` (последний batch), `migrate:fresh` (удаляет все таблицы; в production отключена), `seed` (dev-данные из `database/seeds/`; в production отключена).
 
+### Автоматизация (этап 13)
+
+Миграция `2026_10_14_000034`, обратимая. Все таблицы принадлежат пространству и удаляются вместе с ним (кроме `crosspost_buffer`, у которого нет внешних ключей: это общая очередь входящих постов каналов, хранится 2 суток). Подробности: [modules/automation.md](modules/automation.md).
+
+| Таблица | Назначение |
+|---|---|
+| `queues`, `queue_slots`, `queue_channels`, `queue_entries` | Очереди со слотами (день недели × время), их каналы и ждущие посты |
+| `evergreen_pools`, `evergreen_posts` | Вечнозелёные пулы и посты в них |
+| `recurring_rules`, `recurring_runs` | Правила повтора и сделанные вхождения |
+| `triggers` | Правила «если → то» |
+| `crosspost_rules`, `crosspost_targets`, `crosspost_buffer`, `crosspost_items` | Кросспостинг из Telegram, буфер входящих постов, соответствие «сообщение → пост» |
+| `rss_feeds`, `rss_feed_channels`, `rss_items` | Ленты RSS и учтённые записи |
+| `import_batches` | Проверенные файлы импорта |
+
 ### Админка (этап 20)
 
 Миграции `2026_10_05_000016`–`000020`; все обратимы.

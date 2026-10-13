@@ -46,6 +46,7 @@ final class AutomationHttp
         if ($e->planLimit) {
             $this->flash->planLimit($e->getMessage(), $context->workspacePublicId);
         } elseif ($input !== []) {
+            unset($input['_token']); // the CSRF token is not a value to keep for the next form
             $this->flash->invalid($input, ['form' => $e->getMessage()]);
         } else {
             $this->flash->toast($e->getMessage(), 'error');

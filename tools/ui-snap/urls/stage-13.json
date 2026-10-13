@@ -1,0 +1,96 @@
+[
+ {
+  "name": "hub",
+  "url": "/w/{ws}/automation",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "queues",
+  "url": "/w/{ws}/queues",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "queues-empty",
+  "url": "/w/{ws}/queues",
+  "login_as": "social@ezposter.local"
+ },
+ {
+  "name": "queue-new",
+  "url": "/w/{ws}/queues/new",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "queue",
+  "url": "/w/{ws}/queues",
+  "login_as": "demo@ezposter.local",
+  "actions": [
+   {
+    "click": "a:has-text('Будни')"
+   }
+  ]
+ },
+ {
+  "name": "queue-edit",
+  "url": "/w/{ws}/queues",
+  "login_as": "demo@ezposter.local",
+  "actions": [
+   {
+    "click": "a:has-text('Будни')"
+   },
+   {
+    "click": "a:has-text('Настроить')"
+   }
+  ]
+ },
+ {
+  "name": "recurring",
+  "url": "/w/{ws}/recurring",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "recurring-empty",
+  "url": "/w/{ws}/recurring",
+  "login_as": "social@ezposter.local"
+ },
+ {
+  "name": "crosspost",
+  "url": "/w/{ws}/crosspost",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "crosspost-new",
+  "url": "/w/{ws}/crosspost/new",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "crosspost-empty",
+  "url": "/w/{ws}/crosspost",
+  "login_as": "social@ezposter.local"
+ },
+ {
+  "name": "rss",
+  "url": "/w/{ws}/rss",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "rss-new",
+  "url": "/w/{ws}/rss/new",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "import",
+  "url": "/w/{ws}/import",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "post-with-rules",
+  "url": "/w/{ws}/posts/{post}",
+  "login_as": "demo@ezposter.local",
+  "post_text": "Новое меню"
+ },
+ {
+  "name": "editor-queue",
+  "url": "/w/{ws}/posts/new",
+  "login_as": "demo@ezposter.local"
+ }
+]
