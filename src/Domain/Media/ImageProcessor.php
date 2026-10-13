@@ -325,7 +325,7 @@ final class ImageProcessor
     }
 
     /**
-     * Keep a hostile image from eating the server: cap memory, mapped files, pixel area, disk and time.
+     * Keep a hostile image from eating the server: cap memory, mapped files, pixel area and disk.
      */
     private function limit(): void
     {
@@ -333,6 +333,9 @@ final class ImageProcessor
         Imagick::setResourceLimit(Imagick::RESOURCETYPE_MAP, 512 * 1024 * 1024);
         Imagick::setResourceLimit(Imagick::RESOURCETYPE_AREA, $this->limits->maxSide * $this->limits->maxSide + 1_000_000);
         Imagick::setResourceLimit(Imagick::RESOURCETYPE_DISK, 2 * 1024 * 1024 * 1024);
-        Imagick::setResourceLimit(Imagick::RESOURCETYPE_TIME, 60);
+        // ImageMagick counts this limit from the process's first image operation, not per operation, and ends the whole process with a
+        // fatal error when it runs out. A small value therefore kills queue workers and long test runs (`Operation canceled` in
+        // GetImagePixelCache). Time per image is already bounded by the size, pixel and memory caps above.
+        Imagick::setResourceLimit(Imagick::RESOURCETYPE_TIME, 31_536_000);
     }
 }
