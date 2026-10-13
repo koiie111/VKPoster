@@ -61,7 +61,7 @@ final class DemoData
         }
         $in = implode(',', array_map('intval', $ids));
         // Rows that have no foreign key to the people: the money journal entries of their payments, audit rows, events, activity.
-        $this->db->execute("DELETE e FROM ledger_entries e JOIN payments p ON p.public_id = e.ref_id JOIN workspaces w ON w.id = p.workspace_id WHERE w.owner_id IN ($in)");
+        $this->db->execute("DELETE e FROM ledger_entries e JOIN payments p ON (p.public_id = e.ref_id OR CONCAT('refund-', p.public_id) = e.ref_id) JOIN workspaces w ON w.id = p.workspace_id WHERE w.owner_id IN ($in)");
         $this->db->execute("DELETE FROM audit_log WHERE workspace_id IN (SELECT id FROM workspaces WHERE owner_id IN ($in)) AND action LIKE 'billing.%'");
         $this->db->execute("DELETE FROM support_tickets WHERE email LIKE '%@" . self::DOMAIN . "'");
         $this->db->execute("DELETE FROM user_activity_days WHERE user_id IN ($in)");
