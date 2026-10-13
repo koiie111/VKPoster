@@ -68,6 +68,14 @@ final class TelegramText
     }
 
     /**
+     * Plain text for a place inside the editor's markup: characters that mean something there are escaped.
+     */
+    public static function escape(string $text): string
+    {
+        return preg_replace('/([\\\\*_~\[\]()])/', '\\\\$1', $text) ?? $text;
+    }
+
+    /**
      * @return array{string, string}|null
      */
     private static function linkMarkers(string $url): ?array

@@ -306,6 +306,83 @@ final class PostService
         $this->audit->record('post.deleted', $context->userId, 'post', $post->publicId, ['title' => $post->title(60)], $context->workspaceId);
     }
 
+    /**
+     * The editor's draft of a stored post (text, files, options and the channels still connected), for planning it as it is.
+     */
+    public function draftOf(WorkspaceContext $context, Post $post): PostDraft
+    {
+        $variants = [];
+        foreach ($this->posts->variants($context, $post) as $variant) {
+            $channel = $variant->channelId === null ? null : $this->channelById($context, $variant->channelId);
+            if ($channel !== null) {
+                $variants[] = new VariantInput($channel->publicId, $variant->text, $variant->mediaIds, $variant->options);
+            }
+        }
+
+        return new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants);
+    }
+
+    /**
+     * Plan a stored post for `$at` as it is: a draft becomes scheduled, a scheduled one is moved. Used by rules that place posts
+     * (queues, recurring posts), which keep the post's own content.
+     *
+     * @throws PostException
+     */
+    public function planExisting(WorkspaceContext $context, Post $post, DateTimeImmutable $at, bool $now = false): Post
+    {
+        if ($post->status === PostStatus::Scheduled && !$now) {
+            return $this->reschedule($context, $post, $at);
+        }
+
+        return $this->schedule($context, $post, $this->draftOf($context, $post), $at, $now);
+    }
+
+    /**
+     * Take a planned post back to drafts with its content untouched (a paused queue lets go of its posts this way).
+     *
+     * @throws PostException
+     */
+    public function unschedule(WorkspaceContext $context, Post $post): Post
+    {
+        $this->requirePermission($context, 'posts.publish');
+        $this->assertEditable($context, $post);
+        if ($post->status !== PostStatus::Scheduled) {
+            return $post;
+        }
+        $this->db->transaction(function () use ($context, $post): void {
+            $this->posts->lock($context, $post);
+            $this->withdrawPlan($context, $post);
+            $this->posts->setSchedule($context, $post, PostStatus::Draft, null, $context->timezone);
+        });
+        $this->audit->record('post.unscheduled', $context->userId, 'post', $post->publicId, ['title' => $post->title(60)], $context->workspaceId);
+
+        return $this->posts->find($context, $post->publicId) ?? $post;
+    }
+
+    /**
+     * Follow a change of the source text: a post that has not gone out gets the new text (its plan stays), a published one is edited
+     * in the networks that allow it. Returns false when nothing could be changed.
+     *
+     * @throws PostException
+     */
+    public function syncText(WorkspaceContext $context, Post $post, string $text): bool
+    {
+        $text = trim($text);
+        if ($text === '' || mb_strlen($text) > self::MAX_TEXT || !$this->canSee($context, $post)) {
+            return false;
+        }
+        if (in_array($post->status, [PostStatus::Published, PostStatus::PartiallyFailed], true)) {
+            return array_filter($this->editPublished($context, $post, $text), static fn (array $r): bool => $r['ok']) !== [];
+        }
+        if (!$post->status->isEditablePlan()) {
+            return false;
+        }
+        $this->posts->updateContent($context, $post, $text, $post->mediaIds, $post->options, $post->perNetwork);
+        $this->audit->record('post.text_synced', $context->userId, 'post', $post->publicId, ['title' => $post->title(60)], $context->workspaceId);
+
+        return true;
+    }
+
     // ---- publications ---------------------------------------------------------------------------------------------
 
     /**

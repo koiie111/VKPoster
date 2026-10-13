@@ -31,6 +31,13 @@ final class PostRepository extends WorkspaceScopedRepository
         return $row === null ? null : self::hydrate($row);
     }
 
+    public function findById(WorkspaceContext $context, int $id): ?Post
+    {
+        $row = $this->scoped($context, 'posts')->where('id', '=', $id)->first();
+
+        return $row === null ? null : self::hydrate($row);
+    }
+
     /**
      * @param list<string> $mediaIds
      */

@@ -33,7 +33,7 @@ return new class () implements Migration {
         )' . self::TAIL);
         $db->execute("CREATE TABLE queue_entries (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, queue_id BIGINT UNSIGNED NOT NULL, post_id BIGINT UNSIGNED NOT NULL,
-            position INT NOT NULL, source VARCHAR(16) NOT NULL DEFAULT 'manual', created_at DATETIME(6) NOT NULL,
+            position INT NOT NULL, source VARCHAR(48) NOT NULL DEFAULT 'manual', note VARCHAR(255) NULL, created_at DATETIME(6) NOT NULL,
             UNIQUE KEY uq_queue_entry_post (post_id), KEY idx_queue_entries_order (queue_id, position),
             FOREIGN KEY (queue_id) REFERENCES queues(id) ON DELETE CASCADE,
             FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
@@ -61,7 +61,7 @@ return new class () implements Migration {
             frequency VARCHAR(16) NOT NULL, interval_days INT UNSIGNED NOT NULL DEFAULT 1, weekdays VARCHAR(16) NOT NULL DEFAULT '',
             month_day TINYINT UNSIGNED NULL, at_time CHAR(5) NOT NULL, timezone VARCHAR(64) NOT NULL,
             starts_on DATE NOT NULL, ends_on DATE NULL, max_count INT UNSIGNED NULL, done_count INT UNSIGNED NOT NULL DEFAULT 0,
-            next_run_at DATETIME(6) NULL, enabled TINYINT(1) NOT NULL DEFAULT 1,
+            next_run_at DATETIME(6) NULL, enabled TINYINT(1) NOT NULL DEFAULT 1, last_error VARCHAR(255) NULL,
             created_by BIGINT UNSIGNED NULL, created_at DATETIME(6) NOT NULL, updated_at DATETIME(6) NOT NULL,
             UNIQUE KEY uq_recurring_public (public_id), KEY idx_recurring_due (enabled, next_run_at), KEY idx_recurring_workspace (workspace_id),
             FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -77,7 +77,7 @@ return new class () implements Migration {
 
         $db->execute("CREATE TABLE triggers (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, public_id CHAR(26) NOT NULL,
-            workspace_id BIGINT UNSIGNED NOT NULL, post_id BIGINT UNSIGNED NULL, channel_id BIGINT UNSIGNED NULL,
+            workspace_id BIGINT UNSIGNED NOT NULL, post_id BIGINT UNSIGNED NULL, channel_id BIGINT UNSIGNED NULL, event_post_id BIGINT UNSIGNED NULL,
             event VARCHAR(16) NOT NULL, delay_minutes INT UNSIGNED NOT NULL DEFAULT 0, fire_at DATETIME(6) NULL,
             action VARCHAR(24) NOT NULL, params_json JSON NOT NULL, status VARCHAR(12) NOT NULL DEFAULT 'pending',
             fired_at DATETIME(6) NULL, result VARCHAR(255) NULL, created_by BIGINT UNSIGNED NULL, created_at DATETIME(6) NOT NULL,
@@ -93,6 +93,7 @@ return new class () implements Migration {
             workspace_id BIGINT UNSIGNED NOT NULL, source_channel_id BIGINT UNSIGNED NOT NULL, name VARCHAR(100) NOT NULL,
             enabled TINYINT(1) NOT NULL DEFAULT 1, filters_json JSON NOT NULL, transforms_json JSON NOT NULL,
             delay_minutes INT UNSIGNED NOT NULL DEFAULT 0, mode VARCHAR(12) NOT NULL DEFAULT 'draft', sync_edits TINYINT(1) NOT NULL DEFAULT 0,
+            last_run_at DATETIME(6) NULL, last_note VARCHAR(255) NULL, posts_created INT UNSIGNED NOT NULL DEFAULT 0,
             created_by BIGINT UNSIGNED NULL, created_at DATETIME(6) NOT NULL, updated_at DATETIME(6) NOT NULL,
             UNIQUE KEY uq_crosspost_public (public_id), KEY idx_crosspost_source (source_channel_id, enabled), KEY idx_crosspost_workspace (workspace_id),
             FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,

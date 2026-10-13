@@ -26,12 +26,13 @@ use Throwable;
  *   administrator allowed to post; the person who wrote the message must be an administrator too (in a channel only
  *   administrators can write at all, in a group it is checked with `getChatMember`). The message with the code is deleted.
  * - the bot's membership changed (removed, rights taken away or returned): connected channels are re-checked at once.
+ * - a post in a channel (new or edited) is handed to the cross-posting rules.
  *
  * Never throws for bad input: whatever arrives is untrusted, and Telegram would only resend the update.
  */
 final class TelegramUpdateHandler
 {
-    public const UPDATE_TYPES = ['message', 'channel_post', 'my_chat_member'];
+    public const UPDATE_TYPES = ['message', 'channel_post', 'edited_channel_post', 'my_chat_member'];
 
     public function __construct(
         private readonly Config $config,
@@ -49,6 +50,7 @@ final class TelegramUpdateHandler
         private readonly TelegramLinks $links,
         private readonly \App\Domain\Support\Tickets $tickets,
         private readonly \App\Domain\User\UserRepository $users,
+        private readonly \App\Domain\Automation\Crosspost\CrosspostProcessor $crosspost,
     ) {
     }
 
@@ -63,6 +65,10 @@ final class TelegramUpdateHandler
         }
         try {
             $client = $this->clients->make($token);
+            // A post in a channel may also feed a cross-posting rule (the processor only looks at channels that have one).
+            if (is_array($update['channel_post'] ?? null) || is_array($update['edited_channel_post'] ?? null)) {
+                $this->crosspost->ingest($update);
+            }
             if (is_array($update['my_chat_member'] ?? null)) {
                 $this->membershipChanged($update['my_chat_member']);
 

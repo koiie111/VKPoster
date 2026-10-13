@@ -17,6 +17,26 @@ final class PublishingContexts
     {
     }
 
+    /**
+     * The context for work that belongs to no post yet (rules that create posts): the given member when they are still in the
+     * workspace, otherwise the owner.
+     */
+    public function forWorkspace(int $workspaceId, ?int $preferredUserId = null): ?WorkspaceContext
+    {
+        $workspace = $this->workspaces->findById($workspaceId);
+        if ($workspace === null) {
+            return null;
+        }
+        foreach ([$preferredUserId, $workspace->ownerId] as $userId) {
+            $membership = $userId === null ? null : $this->workspaces->membership($workspace->id, $userId);
+            if ($membership !== null) {
+                return WorkspaceContext::from($workspace, $membership);
+            }
+        }
+
+        return null;
+    }
+
     public function forPost(Post $post): ?WorkspaceContext
     {
         $workspace = $this->workspaces->findById($post->workspaceId);

@@ -71,6 +71,7 @@ final class Publisher
         private readonly Config $config,
         private readonly LoggerInterface $logger,
         private readonly \App\Domain\Content\Publishing\ContentOriginGuard $origin,
+        private readonly \App\Domain\Automation\Trigger\TriggerEngine $triggers,
     ) {
     }
 
@@ -266,6 +267,7 @@ final class Publisher
         if ($workspace !== null) {
             $this->notifier->published($post, $variant, $workspace->publicId, $url);
         }
+        $this->triggers->onPublished($post, $variant);
         // The metric of the product promise "published within 60 seconds": how late the post was, from the planned moment.
         $this->logger->info('publish.latency', [
             'publication' => $publication->publicId,
@@ -357,6 +359,9 @@ final class Publisher
         $workspace = $this->workspaces->findById($post->workspaceId);
         if ($workspace !== null) {
             $this->notifier->publicationFailed($post, $variant, $workspace->publicId, $reason, $uncertain);
+        }
+        if (!$uncertain) {
+            $this->triggers->onFailed($post, $variant);
         }
     }
 
