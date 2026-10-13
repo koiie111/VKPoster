@@ -12,7 +12,11 @@ use App\Kernel\Env;
  * assigned to that person (`member_channel_access`).
  * Which members a role may manage is a separate, hierarchical rule (`MemberPolicy`).
  */
-return static fn (Env $env): array => [
+return static function (Env $env): array {
+    // Sources and the trend radar are switched off as a whole (SOURCES_ENABLED, off by default): nobody holds their permissions.
+    $sources = $env->bool('SOURCES_ENABLED', false) ? ['owner', 'admin'] : [];
+
+    return [
     // Money and the existence of the workspace.
     'workspace.billing' => ['owner'],
     'workspace.delete' => ['owner'],
@@ -23,10 +27,10 @@ return static fn (Env $env): array => [
     'members.manage' => ['owner', 'admin'],
     'channels.manage' => ['owner', 'admin'],
     // Source configuration has no per-source access lists in the initial skeleton.
-    'discovery.view' => ['owner', 'admin'],
-    'discovery.manage' => ['owner', 'admin'],
-    'sources.view' => ['owner', 'admin'],
-    'sources.manage' => ['owner', 'admin'],
+    'discovery.view' => $sources,
+    'discovery.manage' => $sources,
+    'sources.view' => $sources,
+    'sources.manage' => $sources,
     // The channel list (a restricted member sees only the channels assigned to them); clients work through the calendar only.
     'channels.view' => ['owner', 'admin', 'editor', 'author', 'viewer'],
     'audit.view' => ['owner', 'admin'],
@@ -44,3 +48,4 @@ return static fn (Env $env): array => [
     'calendar.view' => ['owner', 'admin', 'editor', 'author', 'viewer', 'client'],
     'analytics.view' => ['owner', 'admin', 'editor', 'author', 'viewer', 'client'],
 ];
+};

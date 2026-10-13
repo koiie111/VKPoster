@@ -2,7 +2,7 @@
 
 Обновлено: 2026-10-06. Основа: актуальный main stage 20 (`6219ebcc`); feature-ветка `stage-13-sources-skeleton`.
 
-Этот документ относится к новой функции Sources. Он не меняет статусы исходных stages VKPoster в [PROGRESS.md](PROGRESS.md). Source — источник контента; Channel — место публикации. Архитектура и контракт: [Sources](../architecture/modules/sources.md), [MTProto spike ADR](../adr/0006-isolated-telegram-reader-spike.md), [reader README](../../tools/telegram-reader/README.md).
+Этот документ относится к новой функции Sources. Он не меняет статусы исходных stages VKPoster в [PROGRESS.md](PROGRESS.md). Source — источник контента; Channel — место публикации. Архитектура и контракт: [Sources](../architecture/modules/sources.md), [MTProto spike ADR](../adr/0011-isolated-telegram-reader.md), [reader README](../../tools/telegram-reader/README.md).
 
 ## Этап 1 из 3 — Telegram technical foundation
 

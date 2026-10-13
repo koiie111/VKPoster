@@ -58,6 +58,8 @@ final class TestEnv
             'REDIS_PORT' => self::process('REDIS_PORT', '6379'),
             'REDIS_DB' => '15', // dev data (sessions, rate limits) lives in db 0 and must survive test runs
             'LOG_DISABLE_STDERR' => '1',
+            // Sources are off by default in production; the tests exercise the feature.
+            'SOURCES_ENABLED' => '1',
             'ARGON_MEMORY_KIB' => '1024',
             'ARGON_TIME_COST' => '1',
             // Social sign-in: the fake provider and a test Telegram bot (the token is not a real one).

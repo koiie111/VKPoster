@@ -36,6 +36,9 @@ final class Automation
     /** Existing minute scheduler discovers work and reclaims lost enqueues, bounded to 100 materials per policy/tick. */
     public function tick(): void
     {
+        if (!$this->operationsConfig->bool('sources.enabled')) {
+            return;
+        }
         foreach ($this->db->select('SELECT p.* FROM content_automation_settings p LEFT JOIN sources s ON s.id=p.source_id AND s.workspace_id=p.workspace_id WHERE p.source_id IS NULL OR s.enabled=1 ORDER BY p.id') as $policy) {
             $settings = json_decode((string) $policy['settings_json'], true, 32, JSON_THROW_ON_ERROR);
             if (!($settings['enabled'] === true)) {

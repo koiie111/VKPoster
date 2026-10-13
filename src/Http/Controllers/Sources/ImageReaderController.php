@@ -37,7 +37,7 @@ final class ImageReaderController
     private function authenticate(Request $request): void
     {
         $secret = $this->config->string('sources.reader_secret');
-        if (strlen($secret) < 32) {
+        if (!$this->config->bool('sources.enabled') || strlen($secret) < 32) {
             throw new HttpException(404, 'Reader disabled');
         }
         if (!hash_equals('Bearer ' . $secret, $request->header('Authorization') ?? '')) {

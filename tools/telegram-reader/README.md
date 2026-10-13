@@ -1,13 +1,14 @@
 # Telegram reader: изолированный read-only spike
 
 Прототип для одного тестового аккаунта и одного контролируемого публичного
-канала. Не подключается к PHP, MySQL, PostService и publishing pipeline VKPoster.
-Нет публикации, join, AI, Content Selection, enhancement или image search.
+канала. Сам не обращается к MySQL, PostService и publishing pipeline VKPoster: с PHP он
+разговаривает только через внутренний HTTP ingress (`/internal/source-events`), который
+включается `SOURCES_ENABLED=true` (ADR 0011). Нет публикации, join, AI, Content Selection, enhancement или image search.
 
 ## Запуск только через Docker
 
 ```bash
-cd /Users/A/Projects/VKPoster/tools/telegram-reader
+cd tools/telegram-reader
 docker compose build
 cp .env.example .env
 chmod 600 .env
