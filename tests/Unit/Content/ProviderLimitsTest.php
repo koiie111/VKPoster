@@ -70,7 +70,14 @@ final class ProviderLimitsTest extends TestCase
     public function testUnknownHostDeniedAndRedisFailureFailsClosed(): void
     {
         $this->denied('GET', 'https://example.com');
-        $limits = new ProviderLimits(new \Redis(), TestEnv::config(), $this->clock);
+        // An unconnected \Redis may lazily connect to a local server, so the outage is simulated explicitly.
+        $down = new class () extends \Redis {
+            public function eval($script, $args = [], $numKeys = 0): mixed
+            {
+                throw new \RedisException('Redis server went away');
+            }
+        };
+        $limits = new ProviderLimits($down, TestEnv::config(), $this->clock);
         $this->expectException(ProviderException::class);
         $limits->acquire('GET', 'https://api.openai.com/v1/responses');
     }
