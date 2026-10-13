@@ -47,7 +47,7 @@ final class PermissionsTest extends TestCase
     {
         $factory = require dirname(__DIR__, 3) . '/config/permissions.php';
         /** @var array<string, list<string>> $matrix */
-        $matrix = $factory(new \App\Kernel\Env([]));
+        $matrix = $factory(new \App\Kernel\Env(['SOURCES_ENABLED' => '1']));
 
         return new Permissions($matrix);
     }
