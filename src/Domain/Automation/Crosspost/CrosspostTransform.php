@@ -63,7 +63,7 @@ final class CrosspostTransform
         foreach ($this->signatures as $signature) {
             $lines = explode("\n", $text);
             foreach ($lines as $i => $line) {
-                $cut = trim(str_ireplace($signature, '', $line));
+                $cut = trim(preg_replace('/ {2,}/', ' ', str_ireplace($signature, '', $line)) ?? $line);
                 if ($cut !== trim($line)) {
                     // A line that held only the signature (and perhaps a decoration) goes; otherwise only the signature goes.
                     $lines[$i] = preg_match('/^[\p{P}\p{S}\s]*$/u', $cut) === 1 ? "\0" : $cut;

@@ -26,6 +26,8 @@ abstract class AutomationTestCase extends PostTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // The buffer of incoming channel posts belongs to no workspace, so deleting workspaces does not clear it.
+        $this->db->execute('DELETE FROM crosspost_buffer');
         [$this->owner, $this->workspace] = $this->ownerWithWorkspace();
         $this->givePlan($this->workspace, 'pro');
         $this->context = $this->contextFor($this->workspace, $this->owner);
