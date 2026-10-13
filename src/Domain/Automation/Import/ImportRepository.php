@@ -87,7 +87,7 @@ final class ImportRepository extends WorkspaceScopedRepository
             (string) $row['filename'],
             (string) $row['mode'],
             (string) $row['status'],
-            array_map(static fn (mixed $r): ImportRow => ImportRow::fromArray(is_array($r) ? $r : []), is_array($rows) ? $rows : []),
+            array_values(array_map(static fn (mixed $r): ImportRow => ImportRow::fromArray(is_array($r) ? $r : []), is_array($rows) ? $rows : [])),
             (int) $row['created_count'],
             array_values(array_filter(is_array($failed) ? $failed : [], static fn (mixed $f): bool => is_array($f) && is_int($f['line'] ?? null) && is_string($f['message'] ?? null))),
         );

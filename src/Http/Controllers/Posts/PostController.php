@@ -133,9 +133,9 @@ final class PostController
                 $queue = $this->queues->find($context, $form->queue);
                 $placed = $this->posts->findById($context, $post->id) ?? $post;
                 $time = $placed->scheduledAt === null ? '' : ' Выйдет ' . RuDates::full($placed->scheduledAt->setTimezone($zone)) . '.';
-                $this->flash->toast('Пост стоит в очереди «' . ($queue?->name ?? '') . '».' . $time);
+                $this->flash->toast('Пост стоит в очереди «' . ($queue->name ?? '') . '».' . $time);
 
-                return Response::redirect($base . '/queues/' . ($queue?->publicId ?? ''));
+                return Response::redirect($base . '/queues/' . ($queue->publicId ?? ''));
             case 'now':
                 $this->flash->toast('Пост отправлен на публикацию. Через минуту он появится в каналах.');
 

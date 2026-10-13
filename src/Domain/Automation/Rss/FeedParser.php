@@ -39,7 +39,7 @@ final class FeedParser
         $items = [];
         $name = strtolower($root->getName());
         if ($name === 'rss' || $name === 'rdf') {
-            $nodes = $name === 'rss' ? ($root->channel->item ?? []) : $root->item;
+            $nodes = $name === 'rss' ? $root->channel->item : $root->item;
             foreach ($nodes as $node) {
                 $items[] = self::rssItem($node);
             }
@@ -84,7 +84,7 @@ final class FeedParser
             }
         }
 
-        return self::build($guid, $title, $link ?? '', $html !== '' ? $html : $content, $image ?? self::firstImage($content . $html));
+        return self::build($guid, $title, $link, $html !== '' ? $html : $content, $image ?? self::firstImage($content . $html));
     }
 
     private static function atomEntry(SimpleXMLElement $node): ?FeedItem

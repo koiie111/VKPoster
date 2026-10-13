@@ -145,9 +145,11 @@ final class RssService
             throw new AutomationException('Выберите, что делать с новыми записями.');
         }
         $queueId = null;
+        $queueChannels = [];
         if ($mode === RssFeed::MODE_QUEUE) {
             $queue = $this->queues->find($context, $queuePublicId ?? '') ?? throw new AutomationException('Выберите очередь, в которую ставить записи.');
             $queueId = $queue->id;
+            $queueChannels = $queue->channelIds;
         }
         $allowed = $this->posts->allowedChannels($context);
         $ids = [];
@@ -159,7 +161,7 @@ final class RssService
             if (!$this->registry->isEnabled($channel->platform)) {
                 throw new AutomationException('Сеть «' . $channel->platform->label() . '» сейчас отключена.');
             }
-            if ($queueId !== null && !in_array($channel->id, $this->queues->findById($context, $queueId)?->channelIds ?? [], true)) {
+            if ($queueId !== null && !in_array($channel->id, $queueChannels, true)) {
                 throw new AutomationException('Канал «' . $channel->displayName() . '» не входит в выбранную очередь.');
             }
             $ids[$channel->id] = $channel->id;

@@ -106,7 +106,7 @@ final class RecurringController
             $context->timezone,
             AutomationHttp::text($request, 'starts_on', 10),
             $end === '' ? null : $end,
-            ctype_digit($max) && $max !== '' ? (int) $max : null,
+            ctype_digit($max) ? (int) $max : null,
         );
         $input = $request->all();
         try {

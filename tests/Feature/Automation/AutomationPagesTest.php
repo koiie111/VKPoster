@@ -153,7 +153,7 @@ final class AutomationPagesTest extends AutomationTestCase
         $row = $this->db->select('SELECT public_id, name FROM queues')[0];
         self::assertSame('/w/' . $this->workspace->publicId . '/queues/' . $row['public_id'], $created->header('Location'));
         self::assertSame(['1 09:00', '1 18:30', '3 09:00'], array_map(static fn (array $s): string => $s['weekday'] . ' ' . $s['at_time'], $this->db->select('SELECT weekday, at_time FROM queue_slots ORDER BY weekday, at_time')));
-        $page = $this->get((string) $created->header('Location'));
+        $page = $this->get($created->header('Location'));
         self::assertStringContainsString('Пн 09:00, 18:30', $page->body);
 
         // A bad time comes back to the form with what was typed and a message.
@@ -216,7 +216,7 @@ final class AutomationPagesTest extends AutomationTestCase
 
         $pool = $this->post($this->url('/queues/' . $queue->publicId . '/pools'), ['name' => 'Полезное', 'interval' => '7', 'keep_ahead' => '2']);
         self::assertSame(302, $pool->status);
-        $poolId = (string) $this->db->select('SELECT public_id FROM evergreen_pools')[0]['public_id'];
+        $poolId = $this->db->select('SELECT public_id FROM evergreen_pools')[0]['public_id'];
         $evergreen = $this->draftPost('Вечнозелёный');
         self::assertSame(302, $this->post($this->url('/queues/' . $queue->publicId . '/pools/' . $poolId . '/posts'), ['post' => $evergreen->publicId])->status);
         $page = $this->get($this->url('/queues/' . $queue->publicId))->body;

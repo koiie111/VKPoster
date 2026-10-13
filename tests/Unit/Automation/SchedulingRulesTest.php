@@ -88,9 +88,9 @@ final class SchedulingRulesTest extends TestCase
         $daily = new RecurrenceRule(RecurrenceRule::DAILY, 1, [], null, '10:00', $zone, '2026-10-12', '2026-10-13');
         $first = $daily->next($this->utc('2026-10-12 00:00:00'));
         self::assertSame('2026-10-12 07:00', $first?->format('Y-m-d H:i'));
-        $second = $daily->next($first ?? self::fail());
+        $second = $daily->next($first);
         self::assertSame('2026-10-13 07:00', $second?->format('Y-m-d H:i'));
-        self::assertNull($daily->next($second ?? self::fail()), 'the end date has passed');
+        self::assertNull($daily->next($second), 'the end date has passed');
 
         $limited = new RecurrenceRule(RecurrenceRule::DAILY, 1, [], null, '10:00', $zone, '2026-10-12', null, 2);
         self::assertNull($limited->next($this->utc('2026-10-12 00:00:00'), 2), 'all repeats are done');
@@ -101,7 +101,7 @@ final class SchedulingRulesTest extends TestCase
         $every3 = new RecurrenceRule(RecurrenceRule::EVERY_N, 3, [], null, '08:00', $zone, '2026-10-12');
         $a = $every3->next($this->utc('2026-10-12 12:00:00'));
         self::assertSame('2026-10-15', $a?->format('Y-m-d'));
-        self::assertSame('2026-10-18', $every3->next($a ?? self::fail())?->format('Y-m-d'));
+        self::assertSame('2026-10-18', $every3->next($a)?->format('Y-m-d'));
     }
 
     public function testRulesAreValidated(): void

@@ -103,7 +103,7 @@ final class CrosspostController
         return $this->view->response('workspace/automation/crosspost_form.twig', [
             'workspace' => $context,
             'rule' => $rule,
-            'source_id' => $source?->publicId ?? '',
+            'source_id' => $source->publicId ?? '',
             'sources' => $sources,
             'channels' => $this->http->channelChoices($context),
             'selected' => $selected,

@@ -16,7 +16,6 @@ use App\Domain\Post\PublishingContexts;
 use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Kernel\Database\Connection;
-use App\Support\Clock;
 
 /**
  * The evergreen pool: posts that are worth repeating, published round and round into the slots of a queue.
@@ -42,7 +41,6 @@ final class EvergreenService
         private readonly Permissions $permissions,
         private readonly PublishingContexts $contexts,
         private readonly AuditLog $audit,
-        private readonly Clock $clock,
     ) {
     }
 

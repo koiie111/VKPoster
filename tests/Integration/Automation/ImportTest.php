@@ -42,6 +42,9 @@ final class ImportTest extends AutomationTestCase
         return $path;
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
     private function rows(): array
     {
         return $this->db->select('SELECT * FROM posts ORDER BY id');
@@ -56,10 +59,12 @@ final class ImportTest extends AutomationTestCase
         $this->http->expect('GET', 'https://files.example/a.jpg', 200, MediaFixtures::jpeg(), ['Content-Type' => 'image/jpeg']);
         $batch = $this->imports()->preview($this->context, $this->csv($body), 'posts.csv', ImportBatch::MODE_SCHEDULE);
         self::assertSame([2, 1], [$batch->okCount(), $batch->errorCount()]);
-        self::assertSame([], $this->rows(), 'the check creates nothing');
+        $before = $this->rows();
+        self::assertSame([], $before, 'the check creates nothing');
 
         $this->imports()->confirm($this->context, $batch);
-        self::assertSame([], $this->rows(), 'the posts are made by the worker');
+        $beforeWorker = $this->rows();
+        self::assertSame([], $beforeWorker, 'the posts are made by the worker');
         $this->runJobs();
         $posts = $this->rows();
         self::assertCount(2, $posts);
@@ -67,7 +72,8 @@ final class ImportTest extends AutomationTestCase
         self::assertSame('2026-10-15 07:30:00.000000', $posts[0]['scheduled_at'], '10:30 in Moscow');
         self::assertCount(1, json_decode((string) $posts[0]['media_ids_json'], true));
         $done = $this->app->container()->get(ImportRepository::class)->find($this->context, $batch->publicId);
-        self::assertSame(['done', 2], [$done?->status, $done?->createdCount]);
+        self::assertNotNull($done);
+        self::assertSame(['done', 2], [$done->status, $done->createdCount]);
         $this->http->assertAllConsumed();
 
         $this->expectExceptionObject(new AutomationException('Этот файл уже импортирован или импортируется.'));
@@ -109,9 +115,10 @@ final class ImportTest extends AutomationTestCase
         $this->imports()->confirm($this->context, $batch);
         $this->runJobs();
         $done = $this->app->container()->get(ImportRepository::class)->find($this->context, $batch->publicId);
-        self::assertSame(1, $done?->createdCount);
-        self::assertSame(2, $done?->failed[0]['line']);
-        self::assertStringContainsString('Строка', $this->imports()->errorReport($done ?? $batch));
+        self::assertNotNull($done);
+        self::assertSame(1, $done->createdCount);
+        self::assertSame(2, $done->failed[0]['line']);
+        self::assertStringContainsString('Строка', $this->imports()->errorReport($done));
         self::assertCount(1, $this->rows());
     }
 

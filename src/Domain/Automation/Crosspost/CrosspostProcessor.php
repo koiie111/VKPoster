@@ -198,7 +198,7 @@ final class CrosspostProcessor
     /**
      * An album carries its text on one message; a single post is its own caption.
      *
-     * @param non-empty-list<SourceMessage> $messages
+     * @param list<SourceMessage> $messages at least one
      */
     private function captionOf(array $messages): SourceMessage
     {
@@ -208,7 +208,7 @@ final class CrosspostProcessor
             }
         }
 
-        return $messages[0];
+        return $messages[0] ?? throw new \LogicException('A group without messages.');
     }
 
     /**

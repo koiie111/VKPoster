@@ -75,6 +75,10 @@ final class RssController
         ]);
     }
 
+    /**
+     * @param array<string, mixed>|null $values what the person typed, when the form is shown again after "check the feed"
+     * @param list<array{title: string, text: string, image: ?string}> $preview
+     */
     public function form(Request $request, ?array $values = null, array $preview = [], ?string $previewError = null): Response
     {
         $context = WorkspaceRequest::context($request);
@@ -94,7 +98,7 @@ final class RssController
             'feed' => $feed,
             'values' => $values,
             'selected' => $values !== null ? AutomationHttp::ids($request, 'channels') : $selected,
-            'queue_id' => $queue?->publicId ?? '',
+            'queue_id' => $queue->publicId ?? '',
             'channels' => $this->http->channelChoices($context),
             'queues' => array_map(static fn ($q): array => ['id' => $q->publicId, 'name' => $q->name], $this->queues->all($context)),
             'intervals' => self::INTERVALS,

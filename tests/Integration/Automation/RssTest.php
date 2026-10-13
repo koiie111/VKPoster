@@ -57,6 +57,9 @@ final class RssTest extends AutomationTestCase
         return $this->rss()->create($this->context, 'Блог', self::URL, $template, $mode, $queue, 60, [$this->channel->publicId]);
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
     private function posts_(): array
     {
         return $this->db->select('SELECT * FROM posts ORDER BY id');
@@ -91,7 +94,8 @@ final class RssTest extends AutomationTestCase
         $this->poller()->poll($feed->id);
         $this->http->expect('GET', self::URL, 304);
         self::assertSame(0, $this->poller()->poll($feed->id));
-        $last = end($this->http->requests);
+        $requests = $this->http->requests;
+        $last = $requests[count($requests) - 1];
         self::assertSame('"v1"', $last['options']['headers']['If-None-Match']);
         self::assertSame('Mon, 12 Oct 2026 05:00:00 GMT', $last['options']['headers']['If-Modified-Since']);
         self::assertTrue($last['options']['user_url'], 'a user URL always goes through the SSRF guard');
@@ -140,6 +144,7 @@ final class RssTest extends AutomationTestCase
     public function testAFailingFeedIsRetriedLaterAndLaterAndTheErrorIsShown(): void
     {
         $feed = $this->createFeed();
+        $row = [];
         foreach ([1, 2, 3] as $attempt) {
             $this->http->expect('GET', self::URL, 500);
             $this->poller()->poll($feed->id);
@@ -147,7 +152,7 @@ final class RssTest extends AutomationTestCase
             self::assertSame($attempt, (int) $row['error_count']);
             self::assertStringContainsString('500', (string) $row['last_error']);
         }
-        $minutes = (strtotime((string) $row['next_check_at'] . ' UTC') - strtotime('2026-10-12 06:00:00 UTC')) / 60;
+        $minutes = ((int) strtotime((string) $row['next_check_at'] . ' UTC') - strtotime('2026-10-12 06:00:00 UTC')) / 60;
         self::assertSame(240.0, (float) $minutes, 'the wait doubles with every failure: 60, 120, 240 minutes');
         $this->http->expect('GET', self::URL, 200, $this->feedXml());
         $this->poller()->poll($feed->id);

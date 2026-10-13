@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Automation\Import;
 
+use App\Domain\Automation\Words;
 use DateTimeImmutable;
 
 /**
@@ -44,7 +45,7 @@ final class ImportParser
 
             $ids = [];
             $names = [];
-            foreach (preg_split('/[;,\n]+/u', $get('channels'), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $name) {
+            foreach (Words::split('/[;,\n]+/u', $get('channels')) as $name) {
                 $channel = $channels[mb_strtolower(trim($name))] ?? null;
                 if ($channel === null) {
                     $errors[] = 'Канал «' . mb_substr(trim($name), 0, 60) . '» не найден среди ваших каналов.';
@@ -58,7 +59,7 @@ final class ImportParser
             }
 
             $text = $get('text');
-            $media = array_values(array_filter(preg_split('/[\s;]+/u', $get('media'), -1, PREG_SPLIT_NO_EMPTY) ?: []));
+            $media = Words::split('/[\s;]+/u', $get('media'));
             if (mb_strlen($text) > self::MAX_TEXT) {
                 $errors[] = 'Текст длиннее ' . self::MAX_TEXT . ' символов.';
             }

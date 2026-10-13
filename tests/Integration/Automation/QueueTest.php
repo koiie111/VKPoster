@@ -73,8 +73,8 @@ final class QueueTest extends AutomationTestCase
         self::assertSame(0, (int) $this->db->select('SELECT COUNT(*) AS n FROM publications WHERE status = ?', ['queued'])[0]['n']);
 
         $paused = $this->app->container()->get(QueueRepository::class)->findById($this->context, $queue->id);
-        self::assertTrue($paused?->paused);
-        $this->queues()->resume($this->context, $paused ?? $queue);
+        self::assertTrue($paused->paused ?? false);
+        $this->queues()->resume($this->context, $paused ?? throw new \LogicException('The queue is gone.'));
         self::assertSame('Mon 2026-10-12 10:00', $this->plannedAt($a));
         self::assertSame('Mon 2026-10-12 15:00', $this->plannedAt($b));
     }
@@ -187,7 +187,7 @@ final class QueueTest extends AutomationTestCase
             $pools->addPost($this->context, $pool, $a);
             self::fail('a post is in a pool once');
         } catch (AutomationException) {
-            self::assertTrue(true);
+            $this->addToAssertionCount(1);
         }
 
         // Four copies are wanted, but with a two-day interval and two posts: A, B, A, B on days 1..4.

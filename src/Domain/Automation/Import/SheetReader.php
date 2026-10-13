@@ -61,7 +61,8 @@ final class SheetReader implements IReadFilter
         if (!mb_check_encoding($raw, 'UTF-8')) {
             $raw = mb_convert_encoding($raw, 'UTF-8', 'Windows-1251');
         }
-        $first = strtok($raw, "\n") ?: '';
+        $line = strtok($raw, "\n");
+        $first = $line === false ? '' : $line;
         $delimiter = substr_count($first, ';') >= substr_count($first, ',') && substr_count($first, ';') > 0 ? ';' : (substr_count($first, "\t") > 0 ? "\t" : ',');
         $stream = fopen('php://temp', 'r+');
         if ($stream === false) {

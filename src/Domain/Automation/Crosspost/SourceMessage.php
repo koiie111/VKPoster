@@ -59,7 +59,7 @@ final class SourceMessage
                 }
             }
             if ($largest !== null) {
-                $media[] = ['kind' => 'photo', 'file_id' => (string) $largest['file_id'], 'size' => (int) ($largest['file_size'] ?? 0)];
+                $media[] = ['kind' => 'photo', 'file_id' => $largest['file_id'], 'size' => (int) ($largest['file_size'] ?? 0)];
             }
         }
         if (is_array($message['video'] ?? null) && is_string($message['video']['file_id'] ?? null)) {

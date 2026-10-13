@@ -182,7 +182,7 @@ final class QueueService
             return;
         }
         [$ids[$index], $ids[$target]] = [$ids[$target], $ids[$index]];
-        $this->queues->reorder($context, $queue, $ids);
+        $this->queues->reorder($context, $queue, array_values($ids));
         $this->place($context, $queue);
         $this->audit->record('queue.reordered', $context->userId, 'queue', $queue->publicId, ['post' => $post->publicId], $context->workspaceId);
     }

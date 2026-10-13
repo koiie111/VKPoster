@@ -43,7 +43,6 @@ final class TriggerEngine
 {
     public function __construct(
         private readonly Connection $db,
-        private readonly TriggerRepository $triggers,
         private readonly PublicationSystem $publications,
         private readonly PlatformRegistry $registry,
         private readonly ChannelSystem $channels,
@@ -117,7 +116,7 @@ final class TriggerEngine
             $this->db->table('triggers')->where('id', '=', $id)->update(['result' => mb_substr($result, 0, 255)]);
             $this->audit->record('trigger.fired', null, 'trigger', $trigger->publicId, ['action' => $trigger->action->value], $trigger->workspaceId);
         } catch (Throwable $e) {
-            $message = $e instanceof RuntimeException || $e instanceof PostException || $e instanceof PlatformError ? ($e instanceof PlatformError ? $e->forUser() : $e->getMessage()) : 'Не удалось выполнить действие.';
+            $message = $e instanceof PlatformError ? $e->forUser() : ($e instanceof RuntimeException ? $e->getMessage() : 'Не удалось выполнить действие.');
             $this->db->table('triggers')->where('id', '=', $id)->update(['status' => 'failed', 'result' => mb_substr($message, 0, 255)]);
             $this->logger->warning('trigger.failed', ['trigger' => $trigger->publicId, 'exception' => $e::class]);
             if ($context !== null && $trigger->action !== TriggerAction::Notify) {

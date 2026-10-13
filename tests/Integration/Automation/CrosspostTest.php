@@ -60,6 +60,9 @@ final class CrosspostTest extends AutomationTestCase
         return ['update_id' => 5000 + $messageId, $kind => $body + $extra];
     }
 
+    /**
+     * @param array<string, mixed> $update
+     */
     private function ingest(array $update): void
     {
         $this->app->container()->get(CrosspostProcessor::class)->ingest($update);

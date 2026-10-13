@@ -245,7 +245,7 @@ final class RecurringAndTriggerTest extends AutomationTestCase
             $this->triggers()->create($this->context, null, null, TriggerEvent::Published, 0, TriggerAction::Notify, []);
             self::fail('a trigger needs a post or a channel');
         } catch (AutomationException) {
-            self::assertTrue(true);
+            $this->addToAssertionCount(1);
         }
         // Another workspace's channel or post is not reachable by id.
         $author = $this->contextFor($this->workspace, $this->memberOf($this->workspace, 'author@example.com', Role::Author));

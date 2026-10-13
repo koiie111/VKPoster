@@ -115,7 +115,7 @@ final class RecurrenceRule
         return match ($this->frequency) {
             self::DAILY => true,
             self::WEEKDAYS => in_array((int) $day->format('N'), $this->weekdays, true),
-            self::EVERY_N => $this->intervalDays > 0 && ((int) $start->diff($day)->days) % $this->intervalDays === 0,
+            self::EVERY_N => $this->intervalDays > 0 && ($start->diff($day)->days) % $this->intervalDays === 0,
             self::MONTHLY => (int) $day->format('j') === min((int) $this->monthDay, (int) $day->format('t')),
             default => false,
         };

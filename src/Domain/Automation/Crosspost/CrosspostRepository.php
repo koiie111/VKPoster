@@ -105,7 +105,7 @@ final class CrosspostRepository extends WorkspaceScopedRepository
     /**
      * @param array<string, mixed> $row
      */
-    public function hydrate(array $row): CrosspostRule
+    private function hydrate(array $row): CrosspostRule
     {
         $filters = json_decode((string) $row['filters_json'], true);
         $transforms = json_decode((string) $row['transforms_json'], true);

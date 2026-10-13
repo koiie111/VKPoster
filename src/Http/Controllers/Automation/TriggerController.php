@@ -79,7 +79,7 @@ final class TriggerController
     {
         $context = WorkspaceRequest::context($request);
         $trigger = $this->repository->find($context, AutomationHttp::id($request, 'triggerId')) ?? throw new HttpException(404, 'Not found');
-        $back = AutomationHttp::base($context) . (AutomationHttp::text($request, 'back', 20) === 'channel' && $trigger->channelId !== null ? '/channels/' . ($this->channels->findById($context, $trigger->channelId)?->publicId ?? '') . '/triggers' : '/posts/' . ($trigger->postId === null ? '' : ($this->posts->findById($context, $trigger->postId)?->publicId ?? '')));
+        $back = AutomationHttp::base($context) . (AutomationHttp::text($request, 'back', 20) === 'channel' && $trigger->channelId !== null ? '/channels/' . ($this->channels->findById($context, $trigger->channelId)->publicId ?? '') . '/triggers' : '/posts/' . ($trigger->postId === null ? '' : ($this->posts->findById($context, $trigger->postId)->publicId ?? '')));
         try {
             $this->service->delete($context, $trigger);
         } catch (AutomationException $e) {

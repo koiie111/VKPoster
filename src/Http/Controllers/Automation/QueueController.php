@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Automation;
 
 use App\Domain\Automation\AutomationException;
+use App\Domain\Automation\Words;
 use App\Domain\Automation\Queue\EvergreenPool;
 use App\Domain\Automation\Queue\EvergreenRepository;
 use App\Domain\Automation\Queue\EvergreenService;
@@ -317,7 +318,7 @@ final class QueueController
         foreach (self::DAYS as $day => $_) {
             $text = is_array($raw) && is_string($raw[$day] ?? null) ? mb_substr($raw[$day], 0, 200) : '';
             $times[$day] = $text;
-            foreach (preg_split('/[\s,;]+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $time) {
+            foreach (Words::split('/[\s,;]+/u', trim($text)) as $time) {
                 if (preg_match('/^(\d{1,2})[:.](\d{2})$/', $time, $m) !== 1 || (int) $m[1] > 23 || (int) $m[2] > 59) {
                     $problem ??= 'Время «' . mb_substr($time, 0, 12) . '» не понятно. Пишите его так: 10:00 или 18:30.';
                     continue;

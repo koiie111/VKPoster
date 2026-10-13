@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Automation\Crosspost;
 
+use App\Domain\Automation\Words;
+
 /**
  * Decides whether a post of the source channel is cross-posted: hashtags that must be present, hashtags that forbid it, and
  * whether forwarded posts are skipped. `reason()` returns the reason in Russian when the post is skipped, null when it passes.
@@ -44,9 +46,9 @@ final class CrosspostFilter
      */
     public static function tags(mixed $raw): array
     {
-        $items = is_array($raw) ? $raw : (is_string($raw) ? preg_split('/[\s,;]+/u', $raw, -1, PREG_SPLIT_NO_EMPTY) : []);
+        $items = is_array($raw) ? $raw : (is_string($raw) ? Words::split('/[\s,;]+/u', $raw) : []);
         $tags = [];
-        foreach (is_array($items) ? $items : [] as $item) {
+        foreach ($items as $item) {
             $tag = mb_strtolower(ltrim(trim((string) $item), '#'));
             if ($tag !== '' && mb_strlen($tag) <= 64 && preg_match('/^[\p{L}\p{N}_]+$/u', $tag) === 1) {
                 $tags[$tag] = true;

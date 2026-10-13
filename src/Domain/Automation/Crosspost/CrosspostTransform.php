@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domain\Automation\Crosspost;
 
+use App\Domain\Automation\Words;
+
 /**
  * What is done to the text of a cross-posted post: the channel's signature is cut out, links are replaced, a tail is added.
  * Works on the editor's markup, so replaced addresses inside links change too.
@@ -31,7 +33,7 @@ final class CrosspostTransform
     {
         $signatures = [];
         $raw = $data['signatures'] ?? [];
-        foreach (is_string($raw) ? preg_split('/\R/u', $raw, -1, PREG_SPLIT_NO_EMPTY) : (is_array($raw) ? $raw : []) as $item) {
+        foreach (is_string($raw) ? Words::split('/\R/u', $raw) : (is_array($raw) ? $raw : []) as $item) {
             $item = trim((string) $item);
             if ($item !== '') {
                 $signatures[] = mb_substr($item, 0, 200);

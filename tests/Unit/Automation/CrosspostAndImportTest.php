@@ -63,7 +63,7 @@ final class CrosspostAndImportTest extends TestCase
         self::assertFalse($photo->unsupported);
         self::assertEquals($photo, SourceMessage::fromArray($photo->toArray()));
 
-        self::assertTrue(SourceMessage::fromTelegram(['message_id' => 8, 'chat' => ['id' => -100], 'sticker' => ['file_id' => 'x']])?->unsupported ?? false);
+        self::assertTrue((SourceMessage::fromTelegram(['message_id' => 8, 'chat' => ['id' => -100], 'sticker' => ['file_id' => 'x']]) ?? self::fail('a sticker is still a message'))->unsupported);
         self::assertNull(SourceMessage::fromTelegram(['chat' => ['id' => -100]]));
         self::assertNull(SourceMessage::fromArray(['text' => 'no ids']));
     }
