@@ -30,6 +30,7 @@ final class CrosspostService
         private readonly PostService $posts,
         private readonly PlatformRegistry $registry,
         private readonly Entitlements $entitlements,
+        private readonly \App\Domain\Automation\AutomationQuota $quota,
         private readonly Permissions $permissions,
         private readonly AuditLog $audit,
     ) {
@@ -42,7 +43,7 @@ final class CrosspostService
     public function create(WorkspaceContext $context, string $sourcePublicId, string $name, array $targetPublicIds, CrosspostFilter $filter, CrosspostTransform $transform, int $delayMinutes, string $mode, bool $syncEdits): CrosspostRule
     {
         $this->authorize($context);
-        $this->assertRoom($context);
+        $this->quota->assertRoom($context);
         $source = $this->source($context, $sourcePublicId);
         [$name, $targets] = $this->check($context, $source, $name, $targetPublicIds, $delayMinutes, $mode);
         $rule = $this->rules->create($context, $source->id, $name, $filter, $transform, $delayMinutes, $mode, $syncEdits, $targets);
@@ -68,7 +69,7 @@ final class CrosspostService
     {
         $this->authorize($context);
         if ($enabled && !$rule->enabled) {
-            $this->assertRoom($context, $rule);
+            $this->quota->assertRoom($context, $rule);
         }
         $this->rules->setEnabled($context, $rule, $enabled);
         $this->audit->record($enabled ? 'crosspost.enabled' : 'crosspost.disabled', $context->userId, 'crosspost', $rule->publicId, [], $context->workspaceId);
@@ -103,25 +104,6 @@ final class CrosspostService
             $this->entitlements->assertFeature($context->workspaceId, 'crosspost', 'Автокросспостинг');
         } catch (PlanLimitException $e) {
             throw new AutomationException($e->getMessage(), planLimit: true);
-        }
-    }
-
-    /**
-     * Rules that are on count against the plan: switching one off frees a place.
-     *
-     * @throws AutomationException
-     */
-    private function assertRoom(WorkspaceContext $context, ?CrosspostRule $except = null): void
-    {
-        $limit = $this->entitlements->limit($context->workspaceId, 'crosspost_rules');
-        if ($limit === null) {
-            return;
-        }
-        $active = count(array_filter($this->rules->all($context), static fn (CrosspostRule $r): bool => $r->enabled && ($except === null || $r->id !== $except->id)));
-        if ($active >= $limit) {
-            $plan = $this->entitlements->plan($context->workspaceId);
-
-            throw new AutomationException(sprintf('На тарифе «%s» можно включить правил кросспостинга: %d. Выключите одно из них или перейдите на тариф выше.', $plan->name, $limit), planLimit: true);
         }
     }
 

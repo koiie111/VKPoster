@@ -94,6 +94,15 @@ final class MetricsAggregator
             [$from, $to],
         ));
 
+        // Stage 13: what people set up (from the audit journal) and what the automation did (from its own tables).
+        foreach ($this->db->select("SELECT action, COUNT(*) AS c FROM audit_log WHERE action IN ('queue.created', 'evergreen.created', 'recurring.created', 'trigger.created', 'crosspost.created', 'rss.created', 'import.confirmed') AND created_at >= ? AND created_at < ? GROUP BY action", [$from, $to]) as $row) {
+            $add('automation_created', (string) $row['action'], (int) $row['c']);
+        }
+        $add('automation_posts', 'crosspost', $this->count('SELECT COUNT(*) AS c FROM crosspost_items WHERE post_id IS NOT NULL AND created_at >= ? AND created_at < ?', [$from, $to]));
+        $add('automation_posts', 'rss', $this->count('SELECT COUNT(*) AS c FROM rss_items WHERE post_id IS NOT NULL AND created_at >= ? AND created_at < ?', [$from, $to]));
+        $add('automation_posts', 'recurring', $this->count('SELECT COUNT(*) AS c FROM recurring_runs WHERE post_id IS NOT NULL AND created_at >= ? AND created_at < ?', [$from, $to]));
+        $add('triggers_fired', '', $this->count("SELECT COUNT(*) AS c FROM triggers WHERE status IN ('done', 'failed') AND fired_at >= ? AND fired_at < ?", [$from, $to]));
+
         // Separate text-processing outcomes; no content, credentials or fake AI billing.
         foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM source_image_processings WHERE created_at >= ? AND created_at < ? GROUP BY status', [$from, $to]) as $row) {
             $add('source_image_attempts', (string) $row['status'], (int) $row['c']);

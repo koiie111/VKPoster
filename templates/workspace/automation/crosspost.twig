@@ -11,7 +11,7 @@
 {% set head %}{% if can_manage and sources %}{{ f.button('Новое правило', href = base ~ '/crosspost/new', icon = 'plus') }}{% endif %}{% endset %}
 <div class="mt-3">{{ d.page_header('Кросспостинг из Telegram', 'Пост в вашем Telegram-канале сам уходит в другие каналы: в черновики на проверку или сразу в публикацию.', body = head) }}</div>
 {% if not has_feature %}<div class="mb-5">{{ d.alert('info', 'Кросспостинг есть на тарифах «Старт» и выше', 'Посмотрите тарифы: на «Старте» одно правило, на старших без ограничений.') }}</div>
-{% elseif limit is not null %}<p class="mb-5 text-sm text-muted">На тарифе «{{ plan }}» можно включить правил: {{ limit }}.</p>{% endif %}
+{% elseif limit is not null %}<p class="mb-5 text-sm text-muted">На тарифе «{{ plan }}» можно включить правил кросспостинга и лент RSS вместе: {{ limit }}.</p>{% endif %}
 {% if rules is empty %}
 <div class="card">
     {% if sources is empty %}{{ d.empty_state('Нужен Telegram-канал', 'Кросспостинг берёт посты из Telegram-канала, который подключён через бота сервиса. Подключите такой канал в разделе «Каналы».', 'share-2', 'Подключить канал', base ~ '/channels/connect/telegram') }}

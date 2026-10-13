@@ -39,6 +39,7 @@ final class CrosspostController
         private readonly CrosspostRepository $repository,
         private readonly ChannelRepository $channels,
         private readonly Entitlements $entitlements,
+        private readonly \App\Domain\Automation\AutomationQuota $quota,
         private readonly Permissions $permissions,
     ) {
     }
@@ -70,7 +71,7 @@ final class CrosspostController
                 'last_note' => $rule->lastNote,
             ];
         }
-        $limit = $this->entitlements->limit($context->workspaceId, 'crosspost_rules');
+        $limit = $this->quota->limit($context);
 
         return $this->view->response('workspace/automation/crosspost.twig', [
             'workspace' => $context,

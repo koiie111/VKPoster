@@ -217,4 +217,19 @@ final class RssTest extends AutomationTestCase
         self::assertSame('Первая!', $preview[0]['text']);
         self::assertSame([], $this->posts_());
     }
+
+    public function testCrossPostingRulesAndFeedsShareOneAllowance(): void
+    {
+        $this->givePlan($this->workspace, 'start');
+        $source = $this->makeChannel($this->workspace, $this->owner, '-1001234567890', 'Мой канал');
+        $this->app->container()->get(\App\Domain\Automation\Crosspost\CrosspostService::class)->create($this->context, $source->publicId, 'Правило', [$this->channel->publicId], new \App\Domain\Automation\Crosspost\CrosspostFilter(), new \App\Domain\Automation\Crosspost\CrosspostTransform(), 0, 'draft', false);
+        $this->http->expect('GET', self::URL, 200, $this->feedXml());
+        try {
+            $this->rss()->create($this->context, 'Блог', self::URL, '', 'draft', null, 60, [$this->channel->publicId]);
+            self::fail('the one allowed rule is used by cross-posting');
+        } catch (AutomationException $e) {
+            self::assertTrue($e->planLimit);
+            self::assertStringContainsString('вместе', $e->getMessage());
+        }
+    }
 }

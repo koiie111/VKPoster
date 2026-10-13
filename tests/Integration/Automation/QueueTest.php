@@ -212,4 +212,14 @@ final class QueueTest extends AutomationTestCase
         self::assertSame(0, $pools->fill($this->context, $pool));
         self::assertSame(1, (int) $this->db->select('SELECT uses FROM evergreen_posts')[0]['uses']);
     }
+
+    public function testWhatPeopleSetUpShowsInTheBusinessEventsAndDailyMetrics(): void
+    {
+        $before = (int) $this->db->select("SELECT COUNT(*) AS n FROM analytics_events WHERE name = 'queue_created'")[0]['n'];
+        $this->weekdayQueue();
+        self::assertSame($before + 1, (int) $this->db->select("SELECT COUNT(*) AS n FROM analytics_events WHERE name = 'queue_created'")[0]['n']);
+        $this->app->container()->get(\App\Domain\Analytics\MetricsAggregator::class)->day($this->clock->now());
+        $rows = $this->db->select("SELECT dim, value FROM metrics_daily WHERE metric = 'automation_created'");
+        self::assertSame([['dim' => 'queue.created', 'value' => 1]], array_map(static fn (array $r): array => ['dim' => $r['dim'], 'value' => (int) $r['value']], $rows));
+    }
 }

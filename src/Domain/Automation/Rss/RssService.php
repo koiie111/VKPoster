@@ -6,6 +6,7 @@ namespace App\Domain\Automation\Rss;
 
 use App\Domain\Audit\AuditLog;
 use App\Domain\Automation\AutomationException;
+use App\Domain\Automation\AutomationQuota;
 use App\Domain\Automation\Queue\QueueRepository;
 use App\Domain\Billing\Entitlements;
 use App\Domain\Billing\PlanLimitException;
@@ -32,6 +33,7 @@ final class RssService
         private readonly FeedFetcher $fetcher,
         private readonly PlatformRegistry $registry,
         private readonly Entitlements $entitlements,
+        private readonly AutomationQuota $quota,
         private readonly Permissions $permissions,
         private readonly AuditLog $audit,
     ) {
@@ -44,7 +46,7 @@ final class RssService
     public function create(WorkspaceContext $context, string $name, string $url, string $template, string $mode, ?string $queuePublicId, int $intervalMinutes, array $channelPublicIds): RssFeed
     {
         $this->authorize($context);
-        $this->assertRoom($context, null);
+        $this->quota->assertRoom($context);
         [$name, $url, $template, $queueId, $channelIds] = $this->check($context, $name, $url, $template, $mode, $queuePublicId, $intervalMinutes, $channelPublicIds);
         try {
             $this->fetcher->fetch($url, null, null);
@@ -73,7 +75,7 @@ final class RssService
     {
         $this->authorize($context);
         if ($enabled && !$feed->enabled) {
-            $this->assertRoom($context, $feed);
+            $this->quota->assertRoom($context, null, $feed);
         }
         $this->feeds->setEnabled($context, $feed, $enabled);
         $this->audit->record($enabled ? 'rss.enabled' : 'rss.disabled', $context->userId, 'rss_feed', $feed->publicId, [], $context->workspaceId);
@@ -98,24 +100,6 @@ final class RssService
             $this->entitlements->assertFeature($context->workspaceId, 'crosspost', 'Ленты RSS');
         } catch (PlanLimitException $e) {
             throw new AutomationException($e->getMessage(), planLimit: true);
-        }
-    }
-
-    /**
-     * The number of feeds a plan allows is `rss_feeds`; a plan stored before that limit existed follows its cross-posting limit.
-     *
-     * @throws AutomationException
-     */
-    private function assertRoom(WorkspaceContext $context, ?RssFeed $except): void
-    {
-        $plan = $this->entitlements->plan($context->workspaceId);
-        $limit = array_key_exists('rss_feeds', $plan->limits) ? $plan->limits['rss_feeds'] : $plan->limit('crosspost_rules');
-        if ($limit === null) {
-            return;
-        }
-        $active = count(array_filter($this->feeds->all($context), static fn (RssFeed $f): bool => $f->enabled && ($except === null || $f->id !== $except->id)));
-        if ($active >= $limit) {
-            throw new AutomationException(sprintf('На тарифе «%s» можно включить лент: %d. Выключите одну из них или перейдите на тариф выше.', $plan->name, $limit), planLimit: true);
         }
     }
 
