@@ -13,6 +13,7 @@ final class PostOptions
 {
     public const MAX_BUTTONS = 3;
     public const MAX_DELETE_MINUTES = 60 * 24 * 365;
+    public const FORMATS = ['feed', 'reel', 'story'];
 
     /**
      * @param list<array{text: string, url: string}> $buttons
@@ -24,6 +25,8 @@ final class PostOptions
         public readonly bool $pin = false,
         public readonly ?int $deleteAfterMinutes = null,
         public readonly string $firstComment = '',
+        /** Kind of post on networks that have several (Instagram: `feed`, `reel`, `story`); empty = chosen from the files. */
+        public readonly string $format = '',
     ) {
     }
 
@@ -56,6 +59,7 @@ final class PostOptions
             self::flag($data['pin'] ?? false),
             $minutes !== null && $minutes > 0 ? min($minutes, self::MAX_DELETE_MINUTES) : null,
             mb_substr($comment, 0, 4000),
+            is_string($data['format'] ?? null) && in_array($data['format'], self::FORMATS, true) ? $data['format'] : '',
         );
     }
 
@@ -71,6 +75,7 @@ final class PostOptions
             'pin' => $this->pin,
             'delete_after_minutes' => $this->deleteAfterMinutes,
             'first_comment' => $this->firstComment,
+            'format' => $this->format,
         ];
     }
 

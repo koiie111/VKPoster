@@ -46,7 +46,7 @@ return static function (Env $env): array {
                 'image_bytes' => 50 * $mb, 'video_bytes' => 250 * $mb, 'document_bytes' => 100 * $mb,
             ],
             'instagram' => [
-                'image_bytes' => 8 * $mb, 'image_ratio' => [0.8, 1.91], 'video_bytes' => 100 * $mb,
+                'image_bytes' => 8 * $mb, 'image_ratio' => [0.8, 1.91], 'image_crop' => true, 'video_bytes' => 100 * $mb,
                 'video_seconds' => 90, 'video_codecs' => ['h264'], 'no_documents' => true,
             ],
         ],

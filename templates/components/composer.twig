@@ -19,6 +19,13 @@
 {% macro options(prefix, o, uid) -%}
 {% import _self as k %}
 <div class="flex flex-col gap-5" data-options>
+    <div data-cap="post_format">
+        <label class="label" for="{{ uid }}-format">Что опубликовать</label>
+        <select class="field" id="{{ uid }}-format" name="{{ k.fname(prefix, 'format') }}" data-opt="format">
+            {% for v, t in {'': 'Выбрать по файлам', feed: 'Пост или карусель', reel: 'Reels (одно видео)', story: 'История (один файл)'} %}<option value="{{ v }}"{% if o.format == v %} selected{% endif %}>{{ t }}</option>{% endfor %}
+        </select>
+        <p class="hint">Одно видео по умолчанию выходит как Reels, фото и несколько файлов — как пост или карусель.</p>
+    </div>
     <div data-cap="buttons">
         <p class="label">Кнопки со ссылками</p>
         <div class="flex flex-col gap-2" data-buttons>

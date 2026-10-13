@@ -13,9 +13,11 @@ use App\Domain\Channel\OAuthRefresher;
 use App\Integrations\Social\Contracts\ErrorKind;
 use App\Integrations\Social\Contracts\Platform;
 use App\Integrations\Social\Contracts\PlatformError;
+use App\Integrations\Social\Instagram\InstagramOAuth;
 use App\Integrations\Social\Vk\VkOAuth;
 use App\Kernel\Security\Crypto;
 use App\Tests\Support\ChannelTestCase;
+use App\Tests\Support\InstagramFixtures;
 use App\Tests\Support\TestEnv;
 use App\Tests\Support\VkFixtures;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -24,6 +26,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(ChannelCredentials::class)]
 #[CoversClass(CredentialVault::class)]
 #[CoversClass(VkOAuth::class)]
+#[CoversClass(InstagramOAuth::class)]
 final class OAuthRefresherTest extends ChannelTestCase
 {
     private const TOKEN_URL = 'https://id.vk.com/oauth2/auth';
@@ -152,6 +155,7 @@ final class OAuthRefresherTest extends ChannelTestCase
             $this->db,
             $this->app->container()->get(Crypto::class),
             $this->app->container()->get(VkOAuth::class),
+            $this->app->container()->get(\App\Integrations\Social\Instagram\InstagramOAuth::class),
             $redis,
             $this->clock,
             new \Psr\Log\NullLogger(),
@@ -187,5 +191,79 @@ final class OAuthRefresherTest extends ChannelTestCase
 
         self::assertStringNotContainsString('ACCESS-X', $dump);
         self::assertStringNotContainsString('REFRESH-X', $dump);
+    }
+
+    /**
+     * @return array{Channel, int} an Instagram channel and its credential id; the token has `$expiresInSeconds` left
+     */
+    private function instagramChannel(int $expiresInSeconds): array
+    {
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $context = $this->contextFor($workspace, $owner);
+        $vault = $this->app->container()->get(CredentialVault::class);
+        $credential = $vault->storeOAuth($context, Platform::Instagram, 'IG-OLD', '', $this->clock->now()->modify(sprintf('+%d seconds', $expiresInSeconds)), '', InstagramFixtures::ACCOUNT, 'instagram_business_basic');
+        $channel = $this->app->container()->get(ChannelRepository::class)->connect($context, Platform::Instagram, InstagramFixtures::ACCOUNT, ChannelMode::Account, 'Зерно', 'coffee_zerno', 'channel', $credential, [], $owner->id)['channel'];
+
+        return [$channel, $credential];
+    }
+
+    private function storedInstagram(int $credentialId): string
+    {
+        $row = $this->db->select('SELECT * FROM platform_credentials WHERE id = ?', [$credentialId])[0];
+        self::assertNull($row['refresh_enc'], 'Instagram has no refresh token');
+
+        return $this->app->container()->get(Crypto::class)->decrypt((string) $row['secret_enc']);
+    }
+
+    public function testAnInstagramTokenWithMonthsLeftIsUsedAsItIs(): void
+    {
+        [$channel] = $this->instagramChannel(30 * 86400);
+
+        self::assertSame('IG-OLD', $this->credentials()->forChannel($channel)->secret);
+        self::assertSame([], $this->http->requests);
+    }
+
+    public function testAnInstagramTokenInItsLastWeekIsExtendedAndStored(): void
+    {
+        [$channel, $id] = $this->instagramChannel(3 * 86400);
+        $this->http->expect('GET', 'https://graph.instagram.com/refresh_access_token', 200, InstagramFixtures::raw('token_refreshed'));
+
+        $credential = $this->credentials()->forChannel($channel);
+
+        self::assertSame('LONG-2', $credential->secret);
+        self::assertSame('ig_refresh_token', $this->http->requests[0]['options']['query']['grant_type']);
+        self::assertSame('IG-OLD', $this->http->requests[0]['options']['query']['access_token']);
+        self::assertSame('LONG-2', $this->storedInstagram($id));
+        $expires = (string) $this->db->select('SELECT expires_at FROM platform_credentials WHERE id = ?', [$id])[0]['expires_at'];
+        self::assertGreaterThan($this->clock->now()->modify('+50 days')->format('Y-m-d H:i:s'), $expires);
+    }
+
+    public function testARevokedInstagramTokenMeansReconnectAndKeepsTheStoredOne(): void
+    {
+        [$channel, $id] = $this->instagramChannel(86400);
+        $this->http->expect('GET', 'https://graph.instagram.com/refresh_access_token', 400, InstagramFixtures::raw('oauth_error'));
+
+        try {
+            $this->credentials()->forChannel($channel);
+            self::fail('expected an auth error');
+        } catch (PlatformError $e) {
+            self::assertSame(ErrorKind::Auth, $e->kind);
+            self::assertStringContainsString('заново', $e->forUser());
+            self::assertStringNotContainsString('IG-OLD', $e->getMessage());
+        }
+        self::assertSame('IG-OLD', $this->storedInstagram($id));
+    }
+
+    public function testInstagramBeingDownIsTemporary(): void
+    {
+        [$channel] = $this->instagramChannel(86400);
+        $this->http->expect('GET', 'https://graph.instagram.com/refresh_access_token', 503, 'down');
+
+        try {
+            $this->credentials()->forChannel($channel);
+            self::fail();
+        } catch (PlatformError $e) {
+            self::assertSame(ErrorKind::Temporary, $e->kind);
+        }
     }
 }

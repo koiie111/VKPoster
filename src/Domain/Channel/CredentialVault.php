@@ -61,7 +61,7 @@ final class CredentialVault extends WorkspaceScopedRepository
             'platform' => $platform->value,
             'kind' => 'oauth',
             'secret_enc' => $this->crypto->encrypt($access),
-            'refresh_enc' => $this->crypto->encrypt($refresh),
+            'refresh_enc' => $refresh === '' ? null : $this->crypto->encrypt($refresh),
             'expires_at' => DbTime::format($expiresAt),
             'scopes' => mb_substr($scopes, 0, 500),
             'device_id' => $deviceId,

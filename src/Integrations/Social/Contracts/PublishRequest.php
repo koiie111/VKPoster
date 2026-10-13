@@ -23,6 +23,8 @@ final class PublishRequest
         public readonly bool $silent = false,
         public readonly ?string $format = null,
         public readonly bool $disablePreview = false,
+        /** Kind of post for networks that have several (Instagram: `feed`, `reel`, `story`); empty = decided from the files. */
+        public readonly string $mode = '',
     ) {
     }
 }

@@ -152,7 +152,7 @@ final class CampaignsController
             'body' => $body,
             'segment' => $segment,
             'plans' => $this->directory->plans(),
-            'platforms' => ['telegram' => 'Telegram', 'vk' => 'ВКонтакте', 'max' => 'MAX'],
+            'platforms' => ['telegram' => 'Telegram', 'vk' => 'ВКонтакте', 'max' => 'MAX', 'instagram' => 'Instagram'],
             'reach' => $this->campaigns->count($segment),
             'stats' => $campaign === null ? null : $this->campaigns->stats((int) $campaign['id']),
             'preview' => $preview,

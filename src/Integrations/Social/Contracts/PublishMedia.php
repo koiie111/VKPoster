@@ -17,6 +17,8 @@ final class PublishMedia
         public readonly string $path,
         public readonly string $filename,
         public readonly string $mime,
+        /** Public link the network downloads the file from itself (only for platforms with `Capabilities::$publicMediaUrls`; then `path` is empty). */
+        public readonly ?string $url = null,
     ) {
     }
 }

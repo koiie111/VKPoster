@@ -34,6 +34,15 @@ return static fn (Env $env): array => [
         'webhook_secret' => $env->string('MAX_WEBHOOK_SECRET'),
         'api_base' => rtrim($env->string('MAX_API_BASE', 'https://platform-api2.max.ru'), '/'),
     ],
+    'instagram' => [
+        // The Meta application with the product "Instagram API with Instagram Login" (ADR 0010). Off by default: see PLATFORMS_ENABLED.
+        'app_id' => $env->string('INSTAGRAM_APP_ID'),
+        'app_secret' => $env->string('INSTAGRAM_APP_SECRET'),
+        'scope' => $env->string('INSTAGRAM_SCOPE', 'instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments'),
+        'api_version' => $env->string('INSTAGRAM_API_VERSION', 'v23.0'),
+        // Instagram lets an account publish about this many posts a day through the API; the editor warns before it is exceeded.
+        'posts_per_day' => $env->int('INSTAGRAM_POSTS_PER_DAY', 100),
+    ],
     'channels' => [
         // A global ceiling on all channels of a workspace (paused ones included); the plan's own limit counts active channels only.
         'max_per_workspace' => $env->int('CHANNELS_MAX', 1000),

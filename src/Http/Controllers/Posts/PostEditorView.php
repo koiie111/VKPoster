@@ -185,6 +185,7 @@ final class PostEditorView
                     'first_comment' => $caps->firstComment,
                     'disable_preview' => $caps->disablePreview,
                     'format' => $caps->textFormat,
+                    'post_format' => $caps->postFormats,
                 ],
                 'selected' => false,
                 'variant' => [],
@@ -230,6 +231,7 @@ final class PostEditorView
             'delete_after' => $value,
             'delete_after_unit' => $unit,
             'first_comment' => $options->firstComment,
+            'format' => $options->format,
         ];
     }
 }

@@ -131,6 +131,13 @@ final class MediaValueObjectsTest extends TestCase
         foreach (['', 'thumb', '2x3', '1x1-wm-wm', '../1x1', '1X1', '1x1 ', 'original-WM'] as $bad) {
             self::assertNull(VariantSpec::fromSlug($bad), $bad);
         }
+        $jpeg = VariantSpec::fromSlug('4x5-wm-jpg');
+        self::assertNotNull($jpeg);
+        self::assertTrue($jpeg->jpeg);
+        self::assertSame('4x5-wm-jpg', $jpeg->slug());
+        self::assertSame(VariantSpec::JPEG_MAX_BYTES, $jpeg->maxBytes, 'a JPEG-only rendition also fits Instagram\'s size limit');
+        self::assertTrue(VariantSpec::fromSlug('original-jpg')?->transforms(), 'a PNG original must really be converted');
+        self::assertNull(VariantSpec::fromSlug('original-jpg-wm'));
         self::assertFalse((new VariantSpec())->transforms());
         self::assertTrue((new VariantSpec('1x1'))->transforms());
         self::assertTrue((new VariantSpec('original', true))->transforms());

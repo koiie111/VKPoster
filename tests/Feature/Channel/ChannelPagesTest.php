@@ -244,8 +244,20 @@ final class ChannelPagesTest extends ChannelTestCase
     {
         [, $workspace] = $this->ownerSession();
 
-        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/instagram'))->status);
         self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/bogus'))->status);
+    }
+
+    public function testInstagramPagesDisappearWhenTheFeatureFlagIsOff(): void
+    {
+        // Off by default (owner's decision, ADR 0010): without the flag the network does not exist for the customer.
+        $this->app = \App\Tests\Support\TestEnv::app(['PLATFORMS_ENABLED' => 'telegram']);
+        $this->app->container()->instance(\App\Kernel\HttpClient\HttpClientInterface::class, $this->http);
+        $this->app->container()->instance(\App\Support\Clock::class, $this->clock);
+        [, $workspace] = $this->ownerSession();
+
+        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/instagram'))->status);
+        self::assertSame(404, $this->get($this->channelsUrl($workspace, '/connect/instagram/start'))->status);
+        self::assertSame(404, $this->get('/channels/connect/instagram/callback?state=x')->status);
     }
 
     public function testVkPagesDisappearWhenTheFeatureFlagIsOff(): void

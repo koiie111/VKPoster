@@ -59,7 +59,7 @@ final class VariantService
                 $mark = ['path' => $this->fetch($watermark->storageKey, $temporary), 'position' => $watermark->position, 'opacity' => $watermark->opacity, 'scale' => $watermark->scale, 'margin' => $watermark->margin];
             }
             $dest = $this->temp($temporary);
-            $result = $this->images->render($source, $dest, $spec->ratio(), $spec->maxEdge, $spec->maxBytes, $mark);
+            $result = $this->images->render($source, $dest, $spec->ratio(), $spec->maxEdge, $spec->maxBytes, $mark, $spec->jpeg);
             $stream = fopen($dest, 'rb');
             if ($stream === false) {
                 throw new MediaException('Не удалось сохранить результат.');
@@ -89,6 +89,9 @@ final class VariantService
     private function cacheName(VariantSpec $spec, ?Watermark $watermark): string
     {
         $parts = [$spec->crop, $spec->maxEdge, $spec->maxBytes ?? 0];
+        if ($spec->jpeg) {
+            $parts[] = 'jpeg';
+        }
         if ($watermark !== null) {
             array_push($parts, $watermark->publicId, $watermark->storageKey, $watermark->position, $watermark->opacity, $watermark->scale, $watermark->margin);
         }

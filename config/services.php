@@ -15,6 +15,9 @@ use App\Integrations\Payments\YooKassa\YooKassaGateway;
 use App\Domain\Channel\ConnectCodes;
 use App\Integrations\Social\Fake\FakeAdapter;
 use App\Integrations\Social\PlatformRegistry;
+use App\Integrations\Social\Instagram\InstagramAdapter;
+use App\Integrations\Social\Instagram\InstagramApi;
+use App\Integrations\Social\Instagram\InstagramOAuth;
 use App\Integrations\Social\Max\MaxAdapter;
 use App\Integrations\Social\Max\MaxClientFactory;
 use App\Integrations\Social\Max\MaxRateGate;
@@ -282,12 +285,26 @@ return static function (Container $c, string $base): void {
         $c->get(VkCommunities::class),
         $c->get(Config::class)->int('platforms.vk.posts_per_day', 50),
     ));
+    $c->factory(InstagramApi::class, static fn (Container $c): InstagramApi => new InstagramApi(
+        $c->get(HttpClientInterface::class),
+        $c->get(Config::class)->string('platforms.instagram.api_version', 'v23.0'),
+    ));
+    $c->factory(InstagramOAuth::class, static function (Container $c): InstagramOAuth {
+        $config = $c->get(Config::class);
+
+        return new InstagramOAuth($c->get(HttpClientInterface::class), $config->string('platforms.instagram.app_id'), $config->string('platforms.instagram.app_secret'), $config->string('platforms.instagram.scope'));
+    });
+    $c->factory(InstagramAdapter::class, static fn (Container $c): InstagramAdapter => new InstagramAdapter(
+        $c->get(InstagramApi::class),
+        $c->get(\App\Integrations\Social\Instagram\InstagramAccounts::class),
+        $c->get(Config::class)->int('platforms.instagram.posts_per_day', 100),
+    ));
     $c->factory(FakeAdapter::class, static fn (Container $c): FakeAdapter => new FakeAdapter($c->get(LoggerInterface::class)));
     $c->factory(PlatformRegistry::class, static function (Container $c): PlatformRegistry {
         $config = $c->get(Config::class);
 
         return new PlatformRegistry(
-            [$c->get(TelegramAdapter::class), $c->get(VkAdapter::class), $c->get(MaxAdapter::class), $c->get(FakeAdapter::class)],
+            [$c->get(TelegramAdapter::class), $c->get(VkAdapter::class), $c->get(MaxAdapter::class), $c->get(InstagramAdapter::class), $c->get(FakeAdapter::class)],
             array_values(array_filter(array_map('strval', $config->array('platforms.enabled')), static fn (string $v): bool => $v !== '')),
             !$config->isProduction(),
             // The owner can switch a platform off in the admin area (a kill switch for an outage or a lost key); read on every call.

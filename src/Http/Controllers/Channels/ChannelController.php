@@ -79,7 +79,7 @@ final class ChannelController
             // Platforms that have a connect page (others join as their stages arrive).
             'platforms' => array_map(static fn (Platform $p): array => ['id' => $p->value, 'label' => $p->label(), 'icon' => $p->icon()], array_values(array_filter(
                 $this->registry->enabled(),
-                static fn (Platform $p): bool => in_array($p, [Platform::Telegram, Platform::Vk, Platform::Max, Platform::Fake], true),
+                static fn (Platform $p): bool => in_array($p, [Platform::Telegram, Platform::Vk, Platform::Max, Platform::Instagram, Platform::Fake], true),
             ))),
             'base' => $base,
             'allowance' => $this->allowance($context),
@@ -348,12 +348,13 @@ final class ChannelController
         $rights = $channel->rights();
         $missing = [];
         foreach (['delete' => 'удалять посты', 'pin' => 'закреплять'] as $key => $label) {
-            if ($rights !== [] && ($rights[$key] ?? false) === false) {
+            // Instagram offers neither to any service: that is a limit of the network, not something the person can grant.
+            if ($channel->platform !== Platform::Instagram && $rights !== [] && ($rights[$key] ?? false) === false) {
                 $missing[] = $label;
             }
         }
         $checked = $channel->lastHealthAt === null ? '' : 'Проверен ' . $channel->lastHealthAt->setTimezone(new \DateTimeZone($context->timezone))->format('d.m.Y H:i') . '. ';
 
-        return $checked . ($missing === [] ? '' : ($channel->platform === Platform::Vk ? 'Аккаунту' : 'Боту') . ' не хватает права: ' . implode(', ', $missing) . '.');
+        return $checked . ($missing === [] ? '' : (in_array($channel->platform, [Platform::Vk, Platform::Instagram], true) ? 'Аккаунту' : 'Боту') . ' не хватает права: ' . implode(', ', $missing) . '.');
     }
 }
