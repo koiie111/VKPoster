@@ -21,7 +21,7 @@ use Throwable;
 /** Independent durable video lifecycle: current approved snapshots, immutable bases and guarded final selection. */
 final class VideoWorkflow
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly ImageRepository $images, private readonly VideoRepository $repository, private readonly VideoProvider $provider, private readonly AuditLog $audit, private readonly ?\App\Kernel\Config $operationsConfig = null)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly ImageRepository $images, private readonly VideoRepository $repository, private readonly VideoProvider $provider, private readonly AuditLog $audit, private readonly ?\App\Kernel\Config $operationsConfig = null, private readonly ?\App\Domain\Content\Operations\ProviderQuota $quota = null)
     {
     }
 
@@ -156,7 +156,8 @@ final class VideoWorkflow
             $input = new VideoInput($jobId, $settings->aspectRatio, $settings->duration, $settings->instruction, (string) $basis['text'], $basis['image']);
             if ($this->provider instanceof \App\Integrations\Video\AsyncVideoProvider) {
                 if (!isset($attempt['polling'])) {
-                    $remoteId = $this->provider->start($input);
+                    $async = $this->provider;
+                    $remoteId = $this->quota !== null ? $this->quota->run($ctx->workspaceId, 'video', static fn (): string => $async->start($input)) : $async->start($input);
                     if (preg_match('/^[a-z0-9]{1,64}$/D', $remoteId) !== 1) {
                         throw new \RuntimeException('Invalid provider job ID');
                     }
@@ -170,7 +171,8 @@ final class VideoWorkflow
                 }
                 $result = $output->snapshot();
             } else {
-                $result = $this->provider->generate($input)->snapshot();
+                $sync = $this->provider;
+                $result = ($this->quota !== null ? $this->quota->run($ctx->workspaceId, 'video', static fn (): \App\Integrations\Video\VideoResult => $sync->generate($input)) : $sync->generate($input))->snapshot();
             }
         } catch (\App\Integrations\ContentProviders\ProviderException $e) {
             if (isset($attempt['polling']) && $e->retryable) {
@@ -181,7 +183,7 @@ final class VideoWorkflow
                 $this->db->execute("UPDATE source_video_generations SET status='pending', started_at=NULL, error_category=? WHERE workspace_id=? AND public_id=? AND status='processing' AND lease_generation=?", [$e->category, $ctx->workspaceId, $jobId, (int) $attempt['lease_generation']]);
                 throw $e; // Known rejection before execution: same local job may retry safely.
             }
-            $error = 'Генерация не удалась. Проверьте задание у провайдера перед повторной попыткой.';
+            $error = $e->category === 'quota_exceeded' ? 'Кредиты ИИ на этом тарифе закончились. Они обновятся в начале месяца, или перейдите на тариф выше.' : 'Генерация не удалась. Проверьте задание у провайдера перед повторной попыткой.';
         } catch (Throwable) {
             $error = $this->provider instanceof \App\Integrations\Video\AsyncVideoProvider ? 'Запуск или сохранение не подтверждены. Проверьте задание у провайдера перед повторной генерацией.' : 'Генерация не удалась. Создайте новое задание и повторите попытку.';
         }

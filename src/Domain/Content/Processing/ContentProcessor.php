@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Content\Processing;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Content\Operations\ProviderQuota;
 use App\Domain\Source\Source;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Kernel\Database\Connection;
@@ -17,7 +18,7 @@ use Throwable;
 /** Durable attempt boundary: approve/current revision guards, short transactions around provider calls, retained history. */
 final class ContentProcessor
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly TextProcessor $text, private readonly AuditLog $audit)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly TextProcessor $text, private readonly AuditLog $audit, private readonly ?ProviderQuota $quota = null)
     {
     }
 
@@ -58,11 +59,13 @@ final class ContentProcessor
         $category = null;
         $retryable = false;
         try {
-            $output = $this->text->process((string) $attempt['item']['text'], $attempt['messages'], $source === null ? '' : $source->telegramUsername, $settings);
+            $generate = fn (): string => $this->text->process((string) $attempt['item']['text'], $attempt['messages'], $source === null ? '' : $source->telegramUsername, $settings);
+            // Only a paid provider call is charged; the local "unchanged" mode never reaches a provider.
+            $output = $this->quota !== null && $settings->mode !== 'unchanged' ? $this->quota->run($context->workspaceId, 'text', $generate) : $generate();
         } catch (\App\Integrations\ContentProviders\ProviderException $e) {
             $category = $e->category;
             $retryable = $e->retryable;
-            $error = $retryable ? 'Временная ошибка. Повторная попытка будет выполнена автоматически.' : 'Обработка не подтверждена. Проверьте provider перед повтором.';
+            $error = $category === 'quota_exceeded' ? 'Кредиты ИИ на этом тарифе закончились. Они обновятся в начале месяца, или перейдите на тариф выше.' : ($retryable ? 'Временная ошибка. Повторная попытка будет выполнена автоматически.' : 'Обработка не подтверждена. Проверьте provider перед повтором.');
         } catch (Throwable) {
             $category = 'outcome_unknown';
             $error = 'Обработка не удалась. Повторите попытку.';

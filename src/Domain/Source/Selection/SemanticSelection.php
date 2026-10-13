@@ -16,7 +16,7 @@ use Throwable;
 /** Optional layer of existing Selection: immutable revision/policy history, safe failures and no source-content mutation. */
 final class SemanticSelection
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly SemanticSelectionProvider $provider, private readonly SemanticPolicy $policy, private readonly \App\Domain\Content\Automation\AutomationPolicies $automation, private readonly \App\Kernel\Queue\Queue $queue)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly SemanticSelectionProvider $provider, private readonly SemanticPolicy $policy, private readonly \App\Domain\Content\Automation\AutomationPolicies $automation, private readonly \App\Kernel\Queue\Queue $queue, private readonly ?\App\Domain\Content\Operations\ProviderQuota $quota = null)
     {
     }
     public static function scope(?int $sourceId): string
@@ -174,7 +174,7 @@ final class SemanticSelection
             if (mb_strlen($input->text) > 100000 || $row['provider'] !== $this->provider->name()) {
                 throw new \RuntimeException('Semantic input unavailable');
             }
-            $result = $this->provider->evaluate($input);
+            $result = $this->quota !== null ? $this->quota->run((int) $row['workspace_id'], 'semantic', fn () => $this->provider->evaluate($input)) : $this->provider->evaluate($input);
             $final = $this->policy->combine(new SelectionResult((string) $row['deterministic_status'], (string) $row['deterministic_reason'], (string) $row['deterministic_rule']), $result, SemanticSettings::fromInput(json_decode((string) $row['settings_snapshot_json'], true, 32, JSON_THROW_ON_ERROR)));
             $values = ['status' => 'completed', 'decision' => $result->decision, 'score' => $result->score, 'confidence' => $result->confidence, 'reason' => $result->reason, 'matched_criteria_json' => json_encode($result->matchedCriteria, JSON_THROW_ON_ERROR), 'review_flags_json' => json_encode($result->reviewFlags, JSON_THROW_ON_ERROR), 'final_decision' => $final->status, 'final_reason' => $final->reason, 'error' => null];
         } catch (\App\Integrations\ContentProviders\ProviderException $e) {

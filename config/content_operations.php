@@ -7,6 +7,7 @@ use App\Kernel\Env;
 return static fn (Env $env): array => [
     'concurrency' => max(1, min(16, $env->int('CONTENT_CONCURRENCY', 2))),
     'provider_per_minute' => max(1, min(600, $env->int('CONTENT_PROVIDER_PER_MINUTE', 20))),
+    'workspace_per_minute' => max(1, min(60, $env->int('CONTENT_WORKSPACE_PER_MINUTE', 5))),
     'video_per_hour' => max(1, min(100, $env->int('CONTENT_VIDEO_PER_HOUR', 3))),
     'video_pending' => max(1, min(100, $env->int('CONTENT_VIDEO_PENDING', 3))),
     'retention_enabled' => $env->bool('CONTENT_RETENTION_ENABLED', false),

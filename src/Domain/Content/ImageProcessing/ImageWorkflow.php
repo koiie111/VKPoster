@@ -20,7 +20,7 @@ use Symfony\Component\Uid\Ulid;
 /** Photo processing is independent of text, source selection and the publication queue. */
 final class ImageWorkflow
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly ImageRepository $repository, private readonly ImageFiles $files, private readonly ImageAnalysis $analysis, private readonly ImageSearchProvider $search, private readonly ImageEnhancementProvider $enhancement, private readonly AuditLog $audit, private readonly SourceRepository $sources, private readonly \App\Domain\Workspace\WorkspaceRepository $workspaces, private readonly \App\Domain\Content\Automation\AutomationCalls $calls)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly ImageRepository $repository, private readonly ImageFiles $files, private readonly ImageAnalysis $analysis, private readonly ImageSearchProvider $search, private readonly ImageEnhancementProvider $enhancement, private readonly AuditLog $audit, private readonly SourceRepository $sources, private readonly \App\Domain\Workspace\WorkspaceRepository $workspaces, private readonly \App\Domain\Content\Automation\AutomationCalls $calls, private readonly ?\App\Domain\Content\Operations\ProviderQuota $quota = null)
     {
     }
 
@@ -203,7 +203,8 @@ final class ImageWorkflow
                             }
                             $saved = [];
                             if ($operation === 'image_search') {
-                                foreach (array_slice($this->search->search($originalPath), 0, 5) as $candidate) {
+                                $found = $this->quota !== null ? $this->quota->run($ctx->workspaceId, 'image_search', fn (): array => $this->search->search($originalPath)) : $this->search->search($originalPath);
+                                foreach (array_slice($found, 0, 5) as $candidate) {
                                     $path = $this->files->temporary($candidate->bytes);
                                     $paths[] = $path;
                                     try {
@@ -216,7 +217,7 @@ final class ImageWorkflow
                                     }
                                 }
                             } else {
-                                $enhanced = $this->enhancement->enhance($originalPath);
+                                $enhanced = $this->quota !== null ? $this->quota->run($ctx->workspaceId, 'image_enhancement', fn () => $this->enhancement->enhance($originalPath)) : $this->enhancement->enhance($originalPath);
                                 if ($enhanced !== null) {
                                     $path = $this->files->temporary($enhanced);
                                     $paths[] = $path;
