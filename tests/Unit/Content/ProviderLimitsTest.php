@@ -72,6 +72,7 @@ final class ProviderLimitsTest extends TestCase
         $this->denied('GET', 'https://example.com');
         // An unconnected \Redis may lazily connect to a local server, so the outage is simulated explicitly.
         $down = new class () extends \Redis {
+            /** @param array<mixed> $args */
             public function eval($script, $args = [], $numKeys = 0): mixed
             {
                 throw new \RedisException('Redis server went away');
