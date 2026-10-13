@@ -202,4 +202,17 @@ final class InstagramConnectTest extends ChannelTestCase
             $settings->forget('platforms.off');
         }
     }
+
+    public function testTheEditorOffersThePostFormatOnlyForInstagram(): void
+    {
+        [$owner, $workspace] = $this->ownerSession();
+        $this->makeChannel($workspace, $owner, InstagramFixtures::ACCOUNT, 'Зерно', platform: \App\Integrations\Social\Contracts\Platform::Instagram);
+        $this->makeChannel($workspace, $owner, '-1001', 'Телеграм');
+
+        $page = $this->get($this->base($workspace) . '/posts/new')->body;
+
+        self::assertStringContainsString('Что опубликовать', $page);
+        self::assertStringContainsString('Reels (одно видео)', $page);
+        self::assertSame(1, substr_count($page, '&quot;post_format&quot;:true'), 'only the Instagram card claims the format choice');
+    }
 }

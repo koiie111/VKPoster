@@ -42,6 +42,10 @@
 | `VK_CLIENT_ID` `VK_CLIENT_SECRET` | `VKID_*` | Приложение VK ID для публикации в сообщества (права на стену); адрес возврата `<APP_URL>/channels/connect/vk/callback`. Включается флагом `vk` в `PLATFORMS_ENABLED`. См. [modules/vk.md](modules/vk.md) |
 | `VK_SCOPE` | `wall photos video docs groups` | Права, которые просит подключение VK |
 | `VK_POSTS_PER_DAY` | `50` | Суточный лимит постов одного сообщества для предупреждения при планировании |
+| `INSTAGRAM_APP_ID` `INSTAGRAM_APP_SECRET` | — | Meta-приложение «Instagram API with Instagram Login»; адрес возврата `<APP_URL>/channels/connect/instagram/callback`. Включается флагом `instagram` в `PLATFORMS_ENABLED` (по умолчанию выключено); `APP_URL` должен быть публичным https. См. [modules/instagram.md](modules/instagram.md) |
+| `INSTAGRAM_SCOPE` | `instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments` | Права, которые просит подключение Instagram |
+| `INSTAGRAM_API_VERSION` | `v23.0` | Версия Graph API |
+| `INSTAGRAM_POSTS_PER_DAY` | `100` | Суточный лимит публикаций через API на аккаунт для предупреждения при планировании |
 | `MAX_BOT_TOKEN` | — | Общий бот MAX (бот верифицированного юрлица, business.max.ru). Без него работает только режим «свой бот». Включается флагом `max` в `PLATFORMS_ENABLED` |
 | `MAX_BOT_USERNAME` | — | Имя бота MAX без `@` для страницы подключения (иначе спрашивается у MAX и кэшируется) |
 | `MAX_WEBHOOK_SECRET` | — | 16–128 символов `A-Za-z0-9_-`: часть адреса вебхука `/webhooks/max/{secret}`; из него выводится секретный заголовок. Задать, затем `max:webhook set https://публичный-хост` |
