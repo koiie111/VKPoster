@@ -192,6 +192,39 @@ final class OperationalStats
         return ['requests' => (int) ($row['requests'] ?? 0), 'credits' => (int) ($row['credits'] ?? 0), 'cost' => (int) ($row['cost'] ?? 0)];
     }
 
+    /** @return array<string, int> Text processing outcomes only, without source content or instructions. */
+    public function sourceText(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $counts = ['processing' => 0, 'completed' => 0, 'failed' => 0, 'stale' => 0];
+        foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM source_text_processings WHERE created_at >= ? AND created_at < ? GROUP BY status', [DbTime::format($from), DbTime::format($to)]) as $row) {
+            $counts[(string) $row['status']] = (int) $row['c'];
+        }
+        return $counts;
+    }
+
+    /**
+     * Derived post counts only; the ordinary post editor remains the intervention boundary.
+     * @return array<string,int>
+     */
+    public function contentDrafts(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $counts = [];
+        foreach ($this->db->select('SELECT COALESCE(p.status, ?) AS status, COUNT(*) AS c FROM content_post_origins o LEFT JOIN posts p ON p.id = o.post_id AND p.workspace_id = o.workspace_id WHERE o.created_at >= ? AND o.created_at < ? GROUP BY status', ['deleted', DbTime::format($from), DbTime::format($to)]) as $row) {
+            $counts[(string) $row['status']] = (int) $row['c'];
+        }
+        return $counts;
+    }
+
+    /** @return array<string,int> Semantic counts only; no post contents, criteria, provider payloads or secrets. */
+    public function semanticSelection(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $counts = ['completed' => 0, 'failed' => 0, 'blocked' => 0];
+        foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM semantic_selection_evaluations WHERE created_at >= ? AND created_at < ? GROUP BY status', [DbTime::format($from), DbTime::format($to)]) as $row) {
+            $counts[(string) $row['status']] = (int) $row['c'];
+        }
+        return $counts;
+    }
+
     /**
      * Nearest-rank percentile of an ascending list (0 for an empty one).
      *

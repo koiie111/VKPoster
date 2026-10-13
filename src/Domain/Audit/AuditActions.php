@@ -14,6 +14,34 @@ final class AuditActions
 {
     /** @var array<string, string> */
     private const LABELS = [
+        'source.images_requested' => 'Запрошена обработка изображений',
+        'source.images_completed' => 'Изображения сохранены',
+        'source.images_failed' => 'Ошибка обработки изображений',
+        'source.images_stale' => 'Попытка обработки изображений устарела',
+        'source.image_selected' => 'Выбрана версия изображения',
+        'selection.semantic_settings_updated' => 'Обновлены настройки смыслового отбора',
+        'discovery.refreshed' => 'Радар обновлён',
+        'discovery.ignored' => 'Тема радара проигнорирована',
+        'discovery.imported' => 'Материал радара импортирован',
+        'discovery.material_approved' => 'Материал радара принят',
+        'discovery.material_rejected' => 'Материал радара отклонён',
+        'source.video_requested' => 'Создано задание генерации видео',
+        'source.video_started' => 'Начата генерация видео',
+        'source.video_completed' => 'Генерация видео завершена',
+        'source.video_failed' => 'Ошибка генерации видео',
+        'source.video_selected' => 'Выбрана итоговая версия видео',
+        'content.automation_settings_updated' => 'Изменены настройки автоматизации материалов',
+        'content.draft_created' => 'Создан черновик из материала',
+        'source.text_started' => 'Начата обработка текста',
+        'source.text_completed' => 'Текст обработан',
+        'source.text_failed' => 'Ошибка обработки текста',
+        'source.text_stale' => 'Обработка текста устарела',
+        'source.rules_updated' => 'Изменены правила отбора',
+        'source.item_deleted' => 'Материал удалён в Telegram',
+        'source.item_approved' => 'Материал принят вручную',
+        'source.item_rejected' => 'Материал отклонён вручную',
+        'source.created' => 'Добавлен источник',
+        'source.updated' => 'Изменён источник',
         'workspace.created' => 'Создано пространство',
         'workspace.updated' => 'Изменены настройки пространства',
         'workspace.deleted' => 'Пространство удалено',
@@ -54,6 +82,7 @@ final class AuditActions
 
     /** @var array<string, string> filter value => label of the group of actions */
     private const GROUPS = [
+        'source' => 'Источники',
         'workspace' => 'Пространство',
         'member' => 'Команда',
         'channel' => 'Каналы',
@@ -82,6 +111,7 @@ final class AuditActions
             return Role::tryFrom($value)?->label() ?? $value;
         };
         $parts = match ($action) {
+            'source.created', 'source.updated' => [$text('name') === '' ? '' : '«' . $text('name') . '»'],
             'member.invited', 'member.invitation_revoked', 'member.removed' => [$text('email'), $role('role')],
             'member.joined', 'member.left' => [$role('role')],
             'member.role_changed' => [($text('email') === '' ? '' : $text('email') . ': ') . $role('from') . ' → ' . $role('to')],

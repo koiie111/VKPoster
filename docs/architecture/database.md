@@ -6,6 +6,16 @@
 
 Базы в dev: `app` (приложение) и `app_test` (тесты, создаётся `docker/mysql/init/01-test-db.sql` при первом старте MySQL; для пересоздания: `docker compose down -v`).
 
+## Источники контента
+
+Миграция `2026_10_05_000013_create_sources.php` добавляет только `sources` и не изменяет существующие таблицы. Поля: `id BIGINT`, `public_id CHAR(26)` (ULID, UNIQUE), `workspace_id`, `name VARCHAR(255)`, `type VARCHAR(32)` (пока `telegram`), `telegram_username VARCHAR(32)` (нормализованное имя без `@`, нижний регистр), `status VARCHAR(32) DEFAULT 'not_connected'` (системное поле), `enabled BOOLEAN DEFAULT FALSE`, `created_by`, `created_at`, `updated_at` (`DATETIME(6)`, UTC).
+
+`UNIQUE(workspace_id, type, telegram_username)` запрещает дубликаты в одном workspace; collation `utf8mb4_unicode_ci` дополнительно защищает от разного регистра. FK `workspace_id → workspaces.id ON DELETE CASCADE`, `created_by → users.id ON DELETE SET NULL`. Связей с `channels` и постами нет. Правила отбора будут отдельным модулем/таблицами; колонки правил и статусов отбора здесь отсутствуют. Подробнее: [Sources](modules/sources.md).
+
+## Обработка текста Sources
+
+Миграция `2026_10_05_000023_create_source_text_processings.php`: `source_text_processings` — отдельная история попыток: ULID, workspace/source/item FK, revision/selection SHA-256, original/processed text, mode, settings_version и JSON snapshot, processing/completed/failed/stale, безопасная error, provider, actor, UTC created/updated/finished timestamps. UNIQUE(item_id, settings_version). Исходные items/messages и решения отбора не изменяются; rollback удаляет только историю. [Подробнее](modules/source-text-processing.md).
+
 ## Служебные таблицы
 
 `migrations(id, migration UNIQUE, batch)` — учёт применённых миграций (создаётся `Migrator`).
@@ -343,3 +353,52 @@ erDiagram
 | `invite_codes` | Коды приглашений (только хэш) |
 
 Начисления вручную пишутся в `ledger_entries` (`ref_type = grant`, валюты `DAY`, `CRD`, `RUB`; счета `grants:<ед>` и `wallet:<ед>:<пространство>`).
+
+## Входящие материалы Sources
+
+Миграция `2026_10_05_000021_create_source_incoming.php`: `source_events`, `source_items`, `source_messages`. Каждая таблица содержит workspace_id/source_id с каскадными FK. События уникальны по source_id/event_id, логический пост — по source_id/peer_id/item_key, сообщение — по source_id/peer_id/message_id. Тексты/entities/media metadata и original/edit dates сохраняются без обработки; технический статус `stored`. Нет AI/selection-полей или связей с publishing. Подробнее: [Sources](modules/sources.md).
+
+## Отбор входящих материалов Sources
+
+Миграция `2026_10_05_000022_create_source_selection.php`: `source_selection_rules` (одна версия правил на Source) и `source_selection_decisions` (одна актуальная оценка на item: selection_status, decision_mode, reason, matched_rule, rules_version и rules_snapshot_json, decided_by). Workspace/source/item FK каскадные; пользователь-автор nullable с SET NULL. Индекс фильтра статуса: workspace_id/source_id/selection_status/item_id. Existing items backfill — needs_review. Технический status и таблица sources не меняются. См. [Sources](modules/sources.md#подэтап-23--детерминированный-отбор-и-ручные-решения).
+
+## Изображения Sources
+
+Миграция `2026_10_06_000024_create_source_image_processing.php`: `source_image_processings` — per-photo attempt/job, workspace/source/item/message FK, исходные Telegram IDs, revision/selection snapshots, status/error, selected variant и timestamps. `source_image_variants` — отдельные private original/candidate/enhanced files и sanitized previews, SHA-256/dimensions/MIME/bytes, technical quality/metrics, provenance/verification/confidence/provider. Статус отбора и SourceItem не изменяются; обратимый down удаляет только новые таблицы. [Подробнее](modules/source-image-processing.md).
+
+## Source video generation
+
+Migration 25 adds `source_video_generations`: scoped attempt history, revision/selection hashes, versioned settings/basis snapshots, lifecycle status, result manifest, safe error, selected version and timestamps. See [video processing](modules/source-video-processing.md).
+
+## Content Discovery
+
+Migration 26 adds discovery_items, discovery_clusters, discovery_item_keys, discovery_runs and discovery_imports. Registered Discovery content uses source_id=NULL in shared source_items, source_selection_decisions and source_text_processings; no Source is fabricated. See [Discovery](modules/content-discovery.md).
+
+## Semantic Selection (migration 27)
+
+`semantic_selection_settings` — версии per-workspace Source/Radar policy; `semantic_selection_evaluations` — отдельная неизменяемая история origin/revision/policy, deterministic outcome, structured provider decision, score, confidence и composed decision. Итог остаётся в `source_selection_decisions`. Технические processing/source/discovery status не смешиваются. См. [Semantic Selection](modules/semantic-selection.md).
+
+## Content draft provenance (Sources 3.1)
+
+Migration 28 adds content_post_origins: workspace, nullable item/post/text-processing FKs with deletion tombstones, revision/selection hashes, workspace-unique idempotency key, immutable processing/media/Discovery snapshot, actor and UTC creation time. Rollback refuses active sending, cancels linked queued publications and resets linked scheduled posts. See [Content drafts](modules/content-drafts.md).
+
+### Stage 3.2 provider metadata (migration 29)
+
+Nullable `provider_metadata_json` on `source_text_processings`, `semantic_selection_evaluations`, `source_image_variants`, `source_video_generations` stores allowlisted model/usage/technical metadata. `source_video_generations.provider_job_id` is the durable opaque remote prediction ID; `poll_claimed_at` is a reclaimable polling lease. These fields contain no credentials, prompt text or signed download URLs.
+
+Migration 30: `content_automation_settings` (workspace/scope/version + policy snapshot + Discovery interval/cursor), `content_automation_runs` (revision checkpoints, attempts, outcomes, processing/draft references), `content_automation_calls` (durable pre-call image cost fence). All tenant-owned data cascades with workspace; Sources remain separate from Channels. See [automation](modules/content-automation.md).
+
+Migration 31: `content_storage_objects` registers immutable content media before upload for crash-safe orphan retention. Referenced files and audit/recovery histories are pinned. Rollback forgets registry only, never deletes media. See [content hardening](modules/content-hardening.md).
+
+
+### Independent review migration 33
+
+`2026_10_07_000033_independent_review.php` adds
+source_messages.connection_version and backfills it from the parent item.
+The unique keys for source_items/source_messages include connection_version,
+preserving A → B → A history. Down refuses to collapse overlapping generations
+before any DDL. content_automation_calls gains status/error_category/attempts/
+available_at/result_json for bounded confirmed retries and durable successful
+variants; uncertain legacy fences cannot replay. Telegram tombstones remain in
+source_events plus source_messages.metadata_json, without erasing message history.
+Migration 32 preserves original-versus-copy Draft keys when recalculating hashes.

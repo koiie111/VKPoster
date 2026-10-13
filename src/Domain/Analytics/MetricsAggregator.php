@@ -94,6 +94,20 @@ final class MetricsAggregator
             [$from, $to],
         ));
 
+        // Separate text-processing outcomes; no content, credentials or fake AI billing.
+        foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM source_image_processings WHERE created_at >= ? AND created_at < ? GROUP BY status', [$from, $to]) as $row) {
+            $add('source_image_attempts', (string) $row['status'], (int) $row['c']);
+        }
+        foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM discovery_runs WHERE created_at >= ? AND created_at < ? GROUP BY status', [$from, $to]) as $row) {
+            $add('discovery_runs', (string) $row['status'], (int) $row['c']);
+        }
+        foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM source_video_generations WHERE created_at >= ? AND created_at < ? GROUP BY status', [$from, $to]) as $row) {
+            $add('source_video_attempts', (string) $row['status'], (int) $row['c']);
+        }
+        foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM source_text_processings WHERE created_at >= ? AND created_at < ? GROUP BY status', [$from, $to]) as $row) {
+            $add('source_text_attempts', (string) $row['status'], (int) $row['c']);
+        }
+
         // Money, from the ledger (the provider's side of every movement).
         foreach ($this->db->select(
             "SELECT SUBSTRING(a.code, 10) AS provider, pl.code AS plan, e.currency, SUM(e.amount) AS total FROM ledger_entries e JOIN ledger_accounts a ON a.id = e.account_id "
@@ -140,6 +154,12 @@ final class MetricsAggregator
                 $add('paying_churned', $was['currency'], 1);
             }
         }
+
+        foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM semantic_selection_evaluations WHERE created_at >= ? AND created_at < ? GROUP BY status', [$from, $to]) as $row) {
+            $add('semantic_evaluations', (string) $row['status'], (int) $row['c']);
+        }
+
+        $add('content_drafts_created', '', $this->count('SELECT COUNT(*) AS c FROM content_post_origins WHERE created_at >= ? AND created_at < ?', [$from, $to]));
 
         // Activity.
         $date = $day->format('Y-m-d');
