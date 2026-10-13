@@ -8,7 +8,7 @@ use App\Kernel\Database\Migration;
 return new class () implements Migration {
     public function up(Connection $db): void
     {
-        $db->execute("CREATE TABLE source_text_processings (
+        $db->execute("CREATE TABLE source_text_processings (provider_metadata_json JSON NULL, error_category VARCHAR(64) NULL, retryable BOOLEAN NOT NULL DEFAULT FALSE,
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, public_id CHAR(26) NOT NULL UNIQUE,
             workspace_id BIGINT UNSIGNED NOT NULL, source_id BIGINT UNSIGNED NOT NULL, item_id BIGINT UNSIGNED NOT NULL,
             revision_hash CHAR(64) NOT NULL, selection_hash CHAR(64) NOT NULL,

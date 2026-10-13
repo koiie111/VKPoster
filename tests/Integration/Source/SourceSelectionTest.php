@@ -134,9 +134,9 @@ final class SourceSelectionTest extends SourceSelectionTestCase
         [$owner, $workspace] = $this->ownerWithWorkspace();
         $source = $this->app->container()->get(SourceService::class)->create($this->contextFor($workspace, $owner), 'Source', 'telegram', '@sample_channel', true);
         $this->ingest($source, [$this->message(10)]);
-        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_05_000022_create_source_selection.php';
-        $discovery = require TestEnv::basePath() . '/database/migrations/2026_10_06_000026_create_content_discovery.php';
-        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000028_create_content_post_origins.php';
+        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_05_000023_create_source_selection.php';
+        $discovery = require TestEnv::basePath() . '/database/migrations/2026_10_06_000027_create_content_discovery.php';
+        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_create_content_post_origins.php';
         $origins->down($this->db);
         $discovery->down($this->db);
         $migration->down($this->db);

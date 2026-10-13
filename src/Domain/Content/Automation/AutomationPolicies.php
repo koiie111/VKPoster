@@ -35,7 +35,7 @@ final class AutomationPolicies
                 $this->db->select('SELECT id FROM workspaces WHERE id = ? FOR UPDATE', [$ctx->workspaceId]);
             }
             $now = DbTime::format($this->clock->now());
-            $this->db->execute('INSERT INTO content_automation_settings (workspace_id, scope_key, source_id, settings_json, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE version=version+1, settings_json=VALUES(settings_json), next_discovery_at=NULL, updated_by=VALUES(updated_by), updated_at=VALUES(updated_at)', [$ctx->workspaceId, SemanticSelection::scope($source?->id), $source?->id, json_encode($settings, JSON_THROW_ON_ERROR), $ctx->userId, $now, $now]);
+            $this->db->execute('INSERT INTO content_automation_settings (workspace_id, scope_key, source_id, settings_json, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE version=version+1, settings_json=VALUES(settings_json), next_discovery_at=NULL, orchestration_queued_at=NULL, orchestration_due_at=NULL, updated_by=VALUES(updated_by), updated_at=VALUES(updated_at)', [$ctx->workspaceId, SemanticSelection::scope($source?->id), $source?->id, json_encode($settings, JSON_THROW_ON_ERROR), $ctx->userId, $now, $now]);
             $this->audit->record('content.automation_settings_updated', $ctx->userId, $source === null ? null : 'source', $source?->publicId, [], $ctx->workspaceId);
         });
     }

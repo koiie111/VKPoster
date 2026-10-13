@@ -15,8 +15,6 @@ final class SourceMigrationTest extends TestCase
     protected function tearDown(): void
     {
         // Legacy DDL rollback tests recreate their original tables; restore additive review columns.
-        (require \App\Tests\Support\TestEnv::basePath() . '/database/migrations/2026_10_07_000032_review_fixes.php')->up(\App\Tests\Support\TestEnv::connection());
-        (require \App\Tests\Support\TestEnv::basePath() . '/database/migrations/2026_10_07_000033_independent_review.php')->up(\App\Tests\Support\TestEnv::connection());
         parent::tearDown();
     }
 
@@ -24,24 +22,22 @@ final class SourceMigrationTest extends TestCase
     {
         $db = TestEnv::connection();
         self::assertSame('app_test', $db->select('SELECT DATABASE() AS name')[0]['name']);
-        $path = TestEnv::basePath() . '/database/migrations/2026_10_05_000013_create_sources.php';
+        $path = TestEnv::basePath() . '/database/migrations/2026_10_05_000021_create_sources.php';
         /** @var Migration $migration */
         $migration = require $path;
         $directory = sys_get_temp_dir() . '/sources-migration-' . bin2hex(random_bytes(4));
         mkdir($directory);
-        copy($path, $directory . '/2026_10_05_000013_create_sources.php');
+        copy($path, $directory . '/2026_10_05_000021_create_sources.php');
         $migrator = new Migrator($db, $directory, 'migrations_sources_test');
-        $incoming = require TestEnv::basePath() . '/database/migrations/2026_10_05_000021_create_source_incoming.php';
-        $selection = require TestEnv::basePath() . '/database/migrations/2026_10_05_000022_create_source_selection.php';
-        $processing = require TestEnv::basePath() . '/database/migrations/2026_10_05_000023_create_source_text_processings.php';
-        $images = require TestEnv::basePath() . '/database/migrations/2026_10_06_000024_create_source_image_processing.php';
-        $videos = require TestEnv::basePath() . '/database/migrations/2026_10_06_000025_create_source_video_generations.php';
-        $discovery = require TestEnv::basePath() . '/database/migrations/2026_10_06_000026_create_content_discovery.php';
-        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000028_create_content_post_origins.php';
-        $providers = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_add_content_provider_metadata.php';
+        $incoming = require TestEnv::basePath() . '/database/migrations/2026_10_05_000022_create_source_incoming.php';
+        $selection = require TestEnv::basePath() . '/database/migrations/2026_10_05_000023_create_source_selection.php';
+        $processing = require TestEnv::basePath() . '/database/migrations/2026_10_05_000024_create_source_text_processings.php';
+        $images = require TestEnv::basePath() . '/database/migrations/2026_10_06_000025_create_source_image_processing.php';
+        $videos = require TestEnv::basePath() . '/database/migrations/2026_10_06_000026_create_source_video_generations.php';
+        $discovery = require TestEnv::basePath() . '/database/migrations/2026_10_06_000027_create_content_discovery.php';
+        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_create_content_post_origins.php';
         $automation = require TestEnv::basePath() . '/database/migrations/2026_10_06_000030_create_content_automation.php';
         $automation->down($db);
-        $providers->down($db);
         $origins->down($db);
         $discovery->down($db);
         $videos->down($db);
@@ -51,16 +47,16 @@ final class SourceMigrationTest extends TestCase
         $incoming->down($db);
         $migration->down($db);
         try {
-            self::assertSame(['2026_10_05_000013_create_sources'], $migrator->migrate());
+            self::assertSame(['2026_10_05_000021_create_sources'], $migrator->migrate());
             $columns = $db->select('SHOW COLUMNS FROM sources');
-            self::assertSame(['id', 'public_id', 'workspace_id', 'name', 'type', 'telegram_username', 'status', 'enabled', 'created_by', 'created_at', 'updated_at'], array_column($columns, 'Field'));
+            self::assertSame(['connection_version', 'id', 'public_id', 'workspace_id', 'name', 'type', 'telegram_username', 'status', 'enabled', 'created_by', 'created_at', 'updated_at'], array_column($columns, 'Field'));
             $defaults = array_column($columns, 'Default', 'Field');
             self::assertSame('not_connected', $defaults['status']);
             self::assertSame('0', $defaults['enabled']);
             self::assertArrayNotHasKey('selection_rules_json', $defaults);
-            self::assertSame(['2026_10_05_000013_create_sources'], $migrator->rollback());
+            self::assertSame(['2026_10_05_000021_create_sources'], $migrator->rollback());
             self::assertSame([], $db->select('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', ['sources']));
-            self::assertSame(['2026_10_05_000013_create_sources'], $migrator->migrate());
+            self::assertSame(['2026_10_05_000021_create_sources'], $migrator->migrate());
             self::assertSame([], $migrator->migrate());
         } finally {
             if ($db->select('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?', ['sources']) === []) {
@@ -73,10 +69,9 @@ final class SourceMigrationTest extends TestCase
             $videos->up($db);
             $discovery->up($db);
             $origins->up($db);
-            $providers->up($db);
             $automation->up($db);
             $db->execute('DROP TABLE IF EXISTS migrations_sources_test');
-            unlink($directory . '/2026_10_05_000013_create_sources.php');
+            unlink($directory . '/2026_10_05_000021_create_sources.php');
             rmdir($directory);
         }
     }

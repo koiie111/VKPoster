@@ -32,8 +32,6 @@ final class ContentDraftTest extends PostTestCase
     protected function tearDown(): void
     {
         // Legacy DDL rollback tests recreate their original tables; restore additive review columns.
-        (require \App\Tests\Support\TestEnv::basePath() . '/database/migrations/2026_10_07_000032_review_fixes.php')->up(\App\Tests\Support\TestEnv::connection());
-        (require \App\Tests\Support\TestEnv::basePath() . '/database/migrations/2026_10_07_000033_independent_review.php')->up(\App\Tests\Support\TestEnv::connection());
         parent::tearDown();
     }
 
@@ -234,7 +232,7 @@ final class ContentDraftTest extends PostTestCase
         } catch (HttpException $e) {
             self::assertSame(409, $e->status);
         }
-        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_06_000028_create_content_post_origins.php';
+        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_create_content_post_origins.php';
         $migration->down($this->db);
         $migration->up($this->db);
         self::assertSame(0, $this->db->table('content_post_origins')->count());
@@ -385,7 +383,7 @@ final class ContentDraftTest extends PostTestCase
         $post = $this->app->container()->get(ContentDraftService::class)->create($ctx, $source, (string) $item['public_id'], $revision, $text);
         $channel = $this->app->container()->get(\App\Domain\Channel\ChannelRepository::class)->all($ctx)[0];
         $this->service()->schedule($ctx, $post, $this->draft($post->baseText, [$channel]), $this->clock->now(), true);
-        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_06_000028_create_content_post_origins.php';
+        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_create_content_post_origins.php';
         $this->db->table('publications')->update(['status' => 'sending']);
         try {
             $migration->down($this->db);
@@ -432,7 +430,7 @@ final class ContentDraftTest extends PostTestCase
         $this->db->execute('UPDATE source_text_processings SET selection_hash=? WHERE workspace_id=? AND item_id=?', [$oldHash, $ctx->workspaceId, $item['id']]);
         $this->db->execute('UPDATE content_post_origins SET selection_hash=?, idempotency_key=? WHERE post_id=?', [$oldHash, hash('sha256', 'material:' . $item['id'] . ':' . $revision . ':' . $oldHash), $post->id]);
         $this->db->execute('UPDATE content_post_origins SET selection_hash=? WHERE post_id<>?', [$oldHash, $post->id]);
-        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_07_000032_review_fixes.php';
+        $migration = new \App\Domain\Content\Providers\Stage22LegacyUpgrade();
         $migration->up($this->db);
         $migration->up($this->db);
         self::assertNull($c->get(\App\Domain\Content\Publishing\ContentOriginGuard::class)->problem($post));

@@ -10,7 +10,7 @@ use App\Support\Clock;
 /** Redis atomic request budget, expiring concurrency leases and short circuit breaker; Redis failure denies costly calls. */
 final class ProviderLimits
 {
-    public function __construct(private readonly \Redis $redis, private readonly Config $config, private readonly Clock $clock)
+    public function __construct(private readonly \Redis $redis, private readonly Config $config, private readonly Clock $clock, private readonly ?\App\Domain\Content\Providers\ProviderUsage $usage = null)
     {
     }
 
@@ -21,7 +21,10 @@ final class ProviderLimits
         $vendor = match ($host) {
             'api.openai.com' => 'openai', 'api.replicate.com' => 'replicate', 'api.tineye.com' => 'tineye', default => throw new ProviderException('invalid_provider_host'),
         };
-        $key = 'content-provider:' . $vendor;
+        if (!$this->redis->isConnected()) {
+            throw new ProviderException('limits_unavailable', true);
+        }
+        $key = 'content-provider:' . $vendor . ($this->usage === null ? '' : ':workspace:' . $this->usage->workspace());
         $token = bin2hex(random_bytes(16));
         $now = $this->clock->now()->getTimestamp();
         $video = $method === 'POST' && str_contains((string) parse_url($url, PHP_URL_PATH), '/models/bytedance/');
@@ -47,7 +50,14 @@ LUA;
         if ($allowed !== 1) {
             throw new ProviderException('provider_limited', true);
         }
-        return ['key' => $key, 'token' => $token];
+        $lease = ['key' => $key, 'token' => $token];
+        try {
+            $this->usage?->consume();
+        } catch (\Throwable $e) {
+            $this->release($lease, false);
+            throw $e;
+        }
+        return $lease;
     }
 
     /** Retries consume the same provider request budget; a 429 cannot multiply traffic beyond the cap. */
@@ -56,7 +66,7 @@ LUA;
         $vendor = match ((string) parse_url($url, PHP_URL_HOST)) {
             'api.openai.com' => 'openai', 'api.replicate.com' => 'replicate', 'api.tineye.com' => 'tineye', default => throw new ProviderException('invalid_provider_host'),
         };
-        $key = 'content-provider:' . $vendor . ':minute:' . intdiv($this->clock->now()->getTimestamp(), 60);
+        $key = 'content-provider:' . $vendor . ($this->usage === null ? '' : ':workspace:' . $this->usage->workspace()) . ':minute:' . intdiv($this->clock->now()->getTimestamp(), 60);
         try {
             $n = $this->redis->eval("local n=redis.call('INCR',KEYS[1]); redis.call('EXPIRE',KEYS[1],120); return n", [$key], 1);
         } catch (\Throwable) {

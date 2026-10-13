@@ -2,6 +2,7 @@ name: vkposter-telegram-reader-spike
 services:
   reader:
     build: .
+    image: vkposter-telegram-reader
     init: true
     command: [sources]
     restart: unless-stopped

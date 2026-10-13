@@ -245,6 +245,7 @@ final class ContentHardeningTest extends SourceSelectionTestCase
         $this->ingest($source, [$this->message(10, 'Busy fixture')]);
         $a = $c->get(\App\Domain\Content\Automation\Automation::class);
         $a->tick();
+        self::assertTrue($c->get(\App\Kernel\Queue\Worker::class)->runNext());
         $run = $this->db->table('content_automation_runs')->first();
         self::assertNotNull($run);
         $other = TestEnv::connection();

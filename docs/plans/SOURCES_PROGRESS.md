@@ -2,7 +2,7 @@
 
 Обновлено: 2026-10-06. Основа: актуальный main stage 20 (`6219ebcc`); feature-ветка `stage-13-sources-skeleton`.
 
-Этот документ относится к новой функции Sources. Он не меняет статусы исходных stages VKPoster в [PROGRESS.md](PROGRESS.md). Source — источник контента; Channel — место публикации. Архитектура и контракт: [Sources](../architecture/modules/sources.md), [MTProto spike ADR](../adr/0006-isolated-telegram-reader-spike.md), [reader README](../../tools/telegram-reader/README.md).
+Этот документ относится к новой функции Sources. Он не меняет статусы исходных stages VKPoster в [PROGRESS.md](PROGRESS.md). Source — источник контента; Channel — место публикации. Архитектура и контракт: [Sources](../architecture/modules/sources.md), [MTProto spike ADR](../adr/0011-telegram-reader-service.md), [reader README](../../tools/telegram-reader/README.md).
 
 ## Этап 1 из 3 — Telegram technical foundation
 
@@ -283,3 +283,58 @@ runtime files are excluded.
 Round 2 UI/axe: isolated app_test Source/Radar settings/material pages, 24 screenshots
 (375/768/1440 × light/dark) and axe 360/375/768/1440; no blocking issues or
 horizontal overflow. Screenshot inspected; live consent/workspace unchanged.
+
+## Stage 22 pre-merge fixes — PR #18
+
+Scope: the requested CI failures, workspace paid-provider allowance, reader service
+CI/operations, ADR numbering, consolidated migrations, ordinary-post publishing
+regression and per-policy Queue orchestration. No new providers, live credentials,
+autopublish, publishing framework, Nice-to-have work or additional general review.
+
+- CI collation: every Stage 22 CREATE table specifies utf8mb4_unicode_ci; clean
+  MySQL 8.0 with CI-default utf8mb4_0900_ai_ci and main upgrade/rollback/replay are
+  tested. Maintenance no longer depends on the database default collation.
+- Redis limiter: disconnected Redis and unknown hosts fail closed before HTTP;
+  denied limiter/plan requests consume no allowance.
+- Image lifecycle: reader ACK + current approved revision + selected original
+  yields completed automation and exactly one ordinary Draft on the CI-like DB.
+- Paid calls: existing Entitlements plan features/limits and usage_counters are
+  enforced by workspace. Durable operation ledger makes allowance accounting
+  atomic and idempotent for upload/poll/safe retry; monthly metrics and per-minute/
+  video/concurrency Redis gates are workspace isolated. Features/limits must be
+  configured explicitly; no commercial tariffs were invented. Fake is unbilled.
+- Reader: production service operations documented, with session persistence,
+  recovery/heartbeat, backoff/FLOOD_WAIT, durable ACK/outbox, quarantine/requeue,
+  edits/tombstones/albums/photo delivery and monitoring. Dependencies are pinned
+  and hash verified; CI installs them, runs offline units/Ruff/two HTTP contracts.
+  No real credentials or Telegram login in CI. Historical Compose project name
+  is retained to preserve the existing private state volume.
+- ADR 0011 replaces the conflicting reader ADR filename; VK ADR 0006 is preserved.
+- Stage 22 CREATE migrations now follow main 20 (21–31); metadata/review schema
+  fixes are consolidated, not production repair migrations. Already-applied
+  development DBs use explicit idempotent upgrade-stage22.php with workers paused;
+  local history and the original Draft/copy provenance are retained. This section
+  supersedes the earlier migration 32/33 deployment instructions above.
+- Ordinary Telegram/VK/MAX posts pass real adapters with mocked HTTP through the
+  existing Scheduler/Queue/Publisher. Guard performs one indexed ordinary-post
+  lookup and skips the redundant later check; source origins keep revision checks.
+- Minute tick only queues bounded per-policy jobs. Material scans use policy-local
+  advisory locks, not heavy cross-workspace transactions. Failure/retry isolation,
+  scheduler dedup, checkpoint recovery and one Draft/revision remain tested.
+
+External OpenAI/TinEye/Replicate and production publishing live verification remain
+pending. No real external calls or authorization were performed for this task.
+UI layouts were unchanged; tenant/permission feature tests remain in regression.
+Main and stash@{0} are preserved. Secret/session/runtime/.DS_Store files are excluded.
+
+Local pre-merge regression: **2079 PHP tests / 39052 assertions**, passed on a
+separate fresh MySQL 8.0 with utf8mb4_0900_ai_ci defaults (matching CI). Targeted
+requested regressions: **53 tests / 363 assertions**, passed, including collation,
+fail-closed limits, image ACK lifecycle, workspace isolation/orchestration,
+ordinary Telegram/VK/MAX posts and original Draft + copies compatibility upgrade.
+Reader: **59 offline tests + 2 separate PHP HTTP contracts**, passed. PHPStan
+level 8/strict (814 files), Ruff check/format (21 files), PHP style, CSS freshness,
+composer audit (0 advisories), migration main upgrade/rollback/replay, health
+DB/Redis and nested-secret Docker context/image regression passed. Local credential
+value/path scan found no secrets or local absolute paths in changed production
+docs/config; .DS_Store is excluded. No UI layouts were changed in this task.

@@ -22,7 +22,7 @@
 
 ## Хранилище
 
-Миграция `2026_10_05_000023_create_source_text_processings.php`: единственная новая таблица `source_text_processings`.
+Миграция `2026_10_05_000024_create_source_text_processings.php`: единственная новая таблица `source_text_processings`.
 
 Поля: id/public_id, workspace_id/source_id/item_id, revision_hash/selection_hash, original_text/processed_text, mode, settings_version, settings_json, status, error, provider, created_by, created_at/updated_at/finished_at (UTC). created_at — начало попытки. UNIQUE(item_id, settings_version); индекс workspace/source/item/id; FK CASCADE workspace/source/item, actor SET NULL. Обратимый down удаляет только историю обработки. Исходные источники, материалы и отбор не меняются.
 

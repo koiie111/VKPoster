@@ -17,7 +17,7 @@ use Throwable;
 /** Durable attempt boundary: approve/current revision guards, short transactions around provider calls, retained history. */
 final class ContentProcessor
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly TextProcessor $text, private readonly AuditLog $audit)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly TextProcessor $text, private readonly AuditLog $audit, private readonly \App\Domain\Content\Providers\ProviderUsage $usage)
     {
     }
 
@@ -43,14 +43,20 @@ final class ContentProcessor
             $publicId = (string) new Ulid();
             $now = DbTime::format($this->clock->now());
             $selectionHash = MaterialRepository::selectionHash($selection);
+            $previous = $this->db->select('SELECT provider_metadata_json, retryable, settings_json, revision_hash, selection_hash FROM source_text_processings WHERE workspace_id=? AND item_id=? ORDER BY id DESC LIMIT 1', [$context->workspaceId, $item['id']])[0] ?? null;
+            $settingsJson = json_encode($settings->form(), JSON_THROW_ON_ERROR);
+            $usageKey = $publicId;
+            if ($previous !== null && (bool) $previous['retryable'] && $previous['settings_json'] === $settingsJson && $previous['revision_hash'] === $current && $previous['selection_hash'] === $selectionHash) {
+                $usageKey = json_decode((string) $previous['provider_metadata_json'], true, 32, JSON_THROW_ON_ERROR)['usage_operation_key'] ?? $publicId;
+            }
             $this->db->table('source_text_processings')->insert([
                 'public_id' => $publicId, 'workspace_id' => $context->workspaceId, 'source_id' => $source?->id, 'item_id' => $item['id'],
                 'revision_hash' => $current, 'selection_hash' => $selectionHash, 'original_text' => $item['text'], 'mode' => $settings->mode,
                 'settings_version' => $version, 'settings_json' => json_encode($settings->form(), JSON_THROW_ON_ERROR), 'status' => 'processing',
-                'provider' => $this->text->providerName($settings), 'created_by' => $context->userId, 'created_at' => $now, 'updated_at' => $now,
+                'provider_metadata_json' => json_encode(['usage_operation_key' => $usageKey], JSON_THROW_ON_ERROR), 'provider' => $this->text->providerName($settings), 'created_by' => $context->userId, 'created_at' => $now, 'updated_at' => $now,
             ]);
             $this->audit->record('source.text_started', $context->userId, 'source_item', $itemPublicId, ['mode' => $settings->mode, 'version' => $version], $context->workspaceId);
-            return ['public_id' => $publicId, 'item' => $item, 'messages' => $messages, 'selection_hash' => $selectionHash];
+            return ['usage_key' => $usageKey, 'public_id' => $publicId, 'item' => $item, 'messages' => $messages, 'selection_hash' => $selectionHash];
         });
         // No source/database lock is held during network work. No exception detail or free text is logged.
         $output = null;
@@ -58,7 +64,7 @@ final class ContentProcessor
         $category = null;
         $retryable = false;
         try {
-            $output = $this->text->process((string) $attempt['item']['text'], $attempt['messages'], $source === null ? '' : $source->telegramUsername, $settings);
+            $output = $this->usage->run($context->workspaceId, 'text', $attempt['usage_key'], $this->text->providerName($settings), fn (): string => $this->text->process((string) $attempt['item']['text'], $attempt['messages'], $source === null ? '' : $source->telegramUsername, $settings));
         } catch (\App\Integrations\ContentProviders\ProviderException $e) {
             $category = $e->category;
             $retryable = $e->retryable;
@@ -67,7 +73,7 @@ final class ContentProcessor
             $category = 'outcome_unknown';
             $error = 'Обработка не удалась. Повторите попытку.';
         }
-        $metadata = $this->text->providerMetadata($settings);
+        $metadata = $this->text->providerMetadata($settings) + ['usage_operation_key' => $attempt['usage_key']];
         return $this->db->transaction(function () use ($context, $source, $itemPublicId, $revision, $attempt, $output, $error, $metadata, $category, $retryable): string {
             $this->lock($context, $source, $itemPublicId);
             $item = $this->materials->item($context, $source, $itemPublicId);

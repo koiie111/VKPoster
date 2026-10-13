@@ -21,7 +21,7 @@ use Throwable;
 /** Independent durable video lifecycle: current approved snapshots, immutable bases and guarded final selection. */
 final class VideoWorkflow
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly ImageRepository $images, private readonly VideoRepository $repository, private readonly VideoProvider $provider, private readonly AuditLog $audit, private readonly ?\App\Kernel\Config $operationsConfig = null)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly MaterialRepository $materials, private readonly ImageRepository $images, private readonly VideoRepository $repository, private readonly VideoProvider $provider, private readonly AuditLog $audit, private readonly \App\Domain\Content\Providers\ProviderUsage $usage, private readonly ?\App\Kernel\Config $operationsConfig = null)
     {
     }
 
@@ -156,14 +156,14 @@ final class VideoWorkflow
             $input = new VideoInput($jobId, $settings->aspectRatio, $settings->duration, $settings->instruction, (string) $basis['text'], $basis['image']);
             if ($this->provider instanceof \App\Integrations\Video\AsyncVideoProvider) {
                 if (!isset($attempt['polling'])) {
-                    $remoteId = $this->provider->start($input);
+                    $remoteId = $this->usage->run($ctx->workspaceId, 'video', $jobId, $this->provider->name(), fn () => $this->provider->start($input));
                     if (preg_match('/^[a-z0-9]{1,64}$/D', $remoteId) !== 1) {
                         throw new \RuntimeException('Invalid provider job ID');
                     }
                     $this->db->execute('UPDATE source_video_generations SET provider_job_id = ?, provider_metadata_json = ? WHERE workspace_id = ? AND source_id = ? AND public_id = ? AND status = ? AND lease_generation = ?', [$remoteId, json_encode($this->providerMetadata(), JSON_THROW_ON_ERROR), $ctx->workspaceId, $source->id, $jobId, 'processing', (int) $attempt['lease_generation']]);
                     return 'processing';
                 }
-                $output = $this->provider->poll((string) $attempt['provider_job_id'], $jobId);
+                $output = $this->usage->run($ctx->workspaceId, 'video', $jobId, $this->provider->name(), fn () => $this->provider->poll((string) $attempt['provider_job_id'], $jobId));
                 if ($output === null) {
                     $this->releasePoll($ctx, $jobId, (int) $attempt['lease_generation']);
                     return 'processing';

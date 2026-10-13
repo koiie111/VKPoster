@@ -219,8 +219,8 @@ final class DiscoveryTest extends SourceSelectionTestCase
         $c->get(DiscoveryMaterialGateway::class)->decide($ctx, $id, true);
         $material = $c->get(MaterialRepository::class)->item($ctx, null, $id);
         $c->get(ContentProcessor::class)->process($ctx, null, $id, MaterialRepository::revision($material, []), TextSettings::fromInput([]));
-        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_06_000026_create_content_discovery.php';
-        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000028_create_content_post_origins.php';
+        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_06_000027_create_content_discovery.php';
+        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_create_content_post_origins.php';
         $origins->down($this->db);
         $migration->down($this->db);
         self::assertSame(1, $this->db->table('source_items')->count());

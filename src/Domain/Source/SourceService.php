@@ -54,6 +54,7 @@ final class SourceService
                     : $this->sources->update($context, $source, $name, $sourceType, $username, $enabled);
                 $this->audit->record($source === null ? 'source.created' : 'source.updated', $context->userId, 'source', $saved->publicId, ['name' => $saved->name], $context->workspaceId);
 
+                $this->db->execute('UPDATE content_automation_settings SET orchestration_due_at=NULL WHERE workspace_id=? AND source_id=?', [$context->workspaceId, $saved->id]);
                 return $saved;
             });
         } catch (PDOException $e) {

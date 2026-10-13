@@ -12,13 +12,13 @@ docker compose run -d --no-deps --name "$container" -p "127.0.0.1:$port:8085" \
 docker compose exec -T app php tools/telegram-reader/tests/seed_contract.php
 docker run --rm -v "$PWD/tools/telegram-reader:/work" -w /work \
     -e "TEST_INTERNAL_URL=http://host.docker.internal:$port" -e "TEST_READER_SECRET=$secret" \
-    --entrypoint python vkposter-telegram-reader-spike-reader \
+    --entrypoint python vkposter-telegram-reader \
     -m unittest tests.test_integration.PHPContractTests -v
 docker compose exec -T app php -r 'require "vendor/autoload.php"; $db=App\Tests\Support\TestEnv::connection(); foreach(["source_events", "source_items", "source_messages"] as $t) {echo $t, ": ", $db->table($t)->count(), PHP_EOL;} if($db->table("source_items")->count()!==2 || $db->table("source_messages")->count()!==4) {exit(1);}'
 
 docker compose exec -T app php tools/telegram-reader/tests/prepare_image_contract.php
 docker run --rm -v "$PWD/tools/telegram-reader:/work" -w /work \
     -e "TEST_INTERNAL_URL=http://host.docker.internal:$port" -e "TEST_READER_SECRET=$secret" \
-    --entrypoint python vkposter-telegram-reader-spike-reader \
+    --entrypoint python vkposter-telegram-reader \
     -m unittest tests.test_image_delivery.PHPImageContractTests -v
 docker compose exec -T app php -r 'require "vendor/autoload.php"; $db=App\Tests\Support\TestEnv::connection(); $runs=$db->table("source_image_processings")->where("status","=","completed")->count(); $variants=$db->table("source_image_variants")->count(); echo "image_runs: $runs, variants: $variants", PHP_EOL; if($runs!==4 || $variants!==8) {exit(1);}'

@@ -17,7 +17,7 @@ return new class () implements Migration {
             FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
             FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $db->execute("CREATE TABLE source_selection_decisions (
+        $db->execute("CREATE TABLE source_selection_decisions (revision_hash CHAR(64) NULL,
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, workspace_id BIGINT UNSIGNED NOT NULL,
             source_id BIGINT UNSIGNED NOT NULL, item_id BIGINT UNSIGNED NOT NULL UNIQUE,
             selection_status VARCHAR(16) NOT NULL, decision_mode VARCHAR(16) NOT NULL,

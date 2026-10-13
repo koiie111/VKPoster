@@ -17,7 +17,7 @@ return new class () implements Migration {
             FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         // Polymorphic origin IDs are internal only; domain lookups always authorize the actual workspace origin first.
-        $db->execute("CREATE TABLE semantic_selection_evaluations (
+        $db->execute("CREATE TABLE semantic_selection_evaluations (provider_metadata_json JSON NULL, attempt_count INT UNSIGNED NOT NULL DEFAULT 0, input_json JSON NULL, started_at DATETIME(6) NULL, error_category VARCHAR(64) NULL,
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, workspace_id BIGINT UNSIGNED NOT NULL,
             scope_key VARCHAR(64) NOT NULL, origin_type VARCHAR(16) NOT NULL, origin_id BIGINT UNSIGNED NOT NULL,
             revision_hash CHAR(64) NOT NULL, deterministic_hash CHAR(64) NOT NULL, settings_version INT UNSIGNED NOT NULL, settings_snapshot_json JSON NOT NULL,

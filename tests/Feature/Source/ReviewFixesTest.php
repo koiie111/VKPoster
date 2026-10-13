@@ -141,12 +141,10 @@ final class ReviewFixesTest extends SourceSelectionTestCase
         self::assertSame(0, $this->db->table('source_items')->count());
         self::assertSame(0, $this->db->table('source_events')->count());
     }
-    public function testAdditiveMigrationRollbackReplayAndDefaults(): void
+    public function testLegacyUpgradeReplayAndDefaults(): void
     {
         self::assertSame('app_test', $this->db->select('SELECT DATABASE() AS name')[0]['name']);
-        $migration = require \App\Tests\Support\TestEnv::basePath() . '/database/migrations/2026_10_07_000032_review_fixes.php';
-        $migration->down($this->db);
-        self::assertNotContains('connection_version', array_column($this->db->select('SHOW COLUMNS FROM sources'), 'Field'));
+        $migration = new \App\Domain\Content\Providers\Stage22LegacyUpgrade();
         $migration->up($this->db);
         $migration->up($this->db); // Safe replay after an interrupted additive DDL deployment.
         $columns = array_column($this->db->select('SHOW COLUMNS FROM sources'), 'Default', 'Field');

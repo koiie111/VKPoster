@@ -16,9 +16,18 @@ final class ContentOriginGuard
     {
     }
 
-    /** Safe user-facing failure, or null when an ordinary/approved current post can proceed. */
-    public function problem(Post $post): ?string
+    /** Indexed existence query only; ordinary posts never load Source/processing data. */
+    public function hasOrigin(Post $post): bool
     {
+        return $this->db->select('SELECT id FROM content_post_origins WHERE workspace_id=? AND post_id=? LIMIT 1', [$post->workspaceId, $post->id]) !== [];
+    }
+
+    /** Safe user-facing failure, or null when an ordinary/approved current post can proceed. */
+    public function problem(Post $post, bool $knownOrigin = false): ?string
+    {
+        if (!$knownOrigin && !$this->hasOrigin($post)) {
+            return null;
+        }
         $origin = $this->db->select('SELECT o.*, i.text, i.content_type, i.peer_id, i.grouped_id, i.source_id, i.connection_version, i.id AS material_id FROM content_post_origins o LEFT JOIN source_items i ON i.id = o.item_id AND i.workspace_id = o.workspace_id WHERE o.workspace_id = ? AND o.post_id = ?', [$post->workspaceId, $post->id])[0] ?? null;
         if ($origin === null) {
             return null;

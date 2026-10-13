@@ -45,3 +45,29 @@ docker compose up -d reader
 Не применяйте rollback при активных automation/provider jobs в production. Migration 30 обратима; rollback удаляет automation policies/runs/call fences, поэтому требует остановки workers и координации восстановления перед повторным запуском. Проверки rollback/replay выполняются на app_test.
 
 Hardening 3.4 adds shared concurrency/request budgets, recovery maintenance, opt-in orphan retention and operational metrics: [operations guide](content-hardening.md).
+
+## Stage 22 policy orchestration and plan allowance
+
+Minute tick locks only up to 100 due policy rows to enqueue small
+`AutomationPolicyJob` jobs in the existing Queue. Each job scans one policy/workspace
+under a connection-local advisory lock, without a transaction spanning material
+lookups or provider work. Checkpoints and unique run keys retain retries/dedup;
+short due/queued timestamps recover lost reservations. Existing material jobs
+retain revision, selection and policy guards. Selection changes/imports wake the
+policy; Discovery refresh frequency remains independently configured.
+
+Paid OpenAI/TinEye/Replicate calls require `Entitlements` features
+`content_text`, `content_semantic`, `content_image_search`,
+`content_image_enhancement`, `content_video`, and corresponding plan JSON limits
+`content_<operation>_per_month`. Missing feature denies; missing limit is zero;
+explicit null means unlimited. No commercial prices/allowances are assigned here.
+Operators configure these through the existing plan configuration. Fake/dev/test
+work remains unbilled. Credentials alone do not grant a paid operation.
+
+Before HTTP dispatch, Redis fail-closed workspace request/concurrency/video limits
+must grant a lease. Then workspace-locked `content_provider_usage` records a stable
+operation identity and increments usage_counters atomically. Poll/upload/safe retry
+reuse that identity and do not consume a second unit; explicit new user generation
+is a new operation. Uncertain paid outcomes still require reconciliation and do
+not replay. Redis budgets are workspace-scoped so one tenant cannot exhaust another
+workspace's budget. Existing worker slots remain the global concurrency safety cap.

@@ -172,6 +172,7 @@ final class SelectionService
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE selection_status=VALUES(selection_status), decision_mode=VALUES(decision_mode), reason=VALUES(reason), matched_rule=VALUES(matched_rule), rules_version=VALUES(rules_version), rules_snapshot_json=VALUES(rules_snapshot_json), decided_by=VALUES(decided_by), updated_at=VALUES(updated_at), revision_hash=VALUES(revision_hash)',
             [$workspaceId, $sourceId, $itemId, $result->status, $mode, $result->reason, $result->rule, $rules === null ? null : (int) $rules['version'], $rules === null ? null : (string) $rules['rules_json'], $actor, $now, $now, $revision]
         );
+        $this->db->execute('UPDATE content_automation_settings SET orchestration_due_at=NULL WHERE workspace_id=? AND source_id <=> ?', [$workspaceId, $sourceId]);
     }
 
     private function decodeRules(string $json): SelectionRules

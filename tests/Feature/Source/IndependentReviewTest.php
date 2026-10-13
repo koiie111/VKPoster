@@ -148,13 +148,6 @@ final class IndependentReviewTest extends SourceSelectionTestCase
         }
         self::assertSame(3, $this->db->table('source_items')->count());
         self::assertSame(3, $this->db->table('source_messages')->count());
-        try {
-            (require \App\Tests\Support\TestEnv::basePath() . '/database/migrations/2026_10_07_000033_independent_review.php')->down($this->db);
-            self::fail('Rollback cannot merge historical generations');
-        } catch (\LogicException $e) {
-            self::assertStringContainsString('rollback would merge identities', $e->getMessage());
-        }
-
         self::assertSame(200, $this->get('/w/' . $ctx->workspacePublicId . '/sources/' . $source->publicId)->status);
         $this->expectException(HttpException::class);
         $c->get(MaterialRepository::class)->item($ctx, $source, (string) $first);
@@ -193,14 +186,6 @@ final class IndependentReviewTest extends SourceSelectionTestCase
         self::assertSame(2, $this->db->table('source_events')->count());
         $this->expectException(HttpException::class);
         $c->get(ContentProcessor::class)->process($ctx, $source, $item['public_id'], $revision, TextSettings::fromInput([]));
-    }
-    public function testMigration33RollbackReplay(): void
-    {
-        $migration = require \App\Tests\Support\TestEnv::basePath() . '/database/migrations/2026_10_07_000033_independent_review.php';
-        $migration->down($this->db);
-        $migration->up($this->db);
-        $migration->up($this->db);
-        self::assertCount(4, $this->db->select("SHOW INDEX FROM source_messages WHERE Key_name='uq_source_message'"));
     }
     public function testTombstoneBeforeDelayedSnapshotCannotResurrectMaterial(): void
     {

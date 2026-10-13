@@ -341,6 +341,7 @@ return static function (Container $c, string $base): void {
         );
     });
 
+    $c->factory(\App\Integrations\ContentProviders\ProviderLimits::class, static fn (Container $c): \App\Integrations\ContentProviders\ProviderLimits => new \App\Integrations\ContentProviders\ProviderLimits($c->get(\Redis::class), $c->get(Config::class), $c->get(\App\Support\Clock::class), $c->get(\App\Domain\Content\Providers\ProviderUsage::class)));
     $c->factory(\App\Integrations\ContentProviders\ProviderHttp::class, static fn (Container $c): \App\Integrations\ContentProviders\ProviderHttp => new \App\Integrations\ContentProviders\ProviderHttp($c->get(HttpClientInterface::class), limits: $c->get(\App\Integrations\ContentProviders\ProviderLimits::class)));
 
     $c->factory(\App\Integrations\Ai\OpenAiResponses::class, static fn (Container $c): \App\Integrations\Ai\OpenAiResponses => new \App\Integrations\Ai\OpenAiResponses($c->get(\App\Integrations\ContentProviders\ProviderHttp::class), $c->get(Config::class)->string('content_providers.openai_key'), $c->get(Config::class)->string('content_providers.openai_model')));

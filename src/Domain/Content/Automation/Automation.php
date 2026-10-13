@@ -33,21 +33,42 @@ final class Automation
     {
     }
 
-    /** Existing minute scheduler discovers work and reclaims lost enqueues, bounded to 100 materials per policy/tick. */
+    /** Scheduler enqueues at most 100 due policy jobs; all material scans run in isolated Queue jobs. */
     public function tick(): void
     {
-        foreach ($this->db->select('SELECT p.* FROM content_automation_settings p LEFT JOIN sources s ON s.id=p.source_id AND s.workspace_id=p.workspace_id WHERE p.source_id IS NULL OR s.enabled=1 ORDER BY p.id') as $policy) {
-            $settings = json_decode((string) $policy['settings_json'], true, 32, JSON_THROW_ON_ERROR);
-            if (!($settings['enabled'] === true)) {
-                continue;
+        $this->db->transaction(function (): void {
+            $now = DbTime::format($this->clock->now());
+            $due = $this->db->select("SELECT p.id,p.workspace_id,p.version FROM content_automation_settings p LEFT JOIN sources s ON s.id=p.source_id AND s.workspace_id=p.workspace_id WHERE JSON_EXTRACT(p.settings_json,'$.enabled')=true AND (p.source_id IS NULL OR s.enabled=1) AND (p.orchestration_due_at IS NULL OR p.orchestration_due_at<=?) AND (p.orchestration_queued_at IS NULL OR p.orchestration_queued_at<?) ORDER BY p.orchestration_due_at,p.id LIMIT 100 FOR UPDATE SKIP LOCKED", [$now, DbTime::format($this->clock->now()->modify('-16 minutes'))]);
+            foreach ($due as $policy) {
+                $this->queue->dispatch(new \App\Jobs\Content\AutomationPolicyJob((int) $policy['workspace_id'], (int) $policy['id'], (int) $policy['version']));
+                $this->db->execute('UPDATE content_automation_settings SET orchestration_queued_at=? WHERE id=?', [$now, $policy['id']]);
             }
-            try {
-                [$ctx, $source] = $this->scope($policy);
-            } catch (HttpException) {
-                continue;
-            }
-            $this->db->transaction(function () use ($ctx, $source, $policy, $settings): void {
-                $fresh = $this->db->select('SELECT * FROM content_automation_settings WHERE workspace_id=? AND id=? FOR UPDATE', [$ctx->workspaceId, $policy['id']])[0];
+        });
+        $this->enqueueRuns();
+    }
+
+    /** One policy per job, idempotent/retryable on the existing Queue; no provider call in this scan. */
+    public function scanPolicy(int $workspaceId, int $policyId, int $version): void
+    {
+        $policy = $this->db->select('SELECT * FROM content_automation_settings WHERE workspace_id=? AND id=?', [$workspaceId, $policyId])[0] ?? null;
+        if ($policy === null || (int) $policy['version'] !== $version) {
+            return;
+        }
+        $settings = json_decode((string) $policy['settings_json'], true, 32, JSON_THROW_ON_ERROR);
+        if ($settings['enabled'] !== true) {
+            return;
+        }
+        [$ctx, $source] = $this->scope($policy);
+        if ($source !== null && !$source->enabled) {
+            return;
+        }
+        $lock = 'content-policy:' . $workspaceId . ':' . $policyId;
+        if ((int) $this->db->select('SELECT GET_LOCK(?, 0) AS acquired', [$lock])[0]['acquired'] !== 1) {
+            return;
+        }
+        try {
+            (function () use ($ctx, $source, $policy, $settings): void {
+                $fresh = $this->db->select('SELECT * FROM content_automation_settings WHERE workspace_id=? AND id=?', [$ctx->workspaceId, $policy['id']])[0];
                 if ((int) $fresh['version'] !== (int) $policy['version']) {
                     return;
                 }
@@ -78,8 +99,17 @@ final class Automation
                         $this->db->execute('UPDATE content_automation_runs SET status=?, step=?, selection_hash=?, available_at=?, updated_at=?, finished_at=NULL, error=NULL, text_version=NULL, video_version=NULL, draft_id=NULL WHERE workspace_id=? AND id=?', ['pending', 'selection', $hash, $now, $now, $ctx->workspaceId, $prior['id']]);
                     }
                 }
-            });
+            })();
+        } finally {
+            $this->db->select('SELECT RELEASE_LOCK(?)', [$lock]);
         }
+
+        $this->db->execute('UPDATE content_automation_settings SET orchestration_queued_at=NULL, orchestration_due_at=? WHERE workspace_id=? AND id=? AND version=?', [DbTime::format($this->clock->now()->modify('+60 seconds')), $workspaceId, $policyId, $version]);
+        $this->enqueueRuns();
+    }
+
+    private function enqueueRuns(): void
+    {
         $this->db->transaction(function (): void {
             $now = DbTime::format($this->clock->now());
             $rows = $this->db->select('SELECT id FROM content_automation_runs WHERE status IN (?, ?) AND available_at <= ? AND (queued_at IS NULL OR queued_at < ?) ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED', ['pending', 'waiting', $now, DbTime::format($this->clock->now()->modify('-16 minutes'))]);
@@ -192,6 +222,7 @@ final class Automation
         foreach ($this->db->select('SELECT public_id FROM discovery_items WHERE workspace_id=? AND status=? AND source_type IN (' . $placeholders . ') ORDER BY discovered_at DESC, id DESC LIMIT ' . (int) $settings['candidate_limit'], [$ctx->workspaceId, 'new', ...$types]) as $candidate) {
             $this->gateway->import($ctx, (string) $candidate['public_id']);
         }
+        $this->db->execute('UPDATE content_automation_settings SET orchestration_due_at=NULL WHERE workspace_id=? AND id=?', [$ctx->workspaceId, $run['settings_id']]);
         $this->finish($run, 'completed', null, 'discovery');
     }
 

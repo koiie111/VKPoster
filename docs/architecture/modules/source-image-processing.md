@@ -28,7 +28,7 @@ Pixel/provider работа находится вне Source/DB lock. Финал
 
 ## Таблицы и UI
 
-Миграция `2026_10_06_000024_create_source_image_processing.php`:
+Миграция `2026_10_06_000025_create_source_image_processing.php`:
 
 - `source_image_processings`: ULID, workspace/source/item/message FK, исходные Telegram peer/message/photo IDs, revision_hash/selection_hash, queued/completed/failed/stale, безопасный error, выбранный variant ULID, actor и UTC timestamps.
 - `source_image_variants`: ULID, workspace/run FK, original/candidate/enhanced, отдельные private storage/preview keys, SHA-256, dimensions/MIME/bytes, quality/metrics snapshot с perceptual hash, public provenance URL, verification/confidence/diagnostics, provider и timestamp.

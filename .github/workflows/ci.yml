@@ -84,5 +84,18 @@ jobs:
               composer audit
             '
 
+      - name: Reader dependencies and offline unit tests
+        run: |
+          docker build -t vkposter-telegram-reader tools/telegram-reader
+          docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python vkposter-telegram-reader -m unittest discover -s tests -v
+          docker run --rm -v "$PWD/tools/telegram-reader:/work" -w /work ghcr.io/astral-sh/ruff:0.14.1 check reader tests
+          docker run --rm -v "$PWD/tools/telegram-reader:/work" -w /work ghcr.io/astral-sh/ruff:0.14.1 format --check reader tests
+
+      - name: Reader PHP HTTP contracts
+        run: sh tools/telegram-reader/tests/run_ci_contract.sh
+
+      - name: Production Docker context excludes secrets
+        run: sh scripts/check-docker-context.sh
+
       - name: Build API reference (phpDocumentor)
         run: docker run --rm -v "$PWD:/data" phpdoc/phpdoc:3 run -d src -t docs/reference

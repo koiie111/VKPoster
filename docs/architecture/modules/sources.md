@@ -9,7 +9,7 @@
 - `SourceRepository` наследует `WorkspaceScopedRepository`: все операции принимают `WorkspaceContext`, чтение и обновление ограничены текущим workspace. В URL используется только `public_id` (ULID).
 - `SourceService::create()` и `update()` валидируют название, тип и Telegram-ссылку. Сохранение и запись аудита выполняются в одной транзакции. Ошибка уникальности БД возвращается как ошибка поля канала, без SQL и технических подробностей.
 - `TelegramSourceLocator::normalize()` принимает `@username`, username, `https://t.me/username`, `t.me/username`; приводит username к нижнему регистру и убирает завершающий слеш URL. Приглашения, ссылки на отдельные сообщения и сторонние URL не принимаются. Локальная проверка принимает username из 5–32 символов: латинская буква в начале, затем буквы, цифры и подчёркивания. Разбор полностью локальный: это не проверка существования канала и не resolve стабильного peer ID. При переименовании канала username может измениться; устойчивую идентичность добавит будущий reader.
-- Таблица `sources`: `id`, `public_id`, `workspace_id`, `name`, `type`, `telegram_username`, `status`, `enabled`, `created_by`, `created_at`, `updated_at`. Миграция `2026_10_05_000013_create_sources.php`, обратимая. `UNIQUE(workspace_id, type, telegram_username)` защищает от дубликатов, включая одновременные запросы. Один канал допустим в разных пространствах.
+- Таблица `sources`: `id`, `public_id`, `workspace_id`, `name`, `type`, `telegram_username`, `status`, `enabled`, `created_by`, `created_at`, `updated_at`. Миграция `2026_10_05_000021_create_sources.php`, обратимая. `UNIQUE(workspace_id, type, telegram_username)` защищает от дубликатов, включая одновременные запросы. Один канал допустим в разных пространствах.
 - `type` пока только `telegram`; транспорт Bot API / MTProto здесь не выбирается.
 - `status` — системное состояние, значения `not_connected`, `connected`, `error`. Поле не принимается из формы; при изменении username система сбрасывает подключение в `not_connected`.
 - `enabled` — отдельный boolean, по умолчанию `false`. Включённые источники появляются в списке для reader; выключенные не читаются и не получают новые события.
@@ -58,7 +58,7 @@ UI: `make ui-snap STAGE=sources` (включает axe на 360/1440 px и сн�
 
 ## Подэтап 2.2 — входящие материалы и внутренний HTTP API
 
-Миграция `2026_10_05_000021_create_source_incoming.php` создаёт `source_events` (входящий конверт, hash, stored), `source_items` (логический пост/альбом) и `source_messages` (сообщения с entities и media metadata). AI/selection-полей нет. Схема `sources` остаётся прежней: 11 полей.
+Миграция `2026_10_05_000022_create_source_incoming.php` создаёт `source_events` (входящий конверт, hash, stored), `source_items` (логический пост/альбом) и `source_messages` (сообщения с entities и media metadata). AI/selection-полей нет. Схема `sources` остаётся прежней: 11 полей.
 
 `SourceReaderController` проверяет отдельный `SOURCES_READER_SECRET` (минимум 32 символа, constant-time comparison) до обработки; без настройки API выключен. `GET /internal/sources` возвращает `{version:1,sources:[{id,username}]}` для включённых Telegram Sources. `POST /internal/source-events` принимает JSON `{version:1,event_id,source_id,kind,payload}`; `kind=item` содержит peer_id, grouped_id и массив нормализованных сообщений. `kind=status` содержит connected/error и безопасный error_code. Размер — до 512 KiB, до 100 сообщений; приватные credential-поля отклоняются. Эти маршруты не используют браузерную авторизацию/consent и CSRF, поскольку секрет принадлежит только сервису. Действуют отдельные rate limits. Секрет передаётся заголовком, никогда URL или HTML.
 
@@ -82,7 +82,7 @@ Reader: `reader/integration.py`, одна persistent session, shared client/RPC 
 
 Отбор работает после транзакционного сохранения цельного `source_item`, до будущей обработки контента. `SourceIngress::item()` вызывает `SelectionService::evaluateLocked()` в той же транзакции до ACK; читатель и его HTTP-контракт не изменены. Ошибка сохранения решения откатывает событие, item и сообщения, допускает безопасный retry. Технический `source_items.status=stored` не зависит от решения отбора.
 
-Миграция `2026_10_05_000022_create_source_selection.php` создаёт две отдельные таблицы:
+Миграция `2026_10_05_000023_create_source_selection.php` создаёт две отдельные таблицы:
 
 - `source_selection_rules`: workspace_id, source_id (unique), version, rules_json, updated_by, timestamps. Одно текущее правило на Source; версия увеличивается при сохранении.
 - `source_selection_decisions`: workspace_id, source_id, item_id (unique), selection_status, decision_mode, reason, matched_rule, rules_version, rules_snapshot_json, decided_by, timestamps. Одна актуальная оценка материала, с snapshot применённых правил. Это не append-only история всех автоматических оценок; ручные действия и изменения правил дополнительно сохраняются в audit log без текста материалов или правил.

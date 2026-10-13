@@ -116,7 +116,16 @@ def main():
         description="Изолированный read-only Telegram spike"
     )
     parser.add_argument(
-        "command", choices=("login", "login-qr", "smoke", "run", "status", "sources", "outbox-retry")
+        "command",
+        choices=(
+            "login",
+            "login-qr",
+            "smoke",
+            "run",
+            "status",
+            "sources",
+            "outbox-retry",
+        ),
     )
     parser.add_argument(
         "--qr-port", type=int, default=8765, help="Local QR listener port inside Docker"
@@ -149,8 +158,10 @@ def main():
                 )
             )
         elif args.command == "outbox-retry":
-            if not args.event_id or len(args.event_id) != 64 or any(
-                c not in "0123456789abcdef" for c in args.event_id
+            if (
+                not args.event_id
+                or len(args.event_id) != 64
+                or any(c not in "0123456789abcdef" for c in args.event_id)
             ):
                 raise ValueError("invalid_event_id")
             print(json.dumps({"requeued": Outbox(store).retry_failed(args.event_id)}))

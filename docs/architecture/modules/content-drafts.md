@@ -23,3 +23,12 @@ No transaction can undo an already started remote social API request. The last p
 Shared material page for Source and Discovery has «Создать черновик», current text-result selection, actual-video selection, and links/statuses for exported drafts. Source image choices are made in existing Image Processing UI. POST routes require CSRF, workspace permissions and a rate limit. Only aggregate counts and `content.draft_created` origin category enter analytics/audit/admin stats, without text or credentials. New jobs/env/provider credentials are not required.
 
 Synthetic end-to-end tests exercise export, editor, scheduler, queue worker, Publisher, actual Telegram/VK/MAX adapters behind MockHttpClient, albums, video archive contract, idempotency, stale/rejected/needs_review guards, deleted origins, rollback/replay, CSRF and tenant/role isolation. Real APIs and live Telegram are intentionally not tested in 3.1. Fake processing providers remain Fake, including the video lifecycle (no actual generation).
+
+## Ordinary publishing regression
+
+ContentOriginGuard sits in existing PostService/Publisher preflight. An ordinary
+post uses one indexed content_post_origins existence lookup and never loads material,
+selection or processing rows. Publisher skips its second provenance check entirely
+for that ordinary post. Source-linked posts recheck after media preparation to
+reject concurrent edits, without creating a new publishing path. Telegram/VK/MAX
+ordinary Draft → Scheduler → Queue → real adapters are covered with mocked HTTP.

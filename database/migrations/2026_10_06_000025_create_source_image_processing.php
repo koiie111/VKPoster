@@ -23,7 +23,7 @@ return new class () implements Migration {
             FOREIGN KEY (message_id) REFERENCES source_messages(id) ON DELETE CASCADE,
             FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $db->execute("CREATE TABLE source_image_variants (
+        $db->execute("CREATE TABLE source_image_variants (provider_metadata_json JSON NULL,
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, public_id CHAR(26) NOT NULL UNIQUE,
             workspace_id BIGINT UNSIGNED NOT NULL, processing_id BIGINT UNSIGNED NOT NULL, kind VARCHAR(16) NOT NULL,
             storage_key VARCHAR(255) NOT NULL, preview_key VARCHAR(255) NOT NULL, sha256 CHAR(64) NOT NULL,

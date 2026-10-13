@@ -167,20 +167,17 @@ final class SourceTextProcessingTest extends SourceSelectionTestCase
 
     public function testProcessingMigrationRollbackReplay(): void
     {
-        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_05_000023_create_source_text_processings.php';
-        $discovery = require TestEnv::basePath() . '/database/migrations/2026_10_06_000026_create_content_discovery.php';
-        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000028_create_content_post_origins.php';
-        $providers = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_add_content_provider_metadata.php';
+        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_05_000024_create_source_text_processings.php';
+        $discovery = require TestEnv::basePath() . '/database/migrations/2026_10_06_000027_create_content_discovery.php';
+        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_create_content_post_origins.php';
         $automation = require TestEnv::basePath() . '/database/migrations/2026_10_06_000030_create_content_automation.php';
         $automation->down($this->db);
-        $providers->down($this->db);
         $origins->down($this->db);
         $discovery->down($this->db);
         $migration->down($this->db);
         $migration->up($this->db);
         $discovery->up($this->db);
         $origins->up($this->db);
-        $providers->up($this->db);
         $automation->up($this->db);
         self::assertSame(0, $this->db->table('source_text_processings')->count());
         self::assertContains('settings_version', array_column($this->db->select('SHOW COLUMNS FROM source_text_processings'), 'Field'));
@@ -189,6 +186,6 @@ final class SourceTextProcessingTest extends SourceSelectionTestCase
     private function processor(TextProvider $provider): ContentProcessor
     {
         $c = $this->app->container();
-        return new ContentProcessor($this->db, $c->get(Clock::class), $c->get(MaterialRepository::class), new TextProcessor($provider), $c->get(AuditLog::class));
+        return new ContentProcessor($this->db, $c->get(Clock::class), $c->get(MaterialRepository::class), new TextProcessor($provider), $c->get(AuditLog::class), $c->get(\App\Domain\Content\Providers\ProviderUsage::class));
     }
 }

@@ -25,7 +25,9 @@ class RetentionTest(unittest.TestCase):
         self.assertEqual(outbox.compact(), 0)
         self.assertEqual(outbox.compact(30), 1)
         outbox.enqueue("source", "post", {"text": "old"})
-        self.assertEqual(store.db.execute("SELECT COUNT(*) FROM outbox").fetchone()[0], 3)
+        self.assertEqual(
+            store.db.execute("SELECT COUNT(*) FROM outbox").fetchone()[0], 3
+        )
         self.assertEqual(
             store.db.execute(
                 "SELECT payload FROM outbox WHERE event_id=?", (first,)
@@ -34,9 +36,9 @@ class RetentionTest(unittest.TestCase):
         )
         self.assertEqual(outbox.compact(30), 0)
         self.assertEqual(
-            store.db.execute("SELECT COUNT(*) FROM outbox WHERE state='pending'").fetchone()[
-                0
-            ],
+            store.db.execute(
+                "SELECT COUNT(*) FROM outbox WHERE state='pending'"
+            ).fetchone()[0],
             1,
         )
         store.db.close()
@@ -52,7 +54,9 @@ class FailureTest(unittest.IsolatedAsyncioTestCase):
 
         class InvalidAPI:
             async def send(self, event):
-                raise urllib.error.HTTPError("https://example.test", 422, "bad", {}, None)
+                raise urllib.error.HTTPError(
+                    "https://example.test", 422, "bad", {}, None
+                )
 
         self.assertEqual(await outbox.deliver(InvalidAPI(), {"source"}), 0)
         summary = outbox.summary()

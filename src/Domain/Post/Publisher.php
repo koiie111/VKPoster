@@ -106,7 +106,8 @@ final class Publisher
             return;
         }
         ['post' => $post, 'variant' => $variant] = $loaded;
-        $originError = $this->origin->problem($post);
+        $hasContentOrigin = $this->origin->hasOrigin($post);
+        $originError = $hasContentOrigin ? $this->origin->problem($post, true) : null;
         if ($originError !== null) {
             $this->fail($publication, $post, $variant, $started, 'origin_stale', $originError, 'content origin preflight failed');
             return;
@@ -163,7 +164,7 @@ final class Publisher
 
         try {
             // Media preparation may take time. Revalidate immediately before the existing adapter sends anything.
-            $originError = $this->origin->problem($post);
+            $originError = $hasContentOrigin ? $this->origin->problem($post, true) : null;
             if ($originError !== null) {
                 $this->fail($publication, $post, $variant, $started, 'origin_stale', $originError, 'content origin changed during preparation');
                 return;

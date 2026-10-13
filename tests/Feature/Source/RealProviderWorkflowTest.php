@@ -34,10 +34,28 @@ use App\Tests\Support\TestEnv;
 /** @phpstan-impure */
 final class RealProviderWorkflowTest extends SourceSelectionTestCase
 {
+    /** @var list<array<string,mixed>> */
+    private array $originalPlans = [];
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->originalPlans = $this->db->select('SELECT id, features_json, limits_json FROM plans');
+    }
+    protected function tearDown(): void
+    {
+        foreach ($this->originalPlans as $plan) {
+            $this->db->execute('UPDATE plans SET features_json=?, limits_json=? WHERE id=?', [$plan['features_json'], $plan['limits_json'], $plan['id']]);
+        }
+        parent::tearDown();
+    }
     /** @return array{\App\Domain\Workspace\WorkspaceContext,\App\Domain\Source\Source,array<string,mixed>,string} */
     private function fixture(): array
     {
         [$owner, $workspace] = $this->ownerWithWorkspace();
+        $plan = $this->app->container()->get(\App\Domain\Billing\Entitlements::class)->plan($workspace->id);
+        $features = array_merge($plan->features, ['content_text', 'content_semantic']);
+        $limits = $plan->limits + ['content_text_per_month' => 10, 'content_semantic_per_month' => 10];
+        $this->db->execute('UPDATE plans SET features_json=?, limits_json=? WHERE id=?', [json_encode($features, JSON_THROW_ON_ERROR), json_encode($limits, JSON_THROW_ON_ERROR), $plan->id]);
         $ctx = $this->contextFor($workspace, $owner);
         $source = $this->app->container()->get(SourceService::class)->create($ctx, 'Provider test', 'telegram', '@provider_fixture', true);
         $this->ingest($source, [$this->message(10, 'Original AI news')]);
@@ -91,7 +109,7 @@ final class RealProviderWorkflowTest extends SourceSelectionTestCase
         $statuses[] = $workflow->run($ctx, $source, $item['public_id'], $job);
         $statuses[] = $workflow->run($ctx, $source, $item['public_id'], $job);
         self::assertSame(['processing', 'processing', 'processing'], $statuses);
-        $restart = new VideoWorkflow($this->db, $c->get(Clock::class), $c->get(MaterialRepository::class), $c->get(\App\Domain\Content\ImageProcessing\ImageRepository::class), $c->get(\App\Domain\Content\VideoProcessing\VideoRepository::class), $provider, $c->get(AuditLog::class));
+        $restart = new VideoWorkflow($this->db, $c->get(Clock::class), $c->get(MaterialRepository::class), $c->get(\App\Domain\Content\ImageProcessing\ImageRepository::class), $c->get(\App\Domain\Content\VideoProcessing\VideoRepository::class), $provider, $c->get(AuditLog::class), $c->get(\App\Domain\Content\Providers\ProviderUsage::class));
         $completed = [$restart->run($ctx, $source, $item['public_id'], $job), $restart->run($ctx, $source, $item['public_id'], $job)];
         self::assertSame(['completed', 'completed'], $completed);
         self::assertSame(1, $provider->starts);
@@ -110,7 +128,7 @@ final class RealProviderWorkflowTest extends SourceSelectionTestCase
         $http = (new MockHttpClient())->expect('POST', 'https://api.openai.com/v1/responses', 200, (string) file_get_contents(TestEnv::basePath() . '/tests/Fixtures/ContentProviders/openai-text.json'));
         $provider = new OpenAiTextProvider(new OpenAiResponses(new ProviderHttp($http), 'test-only-key'));
         $c = $this->app->container();
-        $workflow = new ContentProcessor($this->db, $c->get(Clock::class), $c->get(MaterialRepository::class), new TextProcessor($provider), $c->get(AuditLog::class));
+        $workflow = new ContentProcessor($this->db, $c->get(Clock::class), $c->get(MaterialRepository::class), new TextProcessor($provider), $c->get(AuditLog::class), $c->get(\App\Domain\Content\Providers\ProviderUsage::class));
         self::assertSame('completed', $workflow->process($ctx, $source, $item['public_id'], $revision, TextSettings::fromInput(['mode' => 'rewrite'])));
         $attempt = $this->db->table('source_text_processings')->first() ?? throw new \LogicException();
         self::assertSame('openai', $attempt['provider']);
@@ -125,7 +143,7 @@ final class RealProviderWorkflowTest extends SourceSelectionTestCase
         $this->db->execute("UPDATE source_selection_decisions SET decision_mode='automatic' WHERE workspace_id=? AND item_id=?", [$ctx->workspaceId, $item['id']]);
         $http = (new MockHttpClient())->expect('POST', 'https://api.openai.com/v1/responses', 200, (string) file_get_contents(TestEnv::basePath() . '/tests/Fixtures/ContentProviders/openai-semantic.json'));
         $c = $this->app->container();
-        $semantic = new SemanticSelection($this->db, $c->get(Clock::class), new OpenAiSemanticSelectionProvider(new OpenAiResponses(new ProviderHttp($http), 'test-key')), new SemanticPolicy(), $c->get(\App\Domain\Content\Automation\AutomationPolicies::class), $c->get(\App\Kernel\Queue\Queue::class));
+        $semantic = new SemanticSelection($this->db, $c->get(Clock::class), new OpenAiSemanticSelectionProvider(new OpenAiResponses(new ProviderHttp($http), 'test-key')), new SemanticPolicy(), $c->get(\App\Domain\Content\Automation\AutomationPolicies::class), $c->get(\App\Kernel\Queue\Queue::class), $c->get(\App\Domain\Content\Providers\ProviderUsage::class));
         $semantic->saveLocked($ctx, $source->id, SemanticSettings::fromInput(['enabled' => true, 'criteria' => 'AI news']));
         $messages = $c->get(MaterialRepository::class)->messages($ctx, $source, (int) $item['id']);
         $row = $semantic->materialLocked($ctx->workspaceId, $source->id, $item, $messages, new SelectionResult('approved', 'Pass', 'none'));
@@ -140,16 +158,10 @@ final class RealProviderWorkflowTest extends SourceSelectionTestCase
         $http->assertAllConsumed();
         self::assertCount(1, $http->requests);
     }
-    public function testProviderMigrationRollbackReplayIsReversible(): void
+    public function testProviderMetadataIsPartOfCreateSchema(): void
     {
-        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_add_content_provider_metadata.php';
-        $migration->down($this->db);
-        try {
-            self::assertSame([], $this->db->select("SHOW COLUMNS FROM source_video_generations LIKE 'provider_job_id'"));
-        } finally {
-            $migration->up($this->db);
-        }
         self::assertCount(1, $this->db->select("SHOW COLUMNS FROM source_video_generations LIKE 'provider_job_id'"));
+        self::assertCount(1, $this->db->select("SHOW COLUMNS FROM source_text_processings LIKE 'provider_metadata_json'"));
     }
     public function testPollLeasePreventsConcurrentWorkAndCanBeReclaimed(): void
     {

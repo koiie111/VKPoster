@@ -94,6 +94,7 @@ final class AutomationTest extends SourceSelectionTestCase
         [$ctx, $source] = $this->fixture();
         $a = $this->app->container()->get(Automation::class);
         $a->tick();
+        self::assertTrue($this->app->container()->get(Worker::class)->runNext());
         $this->clock->advance(1);
         $this->ingest($source, [$this->message(10, 'Edited science news', extra: ['edit_date' => '2026-10-06T10:00:00Z'])]);
         $this->tick();
@@ -108,6 +109,7 @@ final class AutomationTest extends SourceSelectionTestCase
         $this->fixture();
         $c = $this->app->container();
         $c->get(Automation::class)->tick();
+        self::assertTrue($c->get(Worker::class)->runNext());
         self::assertNotNull($c->get(Queue::class)->reserve('default', 'crashed'));
         $this->clock->advance(901);
         self::assertTrue($c->get(Worker::class)->runNext());
@@ -119,6 +121,7 @@ final class AutomationTest extends SourceSelectionTestCase
     {
         $this->fixture();
         $this->app->container()->get(Automation::class)->tick();
+        self::assertTrue($this->app->container()->get(Worker::class)->runNext());
         $this->db->execute("UPDATE content_automation_runs SET step='text_started'");
         self::assertTrue($this->app->container()->get(Worker::class)->runNext());
         self::assertSame('needs_review', $this->runRow()['status']);
@@ -167,6 +170,7 @@ final class AutomationTest extends SourceSelectionTestCase
         [$ctx] = $this->fixture();
         $c = $this->app->container();
         $c->get(Automation::class)->tick();
+        self::assertTrue($c->get(Worker::class)->runNext());
         $member = $this->db->table('workspace_members')->where('workspace_id', '=', $ctx->workspaceId)->where('user_id', '=', $ctx->userId)->first() ?? throw new \LogicException();
         $this->db->execute('DELETE FROM workspace_members WHERE workspace_id=? AND user_id=?', [$ctx->workspaceId, $ctx->userId]);
         self::assertTrue($c->get(Worker::class)->runNext());
@@ -262,6 +266,7 @@ final class AutomationTest extends SourceSelectionTestCase
         [$ctx, $source] = $this->fixture();
         $c = $this->app->container();
         $c->get(Automation::class)->tick();
+        self::assertTrue($c->get(Worker::class)->runNext());
         $c->get(AutomationPolicies::class)->save($ctx, $source, ['enabled' => false]);
         self::assertTrue($c->get(Worker::class)->runNext());
         self::assertSame('stale', $this->runRow()['status']);
@@ -272,6 +277,7 @@ final class AutomationTest extends SourceSelectionTestCase
         [$ctx, $source] = $this->fixture();
         $c = $this->app->container();
         $c->get(Automation::class)->tick();
+        self::assertTrue($c->get(Worker::class)->runNext());
         $c->get(SourceService::class)->update($ctx, $source, 'Automation', 'telegram', '@automation_fixture', false);
         self::assertTrue($c->get(Worker::class)->runNext());
         self::assertSame('paused', $this->runRow()['status']);
@@ -300,6 +306,7 @@ final class AutomationTest extends SourceSelectionTestCase
         $this->fixture();
         $c = $this->app->container();
         $c->get(Automation::class)->tick();
+        self::assertTrue($c->get(Worker::class)->runNext());
         $this->db->execute('DELETE FROM jobs');
         $this->clock->advance(961);
         $this->tick();
@@ -337,6 +344,7 @@ final class AutomationTest extends SourceSelectionTestCase
         $this->clock->advance(1);
         $c->get(SelectionService::class)->decide($ctx, $source, (string) $item['public_id'], true);
         $c->get(Automation::class)->tick();
+        self::assertTrue($c->get(Worker::class)->runNext());
         $c->get(SourceService::class)->update($ctx, $source, 'Automation', 'telegram', '@automation_fixture', false);
         self::assertTrue($c->get(Worker::class)->runNext());
         self::assertSame('paused', $this->runRow()['status']);
@@ -384,6 +392,41 @@ final class AutomationTest extends SourceSelectionTestCase
         $this->tick();
         self::assertSame('completed', $this->runRow()['status']);
         self::assertSame(1, $this->db->table('content_post_origins')->count());
+    }
+
+    public function testSchedulerQueuesIsolatedPoliciesAndFailureDoesNotBlockOtherWorkspace(): void
+    {
+        [$a] = $this->fixture();
+        [$owner, $workspace] = $this->ownerWithWorkspace('second-automation@example.com');
+        $b = $this->contextFor($workspace, $owner);
+        $c = $this->app->container();
+        $source = $c->get(SourceService::class)->create($b, 'Second', 'telegram', '@second_automation', true);
+        $c->get(SelectionService::class)->saveRules($b, $source, SelectionRules::fromInput([]));
+        $c->get(AutomationPolicies::class)->save($b, $source, ['enabled' => true, 'auto_selection' => true, 'auto_text_processing' => true, 'auto_draft' => true]);
+        $this->ingest($source, [$this->message(20, 'Second workspace news')]);
+        $this->db->execute('DELETE FROM workspace_members WHERE workspace_id=? AND user_id=?', [$a->workspaceId, $a->userId]);
+        $c->get(Automation::class)->tick();
+        self::assertSame(0, $this->db->table('content_automation_runs')->count(), 'Scheduler must not scan materials');
+        self::assertSame(2, $this->db->table('jobs')->count());
+        $c->get(Automation::class)->tick();
+        self::assertSame(2, $this->db->table('jobs')->count(), 'Repeated tick does not duplicate policy jobs');
+        for ($i = 0; $i < 10 && $c->get(Worker::class)->runNext(); ++$i) {
+        }
+        self::assertSame(0, $this->db->table('posts')->where('workspace_id', '=', $a->workspaceId)->count());
+        self::assertSame(1, $this->db->table('posts')->where('workspace_id', '=', $b->workspaceId)->count());
+    }
+
+    public function testDuplicatePolicyJobsKeepOneRevisionRunAndDraft(): void
+    {
+        [$ctx] = $this->fixture();
+        $c = $this->app->container();
+        $c->get(Automation::class)->tick();
+        $policy = $this->db->table('content_automation_settings')->first() ?? throw new \LogicException();
+        $c->get(Queue::class)->dispatch(new \App\Jobs\Content\AutomationPolicyJob($ctx->workspaceId, (int) $policy['id'], (int) $policy['version']));
+        $this->tick();
+        self::assertSame(1, $this->db->table('content_automation_runs')->count());
+        self::assertSame(1, $this->db->table('posts')->count());
+        self::assertSame(1, $this->db->table('source_text_processings')->count());
     }
 
 }

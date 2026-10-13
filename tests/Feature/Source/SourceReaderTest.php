@@ -157,18 +157,16 @@ final class SourceReaderTest extends WorkspaceTestCase
 
     public function testIncomingMigrationRollbackAndReplay(): void
     {
-        $path = TestEnv::basePath() . '/database/migrations/2026_10_05_000021_create_source_incoming.php';
+        $path = TestEnv::basePath() . '/database/migrations/2026_10_05_000022_create_source_incoming.php';
         $migration = require $path;
-        $selection = require TestEnv::basePath() . '/database/migrations/2026_10_05_000022_create_source_selection.php';
-        $processing = require TestEnv::basePath() . '/database/migrations/2026_10_05_000023_create_source_text_processings.php';
-        $images = require TestEnv::basePath() . '/database/migrations/2026_10_06_000024_create_source_image_processing.php';
-        $videos = require TestEnv::basePath() . '/database/migrations/2026_10_06_000025_create_source_video_generations.php';
-        $discovery = require TestEnv::basePath() . '/database/migrations/2026_10_06_000026_create_content_discovery.php';
-        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000028_create_content_post_origins.php';
-        $providers = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_add_content_provider_metadata.php';
+        $selection = require TestEnv::basePath() . '/database/migrations/2026_10_05_000023_create_source_selection.php';
+        $processing = require TestEnv::basePath() . '/database/migrations/2026_10_05_000024_create_source_text_processings.php';
+        $images = require TestEnv::basePath() . '/database/migrations/2026_10_06_000025_create_source_image_processing.php';
+        $videos = require TestEnv::basePath() . '/database/migrations/2026_10_06_000026_create_source_video_generations.php';
+        $discovery = require TestEnv::basePath() . '/database/migrations/2026_10_06_000027_create_content_discovery.php';
+        $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_create_content_post_origins.php';
         $automation = require TestEnv::basePath() . '/database/migrations/2026_10_06_000030_create_content_automation.php';
         $automation->down($this->db);
-        $providers->down($this->db);
         $origins->down($this->db);
         $discovery->down($this->db);
         $videos->down($this->db);
@@ -188,10 +186,7 @@ final class SourceReaderTest extends WorkspaceTestCase
             $videos->up($this->db);
             $discovery->up($this->db);
             $origins->up($this->db);
-            $providers->up($this->db);
             $automation->up($this->db);
-            (require TestEnv::basePath() . '/database/migrations/2026_10_07_000032_review_fixes.php')->up($this->db);
-            (require TestEnv::basePath() . '/database/migrations/2026_10_07_000033_independent_review.php')->up($this->db);
             (new Migrator($this->db, TestEnv::basePath() . '/database/migrations'))->migrate();
         }
     }

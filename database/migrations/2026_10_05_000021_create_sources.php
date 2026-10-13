@@ -9,7 +9,7 @@ return new class () implements Migration {
     public function up(Connection $db): void
     {
         // Sources are content origins, independent of publishing channels. Selection rules belong to a future module.
-        $db->execute('CREATE TABLE sources (
+        $db->execute('CREATE TABLE sources (connection_version INT UNSIGNED NOT NULL DEFAULT 1,
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             public_id CHAR(26) NOT NULL,
             workspace_id BIGINT UNSIGNED NOT NULL,

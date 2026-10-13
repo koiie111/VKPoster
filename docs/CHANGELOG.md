@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- Stage 22 pre-merge: workspace Entitlements/usage allowance for paid content providers, fail-closed Redis gates, per-policy Queue orchestration, consolidated Sources migrations with explicit collation, ordinary-post publishing regressions, reader CI/operations and ADR 0011. No publishing pipeline replacement or live-provider calls.
+
 ### Added
 - Sources 3.1: current approved content exports into ordinary PostDraft/PostService, with selected text/media, immutable provenance, idempotency and stale/rejected publishing guards. UI, audit/metrics, synthetic E2E; no external API calls.
 - Sources 2.5: Content Discovery / Trend Radar Core с Fake Telegram/WebNews/Social providers, дедупликацией, эвристической кластеризацией, объяснимым Trend Score и импортом через отдельную границу в существующий content flow. Реальные API, постоянный polling и publishing не подключены.
