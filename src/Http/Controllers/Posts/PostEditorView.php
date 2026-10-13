@@ -12,9 +12,7 @@ use App\Domain\Media\MediaRepository;
 use App\Domain\Post\Post;
 use App\Domain\Post\PostDraft;
 use App\Domain\Post\PostOptions;
-use App\Domain\Post\PostRepository;
 use App\Domain\Post\ScheduleTime;
-use App\Domain\Post\VariantInput;
 use App\Domain\Workspace\ChannelAccessRepository;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Social\PlatformRegistry;
@@ -34,7 +32,7 @@ final class PostEditorView
         private readonly PlatformRegistry $registry,
         private readonly MediaRepository $media,
         private readonly MediaPresenter $presenter,
-        private readonly PostRepository $posts,
+        private readonly \App\Domain\Post\PostService $service,
         private readonly Clock $clock,
     ) {
     }
@@ -116,16 +114,7 @@ final class PostEditorView
      */
     public function draftOf(WorkspaceContext $context, Post $post): PostDraft
     {
-        $variants = [];
-        foreach ($this->posts->variants($context, $post) as $variant) {
-            $channel = $variant->channelId === null ? null : $this->channels->findById($context, $variant->channelId);
-            if ($channel === null) {
-                continue;
-            }
-            $variants[] = new VariantInput($channel->publicId, $variant->text, $variant->mediaIds, $variant->options);
-        }
-
-        return new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants);
+        return $this->service->draftOf($context, $post);
     }
 
     /**
