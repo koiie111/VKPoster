@@ -55,6 +55,7 @@ final class PostService
         private readonly PublicationDeleter $deleter,
         private readonly Entitlements $entitlements,
         private readonly \App\Domain\Content\Publishing\ContentOriginGuard $origin,
+        private readonly \App\Domain\Approval\ApprovalWorkflow $approvals,
     ) {
     }
 
@@ -88,7 +89,7 @@ final class PostService
             return true;
         }
 
-        return $this->permissions->allows($context->role, 'posts.draft') && $post->authorId === $context->userId && $post->status === PostStatus::Draft;
+        return $this->permissions->allows($context->role, 'posts.draft') && $post->authorId === $context->userId && in_array($post->status, [PostStatus::Draft, PostStatus::PendingApproval, PostStatus::Approved, PostStatus::ChangesRequested], true);
     }
 
     // ---- saving and planning ---------------------------------------------------------------------------------------
@@ -165,6 +166,8 @@ final class PostService
         $created = [];
         $post = $this->db->transaction(function () use ($context, $existing, $draft, $channels, $at, &$created): Post {
             $post = $this->persist($context, $existing, $draft, $channels, PostStatus::Scheduled, $at);
+            $this->approvals->assertSchedule($context, $post);
+            $this->approvals->scheduled($context, $post);
             $created = $this->planPublications($context, $post, $at);
             $this->system->syncPostStatus($post->id);
 
@@ -520,17 +523,28 @@ final class PostService
      */
     private function persist(WorkspaceContext $context, ?Post $existing, PostDraft $draft, array $channels, PostStatus $status, ?DateTimeImmutable $at): Post
     {
+        $before = null;
+        $beforeStatus = PostStatus::Draft;
         if ($existing === null) {
             $post = $this->posts->create($context, $context->userId, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork, $status, $at, $context->timezone);
         } else {
             $post = $this->posts->lock($context, $existing) ?? throw new PostException('Пост не найден.');
             $this->assertEditable($context, $post);
+            if ($status === PostStatus::Scheduled) {
+                $this->approvals->assertReady($context, $post);
+            }
+            $before = $this->approvals->revision($context, $post);
+            $beforeStatus = $post->status;
             $this->posts->updateContent($context, $post, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork);
             $this->posts->setSchedule($context, $post, $status, $at, $context->timezone);
         }
         $this->syncVariants($context, $post, $draft, $channels);
-
-        return $this->posts->find($context, $post->publicId) ?? $post;
+        $post = $this->posts->find($context, $post->publicId) ?? $post;
+        if ($status === PostStatus::Draft) {
+            return $this->approvals->saved($context, $post, $before, $beforeStatus);
+        }
+        $this->approvals->capture($context, $post);
+        return $post;
     }
 
     /**

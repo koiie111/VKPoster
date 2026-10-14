@@ -85,7 +85,7 @@
 
 {% set _b6 %}
     <div class="flex flex-wrap gap-2">
-        {% for st in ['draft', 'scheduled', 'publishing', 'published', 'partial', 'failed', 'canceled'] %}{{ d.status_badge(st) }}{% endfor %}
+        {% for st in ['draft', 'pending_approval', 'approved', 'changes_requested', 'scheduled', 'publishing', 'published', 'partial', 'failed', 'canceled'] %}{{ d.status_badge(st) }}{% endfor %}
     </div>
     <div class="mt-3 flex flex-wrap gap-2">
         {% for st in ['connected', 'needs_reauth', 'error', 'paused'] %}{{ d.status_badge(st) }}{% endfor %}

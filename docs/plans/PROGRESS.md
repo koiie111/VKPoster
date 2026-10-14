@@ -7,9 +7,9 @@
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
 - **Текущий этап:** 14
-- **Статус:** TODO
-- **Ветка / PR:** `stage-13-advanced-scheduling` / PR этапа 13
-- **Последнее обновление:** 2026-10-14 (этап 13 завершён)
+- **Статус:** IN_PROGRESS
+- **Ветка / PR:** `stage-14-approvals` / PR готовится
+- **Последнее обновление:** 2026-10-14 (этап 14 реализован и проверен; PR без merge)
 
 ## Этапы
 
@@ -31,7 +31,7 @@
 | 20 | Полная админка владельца, бизнес-дашборд, статистика | DONE | [#17](https://github.com/koiie111/VKPoster/pull/17) | 2026-10-05 | Промокоды и рефералка перенесены в этап 16 (меняют оформление заказа). Роли живут в коде (ADR 0009), деньги считаются из счетов и проводок, выгрузка для бухгалтерии в CSV. Добавлен раздел «Дизайн и цвета» по просьбе владельца. Для 12+: каждый этап с пользовательскими функциями добавляет события, метрики и раздел админки (ENGINEERING_RULES §7): `Analytics::track`, `MetricsAggregator`, `config/admin_permissions.php`, пункт в `templates/layouts/admin.twig` |
 | 12 | Instagram | DONE | [#21](https://github.com/koiie111/VKPoster/pull/21) | 2026-10-14 | Решение владельца «б»: код есть, сеть выключена по умолчанию (`instagram` не в `PLATFORMS_ENABLED`); живая проверка отложена владельцем: до неё проверено только на фикстурах (список в ADR 0010). Для включения: Meta-приложение, `INSTAGRAM_APP_ID/SECRET`, публичный https `APP_URL`. Общие точки расширения: `Capabilities::$publicMediaUrls`, `PublishMedia::$url`, `PublishRequest::$mode`, `VariantSpec` суффикс `-jpg` |
 | 13 | Слоты, повторы, триггеры, кросспостинг, RSS, CSV | DONE | PR этапа 13 | 2026-10-14 | Очереди, пул, повторы, триггеры, кросспостинг TG, RSS, импорт CSV/XLSX; ADR 0013. Для 14+: фоновые правила создают посты через `PostService` от имени создателя правила или владельца (`PublishingContexts::forWorkspace`); `PostService::planExisting/unschedule/syncText/draftOf`; лимит `crosspost_rules` общий для правил и лент. Полный набор тестов вырос до 2201: в `phpunit.xml` поднят `memory_limit` до 512M |
-| 14 | Согласование и гостевые ссылки | TODO | | | |
+| 14 | Согласование и гостевые ссылки | IN_PROGRESS | PR готовится | | Реализация завершена, regression зелёный; ожидает review/merge в upstream |
 | 15 | Аналитика | TODO | | | |
 | 16 | Остальные платёжки, рефералка, промокоды | TODO | | | |
 | 17 | AI-ассистент, UTM, сокращатель | TODO | | | |
@@ -406,3 +406,48 @@ _Не проверено вживую:_ виджет Telegram и редирек�
 **Итог проверки (ок / есть замечания):**
 **Итог проверки (ок):** владелец: цены ок, позднее настраиваются в админке (этап 20); налогообложение ИП на НПД, тоже настраивается в админке; правила подсчёта (вопрос 3) ок; повторы списания продолжать и 3 дня после окончания; отсрочка (вопрос 4) ок; живое подключение платёжек позже; можно мержить.
 
+
+
+## Этап 14 — реализация завершена, PR без merge
+
+Основа — upstream/main e3776d1, новая ветка stage-14-approvals. Все задачи stage-файла
+закрыты. IN_PROGRESS оставлен до merge в upstream: следующий этап не начинается.
+
+- Workspace policy и конкретные согласующие; автор не согласует собственный пост.
+  Именованный согласующий может выполнять review без получения publish/edit прав.
+- draft → pending_approval → approved → scheduled / changes_requested, hash всех
+  частей контента, сброс после edit, защита от stale/ABA и идентичного autosave.
+  PostService проверяет approval под post lock до создания publications; существующий
+  Publisher делает preflight. Параллельного publishing pipeline нет.
+- Треды, plain-text mentions, preference-aware email/Telegram Queue, immutable
+  version history и bounded line diff. Client видит только назначенные каналы/посты.
+- Pro guest capabilities: signed+hashed random token, TTL/revoke, Argon2id PIN,
+  per-link/IP rate limit, Redis fail-closed, session CSRF, scoped preview/approve/comment.
+  Media URL остаётся guest-bound; internal signed delivery URL не выходит в браузер.
+  Agency branding использует валидированный logo из медиатеки и self-hosted CSS.
+- Миграция 35: шесть таблиц, совместимая collation, обратимый rollback с сохранением
+  обычных постов. Локальный журнал прежних Sources filenames согласован с upstream
+  после проверки существующих schema fields; users/workspaces/posts/Sources/media
+  сохранены без reset. Применены отсутствующие upstream 34 и новая 35.
+- Audit, analytics_events, daily counters и staff workspace counters без секретов.
+  Nginx и SecretRedactor не раскрывают capability/PIN в логах.
+
+Проверки: полный PHP suite **2244 tests / 40881 assertions**, passed, на отдельном
+fresh MySQL 8.0 app_test; PHPStan level 8 + strict (908 files), style/lint, composer
+security audit (0 advisories), CSS freshness, migrations fresh/upgrade/rollback,
+health DB/Redis, secret scan — passed. Security tests воспроизводят direct author
+schedule 403, forged/expired/revoked links, PIN brute-force/Redis outage, CSRF,
+client isolation, approval revision/media/options/ABA guards, guest media scope,
+one-time secret disclosure, mentions/preferences и прежний publishing flow.
+
+UI/axe: 6 страниц, 36 screenshots (375/768/1440 × light/dark), axe 360/375/768/1440,
+нет serious/critical violations или horizontal overflow. Снимки просмотрены;
+review badges локализованы, diff раскрыт. Fixture — отдельная app_test DB, без
+production consent/credentials/публикаций. Временные UI-контейнеры удалены.
+
+Границы: calendar link — фиксированный набор до 100 постов на момент создания;
+TTL максимум 30 дней; комментарии plain text. Reverse proxy/CDN тоже должен скрывать
+capability URLs из логов/кэша. Настоящие email/Telegram доставки и публичные publishing
+calls не запускались: проверены существующие Fake/mock/Queue contracts. Stash@{0}
+и stage-13-sources-skeleton сохранены; force push, merge, следующий этап и дополнительный
+self-review не выполнялись.

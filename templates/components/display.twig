@@ -24,6 +24,9 @@
 {% macro status_badge(status) -%}
 {%- set map = {
     draft: ['Черновик', 'neutral'],
+    pending_approval: ['На согласовании', 'warn'],
+    approved: ['Согласован', 'ok'],
+    changes_requested: ['Нужны изменения', 'warn'],
     scheduled: ['Запланирован', 'info'],
     publishing: ['Публикуется', 'info'],
     published: ['Опубликован', 'ok'],

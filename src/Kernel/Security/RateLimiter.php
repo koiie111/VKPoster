@@ -43,7 +43,7 @@ final class RateLimiter
      * @param int $max allowed hits per window
      * @param int $windowSeconds window length
      */
-    public function attempt(string $key, int $max, int $windowSeconds): RateLimitResult
+    public function attempt(string $key, int $max, int $windowSeconds, bool $failClosed = false): RateLimitResult
     {
         $nowMs = (int) floor((float) $this->clock->now()->format('U.u') * 1000);
         $result = $this->redis->eval(
@@ -53,7 +53,7 @@ final class RateLimiter
         );
         if (!is_array($result)) {
             // Redis failure: fail closed would lock everyone out, so allow but report no headroom.
-            return new RateLimitResult(true, 0, 0);
+            return new RateLimitResult(!$failClosed, 0, $failClosed ? $windowSeconds : 0);
         }
 
         return new RateLimitResult(

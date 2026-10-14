@@ -1,0 +1,14 @@
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+<section class="card" aria-labelledby="approval-settings-title"><h2 id="approval-settings-title" class="text-lg font-semibold">Согласование постов</h2>
+<p class="mt-2 text-sm text-muted">Посты авторов нельзя запланировать до согласования. Изменение согласованного поста требует нового решения. Доступно на Про и выше.</p>
+{% if errors('approval') %}{{ d.alert('error','Проверьте настройки',errors('approval')|first) }}{% endif %}
+<form class="mt-4 grid gap-4" method="post" action="/w/{{ workspace.workspacePublicId }}/approvals/settings">{{ csrf_field() }}
+{{ f.checkbox('required','Посты авторов требуют согласования', checked=old('required',approval_settings.required)) }}
+<fieldset><legend class="font-medium">Кто согласует</legend><p class="text-sm text-muted">Если никто не выбран — владелец, администраторы и редакторы. Автор не согласует собственный пост.</p>{% for m in approval_members %}{{ f.checkbox('approvers[]', m.name, checked=m.user_id in approval_settings.approvers, value=m.public_id, id='approver-' ~ m.public_id) }}{% endfor %}</fieldset>
+{% if approval_white_label %}
+{{ f.input('brand_name','Название бренда',value=old('brand_name',approval_settings.brand_name),attrs={maxlength:100}) }}
+{{ f.input('brand_color','Цвет бренда',type='color',value=approval_settings.brand_color,hint='Цвет полосы на гостевом preview.') }}
+{{ f.input('brand_logo','ID логотипа из медиатеки',value=approval_settings.brand_logo,hint='Публичный ID изображения этого пространства. Пустое поле — без логотипа.') }}
+{% endif %}
+{{ f.button('Сохранить согласование',type='submit') }}</form></section>

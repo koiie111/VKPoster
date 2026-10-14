@@ -32,6 +32,8 @@ final class OperationalStatsTest extends AdminTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Keep the 13 attempts in one hourly bucket: 1–10 second latency must not straddle an hour boundary.
+        $this->clock->set('2026-10-14 12:00:00');
         foreach (['publication_attempts', 'publications', 'media'] as $table) {
             $this->db->execute('DELETE FROM ' . $table);
         }

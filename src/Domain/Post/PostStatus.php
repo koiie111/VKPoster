@@ -11,6 +11,9 @@ namespace App\Domain\Post;
 enum PostStatus: string
 {
     case Draft = 'draft';
+    case PendingApproval = 'pending_approval';
+    case Approved = 'approved';
+    case ChangesRequested = 'changes_requested';
     case Scheduled = 'scheduled';
     case Publishing = 'publishing';
     case Published = 'published';
@@ -22,6 +25,9 @@ enum PostStatus: string
     {
         return match ($this) {
             self::Draft => 'Черновик',
+            self::PendingApproval => 'На согласовании',
+            self::Approved => 'Согласован',
+            self::ChangesRequested => 'Нужны изменения',
             self::Scheduled => 'Запланирован',
             self::Publishing => 'Публикуется',
             self::Published => 'Опубликован',
@@ -48,6 +54,6 @@ enum PostStatus: string
      */
     public function isEditablePlan(): bool
     {
-        return $this === self::Draft || $this === self::Scheduled || $this === self::Cancelled || $this === self::Failed;
+        return in_array($this, [self::Draft, self::PendingApproval, self::Approved, self::ChangesRequested], true) || $this === self::Scheduled || $this === self::Cancelled || $this === self::Failed;
     }
 }

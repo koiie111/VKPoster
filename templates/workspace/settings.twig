@@ -19,6 +19,7 @@
         </form>
     </section>
 
+    {% include 'workspace/approvals/settings.twig' %}
     <section class="card" id="leave" aria-labelledby="leave-title">
         <h2 class="text-lg font-semibold" id="leave-title">Выйти из пространства</h2>
         {% if workspace.role.value == 'owner' %}

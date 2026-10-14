@@ -17,7 +17,7 @@ final class SecretRedactor implements ProcessorInterface
 {
     public const MASK = '[redacted]';
 
-    private const PATTERN = '/(password|passwd|secret|token|authorization|cookie|api[_-]?key|private[_-]?key|^code$|(auth|oauth|otp|totp|sms|email|verification|confirm|recovery|login)[_-]?code)/i';
+    private const PATTERN = '/(password|passwd|secret|token|authorization|cookie|api[_-]?key|private[_-]?key|^code$|^pin$|(auth|oauth|otp|totp|sms|email|verification|confirm|recovery|login)[_-]?code)/i';
 
     public function __invoke(LogRecord $record): LogRecord
     {
@@ -39,6 +39,8 @@ final class SecretRedactor implements ProcessorInterface
                 $result[$key] = self::MASK;
             } elseif (is_array($value) && $depth < 8) {
                 $result[$key] = $this->redact($value, $depth + 1);
+            } elseif (is_string($value)) {
+                $result[$key] = preg_replace('~/g/[a-f0-9]{64}\.[A-Za-z0-9_-]{43}~', '/g/' . self::MASK, $value);
             } else {
                 $result[$key] = $value;
             }

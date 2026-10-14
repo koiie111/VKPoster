@@ -98,6 +98,16 @@ return static function (Router $router): void {
     $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(TrackVisit::class, OptionalAuthenticate::class);
     $router->get('/healthz', [HealthController::class, 'show'])->name('health');
     $router->get('/internal/source-image-jobs', [\App\Http\Controllers\Sources\ImageReaderController::class, 'jobs'])->middleware([RateLimit::class, ['bucket' => 'source-images-list', 'max' => 120, 'seconds' => 60]]);
+    // Stage 14 guest capability routes keep normal session CSRF protection; no registration is needed.
+    $guest = '/g/{token:[a-f0-9]{64}\\.[A-Za-z0-9_-]{43}}';
+    $gc = \App\Http\Controllers\Approvals\GuestController::class;
+    $router->get($guest, [$gc, 'show'])->middleware([RateLimit::class, ['bucket' => 'guest-preview', 'max' => 120, 'seconds' => 60]]);
+    $router->get($guest . '/theme.css', [$gc, 'theme']);
+    $router->get($guest . '/posts/{postId:(?:[0-9A-HJKMNP-TV-Z]{26}|brand)}/media/{mediaId:' . '[0-9A-HJKMNP-TV-Z]{26}' . '}', [$gc, 'file']);
+    $router->post($guest . '/unlock', [$gc, 'unlock']);
+    $router->post($guest . '/posts/{postId:' . '[0-9A-HJKMNP-TV-Z]{26}' . '}/approve', [$gc, 'approve'])->middleware([RateLimit::class, ['bucket' => 'guest-action', 'max' => 30, 'seconds' => 60]]);
+    $router->post($guest . '/posts/{postId:' . '[0-9A-HJKMNP-TV-Z]{26}' . '}/comments', [$gc, 'comment'])->middleware([RateLimit::class, ['bucket' => 'guest-comment', 'max' => 30, 'seconds' => 60]]);
+
     $router->post('/internal/source-image-results', [\App\Http\Controllers\Sources\ImageReaderController::class, 'result'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-images-results', 'max' => 60, 'seconds' => 60]]);
     $router->post('/internal/reader-heartbeat', [SourceReaderController::class, 'heartbeat'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'reader-heartbeat', 'max' => 12, 'seconds' => 60]]);
     $router->get('/internal/sources', [SourceReaderController::class, 'sources'])->middleware([RateLimit::class, ['bucket' => 'source-reader-list', 'max' => 120, 'seconds' => 60]]);
@@ -323,6 +333,15 @@ return static function (Router $router): void {
                 $c->post($item . '/rename', [ChannelController::class, 'rename']);
                 $c->post($item . '/delete', [ChannelController::class, 'delete']);
             });
+            $ac = \App\Http\Controllers\Approvals\ApprovalController::class;
+            $w->get('/approvals', [$ac, 'index'])->middleware([Authorize::class, ['permission' => 'calendar.view']]);
+            $w->post('/approvals/settings', [$ac, 'settings'])->middleware([Authorize::class, ['permission' => 'workspace.settings']]);
+            $w->post('/approvals/links', [$ac, 'share'])->middleware([Authorize::class, ['permission' => 'guest_links.manage']]);
+            $w->post('/approvals/links/{linkId:' . $ulid . '}/revoke', [$ac, 'revoke'])->middleware([Authorize::class, ['permission' => 'guest_links.manage']]);
+            $w->post('/posts/{postId:' . $ulid . '}/approval/submit', [$ac, 'submit'])->middleware([Authorize::class, ['permission' => 'posts.draft']]);
+            $w->post('/posts/{postId:' . $ulid . '}/approval/decision', [$ac, 'decide'])->middleware([Authorize::class, ['permission' => 'posts.approve']]);
+            $w->post('/posts/{postId:' . $ulid . '}/comments', [$ac, 'comment'])->middleware([Authorize::class, ['permission' => 'posts.comment']])->middleware([RateLimit::class, ['bucket' => 'post-comment', 'max' => 60, 'seconds' => 60]]);
+
             // Posts. Looking (the calendar and a post's page): everyone with calendar access; writing drafts: authors and up;
             // planning, moving, cancelling, retrying: editors and up (`PostService` repeats the check, and adds the per-post rules).
             $w->group('', [[Authorize::class, ['permission' => 'calendar.view']]], static function (Router $p) use ($ulid): void {

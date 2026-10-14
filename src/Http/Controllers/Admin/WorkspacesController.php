@@ -32,6 +32,7 @@ final class WorkspacesController
         private readonly FormFlash $flash,
         private readonly StepUp $stepUp,
         private readonly AuditLog $audit,
+        private readonly \App\Domain\Approval\ApprovalStats $approvals,
     ) {
     }
 
@@ -53,6 +54,7 @@ final class WorkspacesController
 
         return $this->view->response('admin/workspaces/show.twig', [
             'workspace' => $workspace,
+            'approval_stats' => $this->approvals->forWorkspace((int)$workspace['id']),
             'members' => $this->directory->workspaceMembers((int) $workspace['id']),
             'channels' => $this->directory->workspaceChannels((int) $workspace['id']),
             'plans' => $this->plans->all(),

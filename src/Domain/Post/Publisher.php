@@ -72,6 +72,7 @@ final class Publisher
         private readonly LoggerInterface $logger,
         private readonly \App\Domain\Content\Publishing\ContentOriginGuard $origin,
         private readonly \App\Domain\Automation\Trigger\TriggerEngine $triggers,
+        private readonly \App\Domain\Approval\ApprovalWorkflow $approvals,
     ) {
     }
 
@@ -107,7 +108,7 @@ final class Publisher
             return;
         }
         ['post' => $post, 'variant' => $variant] = $loaded;
-        $originError = $this->origin->problem($post);
+        $originError = $this->origin->problem($post) ?? $this->approvals->publicationProblem($post);
         if ($originError !== null) {
             $this->fail($publication, $post, $variant, $started, 'origin_stale', $originError, 'content origin preflight failed');
             return;
@@ -164,7 +165,7 @@ final class Publisher
 
         try {
             // Media preparation may take time. Revalidate immediately before the existing adapter sends anything.
-            $originError = $this->origin->problem($post);
+            $originError = $this->origin->problem($post) ?? $this->approvals->publicationProblem($post);
             if ($originError !== null) {
                 $this->fail($publication, $post, $variant, $started, 'origin_stale', $originError, 'content origin changed during preparation');
                 return;

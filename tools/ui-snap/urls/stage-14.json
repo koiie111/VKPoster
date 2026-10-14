@@ -1,0 +1,64 @@
+[
+  {
+    "name": "approval-list",
+    "url": "/w/{ws}/approvals",
+    "login_as": "approvals-ui@example.com",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  },
+  {
+    "name": "approval-settings",
+    "url": "/w/{ws}/settings",
+    "login_as": "approvals-ui@example.com",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  },
+  {
+    "name": "approval-post",
+    "url": "/w/{ws}/posts/{post}",
+    "post_text": "Пост на согласование",
+    "login_as": "approvals-ui@example.com",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      },
+      {
+        "click": "section[aria-labelledby='versions-title'] details:first-of-type > summary"
+      }
+    ]
+  },
+  {
+    "name": "guest-preview",
+    "url": "{guest}",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  },
+  {
+    "name": "guest-pin",
+    "url": "{guest_pin}",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  },
+  {
+    "name": "admin-approval-counters",
+    "url": "/admin/workspaces/{approval_ws}",
+    "login_as": "approvals-staff-ui@example.com",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  }
+]

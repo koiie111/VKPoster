@@ -165,8 +165,7 @@ final class PostPagesTest extends PostTestCase
         self::assertSame(302, $draft->status);
 
         $plan = $this->post($this->postsUrl($workspace), ['intent' => 'schedule', 'text' => 'Хочу сам', 'channels' => [$channel->publicId], 'publish_date' => $this->futureDate(), 'publish_time' => '12:00']);
-        self::assertSame(422, $plan->status);
-        self::assertStringContainsString('редакторы и администраторы', $plan->body);
+        self::assertSame(403, $plan->status, 'Permission failures must not look like content validation');
         self::assertSame(1, $this->db->select('SELECT COUNT(*) AS n FROM posts')[0]['n']);
         self::assertSame(0, $this->db->select('SELECT COUNT(*) AS n FROM publications')[0]['n']);
     }

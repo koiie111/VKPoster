@@ -1,0 +1,17 @@
+{% extends 'layouts/base.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% block title %}{{ branding ? brand_name : app_name }} · Согласование{% endblock %}
+{% block head %}<link rel="stylesheet" href="/g/{{ token }}/theme.css">{% endblock %}
+{% block body %}<main id="main" class="guest-brand mx-auto max-w-4xl px-4 py-8">
+<header class="mb-6">{% if branding and brand_logo and not locked %}<img class="h-16 max-w-xs object-contain" alt="Логотип {{ brand_name }}" src="/g/{{ token }}/posts/brand/media/{{ brand_logo }}">{% endif %}<h1 class="text-2xl font-bold">{{ branding ? brand_name : app_name }} · Согласование</h1><p class="mt-2 text-muted">{{ workspace_name }}. Preview постов — без регистрации.</p></header>
+{% if guest_error %}{{ d.alert('error','Действие не выполнено',guest_error) }}{% endif %}
+{% if locked %}<section class="card"><h2 class="text-lg font-semibold">Введите PIN</h2><form class="mt-4 grid gap-4" method="post" action="/g/{{ token }}/unlock">{{ csrf_field() }}{{ f.input('pin','PIN',type='password',required=true,autocomplete='one-time-code',attrs={maxlength:12,inputmode:'numeric'}) }}{{ f.button('Открыть preview',type='submit') }}</form></section>
+{% else %}
+{% for card in cards %}<article class="card mb-6"><h2 class="text-lg font-semibold">{{ card.post.title(80) }}</h2><p class="mt-2 text-sm text-muted">{{ card.post.status.label() }}{% if card.post.scheduledAt %} · {{ card.post.scheduledAt|date('d.m.Y H:i','UTC') }} UTC{% endif %}</p>
+{% for v in card.variants %}<section class="mt-4"><h3 class="font-semibold">{{ v.name }}</h3><div class="mt-2 break-words">{{ v.html|raw }}</div><div class="mt-3 grid gap-3 sm:grid-cols-2">{% for asset in v.media %}{% set file='/g/' ~ token ~ '/posts/' ~ card.post.publicId ~ '/media/' ~ asset.id %}{% if asset.kind=='image' %}<a href="{{ file }}"><img class="max-h-96 w-full object-contain" alt="Фото поста" src="{{ file }}"></a>{% elseif asset.kind=='video' %}<video controls preload="metadata" class="max-h-96 w-full" aria-label="Видео поста" src="{{ file }}"></video>{% else %}<a class="text-primary-text underline" href="{{ file }}">Открыть файл поста</a>{% endif %}{% endfor %}</div></section>{% else %}<div class="mt-3 break-words">{{ card.html|raw }}</div>{% endfor %}
+{% if card.post.status.value in ['pending_approval','changes_requested'] %}<form class="mt-4" method="post" action="/g/{{ token }}/posts/{{ card.post.publicId }}/approve">{{ csrf_field() }}<input type="hidden" name="revision" value="{{ card.revision }}">{{ f.button('Согласовать пост',type='submit') }}</form>{% endif %}
+<h3 class="mt-6 font-semibold">Комментарии клиента</h3>{% for c in card.comments %}<p class="mt-2 whitespace-pre-wrap break-words">{{ c.body }}</p>{% else %}<p class="mt-2 text-sm text-muted">Комментариев пока нет.</p>{% endfor %}
+<form class="mt-4 grid gap-3" method="post" action="/g/{{ token }}/posts/{{ card.post.publicId }}/comments">{{ csrf_field() }}{{ f.textarea('body','Комментарий к посту',max=5000,required=true,id='guest-comment-' ~ card.post.publicId) }}{{ f.button('Отправить комментарий',type='submit',variant='secondary') }}</form></article>{% else %}{{ d.alert('info','Нет доступных постов','Попросите автора ссылки проверить набор постов.') }}{% endfor %}
+{% endif %}
+</main>{% endblock %}

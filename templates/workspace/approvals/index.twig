@@ -1,0 +1,22 @@
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current='approvals' %}
+{% block title %}Согласование · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Согласование','Решения, комментарии и гостевые ссылки на preview постов.') }}
+{% if created_link %}<section class="card mb-6"><h2 class="text-lg font-semibold">Ссылка создана</h2>{{ f.input('created_link','Скопируйте гостевую ссылку',value=app_url ~ created_link,attrs={readonly:true},hint='Показываем только сейчас. PIN сообщите отдельно.') }}</section>{% endif %}
+<section class="card"><h2 class="text-lg font-semibold">Посты</h2>{% for p in posts %}<p class="mt-3 break-words"><a class="text-primary-text underline underline-offset-2" href="/w/{{ workspace.workspacePublicId }}/posts/{{ p.publicId }}">{{ p.title(80) }}</a> · {{ p.status.label() }}</p>{% else %}<p class="mt-3 text-muted">Нет постов для согласования.</p>{% endfor %}</section>
+{% if can('guest_links.manage') %}<section class="card mt-6"><h2 class="text-lg font-semibold">Гостевая ссылка</h2>
+{% if errors('guest') %}{{ d.alert('error','Ссылка не создана',errors('guest')|first) }}{% endif %}
+{% if guest_available %}<form class="mt-4 grid gap-4" method="post" action="/w/{{ workspace.workspacePublicId }}/approvals/links">{{ csrf_field() }}
+<fieldset><legend>Набор постов</legend>{% for p in posts %}{{ f.checkbox('posts[]',p.title(60),value=p.publicId,id='share-' ~ p.publicId) }}{% endfor %}</fieldset>
+<p class="text-sm text-muted">Либо выберите период календаря: ссылка сохранит набор постов, запланированных на эти даты. Новые посты автоматически не добавляются.</p>
+<div class="grid gap-4 sm:grid-cols-2">{{ f.input('from','Начало периода',type='date') }}{{ f.input('to','Конец периода',type='date') }}</div>
+{{ f.input('ttl_hours','Срок ссылки, часов',type='number',value=old('ttl_hours','72'),attrs={min:1,max:720},required=true) }}
+{{ f.input('pin','PIN, необязательно',type='password',autocomplete='new-password',hint='4–12 цифр. Сообщите клиенту отдельно.',attrs={minlength:4,maxlength:12}) }}
+{{ f.button('Создать гостевую ссылку',type='submit') }}</form>
+{% else %}{{ d.alert('info','Доступно на Про и выше','Гостевые ссылки не входят в ваш тариф.') }}{% endif %}
+<h3 class="mt-6 font-semibold">Созданные ссылки</h3>{% for l in links %}<div class="mt-3 flex flex-wrap items-center gap-3"><p class="break-all text-sm">{{ l.public_id }} · До {{ l.expires_at }} UTC{% if l.revoked_at %} · Отозвана{% endif %}</p>{% if not l.revoked_at %}<form method="post" action="/w/{{ workspace.workspacePublicId }}/approvals/links/{{ l.public_id }}/revoke">{{ csrf_field() }}{{ f.button('Отозвать ссылку',type='submit',variant='secondary') }}</form>{% endif %}</div>{% else %}<p class="mt-2 text-sm text-muted">Ссылок пока нет.</p>{% endfor %}
+</section>{% endif %}
+{% endblock %}

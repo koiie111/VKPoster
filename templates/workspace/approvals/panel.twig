@@ -1,0 +1,23 @@
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+<section class="card mt-6" aria-labelledby="approval-title">
+<h2 id="approval-title" class="text-lg font-semibold">Согласование</h2>
+<p class="mt-2 text-sm text-muted">{{ post.status.label() }}. Решение относится к текущей версии текста, файлов и вариантов.</p>
+<div class="mt-4 flex flex-wrap gap-3">
+{% if approval_submit %}<form method="post" action="{{ base }}/posts/{{ post.publicId }}/approval/submit">{{ csrf_field() }}{{ f.button('Отправить на согласование', type='submit') }}</form>{% endif %}
+{% if approval_decide %}
+<form method="post" action="{{ base }}/posts/{{ post.publicId }}/approval/decision">{{ csrf_field() }}<input type="hidden" name="revision" value="{{ approval_revision }}"><input type="hidden" name="decision" value="approved">{{ f.button('Согласовать пост', type='submit') }}</form>
+<form method="post" action="{{ base }}/posts/{{ post.publicId }}/approval/decision">{{ csrf_field() }}<input type="hidden" name="revision" value="{{ approval_revision }}"><input type="hidden" name="decision" value="changes_requested">{{ f.button('Запросить изменения', variant='secondary', type='submit') }}</form>
+{% endif %}
+<a class="text-primary-text underline underline-offset-2" href="{{ base }}/approvals">Все согласования и гостевые ссылки</a>
+</div>
+</section>
+<section class="card mt-6" aria-labelledby="comments-title">
+<h2 id="comments-title" class="text-lg font-semibold">Комментарии</h2>
+{% if errors('comment') %}{{ d.alert('error','Комментарий не добавлен',errors('comment')|first) }}{% endif %}
+{% for c in post_comments %}<article id="comment-{{ c.public_id }}" class="mt-4 rounded-card border border-line p-4 {{ c.parent ? 'sm:ml-6' : '' }}"><p class="text-sm text-muted">{{ c.name ?? 'Клиент' }} · {{ c.created_at }} UTC{% if c.parent %} · <a class="underline underline-offset-2" href="#comment-{{ c.parent }}">Ответ на комментарий</a>{% endif %}</p><p class="mt-2 whitespace-pre-wrap break-words">{{ c.body }}</p>{% if can('posts.comment') %}<details class="mt-2"><summary class="min-h-11 cursor-pointer text-primary-text">Ответить</summary><form method="post" action="{{ base }}/posts/{{ post.publicId }}/comments">{{ csrf_field() }}<input type="hidden" name="parent" value="{{ c.public_id }}">{{ f.textarea('body','Ответ', required=true, max=5000, id='reply-' ~ c.public_id) }}{{ f.button('Отправить ответ',type='submit') }}</form></details>{% endif %}</article>{% else %}<p class="mt-3 text-sm text-muted">Комментариев пока нет.</p>{% endfor %}
+{% if can('posts.comment') %}<form class="mt-4 grid gap-3" method="post" action="{{ base }}/posts/{{ post.publicId }}/comments">{{ csrf_field() }}{{ f.textarea('body','Комментарий',value=old('body',''),id='post-comment-body', required=true, max=5000, hint='Упоминание: @Имя_Фамилия. Для одинаковых имён используйте @ID участника.') }}<details><summary class="min-h-11 cursor-pointer text-sm text-muted">Участники для упоминания</summary>{% for m in approval_members %}<p class="text-sm">{{ m.name }} — @{{ m.public_id }}</p>{% endfor %}</details>{{ f.button('Добавить комментарий',type='submit') }}</form>{% endif %}
+</section>
+<section class="card mt-6" aria-labelledby="versions-title"><h2 id="versions-title" class="text-lg font-semibold">История версий</h2>
+{% for v in post_versions %}<details class="mt-3"><summary class="min-h-11 cursor-pointer">Версия {{ loop.revindex }} · {{ v.created_at }} UTC</summary><div class="overflow-auto rounded-card border border-line p-3">{% for line in v.diff %}<p class="whitespace-pre-wrap break-words {{ line.kind == 'added' ? 'text-ok-fg' : (line.kind == 'removed' ? 'text-bad-fg' : 'text-muted') }}">{{ line.kind == 'added' ? '+' : (line.kind == 'removed' ? '−' : ' ') }} {{ line.text }}</p>{% endfor %}</div></details>{% else %}<p class="mt-3 text-sm text-muted">Версии появятся после сохранения поста.</p>{% endfor %}
+</section>

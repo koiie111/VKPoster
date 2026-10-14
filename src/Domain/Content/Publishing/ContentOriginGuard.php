@@ -16,7 +16,8 @@ final class ContentOriginGuard
     {
     }
 
-    /** Safe user-facing failure, or null when an ordinary/approved current post can proceed. */
+    /** Safe user-facing failure, or null when an ordinary/approved current post can proceed.
+     * @phpstan-impure Reads mutable database state; callers deliberately recheck after preparation. */
     public function problem(Post $post): ?string
     {
         $origin = $this->db->select('SELECT o.*, i.text, i.content_type, i.peer_id, i.grouped_id, i.source_id, i.connection_version, i.id AS material_id FROM content_post_origins o LEFT JOIN source_items i ON i.id = o.item_id AND i.workspace_id = o.workspace_id WHERE o.workspace_id = ? AND o.post_id = ?', [$post->workspaceId, $post->id])[0] ?? null;

@@ -37,6 +37,20 @@ final class Notifier
     ) {
     }
 
+    /** Uses existing preference-aware email/Telegram delivery; contains no guest capability or private comments. */
+    public function approvalNotice(int $userId, Post $post, string $workspacePublicId, string $event): void
+    {
+        $title = match ($event) {
+            'approval.scheduled' => 'Согласованный пост запланирован',
+            'approval.approved' => 'Пост согласован',
+            'approval.changes_requested' => 'В посте нужны изменения',
+            'approval.revision_changed' => 'Пост изменён: требуется согласование',
+            'post.comment_added' => 'Новый комментарий или упоминание',
+            default => 'Пост отправлен на согласование',
+        };
+        $this->deliver(NotificationType::Approval, $userId, $post->workspaceId, $title, $post->title(60), $this->link('/w/' . $workspacePublicId . '/posts/' . $post->publicId));
+    }
+
     /**
      * A post could not be published to a channel (or may or may not have gone out, `$uncertain`).
      */

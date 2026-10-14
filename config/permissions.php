@@ -37,6 +37,9 @@ return static function (Env $env): array {
 
     // Content.
     'posts.publish' => ['owner', 'admin', 'editor'],
+    'posts.approve' => ['owner', 'admin', 'editor', 'author', 'viewer', 'client'],
+    'posts.comment' => ['owner', 'admin', 'editor', 'author', 'client'],
+    'guest_links.manage' => ['owner', 'admin', 'editor'],
     'posts.draft' => ['owner', 'admin', 'editor', 'author'],
 
     // Media library: everyone who works on posts may look and upload; deleting and watermarks are for editors and up.

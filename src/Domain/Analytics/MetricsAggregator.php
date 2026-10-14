@@ -170,6 +170,11 @@ final class MetricsAggregator
 
         $add('content_drafts_created', '', $this->count('SELECT COUNT(*) AS c FROM content_post_origins WHERE created_at >= ? AND created_at < ?', [$from, $to]));
 
+        foreach ($this->db->select('SELECT decision,COUNT(*) AS c FROM approvals WHERE created_at>=? AND created_at<? GROUP BY decision', [$from,$to]) as $row) {
+            $add('approval_decisions', (string)$row['decision'], (int)$row['c']);
+        }
+        $add('guest_links_created', '', $this->count('SELECT COUNT(*) AS c FROM guest_links WHERE created_at>=? AND created_at<?', [$from,$to]));
+
         // Activity.
         $date = $day->format('Y-m-d');
         $add('dau', '', $this->count('SELECT COUNT(*) AS c FROM user_activity_days WHERE day = ?', [$date]));

@@ -17,6 +17,9 @@ final class PostStatusAggregator
     {
         $live = array_values(array_filter($publications, static fn (Publication $p): bool => $p->status !== PublicationStatus::Cancelled));
         if ($live === []) {
+            if (in_array($current, [PostStatus::PendingApproval, PostStatus::Approved, PostStatus::ChangesRequested], true)) {
+                return $current;
+            }
             // Nothing is going out: a draft stays a draft, anything that had a plan is cancelled.
             return $current === PostStatus::Draft || $publications === [] && $current !== PostStatus::Cancelled ? PostStatus::Draft : PostStatus::Cancelled;
         }

@@ -59,6 +59,7 @@ final class Analytics
             $this->firstTouch->attribute($actorId);
         }
         match ($action) {
+            'approval.submitted', 'approval.approved', 'approval.changes_requested', 'guest_link.created',
             'queue.created', 'evergreen.created', 'recurring.created', 'trigger.created', 'crosspost.created', 'rss.created', 'import.confirmed',
             'content.draft_created', 'selection.semantic_settings_updated', 'source.images_completed', 'source.images_failed', 'source.images_stale',
             'discovery.refreshed', 'discovery.imported', 'source.video_completed', 'source.video_failed', 'source.text_completed', 'source.text_failed', 'source.text_stale' => $this->track(str_replace('.', '_', $action), $actorId, $workspaceId),

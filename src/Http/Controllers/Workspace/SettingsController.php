@@ -27,6 +27,8 @@ final class SettingsController
         private readonly Validator $validator,
         private readonly WorkspaceService $service,
         private readonly FormFlash $flash,
+        private readonly \App\Domain\Approval\ApprovalWorkflow $approvals,
+        private readonly \App\Domain\Billing\Entitlements $entitlements,
     ) {
     }
 
@@ -36,6 +38,9 @@ final class SettingsController
 
         return $this->view->response('workspace/settings.twig', [
             'workspace' => $context,
+            'approval_settings' => $this->approvals->settings($context->workspaceId),
+            'approval_members' => $this->approvals->members($context),
+            'approval_white_label' => $this->entitlements->hasFeature($context->workspaceId, 'white_label'),
             'timezones' => $this->timezones(),
             'locales' => self::LOCALES,
         ]);

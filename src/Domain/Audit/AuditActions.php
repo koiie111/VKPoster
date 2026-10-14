@@ -14,6 +14,15 @@ final class AuditActions
 {
     /** @var array<string, string> */
     private const LABELS = [
+        'approval.settings_updated' => 'Настройки согласования изменены',
+        'approval.submitted' => 'Пост отправлен на согласование',
+        'approval.scheduled' => 'Согласованный пост запланирован',
+        'approval.approved' => 'Пост согласован',
+        'approval.changes_requested' => 'Запрошены изменения в посте',
+        'approval.revision_changed' => 'Изменённая версия требует согласования',
+        'post.comment_added' => 'Добавлен комментарий к посту',
+        'guest_link.created' => 'Создана гостевая ссылка',
+        'guest_link.revoked' => 'Гостевая ссылка отозвана',
         'source.images_requested' => 'Запрошена обработка изображений',
         'source.images_completed' => 'Изображения сохранены',
         'source.images_failed' => 'Ошибка обработки изображений',

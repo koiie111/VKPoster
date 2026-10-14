@@ -41,6 +41,18 @@ for (const item of list) {
         await page.goto(`${base}/dev/login-as/${encodeURIComponent(item.login_as)}`, { waitUntil: 'networkidle' });
       }
       let url = template;
+      if (url.includes('{approval_ws}')) {
+        if (!process.env.UI_SNAP_APPROVAL_WS) throw new Error('UI_SNAP_APPROVAL_WS fixture required');
+        url = url.replace('{approval_ws}', process.env.UI_SNAP_APPROVAL_WS);
+      }
+      if (url.includes('{guest_pin}')) {
+        if (!process.env.UI_SNAP_GUEST_PIN_URL) throw new Error('UI_SNAP_GUEST_PIN_URL fixture required');
+        url = url.replace('{guest_pin}', process.env.UI_SNAP_GUEST_PIN_URL);
+      }
+      if (url.includes('{guest}')) {
+        if (!process.env.UI_SNAP_GUEST_URL) throw new Error('UI_SNAP_GUEST_URL fixture required');
+        url = url.replace('{guest}', process.env.UI_SNAP_GUEST_URL);
+      }
       if (url.includes('{ws}')) {
         await page.goto(`${base}/app`, { waitUntil: 'networkidle' });
         const found = page.url().match(/\/w\/([0-9A-Z]{26})/);
@@ -70,6 +82,8 @@ for (const item of list) {
         }
       }
       await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
+      // Full-page captures after opening a disclosure must not place the sticky shell halfway down the image.
+      await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(150);
 
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

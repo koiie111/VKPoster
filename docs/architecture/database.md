@@ -416,3 +416,13 @@ available_at/result_json for bounded confirmed retries and durable successful
 variants; uncertain legacy fences cannot replay. Telegram tombstones remain in
 source_events plus source_messages.metadata_json, without erasing message history.
 Migration 32 preserves original-versus-copy Draft keys when recalculating hashes.
+
+## Этап 14: согласование
+
+Миграция `2026_10_14_000035_create_approvals.php`: workspace_approval_settings,
+post_versions, approvals, post_comments, guest_links, guest_link_posts. Все новые
+таблицы — utf8mb4_unicode_ci; tenant indexes, FK, version/actor/link history.
+Токены guest_links хранятся только как SHA-256, PIN — Argon2id. Статусы posts
+используют существующий VARCHAR: pending_approval/approved/changes_requested.
+Rollback сохраняет посты, переводя review-состояния в draft. Подробности:
+[Согласование](modules/approvals.md).

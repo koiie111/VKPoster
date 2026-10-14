@@ -73,8 +73,8 @@ final class PublicSiteTest extends AuthTestCase
         self::assertStringContainsString('application/xml', (string) $xml->header('Content-Type'));
         self::assertStringContainsString('/legal/privacy</loc><lastmod>', $xml->body);
         self::assertStringContainsString('/help/connect-vk</loc>', $xml->body);
-        self::assertStringNotContainsString('/app', $xml->body);
-        self::assertStringNotContainsString('/admin', $xml->body);
+        self::assertStringContainsString('/help/approvals</loc>', $xml->body);
+        self::assertDoesNotMatchRegularExpression('~<loc>[^<]*://[^/]+/(?:app|admin)(?:/|[?<])~', $xml->body, 'Match private path segments, not the word approvals');
     }
 
     public function testRobotsClosesEverythingOutsideProduction(): void

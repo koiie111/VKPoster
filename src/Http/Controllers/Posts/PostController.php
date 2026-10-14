@@ -54,6 +54,8 @@ final class PostController
         private readonly \App\Domain\Automation\Queue\QueueService $queueService,
         private readonly \App\Domain\Automation\Queue\QueueRepository $queues,
         private readonly \App\Http\Controllers\Automation\TriggerPanel $triggerPanel,
+        private readonly \App\Domain\Approval\ApprovalWorkflow $approvals,
+        private readonly \App\Domain\Approval\PostComments $comments,
     ) {
     }
 
@@ -114,7 +116,7 @@ final class PostController
         try {
             $post = $this->apply($context, $existing, $form);
         } catch (PostException $e) {
-            if ($e->forbidden && $existing !== null && !$this->service->canEdit($context, $existing)) {
+            if ($e->forbidden) {
                 throw new HttpException(403, 'Forbidden');
             }
             $errors = ['form' => $e->getMessage(), 'channels' => $e->channelProblems, 'date' => $this->dateError($e), 'upgrade' => $e->planLimit ? '/w/' . $context->workspacePublicId . '/billing/plans' : null];
@@ -250,13 +252,20 @@ final class PostController
         $post = $this->findVisible($context, $request);
         $zone = new DateTimeZone($context->timezone);
         $variants = [];
+        $allowed = $this->service->allowedChannels($context);
         foreach ($this->posts->variants($context, $post) as $variant) {
+            if ($allowed !== null && !in_array($variant->channelId, $allowed, true)) {
+                continue;
+            }
             $variants[$variant->id] = $variant;
         }
         $rows = [];
         $canPlan = $this->permissions->allows($context->role, 'posts.publish');
         $editableText = false;
         foreach ($this->publications->forPost($context, $post) as $publication) {
+            if ($allowed !== null && !in_array($publication->channelId, $allowed, true)) {
+                continue;
+            }
             $variant = $variants[$publication->variantId] ?? null;
             $channel = $publication->channelId === null ? null : $this->channels->findById($context, $publication->channelId);
             $row = $this->publicationRow($context, $publication, $variant === null ? 'Канал' : $variant->channelName, $variant === null ? 'vk' : $variant->platform->badgeKey(), $zone);
@@ -274,6 +283,12 @@ final class PostController
         $sent = count(array_filter($rows, static fn (array $r): bool => $r['status'] === 'sent'));
 
         return $this->view->response('workspace/posts/show.twig', [
+            'approval_revision' => $this->approvals->revision($context, $post),
+            'approval_submit' => $this->service->canEdit($context, $post) && in_array($post->status, [PostStatus::Draft, PostStatus::ChangesRequested], true),
+            'approval_decide' => $this->approvals->canApprove($context, $post) && in_array($post->status, [PostStatus::PendingApproval, PostStatus::Approved, PostStatus::ChangesRequested], true),
+            'approval_members' => $this->approvals->members($context),
+            'post_comments' => $this->comments->thread($context, $post),
+            'post_versions' => $this->approvals->versions($context, $post),
             'workspace' => $context,
             'post' => $post,
             'title' => $post->title(100),

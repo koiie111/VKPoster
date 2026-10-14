@@ -159,7 +159,7 @@ final class PostRepository extends WorkspaceScopedRepository
      */
     public function drafts(WorkspaceContext $context, ?array $allowedChannelIds, int $limit = 50): array
     {
-        $query = $this->scoped($context, 'posts')->where('status', '=', PostStatus::Draft->value)->whereNull('scheduled_at');
+        $query = $this->scoped($context, 'posts')->whereIn('status', ['draft','pending_approval','approved','changes_requested'])->whereNull('scheduled_at');
         if ($allowedChannelIds !== null) {
             if ($allowedChannelIds === []) {
                 return [];
