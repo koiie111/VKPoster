@@ -45,21 +45,37 @@ final class RateLimiter
      */
     public function attempt(string $key, int $max, int $windowSeconds, bool $failClosed = false): RateLimitResult
     {
+        // phpredis may implicitly connect to localhost on eval; a security gate must use
+        // only the explicitly configured, established connection.
+        if (!$this->redis->isConnected()) {
+            if ($failClosed) {
+                throw new \RuntimeException('Rate limiter unavailable.');
+            }
+            return new RateLimitResult(true, 0, 0);
+        }
         $nowMs = (int) floor((float) $this->clock->now()->format('U.u') * 1000);
         $result = $this->redis->eval(
             self::SCRIPT,
             [$this->prefix . $key, (string) $nowMs, (string) ($windowSeconds * 1000), (string) $max, $nowMs . ':' . bin2hex(random_bytes(6))],
             1,
         );
-        if (!is_array($result)) {
-            // Redis failure: fail closed would lock everyone out, so allow but report no headroom.
-            return new RateLimitResult(!$failClosed, 0, $failClosed ? $windowSeconds : 0);
+        if (!is_array($result) || count($result) !== 3
+            || !isset($result[0], $result[1], $result[2])
+            || !is_int($result[0]) || !in_array($result[0], [0, 1], true)
+            || !is_int($result[1]) || !is_int($result[2])
+            || $result[1] < 0 || $result[2] < 0) {
+            // Infrastructure failure is not a rejected hit (429): PIN callers translate
+            // this safe error to 503, before verifying a PIN or granting session access.
+            if ($failClosed) {
+                throw new \RuntimeException('Rate limiter unavailable.');
+            }
+            return new RateLimitResult(true, 0, 0);
         }
 
         return new RateLimitResult(
-            (int) $result[0] === 1,
-            (int) $result[1],
-            (int) ceil(((int) $result[2]) / 1000),
+            $result[0] === 1,
+            $result[1],
+            (int) ceil($result[2] / 1000),
         );
     }
 

@@ -451,3 +451,16 @@ capability URLs из логов/кэша. Настоящие email/Telegram до
 calls не запускались: проверены существующие Fake/mock/Queue contracts. Stash@{0}
 и stage-13-sources-skeleton сохранены; force push, merge, следующий этап и дополнительный
 self-review не выполнялись.
+
+### Stage 14 — CI PIN fail-closed fix (PR #25)
+
+Причина 302 в CI: phpredis неявно подключал необъявленное соединение к
+localhost:6379 во время HTTP rate-limit до проверки PIN. RateLimiter проверяет
+установленное соединение до eval; fail-closed ошибка инфраструктуры/ответа
+превращается GuestLinks в HTTP 503 без PIN verification/session unlock.
+Нормальные correct/wrong PIN, 429, forged/expired/revoked links сохранены.
+Исходный ApprovalTest не изменён. Добавлены три unit regression.
+
+Проверки: Approval + unit regression 24 tests / 277 assertions, включая
+localhost Redis topology; полный suite 2247 tests / 40887 assertions; PHPStan
+и style passed. PR https://github.com/koiie111/VKPoster/pull/25, без merge.

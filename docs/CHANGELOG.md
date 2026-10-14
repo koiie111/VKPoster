@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- PIN гостевых ссылок: неявное подключение phpredis к localhost исключено; недоступный Redis или некорректный результат проверки возвращает 503 без выдачи доступа.
+
 - Этап 14: revision-bound согласование, комментарии/упоминания/версии/diff, гостевые ссылки с TTL/PIN/отзывом, client isolation, email/Telegram preferences, white-label Агентства, audit/metrics/staff counters; прежний publishing pipeline сохранён.
 
 ### Added
