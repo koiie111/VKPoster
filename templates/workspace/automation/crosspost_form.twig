@@ -1,0 +1,65 @@
+{#- A cross-posting rule. Variables: rule, source_id, sources, channels, selected, delays, include, exclude, signatures, links, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+
+{% set nav_current = 'automation' %}
+{% block title %}{{ rule ? 'Правило кросспостинга' : 'Новое правило кросспостинга' }} · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Автоматизация', href: base ~ '/automation'}, {label: 'Кросспостинг', href: base ~ '/crosspost'}, {label: rule ? rule.name : 'Новое правило'}]) }}
+<div class="mt-3">{{ d.page_header(rule ? 'Правило кросспостинга' : 'Новое правило кросспостинга', 'Откуда брать посты, куда переносить и что менять в тексте.') }}</div>
+<form method="post" action="{{ base }}/crosspost/{{ rule ? rule.publicId : '' }}" class="card flex max-w-3xl flex-col gap-6" novalidate>
+    {{ csrf_field() }}
+    {% if errors('form') %}{{ d.alert('error', 'Правило не сохранено', errors('form')|first) }}{% endif %}
+    {{ f.input('name', 'Название правила', value = old('name', rule ? rule.name : ''), required = true, placeholder = 'Например, «Telegram → ВКонтакте»', attrs = {maxlength: 100}) }}
+
+    <fieldset class="flex flex-col gap-3">
+        <legend class="label">Откуда и куда</legend>
+        {% if rule %}
+            <p class="text-sm text-muted">Источник нельзя поменять. Создайте новое правило, если нужен другой канал.</p>
+        {% else %}
+            {{ f.select('source', 'Telegram-канал, откуда берём посты', sources|reduce((c, s) => c|merge({(s.id): s.name}), {}), value = old('source', source_id), required = true, hint = 'Подойдут каналы, подключённые через бота сервиса.') }}
+        {% endif %}
+        <p class="label !mb-0 mt-2">Куда переносить<span class="text-bad-fg" aria-hidden="true"> *</span></p>
+        {% set chosen = old('targets', selected) %}
+        {% for ch in channels %}{{ f.checkbox('targets[]', ch.name, checked = ch.id in chosen, value = ch.id, hint = ch.platform_label, id = 'cp-target-' ~ ch.id) }}{% endfor %}
+    </fieldset>
+
+    <fieldset class="flex flex-col gap-3">
+        <legend class="label">Что переносить</legend>
+        {{ f.input('include_tags', 'Только с хэштегами', value = old('include_tags', include), placeholder = '#новости #акции', hint = 'Достаточно любого из них. Пусто — переносим все посты.') }}
+        {{ f.input('exclude_tags', 'Не переносить с хэштегами', value = old('exclude_tags', exclude), placeholder = '#реклама') }}
+        {{ f.switch('skip_forwarded', 'Не переносить пересланные посты', checked = old('skip_forwarded', rule ? (rule.filter.skipForwarded ? '1' : '') : '1') != '') }}
+    </fieldset>
+
+    <fieldset class="flex flex-col gap-3">
+        <legend class="label">Что менять в тексте</legend>
+        {{ f.textarea('signatures', 'Убрать подпись канала', value = old('signatures', signatures), rows = 2, hint = 'Одно выражение на строку, например «@mychannel». Строка, где остались только знаки, исчезнет.') }}
+        <div class="flex flex-col gap-2">
+            <p class="label !mb-0">Заменить ссылки</p>
+            {% set old_links = old('links', links) %}
+            {% for i in 0..2 %}
+            <div class="grid gap-3 sm:grid-cols-2">
+                {{ f.input('links[' ~ i ~ '][from]', 'Что заменить', value = old_links[i].from ?? '', placeholder = 'https://t.me/mychannel', id = 'cp-link-from-' ~ i) }}
+                {{ f.input('links[' ~ i ~ '][to]', 'На что заменить', value = old_links[i].to ?? '', placeholder = 'https://example.com', id = 'cp-link-to-' ~ i) }}
+            </div>
+            {% endfor %}
+        </div>
+        {{ f.textarea('tail', 'Добавить в конец поста', value = old('tail', rule ? rule.transform.tail : ''), rows = 2, max = 2000, hint = 'Например, ссылка на ваш сайт.') }}
+    </fieldset>
+
+    <fieldset class="flex flex-col gap-3">
+        <legend class="label">Что делать с постом</legend>
+        {% set current_mode = old('mode', rule ? rule.mode : 'draft') %}
+        {{ f.radio('mode', 'Сохранять в черновики на проверку', 'draft', checked = current_mode == 'draft', hint = 'Вы посмотрите пост и опубликуете сами.', id = 'cp-mode-draft') }}
+        {{ f.radio('mode', 'Публиковать сразу', 'immediate', checked = current_mode == 'immediate', hint = 'Если пост нельзя отправить, он останется в черновиках с пояснением.', id = 'cp-mode-immediate') }}
+        {{ f.select('delay', 'Когда публиковать', delays, value = old('delay', rule ? rule.delayMinutes : 0), hint = 'Только для режима «Публиковать сразу».') }}
+        {{ f.switch('sync_edits', 'Повторять правки', checked = old('sync_edits', rule ? (rule.syncEdits ? '1' : '') : '1') != '', hint = 'Если вы отредактируете пост в Telegram, поправим текст и в перенесённом. Удаление Telegram боту не сообщает, поэтому его перенести нельзя.') }}
+    </fieldset>
+
+    <div class="flex flex-wrap items-center gap-3 border-t border-line pt-5">
+        {{ f.button(rule ? 'Сохранить правило' : 'Создать правило', type = 'submit', icon = 'save') }}
+        {{ f.button('Отмена', variant = 'ghost', href = base ~ '/crosspost') }}
+    </div>
+</form>
+{% endblock %}

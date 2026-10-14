@@ -3,6 +3,13 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Account\ConsentController;
+use App\Http\Controllers\Automation\AutomationController;
+use App\Http\Controllers\Automation\CrosspostController;
+use App\Http\Controllers\Automation\ImportController;
+use App\Http\Controllers\Automation\QueueController;
+use App\Http\Controllers\Automation\RecurringController;
+use App\Http\Controllers\Automation\RssController;
+use App\Http\Controllers\Automation\TriggerController;
 use App\Http\Controllers\Account\FeedbackController;
 use App\Http\Controllers\Account\LoginMethodsController;
 use App\Http\Controllers\Account\NotificationController;
@@ -345,6 +352,75 @@ return static function (Router $router): void {
                 $p->post($item . '/publications/{publicationId:' . $ulid . '}/retry', [PostController::class, 'retry']);
                 $p->post($item . '/publications/{publicationId:' . $ulid . '}/settle', [PostController::class, 'settle']);
                 $p->post($item . '/publications/{publicationId:' . $ulid . '}/remove', [PostController::class, 'removeFromNetwork']);
+            });
+            // Stage 13: queues with slots, recurring posts, "if → then" rules, cross-posting from Telegram, RSS feeds, bulk import. Everyone who writes
+            // drafts may look (and import into drafts); changing queues, repeats, rules and feeds is for editors and up, cross-posting for administrators.
+            // The services check the same things (and the plan) again, so a refusal is the same on every entry point.
+            $w->group('', [[Authorize::class, ['permission' => 'posts.draft']]], static function (Router $a) use ($ulid): void {
+                $a->get('/automation', [AutomationController::class, 'index'])->name('workspace.automation');
+                $a->get('/queues', [QueueController::class, 'index'])->name('workspace.queues');
+                $a->get('/queues/new', [QueueController::class, 'form']);
+                $queue = '/queues/{queueId:' . $ulid . '}';
+                $a->get($queue, [QueueController::class, 'show']);
+                $a->get($queue . '/edit', [QueueController::class, 'form']);
+                $a->get('/recurring', [RecurringController::class, 'index'])->name('workspace.recurring');
+                $a->get('/channels/{channelId:' . $ulid . '}/triggers', [TriggerController::class, 'channelPage']);
+                $a->get('/crosspost', [CrosspostController::class, 'index'])->name('workspace.crosspost');
+                $a->get('/crosspost/new', [CrosspostController::class, 'form']);
+                $a->get('/crosspost/{ruleId:' . $ulid . '}/edit', [CrosspostController::class, 'form']);
+                $a->get('/rss', [RssController::class, 'index'])->name('workspace.rss');
+                $a->get('/rss/new', [RssController::class, 'form']);
+                $a->get('/rss/{feedId:' . $ulid . '}/edit', [RssController::class, 'form']);
+                $a->get('/import', [ImportController::class, 'index'])->name('workspace.import');
+                $a->get('/import/template.csv', [ImportController::class, 'template']);
+                $batch = '/import/{batchId:' . $ulid . '}';
+                $a->get($batch, [ImportController::class, 'show']);
+                $a->get($batch . '/errors.csv', [ImportController::class, 'errors']);
+                $a->post('/import', [ImportController::class, 'upload'])->middleware([RateLimit::class, ['bucket' => 'import-upload', 'max' => 10, 'seconds' => 600]]);
+                $a->post($batch . '/confirm', [ImportController::class, 'confirm'])->middleware([RateLimit::class, ['bucket' => 'import-confirm', 'max' => 20, 'seconds' => 600]]);
+            });
+            $w->group('', [[Authorize::class, ['permission' => 'posts.publish']]], static function (Router $a) use ($ulid): void {
+                $a->post('/queues', [QueueController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'queue-save', 'max' => 60, 'seconds' => 3600]]);
+                $queue = '/queues/{queueId:' . $ulid . '}';
+                $a->post($queue, [QueueController::class, 'update'])->middleware([RateLimit::class, ['bucket' => 'queue-save', 'max' => 60, 'seconds' => 3600]]);
+                $a->post($queue . '/delete', [QueueController::class, 'delete']);
+                $a->post($queue . '/pause', [QueueController::class, 'pause']);
+                $a->post($queue . '/resume', [QueueController::class, 'resume']);
+                $a->post($queue . '/posts/{postId:' . $ulid . '}/move', [QueueController::class, 'move'])->middleware([RateLimit::class, ['bucket' => 'queue-move', 'max' => 300, 'seconds' => 600]]);
+                $a->post($queue . '/posts/{postId:' . $ulid . '}/remove', [QueueController::class, 'remove']);
+                $a->post($queue . '/pools', [QueueController::class, 'poolStore'])->middleware([RateLimit::class, ['bucket' => 'pool-save', 'max' => 30, 'seconds' => 3600]]);
+                $pool = $queue . '/pools/{poolId:' . $ulid . '}';
+                $a->post($pool . '/toggle', [QueueController::class, 'poolToggle']);
+                $a->post($pool . '/delete', [QueueController::class, 'poolDelete']);
+                $a->post($pool . '/posts', [QueueController::class, 'poolAdd']);
+                $a->post($pool . '/posts/{postId:' . $ulid . '}/remove', [QueueController::class, 'poolRemove']);
+                $a->post('/posts/{postId:' . $ulid . '}/queue', [QueueController::class, 'enqueue'])->middleware([RateLimit::class, ['bucket' => 'queue-enqueue', 'max' => 120, 'seconds' => 600]]);
+
+                $a->post('/recurring', [RecurringController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'recurring-save', 'max' => 60, 'seconds' => 3600]]);
+                $rule = '/recurring/{ruleId:' . $ulid . '}';
+                $a->post($rule . '/pause', [RecurringController::class, 'pause']);
+                $a->post($rule . '/resume', [RecurringController::class, 'resume']);
+                $a->post($rule . '/delete', [RecurringController::class, 'delete']);
+
+                $a->post('/channels/{channelId:' . $ulid . '}/triggers', [TriggerController::class, 'storeForChannel'])->middleware([RateLimit::class, ['bucket' => 'trigger-save', 'max' => 60, 'seconds' => 600]]);
+                $a->post('/posts/{postId:' . $ulid . '}/triggers', [TriggerController::class, 'storeForPost'])->middleware([RateLimit::class, ['bucket' => 'trigger-save', 'max' => 60, 'seconds' => 600]]);
+                $a->post('/triggers/{triggerId:' . $ulid . '}/delete', [TriggerController::class, 'delete']);
+
+                $a->post('/rss/preview', [RssController::class, 'preview'])->middleware([RateLimit::class, ['bucket' => 'rss-preview', 'max' => 20, 'seconds' => 600]]);
+                $a->post('/rss', [RssController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'rss-save', 'max' => 30, 'seconds' => 3600]]);
+                $feed = '/rss/{feedId:' . $ulid . '}';
+                $a->post($feed, [RssController::class, 'update'])->middleware([RateLimit::class, ['bucket' => 'rss-save', 'max' => 30, 'seconds' => 3600]]);
+                $a->post($feed . '/enable', [RssController::class, 'enable']);
+                $a->post($feed . '/disable', [RssController::class, 'disable']);
+                $a->post($feed . '/delete', [RssController::class, 'delete']);
+            });
+            $w->group('', [[Authorize::class, ['permission' => 'channels.manage']]], static function (Router $a) use ($ulid): void {
+                $a->post('/crosspost', [CrosspostController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'crosspost-save', 'max' => 60, 'seconds' => 3600]]);
+                $cp = '/crosspost/{ruleId:' . $ulid . '}';
+                $a->post($cp, [CrosspostController::class, 'update'])->middleware([RateLimit::class, ['bucket' => 'crosspost-save', 'max' => 60, 'seconds' => 3600]]);
+                $a->post($cp . '/enable', [CrosspostController::class, 'enable']);
+                $a->post($cp . '/disable', [CrosspostController::class, 'disable']);
+                $a->post($cp . '/delete', [CrosspostController::class, 'delete']);
             });
             $w->get('/media-picker', [PickerController::class, 'list'])->middleware([Authorize::class, ['permission' => 'posts.draft']]);
             $w->get('/audit', [AuditController::class, 'show'])->name('workspace.audit')->middleware([Authorize::class, ['permission' => 'audit.view']]);

@@ -83,6 +83,13 @@
                 {{ f.button(post and post.status.value == 'scheduled' ? 'Сохранить изменения' : 'Запланировать пост', type = 'submit', icon = 'calendar-days', attrs = {name: 'intent', value: 'schedule'}) }}
                 {{ f.button('Сохранить черновик', type = 'submit', variant = 'secondary', attrs = {name: 'intent', value: 'draft'}) }}
                 {{ f.button('Опубликовать сейчас', type = 'submit', variant = 'ghost', attrs = {name: 'intent', value: 'now', 'data-confirm-now': '1'}) }}
+                {% if queues %}
+                <div class="flex flex-wrap items-center gap-2">
+                    <label class="sr-only" for="queue-choice">Очередь</label>
+                    <select class="field !w-auto" id="queue-choice" name="queue">{% for q in queues %}<option value="{{ q.id }}">{{ q.name }}</option>{% endfor %}</select>
+                    {{ f.button('В очередь', type = 'submit', variant = 'secondary', icon = 'clock', attrs = {name: 'intent', value: 'queue'}) }}
+                </div>
+                {% endif %}
             {% else %}
                 {{ f.button('Сохранить черновик', type = 'submit', icon = 'save', attrs = {name: 'intent', value: 'draft'}) }}
             {% endif %}

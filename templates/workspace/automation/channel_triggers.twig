@@ -1,0 +1,11 @@
+{#- Rules of a channel. Variables: channel (id, name), panel, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+
+{% set nav_current = 'channels' %}
+{% block title %}Правила канала «{{ channel.name }}» · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Каналы', href: base ~ '/channels'}, {label: channel.name}]) }}
+<div class="mt-3">{{ d.page_header('Правила канала «' ~ channel.name ~ '»', 'Например: «если публикация не удалась, пришли уведомление» или «когда пост вышел, поставь очередь на паузу».') }}</div>
+<div class="max-w-3xl">{% include 'workspace/automation/_triggers.twig' %}</div>
+{% endblock %}

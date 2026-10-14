@@ -26,6 +26,15 @@ return static function (Schedule $schedule): void {
     $schedule->call('telegram-links-prune', '31 3 * * *', [TelegramLinks::class, 'prune']);
     // Every minute: jobs for publications that fall due within 90 seconds, lost-worker clean-up, deletion timers.
     $schedule->call('publish-due', '* * * * *', [PublicationScheduler::class, 'tick']);
+    // Every minute: recurring posts that fall due within a day are copied, evergreen pools refill their queues, queues place their posts
+    // into slots, armed triggers fire, RSS feeds that are due are queued for reading.
+    $schedule->call('recurring-posts', '* * * * *', [\App\Domain\Automation\Recurring\RecurringService::class, 'tick']);
+    $schedule->call('evergreen-pools', '* * * * *', [\App\Domain\Automation\Queue\EvergreenService::class, 'tick']);
+    $schedule->call('queue-slots', '* * * * *', [\App\Domain\Automation\Queue\QueueService::class, 'tick']);
+    $schedule->call('triggers-fire', '* * * * *', [\App\Domain\Automation\Trigger\TriggerEngine::class, 'tick']);
+    $schedule->call('rss-feeds', '* * * * *', [\App\Domain\Automation\Rss\RssPoller::class, 'tick']);
+    $schedule->call('crosspost-prune', '53 3 * * *', [\App\Domain\Automation\Crosspost\CrosspostSystem::class, 'prune']);
+    $schedule->call('import-prune', '57 3 * * *', [\App\Domain\Automation\Import\ImportService::class, 'prune']);
     $schedule->call('channels-health', '23 * * * *', [ChannelHealthService::class, 'enqueueDue']);
     // Hourly: trial reminders and endings, renewals and their retries, payments that stayed open, unpaid invoices. Each step is safe to repeat.
     $schedule->call('billing-tick', '41 * * * *', [RenewalService::class, 'tick']);

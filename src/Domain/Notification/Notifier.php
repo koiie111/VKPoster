@@ -61,6 +61,18 @@ final class Notifier
     }
 
     /**
+     * A rule of the workspace has something to say ("if the post is published, tell me", or a rule that could not do its job): the
+     * owner and the administrators are told.
+     */
+    public function automationNotice(int $workspaceId, string $title, string $body, string $path): void
+    {
+        $url = $this->link($path);
+        foreach ($this->recipients($workspaceId, null) as $userId) {
+            $this->deliver(NotificationType::Automation, $userId, $workspaceId, $title, $body, $url);
+        }
+    }
+
+    /**
      * A channel stopped working: the owner and administrators are told (the email is the one from stage 06).
      */
     public function channelProblem(Channel $channel, string $workspaceName, string $workspacePublicId, string $reason): void

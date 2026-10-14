@@ -17,6 +17,7 @@
         "league/flysystem-aws-s3-v3": "^3",
         "league/flysystem-local": "^3",
         "monolog/monolog": "^3.12",
+        "phpoffice/phpspreadsheet": "^5.10",
         "spomky-labs/otphp": "*",
         "symfony/mailer": "*",
         "symfony/mime": "*",

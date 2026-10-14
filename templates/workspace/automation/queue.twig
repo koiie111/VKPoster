@@ -1,0 +1,111 @@
+{#- One queue. Variables: queue, slot_summary, channel_names, entries, upcoming, pools, drafts, can_manage, timezone, base. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/overlay.twig' as o %}
+
+{% set nav_current = 'queues' %}
+{% block title %}{{ queue.name }} · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Очереди', href: base ~ '/queues'}, {label: queue.name}]) }}
+{% set actions %}
+    {% if can_manage %}
+        {% if queue.paused %}
+            <form method="post" action="{{ base }}/queues/{{ queue.publicId }}/resume">{{ csrf_field() }}{{ f.button('Снять с паузы', type = 'submit', icon = 'play') }}</form>
+        {% else %}
+            <form method="post" action="{{ base }}/queues/{{ queue.publicId }}/pause">{{ csrf_field() }}{{ f.button('Поставить на паузу', type = 'submit', variant = 'secondary', icon = 'pause') }}</form>
+        {% endif %}
+        {{ f.button('Настроить', variant = 'secondary', href = base ~ '/queues/' ~ queue.publicId ~ '/edit', icon = 'settings') }}
+        {{ f.button('Удалить', variant = 'ghost', icon = 'trash-2', attrs = {'data-dialog-open': 'delete-queue'}) }}
+        {{ o.confirm_dialog('delete-queue', 'Удалить очередь?', queue.name, 'Посты, которые уже стоят в расписании, останутся запланированными. Очередь только перестанет ими управлять.', base ~ '/queues/' ~ queue.publicId ~ '/delete') }}
+    {% endif %}
+{% endset %}
+<div class="mt-3">{{ d.page_header(queue.name, slot_summary ~ ' · ' ~ (channel_names|join(', ') ?: 'каналов нет'), body = actions) }}</div>
+{% if queue.paused %}<div class="mb-5">{{ d.alert('warning', 'Очередь на паузе', 'Её посты вернулись в черновики и ничего не публикуют. Когда снимете паузу, они снова встанут по слотам в том же порядке.') }}</div>{% endif %}
+
+<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <section class="card min-w-0" aria-labelledby="entries-title">
+        <h2 class="mb-1 text-lg font-semibold" id="entries-title">Посты в очереди</h2>
+        <p class="mb-4 text-sm text-muted">Верхний выйдет первым. Время каждого поста подбирается по слотам и пересчитывается, когда вы меняете порядок. Часовой пояс: {{ timezone }}.</p>
+        {% if entries is empty %}
+            {{ d.empty_state('В очереди пока пусто', 'Откройте пост и нажмите «Поставить в очередь», либо в редакторе выберите очередь и нажмите «В очередь».', 'clock', 'Создать пост', base ~ '/posts/new') }}
+        {% else %}
+        <ol class="flex flex-col divide-y divide-line">
+            {% for e in entries %}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+                <span class="w-6 shrink-0 text-center text-sm font-semibold text-muted" aria-label="Место в очереди">{{ e.position }}</span>
+                <div class="min-w-0 flex-1 basis-56">
+                    <p class="break-words font-medium"><a class="hover:underline" href="{{ base }}/posts/{{ e.post_id }}">{{ e.title }}</a></p>
+                    <p class="flex flex-wrap items-center gap-2 text-sm text-muted">{{ d.status_badge(e.status) }}{% if e.when %}<span>{{ e.when }}</span>{% endif %}{% if e.source %}<span>· {{ e.source }}</span>{% endif %}</p>
+                    {% if e.note %}<p class="mt-1 flex gap-1.5 text-sm text-warn-fg">{{ icon('triangle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ e.note }}</span></p>{% endif %}
+                </div>
+                {% if can_manage %}
+                <div class="flex items-center gap-1">
+                    <form method="post" action="{{ base }}/queues/{{ queue.publicId }}/posts/{{ e.post_id }}/move">{{ csrf_field() }}<input type="hidden" name="direction" value="up">{{ f.icon_button('arrow-up', 'Поднять выше: ' ~ e.title, type = 'submit', attrs = e.position == 1 ? {disabled: 'disabled'} : {}) }}</form>
+                    <form method="post" action="{{ base }}/queues/{{ queue.publicId }}/posts/{{ e.post_id }}/move">{{ csrf_field() }}<input type="hidden" name="direction" value="down">{{ f.icon_button('arrow-down', 'Опустить ниже: ' ~ e.title, type = 'submit', attrs = e.position == entries|length ? {disabled: 'disabled'} : {}) }}</form>
+                    <form method="post" action="{{ base }}/queues/{{ queue.publicId }}/posts/{{ e.post_id }}/remove">{{ csrf_field() }}{{ f.icon_button('x', 'Убрать из очереди: ' ~ e.title, type = 'submit') }}</form>
+                </div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+        {% endif %}
+    </section>
+
+    <aside class="flex flex-col gap-6">
+        <section class="card" aria-labelledby="slots-title">
+            <h2 class="mb-3 text-lg font-semibold" id="slots-title">Свободные слоты</h2>
+            {% if upcoming is empty %}<p class="text-sm text-muted">Ближайшие слоты заняты постами очереди.</p>
+            {% else %}<ul class="flex flex-col gap-1.5 text-sm">{% for slot in upcoming %}<li class="flex items-center gap-2">{{ icon('clock', 'h-4 w-4 text-muted') }}{{ slot }}</li>{% endfor %}</ul>{% endif %}
+        </section>
+    </aside>
+</div>
+
+<section class="card mt-6" aria-labelledby="pools-title">
+    <h2 class="mb-1 text-lg font-semibold" id="pools-title">Вечнозелёный пул</h2>
+    <p class="mb-4 text-sm text-muted">Набор постов, которые не устаревают. Пул сам добавляет в очередь их копии по кругу, и один пост не повторяется раньше положенного срока.</p>
+    {% for pool in pools %}
+    <article class="mb-5 rounded-card border border-line p-4" aria-label="Пул {{ pool.name }}">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div class="min-w-0 flex-1 basis-48">
+                <p class="flex flex-wrap items-center gap-2 font-semibold"><span class="break-words">{{ pool.name }}</span>{{ d.badge(pool.enabled ? 'Работает' : 'Остановлен', pool.enabled ? 'ok' : 'neutral') }}</p>
+                <p class="text-sm text-muted">Один пост не чаще раза в {{ pool.interval }} дн. · держим в очереди копий: {{ pool.keep_ahead }} (сейчас {{ pool.waiting }})</p>
+            </div>
+            {% if can_manage %}
+            <form method="post" action="{{ base }}/queues/{{ queue.publicId }}/pools/{{ pool.id }}/toggle">{{ csrf_field() }}{{ f.button(pool.enabled ? 'Остановить' : 'Включить', variant = 'secondary', size = 'sm', type = 'submit', icon = pool.enabled ? 'pause' : 'play') }}</form>
+            {{ f.button('Удалить', variant = 'ghost', size = 'sm', icon = 'trash-2', attrs = {'data-dialog-open': 'del-pool-' ~ pool.id}) }}
+            {{ o.confirm_dialog('del-pool-' ~ pool.id, 'Удалить пул?', pool.name, 'Копии, которые уже стоят в очереди, останутся. Сами посты пула не удаляются.', base ~ '/queues/' ~ queue.publicId ~ '/pools/' ~ pool.id ~ '/delete') }}
+            {% endif %}
+        </div>
+        {% if pool.posts is empty %}<p class="mt-3 text-sm text-muted">В пуле пока нет постов. Добавьте черновики, которые стоит повторять.</p>
+        {% else %}
+        <ul class="mt-3 flex flex-col divide-y divide-line text-sm">
+            {% for p in pool.posts %}
+            <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                <a class="min-w-0 flex-1 basis-48 break-words hover:underline" href="{{ base }}/posts/{{ p.id }}">{{ p.title }}</a>
+                <span class="text-muted">{{ p.uses ? 'выходил ' ~ p.uses ~ ' раз, последний — ' ~ p.last : 'ещё не выходил' }}</span>
+                {% if can_manage %}<form method="post" action="{{ base }}/queues/{{ queue.publicId }}/pools/{{ pool.id }}/posts/{{ p.id }}/remove">{{ csrf_field() }}{{ f.icon_button('x', 'Убрать из пула: ' ~ p.title, type = 'submit') }}</form>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if can_manage and drafts %}
+        <form method="post" action="{{ base }}/queues/{{ queue.publicId }}/pools/{{ pool.id }}/posts" class="mt-4 flex flex-wrap items-end gap-3">
+            {{ csrf_field() }}
+            <div class="min-w-0 flex-1 basis-56">{{ f.select('post', 'Добавить пост из черновиков', drafts|reduce((c, p) => c|merge({(p.id): p.title}), {}), id = 'pool-post-' ~ pool.id) }}</div>
+            {{ f.button('Добавить в пул', variant = 'secondary', type = 'submit', icon = 'plus') }}
+        </form>
+        {% endif %}
+    </article>
+    {% endfor %}
+    {% if can_manage %}
+    <form method="post" action="{{ base }}/queues/{{ queue.publicId }}/pools" class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] sm:items-end">
+        {{ csrf_field() }}
+        {{ f.input('name', 'Новый пул', placeholder = 'Например, «Полезные советы»', required = true, id = 'pool-name', attrs = {maxlength: 100}) }}
+        {{ f.input('interval', 'Не чаще, дней', type = 'number', value = '30', id = 'pool-interval', attrs = {min: 1, max: 365}) }}
+        {{ f.input('keep_ahead', 'Копий в очереди', type = 'number', value = '3', id = 'pool-keep', attrs = {min: 1, max: 10}) }}
+        {{ f.button('Создать пул', type = 'submit', icon = 'plus') }}
+    </form>
+    {% endif %}
+</section>
+{% endblock %}

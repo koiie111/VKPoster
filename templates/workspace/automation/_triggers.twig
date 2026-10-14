@@ -1,0 +1,45 @@
+{#- The "if → then" block. Variables: panel (rows, action, events, actions, queues, drafts, can_manage, has_feature, timezone, for_post), base, back. -#}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+<section class="card" aria-labelledby="triggers-title">
+    <h2 class="mb-1 text-lg font-semibold" id="triggers-title">Если → то</h2>
+    <p class="mb-4 text-sm text-muted">Правила, которые сработают сами. Каждое срабатывает один раз.</p>
+    {% if panel.rows is empty %}
+        <p class="text-sm text-muted">Правил пока нет.</p>
+    {% else %}
+    <ul class="mb-4 flex flex-col divide-y divide-line">
+        {% for t in panel.rows %}
+        <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+            <div class="min-w-0 flex-1 basis-56">
+                <p class="break-words text-[0.9375rem]">{{ t.sentence }}</p>
+                <p class="text-sm {{ t.failed ? 'text-bad-fg' : 'text-muted' }}">{{ t.status_label }}{% if t.result %} · {{ t.result }}{% endif %}</p>
+            </div>
+            {% if panel.can_manage %}<form method="post" action="{{ base }}/triggers/{{ t.id }}/delete">{{ csrf_field() }}<input type="hidden" name="back" value="{{ panel.for_post ? 'post' : 'channel' }}">{{ f.icon_button('trash-2', 'Удалить правило', type = 'submit') }}</form>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% if panel.can_manage %}
+        {% if not panel.has_feature %}
+            {{ d.alert('info', 'Правила «если → то» есть на тарифах «Старт» и выше') }}
+        {% else %}
+        <form method="post" action="{{ panel.action }}" class="grid gap-4 border-t border-line pt-4 sm:grid-cols-2" novalidate>
+            {{ csrf_field() }}
+            {{ f.select('event', 'Когда', panel.events, id = 'trg-event', value = 'published') }}
+            {{ f.select('action', 'Что сделать', panel.actions, id = 'trg-action', value = 'notify') }}
+            <div class="grid grid-cols-2 gap-3 sm:col-span-2">
+                {{ f.input('delay', 'Через сколько после публикации', type = 'number', value = '0', id = 'trg-delay', hint = 'Нужно для «пост опубликован». 0 — сразу.', attrs = {min: 0, max: 999999}) }}
+                {{ f.select('delay_unit', 'Единица', {minutes: 'минут', hours: 'часов', days: 'дней'}, id = 'trg-unit', value = 'hours') }}
+            </div>
+            <div class="grid grid-cols-2 gap-3 sm:col-span-2">
+                {{ f.input('date', 'Дата', type = 'date', id = 'trg-date', hint = 'Нужна для «наступило время»') }}
+                {{ f.input('time', 'Время', type = 'time', id = 'trg-time', hint = 'Часовой пояс: ' ~ panel.timezone ~ '.') }}
+            </div>
+            {% if panel.queues %}{{ f.select('queue', 'Очередь', panel.queues|reduce((c, q) => c|merge({(q.id): q.name}), {}), id = 'trg-queue', hint = 'Для действий с очередью') }}{% endif %}
+            {% if panel.drafts %}{{ f.select('next_post', 'Следующий пост', panel.drafts|reduce((c, p) => c|merge({(p.id): p.title}), {}), id = 'trg-next', hint = 'Для «опубликовать следующий пост»') }}{% endif %}
+            <div class="sm:col-span-2">{{ f.input('message', 'Текст уведомления', id = 'trg-message', placeholder = 'Что вам напомнить', hint = 'Для «прислать уведомление»', attrs = {maxlength: 300}) }}</div>
+            <div class="sm:col-span-2">{{ f.button('Добавить правило', type = 'submit', icon = 'plus') }}</div>
+        </form>
+        {% endif %}
+    {% endif %}
+</section>

@@ -144,6 +144,10 @@ final class WorkspaceNav
         if ($this->permissions->allows($workspace->role, 'posts.draft')) {
             $items[] = ['id' => 'editor', 'label' => 'Новый пост', 'icon' => 'pencil', 'href' => $base . '/posts/new'];
         }
+        if ($this->permissions->allows($workspace->role, 'posts.draft')) {
+            $items[] = ['id' => 'queues', 'label' => 'Очереди', 'icon' => 'clock', 'href' => $base . '/queues'];
+            $items[] = ['id' => 'automation', 'label' => 'Автоматизация', 'icon' => 'zap', 'href' => $base . '/automation'];
+        }
         if ($this->permissions->allows($workspace->role, 'channels.view')) {
             $items[] = ['id' => 'channels', 'label' => 'Каналы', 'icon' => 'share-2', 'href' => $base . '/channels'];
         }

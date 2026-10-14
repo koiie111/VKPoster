@@ -12,6 +12,7 @@ enum NotificationType: string
     case PublishFailed = 'publish_failed';
     case ChannelProblem = 'channel_problem';
     case PublishOk = 'publish_ok';
+    case Automation = 'automation';
 
     public function label(): string
     {
@@ -19,6 +20,7 @@ enum NotificationType: string
             self::PublishFailed => 'Пост не удалось опубликовать',
             self::ChannelProblem => 'С каналом что-то не так',
             self::PublishOk => 'Пост опубликован',
+            self::Automation => 'Сработало правило',
         };
     }
 
@@ -28,6 +30,7 @@ enum NotificationType: string
             self::PublishFailed => 'Расскажем, что случилось и что делать. Если не уверены, что пост вышел, тоже напишем.',
             self::ChannelProblem => 'Бота убрали из канала, не хватает прав или токен перестал работать.',
             self::PublishOk => 'Короткое сообщение о каждом вышедшем посте. Приходит только автору.',
+            self::Automation => 'Правило «если → то» с действием «прислать уведомление» или правило, которое не смогло сработать.',
         };
     }
 
@@ -37,7 +40,7 @@ enum NotificationType: string
     public function defaults(): array
     {
         return match ($this) {
-            self::PublishFailed, self::ChannelProblem => ['email' => true, 'telegram' => true],
+            self::PublishFailed, self::ChannelProblem, self::Automation => ['email' => true, 'telegram' => true],
             self::PublishOk => ['email' => false, 'telegram' => false],
         };
     }

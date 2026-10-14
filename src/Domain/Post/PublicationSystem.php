@@ -107,9 +107,41 @@ final class PublicationSystem
         ] + $this->errorColumns($code, $message, $detail));
     }
 
-    public function markPinned(Publication $publication): void
+    public function markPinned(Publication $publication, bool $pinned = true): void
     {
-        $this->db->table('publications')->where('id', '=', $publication->id)->update(['pinned' => 1]);
+        $this->db->table('publications')->where('id', '=', $publication->id)->update(['pinned' => $pinned ? 1 : 0]);
+    }
+
+    /**
+     * Published copies of a post that are still in their network (not deleted), optionally of one channel only.
+     *
+     * @return list<Publication>
+     */
+    public function liveCopies(int $postId, ?int $channelId): array
+    {
+        $query = $this->db->table('publications')->where('post_id', '=', $postId)->where('status', '=', PublicationStatus::Sent->value)->whereNull('deleted_at');
+        if ($channelId !== null) {
+            $query->where('channel_id', '=', $channelId);
+        }
+
+        return array_map(PublicationRepository::hydrate(...), $query->orderBy('id')->limit(50)->get());
+    }
+
+    /**
+     * Ask for the deletion of the published copies of a post right away (the scheduler carries it out within a minute).
+     *
+     * @return int copies that were marked
+     */
+    public function deleteNow(int $postId, ?int $channelId): int
+    {
+        $sql = 'UPDATE publications SET delete_at = ?, delete_enqueued_at = NULL WHERE post_id = ? AND status = ? AND deleted_at IS NULL';
+        $bindings = [DbTime::format($this->clock->now()), $postId, PublicationStatus::Sent->value];
+        if ($channelId !== null) {
+            $sql .= ' AND channel_id = ?';
+            $bindings[] = $channelId;
+        }
+
+        return $this->db->execute($sql, $bindings);
     }
 
     /**
