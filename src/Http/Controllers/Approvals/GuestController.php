@@ -43,7 +43,7 @@ final class GuestController
                     }
                     $variants[] = ['name' => $variant->channelName, 'html' => TextFormatter::toHtml($variant->text ?? $post->baseText), 'media' => $media];
                 }
-                $cards[] = ['post' => $post, 'html' => TextFormatter::toHtml($post->baseText), 'variants' => $variants, 'revision' => $this->workflow->revision($ctx, $post), 'comments' => $this->comments->thread($ctx, $post, true)];
+                $cards[] = ['post' => $post, 'html' => TextFormatter::toHtml($post->baseText), 'variants' => $variants, 'revision' => $this->workflow->revision($ctx, $post), 'can_approve' => $post->status === \App\Domain\Post\PostStatus::PendingApproval && $this->workflow->canApprove($ctx, $post), 'comments' => $this->comments->thread($ctx, $post, (int) $r['link']['id'])];
             }
         }
         return $this->view->response('guest/approval.twig', ['guest_error' => $request->attribute('guest_error'), 'token' => $token, 'locked' => $r['locked'], 'cards' => $cards, 'branding' => $white, 'brand_name' => $settings['brand_name'] !== '' ? $settings['brand_name'] : $ctx->workspaceName, 'brand_logo' => $white ? $settings['brand_logo'] : '', 'workspace_name' => $ctx->workspaceName])->withHeader('Cache-Control', 'no-store')->withHeader('Referrer-Policy', 'no-referrer');

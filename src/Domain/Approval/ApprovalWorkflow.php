@@ -70,7 +70,8 @@ final class ApprovalWorkflow
         $author = $this->db->table('workspace_members')->where('workspace_id', '=', $post->workspaceId)->where('user_id', '=', $post->authorId ?? 0)->first();
         return $author === null || $author['role'] === 'author';
     }
-    public function canApprove(WorkspaceContext $ctx, Post $post): bool
+    /** @param array<string,mixed>|null $settings Preloaded settings, to avoid a query per member. */
+    public function canApprove(WorkspaceContext $ctx, Post $post, ?array $settings = null): bool
     {
         if (!$this->visible($ctx, $post) || $post->authorId === $ctx->userId) {
             return false;
@@ -83,7 +84,7 @@ final class ApprovalWorkflow
                 }
             }
         }
-        $s = $this->settings($ctx->workspaceId);
+        $s = $settings ?? $this->settings($ctx->workspaceId);
         return $s['approvers'] === [] ? in_array($ctx->role->value, ['owner', 'admin', 'editor'], true) : in_array($ctx->userId, $s['approvers'], true);
     }
     /** @return array<string,mixed> Full immutable content snapshot, no schedule/technical timestamps. */
@@ -194,13 +195,19 @@ final class ApprovalWorkflow
     /** Authorized guest boundary; link identity is separately revalidated under lock by GuestLinks. */
     public function guestDecision(WorkspaceContext $ctx, Post $post, string $revision, int $link): void
     {
-        $this->decision($ctx, $post, $revision, true, null, $link);
+        // The link carries its creator's authority: a creator outside the approvers list (or the post's own author)
+        // cannot approve through a guest, and a guest never overrides a requested change.
+        if (!$this->canApprove($ctx, $post)) {
+            throw new HttpException(403, 'Создатель ссылки не может согласовывать этот пост.');
+        }
+        $this->decision($ctx, $post, $revision, true, null, $link, [PostStatus::PendingApproval, PostStatus::Approved]);
     }
-    private function decision(WorkspaceContext $ctx, Post $post, string $revision, bool $approve, ?int $actor, ?int $link): void
+    /** @param list<PostStatus> $statuses */
+    private function decision(WorkspaceContext $ctx, Post $post, string $revision, bool $approve, ?int $actor, ?int $link, array $statuses = [PostStatus::PendingApproval, PostStatus::Approved, PostStatus::ChangesRequested]): void
     {
-        $this->db->transaction(function () use ($ctx, $post, $revision, $approve, $actor, $link): void {
+        $this->db->transaction(function () use ($ctx, $post, $revision, $approve, $actor, $link, $statuses): void {
             $p = $this->posts->lock($ctx, $post) ?? throw new HttpException(404, 'Not found');
-            if (!hash_equals($this->revision($ctx, $p), $revision) || !in_array($p->status, [PostStatus::PendingApproval, PostStatus::Approved, PostStatus::ChangesRequested], true)) {
+            if (!hash_equals($this->revision($ctx, $p), $revision) || !in_array($p->status, $statuses, true)) {
                 throw new HttpException(409, 'Пост изменился или не ожидает согласования. Обновите страницу.');
             }
             $next = $approve ? PostStatus::Approved : PostStatus::ChangesRequested;
@@ -220,13 +227,36 @@ final class ApprovalWorkflow
         }
         $rows = $this->db->select('SELECT id,snapshot_json,created_at FROM post_versions WHERE workspace_id=? AND post_id=? ORDER BY id DESC LIMIT 50', [$ctx->workspaceId, $post->id]);
         foreach ($rows as $i => &$row) {
-            $text = json_decode($row['snapshot_json'], true, 32, JSON_THROW_ON_ERROR)['text'];
-            $previous = isset($rows[$i + 1]) ? json_decode($rows[$i + 1]['snapshot_json'], true, 32, JSON_THROW_ON_ERROR)['text'] : '';
+            $text = $this->describe(json_decode($row['snapshot_json'], true, 32, JSON_THROW_ON_ERROR));
+            $previous = isset($rows[$i + 1]) ? $this->describe(json_decode($rows[$i + 1]['snapshot_json'], true, 32, JSON_THROW_ON_ERROR)) : '';
             $row['diff'] = TextDiff::lines($previous, $text);
             unset($row['snapshot_json']);
         }
         unset($row);
         return $rows;
+    }
+    /**
+     * Plain-text rendering of everything the revision hash covers, so the diff shows media, options and variants too.
+     * @param array<string,mixed> $snapshot
+     */
+    private function describe(array $snapshot): string
+    {
+        $json = static fn (mixed $v): string => json_encode($v, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        $lines = explode(chr(10), (string) ($snapshot['text'] ?? ''));
+        $lines[] = 'Медиа: ' . implode(', ', (array) ($snapshot['media'] ?? []));
+        $lines[] = 'Параметры: ' . $json($snapshot['options'] ?? null) . ' · по сетям: ' . $json($snapshot['per_network'] ?? null);
+        foreach ((array) ($snapshot['variants'] ?? []) as $v) {
+            $channel = 'Канал ' . ($v['channel_id'] ?? '?');
+            $lines[] = $channel . ': ' . str_replace(chr(10), ' ', (string) ($v['text'] ?? '(общий текст)'));
+            $lines[] = $channel . ', медиа: ' . (($v['media'] ?? null) === null ? '(общие)' : implode(', ', (array) $v['media']));
+            $lines[] = $channel . ', параметры: ' . $json($v['options'] ?? null);
+        }
+        return implode(chr(10), $lines);
+    }
+    /** Scheduled author posts with no approval yet: they stop publishing once the policy is on. */
+    public function unapprovedScheduled(int $workspace): int
+    {
+        return (int) $this->db->select("SELECT COUNT(*) AS c FROM posts p JOIN workspace_members m ON m.workspace_id=p.workspace_id AND m.user_id=p.author_id WHERE p.workspace_id=? AND p.status='scheduled' AND m.role='author' AND NOT EXISTS (SELECT 1 FROM approvals a WHERE a.workspace_id=p.workspace_id AND a.post_id=p.id AND a.decision='approved')", [$workspace])[0]['c'];
     }
     /** @return list<array<string,mixed>> */
     public function members(WorkspaceContext $ctx): array
@@ -237,13 +267,14 @@ final class ApprovalWorkflow
     {
         $this->audit->record($event, $guest ? null : ($actor ?? $ctx->userId), 'post', $post->publicId, [], $ctx->workspaceId);
         $workspace = $this->workspaces->findById($ctx->workspaceId) ?? throw new HttpException(404, 'Not found');
+        $settings = $this->settings($ctx->workspaceId);
         foreach ($this->members($ctx) as $row) {
             $member = $this->workspaces->membership($workspace->id, (int) $row['user_id']);
             if ($member === null) {
                 continue;
             }
             $target = WorkspaceContext::from($workspace, $member);
-            if ($this->visible($target, $post) && ($post->authorId === $target->userId || $this->canApprove($target, $post))) {
+            if ($this->visible($target, $post) && ($post->authorId === $target->userId || $this->canApprove($target, $post, $settings))) {
                 $this->notifier->approvalNotice($target->userId, $post, $ctx->workspacePublicId, $event);
             }
         }

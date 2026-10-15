@@ -48,7 +48,8 @@ final class ApprovalController
             $this->flash->invalid(array_diff_key($request->body, ['pin' => true]), ['approval' => $e->getMessage()]);
             return Response::redirect('/w/' . $ctx->workspacePublicId . '/settings');
         }
-        $this->flash->toast('Настройки согласования сохранены.');
+        $pending = $request->input('required') === '1' ? $this->workflow->unapprovedScheduled($ctx->workspaceId) : 0;
+        $this->flash->toast('Настройки согласования сохранены.' . ($pending > 0 ? ' Внимание: ' . $pending . ' запланированных постов авторов не согласованы и не выйдут, пока их не согласуют.' : ''));
         return Response::redirect('/w/' . $ctx->workspacePublicId . '/settings');
     }
     public function submit(Request $request): Response

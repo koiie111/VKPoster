@@ -51,8 +51,8 @@ final class ApprovalTest extends BillingTestCase
         try {
             $this->service()->schedule($ctx, $post, $this->draft('Original text', [$channel]), $this->in('+1 hour'));
             self::fail('Unapproved author post must not schedule');
-        } catch (HttpException $e) {
-            self::assertSame(403, $e->status);
+        } catch (\App\Domain\Post\PostException $e) {
+            self::assertFalse($e->forbidden);
         }
         self::assertSame(0, $this->db->table('publications')->count());
         self::assertSame(PostStatus::Draft, $this->posts()->find($ctx, $post->publicId)?->status);
@@ -111,8 +111,8 @@ final class ApprovalTest extends BillingTestCase
         try {
             $this->service()->schedule($ctx, $post, $this->draft('Different submitted text', [$channel]), $this->in('+1 hour'));
             self::fail('New content needs new approval');
-        } catch (HttpException $e) {
-            self::assertSame(403, $e->status);
+        } catch (\App\Domain\Post\PostException $e) {
+            self::assertStringContainsString('не согласован', $e->getMessage());
         }
         self::assertSame('Original text', $this->posts()->find($ctx, $post->publicId)?->baseText);
         self::assertSame(0, $this->db->table('publications')->count());
@@ -259,8 +259,9 @@ final class ApprovalTest extends BillingTestCase
         $this->workflow()->submit($writer, $post);
         $this->workflow()->decide($ctx, $post, $this->workflow()->revision($ctx, $post), true);
         $post = $this->posts()->find($ctx, $post->publicId) ?? throw new \LogicException();
-        $this->service()->schedule($ctx, $post, $this->draft('Original text', [$channel]), $this->in('+1 hour'));
-        $date = $this->clock->now()->setTimezone(new \DateTimeZone($ctx->timezone))->format('Y-m-d');
+        $scheduled = $this->service()->schedule($ctx, $post, $this->draft('Original text', [$channel]), $this->in('+1 hour'));
+        // Derive the day from the post itself: "now + 1 hour" can cross local midnight depending on when the suite runs.
+        $date = ($scheduled->scheduledAt ?? throw new \LogicException())->setTimezone(new \DateTimeZone($ctx->timezone))->format('Y-m-d');
         $url = $this->links()->create($ctx, [], 24, from:$date, to:$date);
         self::assertStringContainsString('Agency Brand', $this->get($url)->body);
         self::assertStringContainsString('#123456', $this->get($url . '/theme.css')->body);
@@ -296,8 +297,8 @@ final class ApprovalTest extends BillingTestCase
         try {
             $this->service()->schedule($ctx, $p, $this->draft('Original text', [$channel]), $this->in('+1 hour'));
             self::fail('Reverting text cannot resurrect old approval');
-        } catch (HttpException $e) {
-            self::assertSame(403, $e->status);
+        } catch (\App\Domain\Post\PostException) {
+            // Refused as a form error, the old approval is not reused.
         }
         self::assertSame(0, $this->db->table('publications')->count());
     }
@@ -374,6 +375,45 @@ final class ApprovalTest extends BillingTestCase
         self::assertSame(302, $this->post($base.'/approval/decision', ['decision' => 'approved','revision' => $this->workflow()->revision($ctx, $post)])->status);
         self::assertSame(PostStatus::Approved, $this->posts()->find($ctx, $post->publicId)?->status);
         self::assertSame(403, $this->post($base, ['intent' => 'now','text' => 'attack','channels' => [$channel->publicId]])->status);
+    }
+
+    public function testGuestLinkOfNonApproverCannotApproveAndNeverOverridesRequestedChanges(): void
+    {
+        [$ctx, $writer, $post] = $this->fixture();
+        $ws = $this->workspaces->findById($ctx->workspaceId) ?? throw new \LogicException();
+        $editor = $this->contextFor($ws, $this->memberOf($ws, 'approval-editor@example.com', Role::Editor, 'Редактор'));
+        $this->workflow()->configure($ctx, true, [$ctx->memberPublicId]);
+        $this->workflow()->submit($writer, $post);
+        $revision = $this->workflow()->revision($ctx, $post);
+        $url = $this->links()->create($editor, [$post->publicId], 24);
+        self::assertSame(403, $this->post($url . '/posts/' . $post->publicId . '/approve', ['revision' => $revision])->status);
+        self::assertSame(PostStatus::PendingApproval, $this->posts()->find($ctx, $post->publicId)?->status);
+        self::assertSame(0, $this->db->table('approvals')->count());
+
+        $this->workflow()->decide($ctx, $post, $revision, false);
+        $ownerUrl = $this->links()->create($ctx, [$post->publicId], 24);
+        self::assertSame(409, $this->post($ownerUrl . '/posts/' . $post->publicId . '/approve', ['revision' => $revision])->status);
+        self::assertSame(PostStatus::ChangesRequested, $this->posts()->find($ctx, $post->publicId)?->status);
+    }
+
+    public function testGuestSeesOnlyCommentsOfItsOwnLink(): void
+    {
+        [$ctx, $writer, $post] = $this->fixture();
+        $first = $this->links()->create($ctx, [$post->publicId], 24);
+        $second = $this->links()->create($ctx, [$post->publicId], 24);
+        $this->post($first . '/posts/' . $post->publicId . '/comments', ['body' => 'Client A remark']);
+        self::assertStringContainsString('Client A remark', $this->get($first)->body);
+        self::assertStringNotContainsString('Client A remark', $this->get($second)->body);
+    }
+
+    public function testVersionDiffShowsMediaChangesAndEnablingPolicyCountsUnapprovedScheduledPosts(): void
+    {
+        [$ctx, $writer, $post, $channel] = $this->fixture();
+        $picture = $this->libraryPicture($ctx);
+        $this->service()->saveDraft($writer, $post, $this->draft('Original text', [$channel], [$picture->publicId]));
+        $diff = $this->workflow()->versions($ctx, $post)[0]['diff'];
+        self::assertStringContainsString($picture->publicId, implode(' ', array_column($diff, 'text')));
+        self::assertSame(0, $this->workflow()->unapprovedScheduled($ctx->workspaceId));
     }
 
 }

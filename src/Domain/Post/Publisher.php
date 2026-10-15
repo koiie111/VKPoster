@@ -108,9 +108,13 @@ final class Publisher
             return;
         }
         ['post' => $post, 'variant' => $variant] = $loaded;
-        $originError = $this->origin->problem($post) ?? $this->approvals->publicationProblem($post);
+        $originError = $this->origin->problem($post);
+        $problemCode = 'origin_stale';
+        if ($originError === null && ($originError = $this->approvals->publicationProblem($post)) !== null) {
+            $problemCode = 'approval_required';
+        }
         if ($originError !== null) {
-            $this->fail($publication, $post, $variant, $started, 'origin_stale', $originError, 'content origin preflight failed');
+            $this->fail($publication, $post, $variant, $started, $problemCode, $originError, 'content origin preflight failed');
             return;
         }
         $channel = $variant->channelId === null ? null : $this->channels->find($variant->channelId);
@@ -165,9 +169,13 @@ final class Publisher
 
         try {
             // Media preparation may take time. Revalidate immediately before the existing adapter sends anything.
-            $originError = $this->origin->problem($post) ?? $this->approvals->publicationProblem($post);
+            $originError = $this->origin->problem($post);
+            $problemCode = 'origin_stale';
+            if ($originError === null && ($originError = $this->approvals->publicationProblem($post)) !== null) {
+                $problemCode = 'approval_required';
+            }
             if ($originError !== null) {
-                $this->fail($publication, $post, $variant, $started, 'origin_stale', $originError, 'content origin changed during preparation');
+                $this->fail($publication, $post, $variant, $started, $problemCode, $originError, 'content origin changed during preparation');
                 return;
             }
             $result = $adapter->publish($built->request, $channel->externalId, $this->credentials->forChannel($channel), $publication->idempotencyKey);

@@ -166,7 +166,11 @@ final class PostService
         $created = [];
         $post = $this->db->transaction(function () use ($context, $existing, $draft, $channels, $at, &$created): Post {
             $post = $this->persist($context, $existing, $draft, $channels, PostStatus::Scheduled, $at);
-            $this->approvals->assertSchedule($context, $post);
+            try {
+                $this->approvals->assertSchedule($context, $post);
+            } catch (\App\Kernel\Exception\HttpException $e) {
+                throw new PostException($e->getMessage());
+            }
             $this->approvals->scheduled($context, $post);
             $created = $this->planPublications($context, $post, $at);
             $this->system->syncPostStatus($post->id);
@@ -531,7 +535,11 @@ final class PostService
             $post = $this->posts->lock($context, $existing) ?? throw new PostException('Пост не найден.');
             $this->assertEditable($context, $post);
             if ($status === PostStatus::Scheduled) {
-                $this->approvals->assertReady($context, $post);
+                try {
+                    $this->approvals->assertReady($context, $post);
+                } catch (\App\Kernel\Exception\HttpException $e) {
+                    throw new PostException($e->getMessage());
+                }
             }
             $before = $this->approvals->revision($context, $post);
             $beforeStatus = $post->status;

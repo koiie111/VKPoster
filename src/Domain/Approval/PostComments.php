@@ -22,13 +22,13 @@ final class PostComments
     {
     }
     /** @return list<array<string,mixed>> */
-    public function thread(WorkspaceContext $ctx, Post $post, bool $guest = false): array
+    public function thread(WorkspaceContext $ctx, Post $post, ?int $guestLink = null): array
     {
         if (!$this->workflow->visible($ctx, $post)) {
             throw new HttpException(404, 'Not found');
         }
-        // Guest comments only: internal discussions are never exported to a shared link.
-        return $this->db->select('SELECT c.public_id,c.body,c.created_at,p.public_id AS parent,u.name FROM post_comments c LEFT JOIN post_comments p ON p.id=c.parent_id AND p.workspace_id=c.workspace_id LEFT JOIN users u ON u.id=c.actor_id WHERE c.workspace_id=? AND c.post_id=?' . ($guest ? ' AND c.guest_link_id IS NOT NULL' : '') . ' ORDER BY c.id LIMIT 500', [$ctx->workspaceId, $post->id]);
+        // A shared link sees only its own guest comments: neither internal discussions nor other links' threads.
+        return $this->db->select('SELECT c.public_id,c.body,c.created_at,p.public_id AS parent,u.name FROM post_comments c LEFT JOIN post_comments p ON p.id=c.parent_id AND p.workspace_id=c.workspace_id LEFT JOIN users u ON u.id=c.actor_id WHERE c.workspace_id=? AND c.post_id=?' . ($guestLink !== null ? ' AND c.guest_link_id=?' : '') . ' ORDER BY c.id LIMIT 500', $guestLink !== null ? [$ctx->workspaceId, $post->id, $guestLink] : [$ctx->workspaceId, $post->id]);
     }
     public function add(WorkspaceContext $ctx, Post $post, string $body, string $parent = '', ?int $guestLink = null): void
     {
@@ -42,7 +42,7 @@ final class PostComments
         $parentId = null;
         if ($parent !== '') {
             $p = $this->db->table('post_comments')->where('workspace_id', '=', $ctx->workspaceId)->where('post_id', '=', $post->id)->where('public_id', '=', $parent)->first() ?? throw new HttpException(404, 'Not found');
-            if ($guestLink !== null && $p['guest_link_id'] === null) {
+            if ($guestLink !== null && (int) $p['guest_link_id'] !== $guestLink) {
                 throw new HttpException(404, 'Not found');
             }
             $parentId = (int) $p['id'];
