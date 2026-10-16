@@ -82,7 +82,19 @@ jobs:
               composer stan
               composer test
               composer audit
-            '
+            ' 2>&1 | tee /tmp/vkposter-check.log
+
+      - name: Report failed check diagnostics
+        if: failure()
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          p = Path('/tmp/vkposter-check.log')
+          if p.exists():
+              message = '\n'.join(p.read_text(errors='replace').splitlines()[-65:])
+              message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Dev image check failure::' + message)
+          PYCODE
 
       - name: Build API reference (phpDocumentor)
         run: docker run --rm -v "$PWD:/data" phpdoc/phpdoc:3 run -d src -t docs/reference
@@ -127,4 +139,17 @@ jobs:
       - name: Offline HTML-to-PDF HTTP contract
         run: |
           docker run -d --name analytics-pdf -e APP_KEY=synthetic-pdf-contract -p 127.0.0.1:18187:3000 vkposter-analytics-pdf
-          PDF_TEST_KEY=synthetic-pdf-contract python3 tools/analytics-pdf/smoke.py
+          PDF_TEST_KEY=synthetic-pdf-contract python3 tools/analytics-pdf/smoke.py 2>&1 | tee /tmp/vkposter-pdf.log
+      - name: Report failed PDF diagnostics
+        if: failure()
+        run: |
+          docker logs analytics-pdf > /tmp/vkposter-pdf-container.log 2>&1 || true
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          for name in ('pdf', 'pdf-container'):
+              p = Path('/tmp/vkposter-' + name + '.log')
+              if p.exists():
+                  message = '\n'.join(p.read_text(errors='replace').splitlines()[-40:])
+                  message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print('::error title=Renderer ' + name + ' failure::' + message)
+          PYCODE
