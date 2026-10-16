@@ -32,7 +32,7 @@
 | 12 | Instagram | DONE | [#21](https://github.com/koiie111/VKPoster/pull/21) | 2026-10-14 | Решение владельца «б»: код есть, сеть выключена по умолчанию (`instagram` не в `PLATFORMS_ENABLED`); живая проверка отложена владельцем: до неё проверено только на фикстурах (список в ADR 0010). Для включения: Meta-приложение, `INSTAGRAM_APP_ID/SECRET`, публичный https `APP_URL`. Общие точки расширения: `Capabilities::$publicMediaUrls`, `PublishMedia::$url`, `PublishRequest::$mode`, `VariantSpec` суффикс `-jpg` |
 | 13 | Слоты, повторы, триггеры, кросспостинг, RSS, CSV | DONE | PR этапа 13 | 2026-10-14 | Очереди, пул, повторы, триггеры, кросспостинг TG, RSS, импорт CSV/XLSX; ADR 0013. Для 14+: фоновые правила создают посты через `PostService` от имени создателя правила или владельца (`PublishingContexts::forWorkspace`); `PostService::planExisting/unschedule/syncText/draftOf`; лимит `crosspost_rules` общий для правил и лент. Полный набор тестов вырос до 2201: в `phpunit.xml` поднят `memory_limit` до 512M |
 | 14 | Согласование, комментарии, гостевые ссылки | DONE | [#25](https://github.com/koiie111/VKPoster/pull/25) | 2026-10-15 | Согласование и гостевые ссылки merged; исправления review в upstream/main |
-| 15 | Аналитика | NEEDS_OWNER | [#26](https://github.com/koiie111/VKPoster/pull/26) | | CI и живая проверка владельцем ожидаются |
+| 15 | Аналитика | NEEDS_OWNER | [#26](https://github.com/koiie111/VKPoster/pull/26) | | CI зелёный; ожидается живая проверка владельцем |
 | 16 | Остальные платёжки, рефералка, промокоды | TODO | | | |
 | 17 | AI-ассистент, UTM, сокращатель | TODO | | | |
 | 18 | Публичный API и вебхуки | TODO | | | |
@@ -62,7 +62,10 @@
 ### Этап 15 — Аналитика (запрошено 2026-10-16)
 **Что сделано:** queued snapshots, daily followers, dashboard/ER/best-time, CSV/PDF,
 retention и отчёт по существующей guest capability. Ветка stage-15-analytics, [PR #26](https://github.com/koiie111/VKPoster/pull/26).
-**CI:** повторная проверка ожидается после исправления style и PDF contract.
+**CI:** [run 38938727884](https://github.com/koiie111/VKPoster/actions/runs/38938727884),
+commit `cc7cc0b`: check, reader и analytics-pdf — success. Pinned production PDF image
+и HTTP contract проверены в CI. Style проверен без cache; диагностические pipelines
+используют bash pipefail и не скрывают коды ошибок.
 **Как проверить руками:**
 1. В локальном `.env` выставить `ANALYTICS_COLLECTION_ENABLED=true`. Ключи платформ
    вводить только локально, не в чат; используйте уже подключённые свои каналы.
