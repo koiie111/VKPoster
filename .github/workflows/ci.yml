@@ -109,3 +109,22 @@ jobs:
         run: |
           docker run --rm --network none --read-only --tmpfs /tmp --entrypoint python \
             vkposter-telegram-reader -m unittest discover -s tests -v
+
+  analytics-pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build isolated PDF renderer
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/analytics-pdf
+          load: true
+          tags: vkposter-analytics-pdf
+          cache-from: type=gha,scope=analytics-pdf
+          cache-to: type=gha,mode=max,scope=analytics-pdf
+      - name: Offline HTML-to-PDF HTTP contract
+        run: |
+          docker run -d --name analytics-pdf -e APP_KEY=synthetic-pdf-contract -p 127.0.0.1:18187:3000 vkposter-analytics-pdf
+          PDF_TEST_KEY=synthetic-pdf-contract python3 tools/analytics-pdf/smoke.py

@@ -10,6 +10,7 @@
 {% block title %}Календарь · {{ app_name }}{% endblock %}
 {% block head %}<script src="{{ asset('js/calendar.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
 {% block content %}
+{% include 'workspace/analytics/best.twig' with {report:analytics_report} %}
 {% set actions %}
     {{ f.button(filters.active ? 'Фильтры (включены)' : 'Фильтры', variant = 'secondary', icon = 'filter', attrs = {'data-dialog-open': 'cal-filters'}) }}
     {% if can_create %}{{ f.button('Запланировать пост', href = new_url, icon = 'plus') }}{% endif %}

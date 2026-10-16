@@ -1,0 +1,6 @@
+[
+  {"name":"analytics","url":"/w/{ws}/analytics","login_as":"analytics-ui@example.com","actions":[{"click":"button[data-cookie-choice='necessary']"}]},
+  {"name":"calendar-best-time","url":"/w/{ws}/calendar","login_as":"analytics-ui@example.com","actions":[{"click":"button[data-cookie-choice='necessary']"}]},
+  {"name":"slots-best-time","url":"/w/{ws}/queues/new","login_as":"analytics-ui@example.com","actions":[{"click":"button[data-cookie-choice='necessary']"}]},
+  {"name":"guest-analytics","url":"{guest}/analytics","actions":[{"click":"button[data-cookie-choice='necessary']"}]}
+]

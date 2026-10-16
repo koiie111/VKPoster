@@ -6,6 +6,7 @@
 {% block body %}<main id="main" class="guest-brand mx-auto max-w-4xl px-4 py-8">
 <header class="mb-6">{% if branding and brand_logo and not locked %}<img class="h-16 max-w-xs object-contain" alt="Логотип {{ brand_name }}" src="/g/{{ token }}/posts/brand/media/{{ brand_logo }}">{% endif %}<h1 class="text-2xl font-bold">{{ branding ? brand_name : app_name }} · Согласование</h1><p class="mt-2 text-muted">{{ workspace_name }}. Preview постов — без регистрации.</p></header>
 {% if guest_error %}{{ d.alert('error','Действие не выполнено',guest_error) }}{% endif %}
+{% if analytics_report_available and not locked %}<a class="btn btn-secondary mb-4" href="/g/{{ token }}/analytics">Отчёт по публикациям</a>{% endif %}
 {% if locked %}<section class="card"><h2 class="text-lg font-semibold">Введите PIN</h2><form class="mt-4 grid gap-4" method="post" action="/g/{{ token }}/unlock">{{ csrf_field() }}{{ f.input('pin','PIN',type='password',required=true,autocomplete='one-time-code',attrs={maxlength:12,inputmode:'numeric'}) }}{{ f.button('Открыть preview',type='submit') }}</form></section>
 {% else %}
 {% for card in cards %}<article class="card mb-6"><h2 class="text-lg font-semibold">{{ card.post.title(80) }}</h2><p class="mt-2 text-sm text-muted">{{ card.post.status.label() }}{% if card.post.scheduledAt %} · {{ card.post.scheduledAt|date('d.m.Y H:i','UTC') }} UTC{% endif %}</p>

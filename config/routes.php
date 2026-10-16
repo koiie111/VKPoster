@@ -102,6 +102,7 @@ return static function (Router $router): void {
     $guest = '/g/{token:[a-f0-9]{64}\\.[A-Za-z0-9_-]{43}}';
     $gc = \App\Http\Controllers\Approvals\GuestController::class;
     $router->get($guest, [$gc, 'show'])->middleware([RateLimit::class, ['bucket' => 'guest-preview', 'max' => 120, 'seconds' => 60]]);
+    $router->get($guest . '/analytics', [\App\Http\Controllers\Analytics\PostAnalyticsController::class, 'guest'])->middleware([RateLimit::class, ['bucket' => 'guest-analytics','max' => 30,'seconds' => 60]]);
     $router->get($guest . '/theme.css', [$gc, 'theme']);
     $router->get($guest . '/posts/{postId:(?:[0-9A-HJKMNP-TV-Z]{26}|brand)}/media/{mediaId:' . '[0-9A-HJKMNP-TV-Z]{26}' . '}', [$gc, 'file']);
     $router->post($guest . '/unlock', [$gc, 'unlock']);
@@ -210,6 +211,13 @@ return static function (Router $router): void {
 
         // Everything inside a workspace: `ResolveWorkspace` answers 404 unless the user is a member; `Authorize` checks the role.
         $r->group('/w/{workspaceId:' . $ulid . '}', [ResolveWorkspace::class], static function (Router $w) use ($ulid): void {
+            $w->group('/analytics', [[Authorize::class, ['permission' => 'analytics.view']]], static function (Router $a): void {
+                $controller = \App\Http\Controllers\Analytics\PostAnalyticsController::class;
+                $a->get('', [$controller,'show'])->name('workspace.analytics');
+                $a->get('/export.csv', [$controller,'csv']);
+                $a->get('/export.pdf', [$controller,'pdf'])->middleware([RateLimit::class,['bucket' => 'analytics-pdf','max' => 5,'seconds' => 60]]);
+            });
+
             $w->get('', [WorkspaceController::class, 'home'])->name('workspace.home');
             $w->post('/leave', [TeamController::class, 'leave']);
 
