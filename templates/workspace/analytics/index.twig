@@ -1,0 +1,16 @@
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current='analytics' %}
+{% block title %}Аналитика · {{ app_name }}{% endblock %}
+{% block head %}<script src="{{ asset('vendor/chart.umd.min.js') }}" nonce="{{ csp_nonce() }}" defer></script><script src="{{ asset('js/analytics.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
+{% block content %}
+{{ d.page_header('Аналитика','Публикации и доступные метрики ваших каналов') }}
+<form method="get" class="my-4 flex flex-wrap items-end gap-3">
+{{ f.input('from','С даты',value=report.from,type='date') }}{{ f.input('to','По дату',value=report.to,type='date') }}
+<label class="text-sm">Канал<select name="channel" class="input mt-1"><option value="">Все доступные</option>{% for c in report.channels %}<option value="{{ c.publicId }}" {% if report.channel==c.publicId %}selected{% endif %}>{{ c.displayName }}</option>{% endfor %}</select></label>
+{{ f.button('Показать',type='submit') }}</form>
+<p class="mb-4 text-sm text-muted">Тариф: {{ report.days }} дней. Часовой пояс: {{ report.timezone }}. Счётчики накопительные, по последнему доступному снимку; это не прирост за период.</p>
+{% if can_export %}<div class="mb-4 flex flex-wrap gap-3">{{ f.button('Скачать CSV',href=base~'/export.csv?from='~report.from~'&to='~report.to~'&channel='~report.channel,variant='secondary') }}{{ f.button('Скачать PDF',href=base~'/export.pdf?from='~report.from~'&to='~report.to~'&channel='~report.channel,variant='secondary') }}</div>{% endif %}
+{% include 'workspace/analytics/report.twig' %}
+{% endblock %}

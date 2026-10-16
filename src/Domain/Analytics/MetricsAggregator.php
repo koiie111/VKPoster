@@ -175,6 +175,8 @@ final class MetricsAggregator
         }
         $add('guest_links_created', '', $this->count('SELECT COUNT(*) AS c FROM guest_links WHERE created_at>=? AND created_at<?', [$from,$to]));
 
+        $add('post_analytics_visits', '', $this->count("SELECT COUNT(*) AS c FROM analytics_events WHERE name='post_analytics_viewed' AND occurred_at>=? AND occurred_at<?", [$from,$to]));
+
         // Activity.
         $date = $day->format('Y-m-d');
         $add('dau', '', $this->count('SELECT COUNT(*) AS c FROM user_activity_days WHERE day = ?', [$date]));

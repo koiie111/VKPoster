@@ -41,6 +41,19 @@ services:
     <<: *app
     command: ["php", "bin/console", "schedule:run"]
 
+  analytics-pdf:
+    build: tools/analytics-pdf
+    profiles: [analytics]
+    environment:
+      APP_KEY: ${APP_KEY}
+    init: true
+    read_only: true
+    tmpfs: [/tmp:size=256m]
+    shm_size: 256mb
+    mem_limit: 1g
+    pids_limit: 256
+    restart: unless-stopped
+
   mysql:
     image: mysql:8.0
     environment:

@@ -6,10 +6,10 @@
 
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
-- **Текущий этап:** 14
-- **Статус:** IN_PROGRESS
-- **Ветка / PR:** `stage-14-approvals` / PR готовится
-- **Последнее обновление:** 2026-10-14 (этап 14 реализован и проверен; PR без merge)
+- **Текущий этап:** 15
+- **Статус:** NEEDS_OWNER
+- **Ветка / PR:** `stage-15-analytics` / [#26](https://github.com/koiie111/VKPoster/pull/26)
+- **Последнее обновление:** 2026-10-16 (Stage 15 реализован, ожидает живой проверки владельцем)
 
 ## Этапы
 
@@ -31,8 +31,8 @@
 | 20 | Полная админка владельца, бизнес-дашборд, статистика | DONE | [#17](https://github.com/koiie111/VKPoster/pull/17) | 2026-10-05 | Промокоды и рефералка перенесены в этап 16 (меняют оформление заказа). Роли живут в коде (ADR 0009), деньги считаются из счетов и проводок, выгрузка для бухгалтерии в CSV. Добавлен раздел «Дизайн и цвета» по просьбе владельца. Для 12+: каждый этап с пользовательскими функциями добавляет события, метрики и раздел админки (ENGINEERING_RULES §7): `Analytics::track`, `MetricsAggregator`, `config/admin_permissions.php`, пункт в `templates/layouts/admin.twig` |
 | 12 | Instagram | DONE | [#21](https://github.com/koiie111/VKPoster/pull/21) | 2026-10-14 | Решение владельца «б»: код есть, сеть выключена по умолчанию (`instagram` не в `PLATFORMS_ENABLED`); живая проверка отложена владельцем: до неё проверено только на фикстурах (список в ADR 0010). Для включения: Meta-приложение, `INSTAGRAM_APP_ID/SECRET`, публичный https `APP_URL`. Общие точки расширения: `Capabilities::$publicMediaUrls`, `PublishMedia::$url`, `PublishRequest::$mode`, `VariantSpec` суффикс `-jpg` |
 | 13 | Слоты, повторы, триггеры, кросспостинг, RSS, CSV | DONE | PR этапа 13 | 2026-10-14 | Очереди, пул, повторы, триггеры, кросспостинг TG, RSS, импорт CSV/XLSX; ADR 0013. Для 14+: фоновые правила создают посты через `PostService` от имени создателя правила или владельца (`PublishingContexts::forWorkspace`); `PostService::planExisting/unschedule/syncText/draftOf`; лимит `crosspost_rules` общий для правил и лент. Полный набор тестов вырос до 2201: в `phpunit.xml` поднят `memory_limit` до 512M |
-| 14 | Согласование и гостевые ссылки | IN_PROGRESS | PR готовится | | Реализация завершена, regression зелёный; ожидает review/merge в upstream |
-| 15 | Аналитика | TODO | | | |
+| 14 | Согласование, комментарии, гостевые ссылки | DONE | [#25](https://github.com/koiie111/VKPoster/pull/25) | 2026-10-15 | Согласование и гостевые ссылки merged; исправления review в upstream/main |
+| 15 | Аналитика | NEEDS_OWNER | [#26](https://github.com/koiie111/VKPoster/pull/26) | | CI зелёный; ожидается живая проверка владельцем |
 | 16 | Остальные платёжки, рефералка, промокоды | TODO | | | |
 | 17 | AI-ассистент, UTM, сокращатель | TODO | | | |
 | 18 | Публичный API и вебхуки | TODO | | | |
@@ -57,6 +57,34 @@
 Владелец пишет ответы после «Ответ владельца:», затем снова запускает агента.
 Агент переносит обработанные блоки в «Архив ответов».
 -->
+
+
+### Этап 15 — Аналитика (запрошено 2026-10-16)
+**Что сделано:** queued snapshots, daily followers, dashboard/ER/best-time, CSV/PDF,
+retention и отчёт по существующей guest capability. Ветка stage-15-analytics, [PR #26](https://github.com/koiie111/VKPoster/pull/26).
+**CI:** [run 38938727884](https://github.com/koiie111/VKPoster/actions/runs/38938727884),
+commit `cc7cc0b`: check, reader и analytics-pdf — success. Pinned production PDF image
+и HTTP contract проверены в CI. Style проверен без cache; диагностические pipelines
+используют bash pipefail и не скрывают коды ошибок.
+**Как проверить руками:**
+1. В локальном `.env` выставить `ANALYTICS_COLLECTION_ENABLED=true`. Ключи платформ
+   вводить только локально, не в чат; используйте уже подключённые свои каналы.
+2. Выполнить `make migrate`, затем `docker compose up -d --force-recreate app worker scheduler`.
+3. PDF: `docker compose --profile analytics up -d --build analytics-pdf` (без публичного порта).
+4. Открыть http://localhost:8080/app → «Аналитика» своего workspace. После нескольких
+   дней реальных публикаций сравнить периоды/каналы и последние накопительные counters
+   с кабинетами VK/TG/MAX/Instagram. Первый снимок после1ч, затем6/24ч,3/7дней и еженедельно
+   до30дней. Старые пропущенные наблюдения не восстанавливаются задним числом.
+5. Проверить CSV/PDF (Про+), «мало данных» и best-time подсказки в календаре/слотах.
+   Для клиентского отчёта (Агентство) создать Stage14 guest link на нужные опубликованные
+   посты в «Согласование», открыть preview → «Отчёт по публикациям»; проверить PIN/отзыв.
+**Вопросы:**
+1. Совпадают ли доступные счётчики с кабинетами платформ? VK reach зависит от прав,
+   TG views недоступны, reactions только после aggregate update общего админ-бота.
+   - Ответ владельца:
+2. Достаточны ли сводка, ER, топ и best-time? Что важно добавить после живой проверки?
+   - Ответ владельца:
+**Итог проверки (ок / есть замечания):**
 
 
 ## Журнал запусков
@@ -464,3 +492,39 @@ localhost:6379 во время HTTP rate-limit до проверки PIN. RateLi
 Проверки: Approval + unit regression 24 tests / 277 assertions, включая
 localhost Redis topology; полный suite 2247 tests / 40887 assertions; PHPStan
 и style passed. PR https://github.com/koiie111/VKPoster/pull/25, без merge.
+
+## Stage15 — результаты реализации
+
+Источник истины upstream/main 6083d661, новая ветка stage-15-analytics. Stage14
+DONE / PR25 / 2026-10-15 исправлен только служебно. Из старых веток код не переносился.
+
+Migration36: analytics_tasks, post_stats_snapshots, channel_stats_snapshots,
+telegram_stats_reactions. StatsFetcher (VK/TG/MAX/IG/Fake), Queue task milestones
+1/6/24/72/168/336/504/672ч; daily subscribers; nullable availability, safe failures,
+retry/backoff/lease/ACK-loss idempotency, retention из analytics_days, platform limits.
+
+Dashboard, daily chart, top/comparison/platforms, ER с полным coverage, heatmap
+(min20 total/min5 cell), hints calendar/slots, UTF8 formula-safe CSV, HTML→PDF,
+Stage14 guest post scope/PIN/TTL/revoke/client_reports. Права workspace/channel/client,
+операционные staff counters, usage event + daily aggregation. Publishing не переписан.
+
+Проверки: fresh36 на отдельном app_test, upgrade с существующей публикацией и rollback/
+replay; local app upgrade + /healthz DB/Redis OK. Unit/feature/contracts + полный PHP suite,
+PHPStan level8+strict, style, composer audit — результаты зелёные, точные числа ниже.
+UI/axe:4 страницы×375/768/1440×light/dark (24 screenshots), axe также360; нет blocking
+violations или page overflow, снимки просмотрены. Синтетическая app_test, без реальных API.
+
+PDF: локально получен настоящий PDF через PHP→HMAC renderer, unsigned403, oversized413.
+Для этого использован уже закэшированный Chromium runtime ui-snap; загрузка production
+Playwright1.64.1 image локально столкнулась с Docker content-store/network ошибкой.
+Отдельный CI job строит закреплённый production image и запускает тот же HTTP contract.
+Никакие ошибки сборки не скрываются; результат production image определяется CI.
+
+Live VK/TG/MAX/IG сравнение без credentials не выполнялось; требуется владельцу по
+stage-file DoD. TG MTProto не подключён; readonly сбор включается явно env-флагом.
+Chart.js4.4.7 уже в проекте, не обновлялся; Sources reader/stash/старые ветки не тронуты.
+Merge, дополнительный self-review и Stage16 не выполнялись.
+
+Финальные числа: **2265 PHP tests / 41086 assertions**, новые analytics tests **15 / 140**;
+PHPStan strict, style, audit (0 advisories), health, migrations, secret scan — passed.
+Покрытие новых Domain/Integrations классов ≥80% PCOV (StatsCollector69/83, остальные80–100%).

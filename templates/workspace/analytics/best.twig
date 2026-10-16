@@ -1,0 +1,2 @@
+{% set best=report.best.recommendation %}
+{% if best %}<p class="my-3 text-sm">По вашим данным: {{ {1:'Пн',2:'Вт',3:'Ср',4:'Чт',5:'Пт',6:'Сб',7:'Вс'}[best.day] }}, {{ best.hour }}:00 ({{ report.timezone }}), средняя вовлечённость {{ best.average }}; {{ best.count }} постов.</p>{% else %}<p class="my-3 text-sm text-muted">Мало данных для рекомендации времени публикации.</p>{% endif %}

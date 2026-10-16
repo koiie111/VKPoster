@@ -33,6 +33,7 @@ final class WorkspacesController
         private readonly StepUp $stepUp,
         private readonly AuditLog $audit,
         private readonly \App\Domain\Approval\ApprovalStats $approvals,
+        private readonly \App\Domain\Analytics\StatsOperations $statistics,
     ) {
     }
 
@@ -54,6 +55,7 @@ final class WorkspacesController
 
         return $this->view->response('admin/workspaces/show.twig', [
             'workspace' => $workspace,
+            'post_stats' => $this->statistics->forWorkspace((int)$workspace['id']),
             'approval_stats' => $this->approvals->forWorkspace((int)$workspace['id']),
             'members' => $this->directory->workspaceMembers((int) $workspace['id']),
             'channels' => $this->directory->workspaceChannels((int) $workspace['id']),
