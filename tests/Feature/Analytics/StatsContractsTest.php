@@ -109,7 +109,7 @@ final class StatsContractsTest extends BillingTestCase
         $this->db->execute("UPDATE channels SET status='paused' WHERE id=?", [$channel->id]);
         $collector->run($task);
         self::assertSame('channel_unavailable', $this->db->select('SELECT error_code FROM analytics_tasks WHERE id=?', [$task])[0]['error_code']);
-        self::assertSame(0,$ops->forWorkspace($workspace->id)['pending']);
+        self::assertSame(0, $ops->forWorkspace($workspace->id)['pending']);
     }
 
 }

@@ -44,6 +44,6 @@ final class PostAnalyticsTest extends TestCase
             self::assertSame("'".$bad, AnalyticsCsv::cell($bad));
         }
         self::assertSame('Привет', AnalyticsCsv::cell('Привет'));
-        self::assertSame('0',AnalyticsCsv::cell('0'));
+        self::assertSame('0', AnalyticsCsv::cell('0'));
     }
 }

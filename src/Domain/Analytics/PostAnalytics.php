@@ -123,7 +123,7 @@ final class PostAnalytics
             }
         }
         $rank = array_values(array_filter($result, static fn (array $c): bool => $c['average'] !== null));
-        usort($rank, static fn (array $a,array $b): int => $b['average'] <=> $a['average']);
+        usort($rank, static fn (array $a, array $b): int => $b['average'] <=> $a['average']);
         return ['count' => $known,'cells' => $result,'recommendation' => $rank[0] ?? null];
     }
 }

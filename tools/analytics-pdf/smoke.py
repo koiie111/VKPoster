@@ -1,6 +1,7 @@
 """Offline renderer HTTP contract: only synthetic signed HTML, never app credentials."""
 import hashlib
 import hmac
+import http.client
 import os
 import time
 import urllib.error
@@ -22,7 +23,7 @@ for attempt in range(30):
         status, _ = send(b'<p>Unauthorized</p>')
         assert status == 403
         break
-    except urllib.error.URLError:
+    except (urllib.error.URLError, ConnectionError, TimeoutError, http.client.RemoteDisconnected):
         time.sleep(1)
 else:
     raise AssertionError('Renderer did not become ready')

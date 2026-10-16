@@ -67,6 +67,7 @@ jobs:
           restore-keys: composer-
 
       - name: Run checks in the dev image
+        shell: bash
         run: |
           mkdir -p ~/.cache/composer
           sudo chown -R 1000:1000 ~/.cache/composer . 2>/dev/null || true
@@ -137,6 +138,7 @@ jobs:
           cache-from: type=gha,scope=analytics-pdf
           cache-to: type=gha,mode=max,scope=analytics-pdf
       - name: Offline HTML-to-PDF HTTP contract
+        shell: bash
         run: |
           docker run -d --name analytics-pdf -e APP_KEY=synthetic-pdf-contract -p 127.0.0.1:18187:3000 vkposter-analytics-pdf
           PDF_TEST_KEY=synthetic-pdf-contract python3 tools/analytics-pdf/smoke.py 2>&1 | tee /tmp/vkposter-pdf.log
