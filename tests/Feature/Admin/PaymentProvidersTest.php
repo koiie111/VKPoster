@@ -109,4 +109,20 @@ final class PaymentProvidersTest extends AdminTestCase
         $this->post('/admin/providers/stripe', $this->confirm(['enabled' => '1', 'secret_key' => "bad\x00key", 'webhook_secret' => 'x']));
         self::assertSame('', $this->settings()->value('stripe', 'secret_key'));
     }
+
+    public function testKeyRotationReachesTheProviderSecrets(): void
+    {
+        $oldKey = base64_encode(str_repeat('o', 32));
+        $newKey = base64_encode(str_repeat('n', 32));
+        $old = new \App\Kernel\Security\Crypto('old', ['old' => $oldKey]);
+        $both = new \App\Kernel\Security\Crypto('new', ['new' => $newKey, 'old' => $oldKey]);
+        $this->db->execute('INSERT INTO payment_providers (code, enabled, config_enc, updated_at) VALUES (?, 1, ?, NOW(6))', ['stripe', $old->encrypt('{"secret_key":"sk_old"}')]);
+
+        $out = new \App\Kernel\Console\Output();
+        self::assertSame(0, (new \App\Kernel\Console\Command\CryptoRotateCommand($this->db, $both))->run([], $out));
+
+        $stored = (string) $this->db->select("SELECT config_enc FROM payment_providers WHERE code = 'stripe'")[0]['config_enc'];
+        self::assertFalse($both->needsRotation($stored));
+        self::assertSame('{"secret_key":"sk_old"}', $both->decrypt($stored));
+    }
 }

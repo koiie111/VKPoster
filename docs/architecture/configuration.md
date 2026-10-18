@@ -73,6 +73,7 @@
 | `YOOKASSA_VERIFY_IP` | `1` | Проверка адреса отправителя уведомлений; `0` только вне production (туннель). Платёж в любом случае перечитывается из API |
 | `TBANK_TERMINAL_KEY` `TBANK_PASSWORD` | — | Терминал интернет-эквайринга Т-Банка; пароль подписывает запросы. Адрес уведомлений уходит в `Init` сам: `<APP_URL>/webhooks/billing/tbank` |
 | `YOOKASSA_API_BASE` `TBANK_API_BASE` | боевые адреса | Менять не нужно |
+| `CLOUDPAYMENTS_PUBLIC_ID` `CLOUDPAYMENTS_API_SECRET` `STRIPE_SECRET_KEY` `STRIPE_WEBHOOK_SECRET` `PADDLE_API_KEY` `PADDLE_WEBHOOK_SECRET` `PADDLE_SANDBOX` `CRYPTO_MERCHANT_ID` `CRYPTO_API_KEY` | — | Ключи добавленных провайдеров. **Основное место для них — админка** (`/admin/providers`, шифруются в базе); переменные только засевают свежую установку, сохранённое в админке побеждает. Адреса уведомлений показаны на той же странице |
 | `BILLING_TAX_SYSTEM` | `npd` | Налогообложение: `npd` (самозанятый: чек провайдеру не передаётся), `osn`, `usn_income`, `usn_income_outcome`, `patent`, `envd`, `esn` |
 | `BILLING_VAT` | `none` | Ставка НДС в чеках: `none`, `vat0`, `vat10`, `vat20`, `vat22` |
 | `BILLING_SELLER_NAME` `BILLING_SELLER_INN` | — | Продавец на PDF-квитанции (пусто: строка не печатается) |

@@ -38,3 +38,14 @@
 
 ## Безопасность
 Все POST с CSRF (кроме вебхуков); тарифные страницы только владельцу; чужие счета, платежи и квитанции дают 404; провайдер не вызывается внутри транзакции; ключи магазинов только из env и не попадают в логи; ссылка на оплату принимается только с `https://` (или относительная у тестового шлюза); редирект на провайдера через `redirectToTrusted`.
+
+## Этап 16: провайдеры, валюты, промокоды, рефералка, пакеты
+Решения и что не проверено вживую: ADR 0015.
+
+- **Провайдеры настраиваются в админке** (`/admin/providers`, право `providers.manage`, только суперадмин, сохранение с кодом 2FA): включение и поля ключей (`ProviderCatalog` описывает поля, `ProviderSettings` хранит их шифрованно в `payment_providers`, значение из базы побеждает окружение). `GatewayFactory` собирает все шлюзы при каждом обращении (`GatewayRegistry` принимает замыкания), `BalanceGateway` не входит в общий список и доступен только через `forWebhook`.
+- **Шлюзы:** `YooKassa`, `TBank` (этап 10), `CloudPayments`, `Stripe`, `Paddle`, `Crypto` (Heleket), `Stars` (Telegram, обновления бота `pre_checkout_query` и `successful_payment` обрабатывает `StarsPayments` из `TelegramUpdateHandler`), `Balance` (реферальный баланс), `Fake`. Интерфейс получил `currencies()` и `supportsRecurring()`. Общий HTTP: `GatewayHttp`. Адреса уведомлений: `<APP_URL>/webhooks/billing/{cloudpayments?type=pay|stripe|paddle|crypto}`; у CloudPayments уведомление подписано `Content-HMAC`, у Stripe и Paddle подпись с меткой времени (допуск 5 минут), у Heleket `md5(base64(тело)+ключ)`.
+- **Валюты:** цены `plan_prices` в ₽, $, €, ★ (звёзды ×100); страница тарифов предлагает валюты включённых провайдеров, `BillingService::checkout(..., $currency, $promo)`, валюта фиксируется в `subscriptions.currency`, смена валюты внутри оплаченного периода запрещена (`PriceCalculator`).
+- **Промокоды** (`/admin/promo`): `Promo`, `PromoRepository`, `PromoService` (`check`, `discount`, `apply`, `activateFreeDays`, `bind`); скидка записывается в счёт (`invoices.discount`, `promo_code_id`), использования в `promo_redemptions`.
+- **Рефералка** (`Referral\ReferralService`, `ReferralSettings`, `/r/{код}`, `AttributeReferral`, `/account/referrals`, `/admin/referrals`): бонус проводкой `ref_bonus` при `apply()`, отзыв `ref_reversal` при возврате, трата `ref_spend`, заявки `ref_payout`/`ref_payout_reject`; `Ledger::post()` — общая идемпотентная проводка.
+- **Пакеты** (`AddonPackage`, `AddonRepository`, `/admin/addons`, `/w/{id}/billing/addons`): счёт вида `addon`, `BillingService::checkoutAddon`, `settleAddon` (лимиты в `workspace_addons`, кредиты в кошелёк `CRD`); `Entitlement::limit` прибавляет активные пакеты.
+- Тесты: `tests/Unit/Payments/*GatewayTest`, `tests/Feature/Billing/{ExtraPayments,Referral}Test`, `tests/Feature/Admin/{PaymentProviders,BillingExtrasAdmin}Test`.

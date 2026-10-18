@@ -426,3 +426,10 @@ post_versions, approvals, post_comments, guest_links, guest_link_posts. Все �
 используют существующий VARCHAR: pending_approval/approved/changes_requested.
 Rollback сохраняет посты, переводя review-состояния в draft. Подробности:
 [Согласование](modules/approvals.md).
+
+## Этап 16: платежи, промокоды, рефералка, пакеты (миграции 37–39)
+- `payment_providers` (`code` PK, `enabled`, `config_enc` — JSON полей провайдера, зашифрован `Crypto`, `updated_by`, `updated_at`).
+- `payments.provider_ref` (второй идентификатор провайдера; Stars: `user:charge`); `invoices.discount`, `promo_code_id`, `addon_package_id`; вид счёта `addon`.
+- `promo_codes` (`code` UNIQUE, `kind` percent|amount|days, `value`, `currency`, `plan_codes_json`, `first_payment_only`, `max_redemptions`, `valid_from/until`, `active`), `promo_redemptions` (`promo_id`, `workspace_id`, `user_id`, `invoice_id` UNIQUE, `discount`).
+- `addon_packages` (`code`, `kind` channels|members|storage_bytes|ai_credits, `quantity`, `days`, `prices_json`, `active`, `sort`), `workspace_addons` (что куплено и до какого срока, `invoice_id` UNIQUE).
+- `referral_codes` (`user_id` PK, `code` UNIQUE), `referrals` (`referrer_id`, `referred_id` UNIQUE, `status` active|flagged|rejected, `reason`, `ip_hash`), `referral_bonuses` (`payment_id` UNIQUE, `amount`, `reversed`), `referral_payouts` (`public_id`, `user_id`, `amount`, `details`, `status` requested|paid|rejected, `staff_note`, `handled_by`). Деньги реферального баланса живут в журнале проводок: счета `referral:user:<id>`, `referral:expense`, `referral:spent`, `referral:payouts`.
