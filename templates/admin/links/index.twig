@@ -32,9 +32,9 @@
                 <td class="tabular-nums">{{ l.human }} <span class="text-muted">из {{ l.clicks }}</span></td>
                 <td>{% if l.disabled %}{{ d.badge('Отключена', 'warning') }}{% if l.reason %}<div class="text-xs text-muted">{{ l.reason }}</div>{% endif %}{% else %}{{ d.badge('Работает', 'success') }}{% endif %}</td>
                 <td>
-                    <form class="flex items-center gap-2" method="post" action="/admin/links/{{ l.id }}/toggle">
+                    <form class="flex min-w-48 flex-col items-start gap-2" method="post" action="/admin/links/{{ l.id }}/toggle">
                         {{ csrf_field() }}
-                        {% if not l.disabled %}<input class="field !min-h-9 !w-40" type="text" name="reason" maxlength="200" placeholder="Причина" aria-label="Причина отключения ссылки {{ l.url }}">{% endif %}
+                        {% if not l.disabled %}<input class="field !min-h-9 w-full" type="text" name="reason" maxlength="200" placeholder="Причина" aria-label="Причина отключения ссылки {{ l.url }}">{% endif %}
                         {{ f.button(l.disabled ? 'Включить' : 'Отключить', type = 'submit', variant = l.disabled ? 'secondary' : 'danger', size = 'sm') }}
                     </form>
                 </td>
