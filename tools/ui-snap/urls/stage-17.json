@@ -1,0 +1,22 @@
+[
+ {
+  "name": "links-settings",
+  "url": "/w/{ws}/settings/links",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "workspace-settings",
+  "url": "/w/{ws}/settings",
+  "login_as": "demo@ezposter.local"
+ },
+ {
+  "name": "admin-links",
+  "url": "/admin/links",
+  "login_as": "staff@ezposter.local"
+ },
+ {
+  "name": "short-link-disabled",
+  "url": "/s/Dis4bLd",
+  "login_as": "demo@ezposter.local"
+ }
+]

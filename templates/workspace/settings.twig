@@ -25,6 +25,12 @@
         <div class="mt-4">{{ f.button('Настроить ассистента', variant = 'secondary', icon = 'sparkles', href = '/w/' ~ workspace.workspacePublicId ~ '/settings/ai') }}</div>
     </section>
 
+    <section class="card" aria-labelledby="links-title">
+        <h2 class="text-lg font-semibold" id="links-title">Ссылки</h2>
+        <p class="mt-1 text-sm text-muted">UTM-метки для аналитики и короткие ссылки со счётчиком переходов.</p>
+        <div class="mt-4">{{ f.button('Настроить ссылки', variant = 'secondary', icon = 'link', href = '/w/' ~ workspace.workspacePublicId ~ '/settings/links') }}</div>
+    </section>
+
     {% include 'workspace/approvals/settings.twig' %}
     <section class="card" id="leave" aria-labelledby="leave-title">
         <h2 class="text-lg font-semibold" id="leave-title">Выйти из пространства</h2>

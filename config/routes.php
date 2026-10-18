@@ -248,6 +248,12 @@ return static function (Router $router): void {
                 $t->post('/settings/ai/voice', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveVoice'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 30, 'seconds' => 600]]);
                 $t->post('/settings/ai/channels/{channelId:' . $ulid . '}', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveChannelStyle'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 60, 'seconds' => 600]]);
                 $t->post('/settings/ai/own', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveOwn'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 30, 'seconds' => 600]]);
+                // Stage 17: UTM tags and short links.
+                $t->get('/settings/links', [\App\Http\Controllers\Link\LinkSettingsController::class, 'show'])->name('workspace.links');
+                $t->post('/settings/links', [\App\Http\Controllers\Link\LinkSettingsController::class, 'saveWorkspace'])->middleware([RateLimit::class, ['bucket' => 'link-settings', 'max' => 30, 'seconds' => 600]]);
+                $t->post('/settings/links/channels/{channelId:' . $ulid . '}', [\App\Http\Controllers\Link\LinkSettingsController::class, 'saveChannel'])->middleware([RateLimit::class, ['bucket' => 'link-settings', 'max' => 60, 'seconds' => 600]]);
+                $t->post('/settings/links/short', [\App\Http\Controllers\Link\LinkSettingsController::class, 'create'])->middleware([RateLimit::class, ['bucket' => 'link-create', 'max' => 20, 'seconds' => 600]]);
+                $t->post('/settings/links/short/{linkId:' . $ulid . '}/toggle', [\App\Http\Controllers\Link\LinkSettingsController::class, 'toggle'])->middleware([RateLimit::class, ['bucket' => 'link-settings', 'max' => 60, 'seconds' => 600]]);
             });
             $w->post('/delete', [SettingsController::class, 'delete'])->middleware([Authorize::class, ['permission' => 'workspace.delete']], DenyWhenImpersonating::class);
             // Plan and payment: the owner only. `pay` sends the browser on to the provider (a plain page load, see BillingController::checkout).
@@ -517,6 +523,9 @@ return static function (Router $router): void {
             $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan'])->middleware($can('plans.manage'));
             $s->get('/providers', [PaymentProvidersController::class, 'index'])->name('admin.providers')->middleware($can('providers.manage'));
             $s->post('/providers/{code:[a-z]{3,16}}', [PaymentProvidersController::class, 'save'])->middleware($can('providers.manage'), [RateLimit::class, ['bucket' => 'admin-providers', 'max' => 60, 'seconds' => 3600]]);
+            $s->get('/links', [\App\Http\Controllers\Admin\LinksAdminController::class, 'index'])->name('admin.links')->middleware($can('links.manage'));
+            $s->post('/links/blocklist', [\App\Http\Controllers\Admin\LinksAdminController::class, 'saveBlocklist'])->middleware($can('links.manage'), [RateLimit::class, ['bucket' => 'admin-links', 'max' => 60, 'seconds' => 3600]]);
+            $s->post('/links/{id:' . $ulid26 . '}/toggle', [\App\Http\Controllers\Admin\LinksAdminController::class, 'toggle'])->middleware($can('links.manage'), [RateLimit::class, ['bucket' => 'admin-links', 'max' => 300, 'seconds' => 3600]]);
             $s->get('/ai', [\App\Http\Controllers\Admin\AiProvidersController::class, 'index'])->name('admin.ai')->middleware($can('ai.manage'));
             $s->post('/ai', [\App\Http\Controllers\Admin\AiProvidersController::class, 'create'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
             $s->post('/ai/{code:[a-z0-9-]{3,40}}', [\App\Http\Controllers\Admin\AiProvidersController::class, 'save'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
@@ -616,4 +625,9 @@ return static function (Router $router): void {
     $router->get('/dev/layouts/auth', [DevUiController::class, 'layoutAuth'])->name('dev.layout.auth');
     $router->get('/dev/layouts/landing', [DevUiController::class, 'layoutLanding'])->name('dev.layout.landing');
     $router->get('/dev/layouts/admin', [DevUiController::class, 'layoutAdmin'])->name('dev.layout.admin');
+
+    // Short links (stage 17). `/s/<code>` works on any host; `/<code>` only on the short domain (the controller checks the host) and is
+    // registered last, so no real page can be shadowed. Rate limited per visitor so codes can not be tried one after another.
+    $router->get('/s/{code:[0-9A-Za-z]{7}}', [\App\Http\Controllers\Link\ShortLinkController::class, 'go'])->name('short.go')->middleware([RateLimit::class, ['bucket' => 'short-go', 'max' => 120, 'seconds' => 60]]);
+    $router->get('/{code:[0-9A-Za-z]{7}}', [\App\Http\Controllers\Link\ShortLinkController::class, 'root'])->middleware([RateLimit::class, ['bucket' => 'short-go', 'max' => 120, 'seconds' => 60]]);
 };

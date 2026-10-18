@@ -44,5 +44,6 @@ return static function (Schedule $schedule): void {
     $schedule->call('metrics-aggregate', '12 * * * *', [MetricsAggregator::class, 'recent']);
     // Hourly: sends the owner's daily report when it is the chosen hour and today's has not gone out yet.
     $schedule->call('daily-report', '5 * * * *', [DailyReport::class, 'tick']);
+    $schedule->call('short-link-clicks-prune', '51 3 * * *', [\App\Domain\Link\ShortLinks::class, 'prune']);
     $schedule->call('webhook-events-prune', '47 3 * * *', [WebhookEvents::class, 'prune']);
 };

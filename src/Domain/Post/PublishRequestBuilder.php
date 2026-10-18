@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Post;
 
+use App\Domain\Link\LinkRewriter;
 use App\Domain\Media\Media;
 use App\Domain\Media\MediaException;
 use App\Domain\Media\MediaKind;
@@ -36,6 +37,7 @@ final class PublishRequestBuilder
         private readonly MediaService $service,
         private readonly MediaLimits $limits,
         private readonly MediaUrls $urls,
+        private readonly LinkRewriter $links,
     ) {
     }
 
@@ -44,8 +46,10 @@ final class PublishRequestBuilder
      */
     public function build(WorkspaceContext $context, ResolvedVariant $resolved, Capabilities $capabilities, bool $withFiles): BuiltRequest
     {
-        $text = $capabilities->textFormat === 'html' ? TextFormatter::toHtml($resolved->text) : TextFormatter::toPlain($resolved->text);
         $options = $resolved->options;
+        // UTM tags and short links come first, so every length check and the platform text see the final addresses.
+        $links = $this->links->rewrite($context, $resolved, $resolved->text, $capabilities->buttons ? $options->buttons : [], $withFiles);
+        $text = $capabilities->textFormat === 'html' ? TextFormatter::toHtml($links['text']) : TextFormatter::toPlain($links['text']);
         $files = [];
         $temporary = [];
         try {
@@ -66,7 +70,7 @@ final class PublishRequestBuilder
         return new BuiltRequest(new PublishRequest(
             $text,
             $files,
-            $capabilities->buttons ? $options->buttons : [],
+            $links['buttons'],
             null,
             $capabilities->silent && $options->silent,
             $capabilities->textFormat === 'html' ? 'html' : null,

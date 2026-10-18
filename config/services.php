@@ -325,6 +325,34 @@ return static function (Container $c, string $base): void {
 
     $c->factory(\App\Integrations\ContentProviders\ProviderHttp::class, static fn (Container $c): \App\Integrations\ContentProviders\ProviderHttp => new \App\Integrations\ContentProviders\ProviderHttp($c->get(HttpClientInterface::class), limits: $c->get(\App\Integrations\ContentProviders\ProviderLimits::class)));
 
+    // Stage 17: links in posts. The guard needs the short host to refuse already shortened addresses; clicks are hashed with the app key.
+    $c->factory(\App\Domain\Link\UrlGuard::class, static fn (Container $c): \App\Domain\Link\UrlGuard => new \App\Domain\Link\UrlGuard($c->get(\App\Domain\Settings\Settings::class), $c->get(Config::class)->string('links.short_domain')));
+    $c->factory(\App\Domain\Link\ShortLinks::class, static fn (Container $c): \App\Domain\Link\ShortLinks => new \App\Domain\Link\ShortLinks(
+        $c->get(Connection::class),
+        $c->get(Clock::class),
+        $c->get(\App\Domain\Link\UrlGuard::class),
+        $c->get(Config::class)->string('app.url'),
+        $c->get(Config::class)->string('links.short_domain'),
+        'short-link-clicks|' . $c->get(Config::class)->string('security.key'),
+        $c->get(Config::class)->int('links.click_retention_days', 400),
+    ));
+
+    $c->factory(\App\Http\Controllers\Link\ShortLinkController::class, static fn (Container $c): \App\Http\Controllers\Link\ShortLinkController => new \App\Http\Controllers\Link\ShortLinkController(
+        $c->get(\App\Domain\Link\ShortLinks::class),
+        $c->get(\App\Domain\Link\UrlGuard::class),
+        $c->get(View::class),
+        $c->get(LoggerInterface::class),
+        $c->get(Config::class)->string('links.short_domain'),
+    ));
+    $c->factory(\App\Http\Controllers\Link\LinkSettingsController::class, static fn (Container $c): \App\Http\Controllers\Link\LinkSettingsController => new \App\Http\Controllers\Link\LinkSettingsController(
+        $c->get(View::class),
+        $c->get(\App\Domain\Link\LinkSettings::class),
+        $c->get(\App\Domain\Link\ShortLinks::class),
+        $c->get(\App\Domain\Channel\ChannelRepository::class),
+        $c->get(\App\Domain\Audit\AuditLog::class),
+        $c->get(\App\Http\FormFlash::class),
+        $c->get(Config::class)->int('links.manual_per_day', 100),
+    ));
     $c->factory(\App\Integrations\Ai\OpenAiResponses::class, static fn (Container $c): \App\Integrations\Ai\OpenAiResponses => new \App\Integrations\Ai\OpenAiResponses($c->get(\App\Integrations\ContentProviders\ProviderHttp::class), $c->get(Config::class)->string('content_providers.openai_key'), $c->get(Config::class)->string('content_providers.openai_model')));
     // Stage 17: AI assistant models. The transport is shared; the factory allows the offline fake only outside production.
     $c->factory(\App\Integrations\Ai\Llm\LlmTransport::class, static fn (Container $c): \App\Integrations\Ai\Llm\LlmTransport => new \App\Integrations\Ai\Llm\LlmTransport($c->get(HttpClientInterface::class), $c->get(Config::class)->int('ai.timeout_seconds', 60)));
