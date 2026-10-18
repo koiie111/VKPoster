@@ -63,7 +63,7 @@ final class BillingService
      *
      * @throws BillingException
      */
-    public function quote(int $workspaceId, string $planCode, BillingPeriod $period): Quote
+    public function quote(int $workspaceId, string $planCode, BillingPeriod $period, ?string $currency = null): Quote
     {
         $target = $this->plans->findByCode($planCode);
         if ($target === null || !$target->isPublic) {
@@ -72,7 +72,7 @@ final class BillingService
         $subscription = $this->subscriptions->findByWorkspace($workspaceId);
         $current = $subscription === null ? null : $this->plans->find($subscription->planId);
 
-        return $this->calculator->quote($subscription, $current, $target, $period, $this->clock->now(), $this->config->string('billing.currency', 'RUB'));
+        return $this->calculator->quote($subscription, $current, $target, $period, $this->clock->now(), $currency ?? $this->config->string('billing.currency', 'RUB'));
     }
 
     /**
@@ -81,18 +81,24 @@ final class BillingService
      * @param bool $keepCard ask the provider to keep the card, so the plan renews by itself
      * @throws BillingException with a message for the customer
      */
-    public function checkout(WorkspaceContext $context, User $actor, string $planCode, BillingPeriod $period, string $gatewayName, bool $keepCard): CheckoutResult
+    public function checkout(WorkspaceContext $context, User $actor, string $planCode, BillingPeriod $period, string $gatewayName, bool $keepCard, ?string $currency = null): CheckoutResult
     {
         if (!$this->permissions->allows($context->role, 'workspace.billing')) {
             throw new BillingException('Оплатой тарифа занимается владелец пространства.');
         }
-        $quote = $this->quote($context->workspaceId, $planCode, $period);
+        $gateway = $this->gateways->get($gatewayName);
+        $currency = $this->currencyFor($gateway, $currency, $planCode, $period);
+        $quote = $this->quote($context->workspaceId, $planCode, $period, $currency);
         if (!$quote->immediate) {
             $this->subscriptionService->scheduleChange($context->workspaceId, $quote->plan, $period, $actor->id);
 
             return CheckoutResult::done('Готово: тариф «' . $quote->plan->name . '» начнётся, когда закончится оплаченный срок. До этого всё работает как раньше.');
         }
-        $gateway = $this->gateways->get($gatewayName) ?? throw new BillingException('Этот способ оплаты сейчас недоступен. Выберите другой.');
+        if ($gateway === null) {
+            throw new BillingException('Этот способ оплаты сейчас недоступен. Выберите другой.');
+        }
+        // A provider that cannot charge a saved method later (Paddle, crypto, Stars) means renewing by hand.
+        $keepCard = $keepCard && $gateway->supportsRecurring();
         $email = (string) $actor->email;
         if ($email === '') {
             throw new BillingException('Добавьте почту в профиле: на неё мы пришлём чек.');
@@ -143,6 +149,29 @@ final class BillingService
         $this->audit->record('billing.checkout_started', $actor->id, 'invoice', $invoice->publicId, ['plan' => $quote->plan->code, 'period' => $period->value, 'amount' => $invoice->amount, 'provider' => $gateway->name()], $context->workspaceId);
 
         return CheckoutResult::redirect($url, $payment->publicId);
+    }
+
+    /**
+     * The currency a payment is made in: the one the customer picked on the plans page, if the provider takes it and the plan has a price
+     * in it. Without a pick, the first currency of the provider that the plan has a price in.
+     *
+     * @throws BillingException
+     */
+    private function currencyFor(?PaymentGateway $gateway, ?string $asked, string $planCode, BillingPeriod $period): string
+    {
+        $default = $this->config->string('billing.currency', 'RUB');
+        if ($gateway === null) {
+            return $asked ?? $default;
+        }
+        $plan = $this->plans->findByCode($planCode);
+        $options = $asked !== null && $asked !== '' ? [strtoupper($asked)] : $gateway->currencies();
+        foreach ($options as $currency) {
+            if (in_array($currency, $gateway->currencies(), true) && ($plan === null || $plan->priceFor($period, $currency) !== null)) {
+                return $currency;
+            }
+        }
+
+        throw new BillingException('Для этого способа оплаты у тарифа нет цены в нужной валюте. Выберите другой способ или валюту.');
     }
 
     // ---- applying what a provider reports -------------------------------------------------------------------------
@@ -232,6 +261,7 @@ final class BillingService
             'status' => SubscriptionStatus::Active->value,
             'period' => $invoice->period->value,
             'price_amount' => $invoice->listPrice,
+            'currency' => $invoice->currency,
             'current_period_start' => DbTime::format($invoice->kind === InvoiceKind::Upgrade ? ($subscription->currentPeriodStart ?? $invoice->periodStart) : $invoice->periodStart),
             'current_period_end' => DbTime::format($invoice->periodEnd),
             'trial_ends_at' => null,

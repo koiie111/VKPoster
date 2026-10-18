@@ -53,7 +53,7 @@ final class BillingController
         $context = WorkspaceRequest::context($request);
         $period = BillingPeriod::tryFrom(WorkspaceRequest::text($request->input('period'))) ?? BillingPeriod::Month;
 
-        return $this->view->response('workspace/billing/plans.twig', $this->pages->plans($context, $period));
+        return $this->view->response('workspace/billing/plans.twig', $this->pages->plans($context, $period, WorkspaceRequest::text($request->input('currency'))));
     }
 
     public function checkout(Request $request): Response
@@ -75,11 +75,12 @@ final class BillingController
                 $period,
                 WorkspaceRequest::text($request->input('gateway')),
                 $request->input('keep_card') === '1',
+                WorkspaceRequest::text($request->input('currency')),
             );
         } catch (BillingException $e) {
             $this->flash->toast($e->getMessage(), 'error');
 
-            return Response::redirect($back . '?period=' . $period->value);
+            return Response::redirect($back . '?period=' . $period->value . '&currency=' . rawurlencode(WorkspaceRequest::text($request->input('currency'))));
         }
         if ($result->paymentId === null) {
             $this->flash->toast((string) $result->message);

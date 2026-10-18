@@ -31,7 +31,7 @@ final class PlanPresenter
         };
         $yes = static fn (Plan $p, string $feature): string => $p->hasFeature($feature) ? '✓' : '—';
 
-        $add('Цена в месяц', static fn (Plan $p): string => $p->priceFor(BillingPeriod::Month, $currency) === null ? '0 ₽' : Money::format($p->priceFor(BillingPeriod::Month, $currency), $currency));
+        $add('Цена в месяц', static fn (Plan $p): string => $p->priceFor(BillingPeriod::Month, $currency) === null ? Money::format(0, $currency) : Money::format($p->priceFor(BillingPeriod::Month, $currency), $currency));
         $add('Цена в год', static fn (Plan $p): string => $p->priceFor(BillingPeriod::Year, $currency) === null ? '—' : Money::format($p->priceFor(BillingPeriod::Year, $currency), $currency));
         $add('Каналы', static fn (Plan $p): string => self::count($p->limit('channels')));
         $add('Постов в месяц', static fn (Plan $p): string => self::count($p->limit('posts_per_month')));

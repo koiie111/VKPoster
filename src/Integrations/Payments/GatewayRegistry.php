@@ -13,10 +13,11 @@ use App\Integrations\Payments\Contracts\PaymentGateway;
 final class GatewayRegistry
 {
     /**
-     * @param list<PaymentGateway> $all every implementation
-     * @param list<string> $enabled names from the configuration
+     * @param list<PaymentGateway>|\Closure(): list<PaymentGateway> $all every implementation (a closure is asked again on each use, so
+     *        keys changed in the admin area reach a long-running worker)
+     * @param list<string>|\Closure(): list<string> $enabled names that are switched on
      */
-    public function __construct(private readonly array $all, private readonly array $enabled, private readonly bool $allowFake)
+    public function __construct(private readonly array|\Closure $all, private readonly array|\Closure $enabled, private readonly bool $allowFake)
     {
     }
 
@@ -26,13 +27,14 @@ final class GatewayRegistry
     public function available(): array
     {
         $out = [];
-        foreach ($this->enabled as $name) {
+        $enabled = $this->enabled();
+        foreach ($enabled as $name) {
             $gateway = $this->byName($name);
             if ($gateway !== null) {
                 $out[] = $gateway;
             }
         }
-        if ($this->allowFake && !in_array('fake', $this->enabled, true)) {
+        if ($this->allowFake && !in_array('fake', $enabled, true)) {
             $fake = $this->byName('fake');
             if ($fake !== null) {
                 $out[] = $fake;
@@ -64,9 +66,18 @@ final class GatewayRegistry
         return $gateway !== null && ($name !== 'fake' || $this->allowFake) ? $gateway : null;
     }
 
+    /**
+     * @return list<string>
+     */
+    private function enabled(): array
+    {
+        return $this->enabled instanceof \Closure ? ($this->enabled)() : $this->enabled;
+    }
+
     private function byName(string $name): ?PaymentGateway
     {
-        foreach ($this->all as $gateway) {
+        $all = $this->all instanceof \Closure ? ($this->all)() : $this->all;
+        foreach ($all as $gateway) {
             if ($gateway->name() === $name && $gateway->isConfigured() && ($name !== 'fake' || $this->allowFake)) {
                 return $gateway;
             }

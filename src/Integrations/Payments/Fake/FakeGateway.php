@@ -45,6 +45,16 @@ final class FakeGateway implements PaymentGateway
         return 'Тестовая оплата (только для разработки)';
     }
 
+    public function currencies(): array
+    {
+        return ['RUB'];
+    }
+
+    public function supportsRecurring(): bool
+    {
+        return true;
+    }
+
     public function isConfigured(): bool
     {
         return true;

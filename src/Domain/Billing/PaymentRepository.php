@@ -105,6 +105,14 @@ final class PaymentRepository
         ]);
     }
 
+    /**
+     * Record a provider status together with its second reference (Telegram Stars: who paid and the charge id).
+     */
+    public function setReference(int $id, string $providerStatus, string $reference): void
+    {
+        $this->db->table('payments')->where('id', '=', $id)->update(['provider_status' => $providerStatus, 'provider_ref' => mb_substr($reference, 0, 190), 'updated_at' => DbTime::format($this->clock->now())]);
+    }
+
     public function setProviderStatus(int $id, ?string $providerStatus): void
     {
         $this->db->table('payments')->where('id', '=', $id)->update(['provider_status' => $providerStatus, 'updated_at' => DbTime::format($this->clock->now())]);

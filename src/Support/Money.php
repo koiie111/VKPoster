@@ -10,7 +10,7 @@ namespace App\Support;
  */
 final class Money
 {
-    private const SYMBOLS = ['RUB' => '₽', 'USD' => '$', 'EUR' => '€'];
+    private const SYMBOLS = ['RUB' => '₽', 'USD' => '$', 'EUR' => '€', 'XTR' => '★'];
 
     /** "990 ₽", "1 249,50 ₽": thin groups of thousands, kopecks only when there are some. */
     public static function format(int $minor, string $currency = 'RUB'): string
@@ -23,6 +23,11 @@ final class Money
     }
 
     /** "990.00", the plain decimal string payment APIs expect. */
+    public static function symbol(string $currency): string
+    {
+        return self::SYMBOLS[$currency] ?? $currency;
+    }
+
     public static function decimal(int $minor): string
     {
         return sprintf('%s%d.%02d', $minor < 0 ? '-' : '', intdiv(abs($minor), 100), abs($minor) % 100);

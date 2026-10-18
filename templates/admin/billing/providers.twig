@@ -1,0 +1,31 @@
+{#- Admin: payment providers. Variables: providers (code, label, region, note, fields, enabled, offered, webhook_url). -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
+{% set nav_current = 'providers' %}
+{% block title %}Платёжные провайдеры · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Платёжные провайдеры', 'Включайте способы оплаты и вносите ключи здесь: менять код и выкладывать версию не нужно. Ключи хранятся в зашифрованном виде и больше не показываются; пустое поле ключа оставляет сохранённый.') }}
+<div class="grid gap-4 lg:grid-cols-2">
+    {% for p in providers %}
+    <section class="card flex flex-col gap-4" id="{{ p.code }}" aria-labelledby="h-{{ p.code }}">
+        <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-lg font-semibold" id="h-{{ p.code }}">{{ p.label }}</h2>
+            {% if p.offered %}{{ d.badge('Доступен покупателям', 'success') }}{% elseif p.enabled %}{{ d.badge('Включён, но не хватает ключей', 'warning') }}{% else %}{{ d.badge('Выключен', 'neutral') }}{% endif %}
+        </div>
+        <p class="text-sm text-muted">{{ p.region }}. {{ p.note }}</p>
+        {% if p.webhook_url %}<p class="text-sm">Адрес уведомлений для кабинета провайдера: <code class="break-all">{{ p.webhook_url }}</code></p>{% endif %}
+        <form class="flex flex-col gap-4" method="post" action="/admin/providers/{{ p.code }}" autocomplete="off">
+            {{ csrf_field() }}
+            {{ f.switch('enabled', 'Предлагать этот способ оплаты', p.enabled, id = 'enabled-' ~ p.code, hint = 'Включённый провайдер без ключей покупателям не показывается.') }}
+            {% for field in p.fields %}
+                {{ f.input(field.key, field.label, type = field.secret ? 'password' : 'text', value = field.value, id = p.code ~ '-' ~ field.key, hint = field.hint ~ (field.secret and field.set ? ' Ключ сохранён; оставьте поле пустым, чтобы не менять.' : ''), placeholder = field.secret and field.set ? '••••••••' : '') }}
+            {% endfor %}
+            <div class="max-w-xs">{{ a.step_up('code-' ~ p.code) }}</div>
+            <div>{{ f.button('Сохранить', type = 'submit', icon = 'save') }}</div>
+        </form>
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}

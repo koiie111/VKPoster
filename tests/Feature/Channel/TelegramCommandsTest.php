@@ -93,7 +93,7 @@ final class TelegramCommandsTest extends ChannelTestCase
         $sent = $this->http->requests[0]['options']['json'];
         self::assertSame('https://example.com/webhooks/telegram/' . TestEnv::WEBHOOK_SECRET, $sent['url']);
         self::assertSame(TelegramWebhook::headerToken(TestEnv::WEBHOOK_SECRET), $sent['secret_token']);
-        self::assertSame(['message', 'channel_post', 'edited_channel_post', 'my_chat_member'], $sent['allowed_updates']);
+        self::assertSame(['message', 'channel_post', 'edited_channel_post', 'my_chat_member', 'pre_checkout_query'], $sent['allowed_updates']);
         self::assertStringNotContainsString(TestEnv::WEBHOOK_SECRET, $text);
         self::assertStringContainsString('https://example.com/webhooks/telegram/***', $text);
     }

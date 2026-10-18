@@ -8,10 +8,8 @@ use App\Domain\Help\HelpArticles;
 use App\Domain\Legal\LegalDocuments;
 use App\Domain\Settings\Settings;
 use App\Domain\Billing\PriceCalculator;
-use App\Integrations\Payments\Fake\FakeGateway;
+use App\Integrations\Payments\GatewayFactory;
 use App\Integrations\Payments\GatewayRegistry;
-use App\Integrations\Payments\TBank\TBankGateway;
-use App\Integrations\Payments\YooKassa\YooKassaGateway;
 use App\Domain\Channel\ConnectCodes;
 use App\Integrations\Social\Fake\FakeAdapter;
 use App\Integrations\Social\PlatformRegistry;
@@ -319,43 +317,10 @@ return static function (Container $c, string $base): void {
 
     // Billing. The price calculator needs the renewal window; every payment provider is built from its own settings.
     $c->factory(PriceCalculator::class, static fn (Container $c): PriceCalculator => new PriceCalculator($c->get(Config::class)->int('billing.renewal.lead_days', 3)));
-    $c->factory(YooKassaGateway::class, static function (Container $c): YooKassaGateway {
-        $config = $c->get(Config::class);
-
-        return new YooKassaGateway(
-            $c->get(HttpClientInterface::class),
-            $config->string('billing.yookassa.shop_id'),
-            $config->string('billing.yookassa.secret_key'),
-            $config->string('billing.yookassa.api_base', 'https://api.yookassa.ru/v3'),
-            // The sender check cannot be switched off in production.
-            $config->bool('billing.yookassa.verify_ip', true) || $config->isProduction(),
-            $config->string('billing.tax.tax_system'),
-            $config->string('billing.tax.vat'),
-            $config->string('billing.tax.item_name'),
-        );
-    });
-    $c->factory(TBankGateway::class, static function (Container $c): TBankGateway {
-        $config = $c->get(Config::class);
-
-        return new TBankGateway(
-            $c->get(HttpClientInterface::class),
-            $config->string('billing.tbank.terminal_key'),
-            $config->string('billing.tbank.password'),
-            $config->string('billing.tbank.api_base', 'https://securepay.tinkoff.ru/v2'),
-            rtrim($config->string('app.url'), '/') . '/webhooks/billing/tbank',
-            $config->string('billing.tax.tax_system'),
-            $config->string('billing.tax.vat'),
-            $config->string('billing.tax.item_name'),
-        );
-    });
     $c->factory(GatewayRegistry::class, static function (Container $c): GatewayRegistry {
-        $config = $c->get(Config::class);
+        $factory = $c->get(GatewayFactory::class);
 
-        return new GatewayRegistry(
-            [$c->get(YooKassaGateway::class), $c->get(TBankGateway::class), $c->get(FakeGateway::class)],
-            array_values(array_filter(array_map('strval', $config->array('billing.gateways')), static fn (string $v): bool => $v !== '')),
-            !$config->isProduction(),
-        );
+        return new GatewayRegistry(static fn (): array => $factory->all(), static fn (): array => $factory->enabled(), !$c->get(Config::class)->isProduction());
     });
 
     $c->factory(\App\Integrations\ContentProviders\ProviderHttp::class, static fn (Container $c): \App\Integrations\ContentProviders\ProviderHttp => new \App\Integrations\ContentProviders\ProviderHttp($c->get(HttpClientInterface::class), limits: $c->get(\App\Integrations\ContentProviders\ProviderLimits::class)));

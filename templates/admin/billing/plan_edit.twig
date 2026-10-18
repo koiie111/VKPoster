@@ -15,6 +15,10 @@
     <div class="grid gap-4 sm:grid-cols-2">
         {{ f.input('price_month', 'Цена в месяц, ₽', value = old('price_month', plan.prices.month.RUB is defined ? plan.prices.month.RUB / 100 : ''), hint = 'Пусто: помесячной оплаты нет.') }}
         {{ f.input('price_year', 'Цена в год, ₽', value = old('price_year', plan.prices.year.RUB is defined ? plan.prices.year.RUB / 100 : ''), hint = 'Пусто: годовой оплаты нет.') }}
+        {% for cur, sign in {USD: '$', EUR: '€', XTR: '★'} %}
+        {{ f.input('price_month_' ~ cur|lower, 'Цена в месяц, ' ~ sign, value = old('price_month_' ~ cur|lower, plan.prices.month[cur] is defined ? plan.prices.month[cur] / 100 : ''), hint = loop.first ? 'Пусто: в этой валюте месячной оплаты нет. Валюта появится у покупателя, если включён провайдер, который её принимает.' : '') }}
+        {{ f.input('price_year_' ~ cur|lower, 'Цена в год, ' ~ sign, value = old('price_year_' ~ cur|lower, plan.prices.year[cur] is defined ? plan.prices.year[cur] / 100 : '')) }}
+        {% endfor %}
     </div>
     {{ f.checkbox('is_public', 'Показывать на сайте и в сравнении тарифов', checked = old('is_public', plan.isPublic ? '1' : '') == '1') }}
     {% endif %}

@@ -86,6 +86,7 @@ use App\Http\Middleware\RequireStaffPermission;
 use App\Http\Controllers\Admin\BillingAdminController;
 use App\Http\Controllers\Admin\ImpersonationController;
 use App\Http\Controllers\Admin\OperationsController;
+use App\Http\Controllers\Admin\PaymentProvidersController;
 use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Admin\WorkspacesController;
 use App\Http\Middleware\DenyWhenImpersonating;
@@ -489,6 +490,8 @@ return static function (Router $router): void {
             $s->get('/plans', [BillingAdminController::class, 'plans'])->name('admin.plans')->middleware($can('finance.view'));
             $s->get('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'editPlan'])->middleware($can('plans.manage'));
             $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan'])->middleware($can('plans.manage'));
+            $s->get('/providers', [PaymentProvidersController::class, 'index'])->name('admin.providers')->middleware($can('providers.manage'));
+            $s->post('/providers/{code:[a-z]{3,16}}', [PaymentProvidersController::class, 'save'])->middleware($can('providers.manage'), [RateLimit::class, ['bucket' => 'admin-providers', 'max' => 60, 'seconds' => 3600]]);
             $s->get('/promo', [OperationsController::class, 'promo'])->name('admin.promo')->middleware($can('finance.view'));
             $s->get('/stats', [StatsController::class, 'publishing'])->name('admin.stats')->middleware($can('stats.view'));
             $s->get('/system', [StatsController::class, 'system'])->name('admin.system')->middleware($can('system.view'));
@@ -556,7 +559,7 @@ return static function (Router $router): void {
     $router->post('/webhooks/max/{secret:[A-Za-z0-9_-]{16,128}}', [MaxWebhookController::class, 'receive'])->withoutCsrf();
 
     // Payment providers call this for every payment event: authenticity is checked by the provider's gateway before anything is read.
-    $router->post('/webhooks/billing/{provider:[a-z]{3,12}}', [PaymentWebhookController::class, 'receive'])->withoutCsrf();
+    $router->post('/webhooks/billing/{provider:[a-z]{3,16}}', [PaymentWebhookController::class, 'receive'])->withoutCsrf();
 
     $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);
     // The payment page of the test provider (404 outside local/testing).
