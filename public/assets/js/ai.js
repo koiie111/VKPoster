@@ -24,13 +24,18 @@
         return all[0] || null;
     }
 
-    /** Platform and length limit of the first selected channel (the editor keeps its caps in data-caps). */
-    function target() {
-        var chip = document.querySelector('input[data-channel]:checked');
-        if (!chip) { return { platform: '', limit: 0 }; }
+    /** Platform, length limit and id of the channel being written for: the one whose tab is open, else the first selected (caps are in data-caps). */
+    function target(textarea) {
+        var chip = null;
+        var m = textarea && /^pf-(.+)-text$/.exec(textarea.id || '');
+        if (m && m[1] !== 'common') {
+            chip = document.querySelector('input[data-channel][value="' + m[1] + '"]');
+        }
+        chip = chip || document.querySelector('input[data-channel]:checked');
+        if (!chip) { return { platform: '', limit: 0, channel: '' }; }
         var limit = 0;
         try { limit = parseInt((JSON.parse(chip.getAttribute('data-caps') || '{}') || {}).maxText, 10) || 0; } catch (e) { limit = 0; }
-        return { platform: chip.getAttribute('data-platform') || '', limit: limit };
+        return { platform: chip.getAttribute('data-platform') || '', limit: limit, channel: chip.value || '' };
     }
 
     function setText(textarea, value) {
@@ -78,13 +83,14 @@
             if (run.disabled) { return; }
             var textarea = activeTextarea(root);
             reset();
-            var t = target();
+            var t = target(textarea);
             var body = new URLSearchParams();
             body.set('action', action());
             body.set('text', textarea ? textarea.value : '');
             body.set('brief', brief.value);
             body.set('platform', t.platform);
             body.set('limit', String(t.limit));
+            body.set('channel', t.channel);
             run.disabled = true;
             run.setAttribute('aria-busy', 'true');
             status.textContent = 'Ассистент думает…';
@@ -106,6 +112,7 @@
                 over.hidden = !data.over_limit;
                 result.hidden = false;
                 var parts = [];
+                if (data.style === 'channel') { parts.push('стиль канала «' + (data.style_channel || '') + '»'); } else if (data.style === 'workspace') { parts.push('голос бренда'); }
                 if (data.credits > 0) { parts.push('списано кредитов: ' + data.credits); }
                 if (data.credits_left !== null && data.credits_left !== undefined) { parts.push('осталось: ' + data.credits_left); }
                 status.textContent = parts.join(', ');

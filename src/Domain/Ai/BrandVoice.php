@@ -14,6 +14,7 @@ final class BrandVoice
     public const MAX_FORBIDDEN = 30;
     public const MAX_EXAMPLES = 3;
     public const MAX_EXAMPLE = 800;
+    public const MAX_RULES = 1500;
 
     /**
      * @param list<string> $forbidden
@@ -23,6 +24,8 @@ final class BrandVoice
         public readonly string $tone = '',
         public readonly array $forbidden = [],
         public readonly array $examples = [],
+        /** Free-form format rules: structure, length, emoji, signature, hashtags, links. */
+        public readonly string $rules = '',
     ) {
     }
 
@@ -52,17 +55,33 @@ final class BrandVoice
             }
         }
 
-        return new self($tone, $words, $examples);
+        $rules = is_string($data['rules'] ?? null) ? trim(mb_substr($data['rules'], 0, self::MAX_RULES)) : '';
+
+        return new self($tone, $words, $examples, $rules);
     }
 
     public function isEmpty(): bool
     {
-        return $this->tone === '' && $this->forbidden === [] && $this->examples === [];
+        return $this->tone === '' && $this->forbidden === [] && $this->examples === [] && $this->rules === '';
     }
 
-    /** @return array{tone: string, forbidden: list<string>, examples: list<string>} */
+    /**
+     * The style of one channel on top of the workspace's: the channel's tone and examples win when set, the format rules are added
+     * after the workspace's (the more specific ones come last), forbidden words of both apply.
+     */
+    public function withChannel(self $channel): self
+    {
+        return new self(
+            $channel->tone !== '' ? $channel->tone : $this->tone,
+            array_values(array_unique(array_merge($this->forbidden, $channel->forbidden))),
+            $channel->examples !== [] ? $channel->examples : $this->examples,
+            trim($this->rules . ($this->rules !== '' && $channel->rules !== '' ? "\n" : '') . $channel->rules),
+        );
+    }
+
+    /** @return array{tone: string, forbidden: list<string>, examples: list<string>, rules: string} */
     public function toArray(): array
     {
-        return ['tone' => $this->tone, 'forbidden' => $this->forbidden, 'examples' => $this->examples];
+        return ['tone' => $this->tone, 'forbidden' => $this->forbidden, 'examples' => $this->examples, 'rules' => $this->rules];
     }
 }

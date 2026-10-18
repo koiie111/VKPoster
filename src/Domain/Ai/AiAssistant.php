@@ -42,9 +42,10 @@ final class AiAssistant
     /**
      * @param string $platform `telegram|vk|max|instagram` or empty
      * @param int $limit characters the target network allows (0 = unknown)
+     * @param int|null $channelId internal id of a channel of this workspace (already checked by the caller): its style is added to the brand voice
      * @throws AiException
      */
-    public function run(WorkspaceContext $context, AiAction $action, string $text, string $brief, string $platform = '', int $limit = 0): AiAnswer
+    public function run(WorkspaceContext $context, AiAction $action, string $text, string $brief, string $platform = '', int $limit = 0, ?int $channelId = null): AiAnswer
     {
         $text = trim($text);
         $brief = trim($brief);
@@ -73,7 +74,8 @@ final class AiAssistant
             throw new AiException('no_credits', 'ИИ-кредиты закончились. Они обновятся в начале месяца; можно докупить пакет или перейти на тариф выше.', true);
         }
 
-        $request = (new PromptBuilder($this->config->int('ai.max_output_tokens', 1024)))->build($action, $this->settings->brandVoice($context->workspaceId), $text, $brief, $platform, $limit);
+        [$voice, $style] = $this->settings->effectiveVoice($context->workspaceId, $channelId);
+        $request = (new PromptBuilder($this->config->int('ai.max_output_tokens', 1024)))->build($action, $voice, $text, $brief, $platform, $limit);
         $started = microtime(true);
         try {
             $result = $provider->complete($request);
@@ -91,7 +93,7 @@ final class AiAssistant
         $this->credits->spend($context->workspaceId, $context->workspacePublicId, $cost, 'ai:' . $usageId);
         $this->analytics->track('ai_request', $context->userId, $context->workspaceId, ['action' => $action->value, 'own_key' => $own !== null ? 1 : 0]);
 
-        return new AiAnswer($answer, $cost, $limit > 0 && mb_strlen($answer) > $limit, $own !== null);
+        return new AiAnswer($answer, $cost, $limit > 0 && mb_strlen($answer) > $limit, $own !== null, $style);
     }
 
     /** Plain text only: no code fence around the answer, no control characters, bounded size. */

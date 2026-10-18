@@ -26,12 +26,38 @@
         <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/ai/voice">
             {{ csrf_field() }}
             {{ f.textarea('tone', 'Тон и стиль', value = voice.tone, rows = 3, max = 300, hint = 'Например: дружелюбно, на «вы», коротко, без восклицательных знаков.') }}
+            {{ f.textarea('rules', 'Правила и формат постов', value = voice.rules, rows = 4, max = 1500, hint = 'Например: начинаем с вопроса, 3 абзаца, в конце призыв, без хэштегов, подпись «— Команда Кофемании».') }}
             {{ f.textarea('forbidden', 'Запретные слова', value = voice.forbidden|join(', '), rows = 2, hint = 'Через запятую. Ассистент не будет их использовать.') }}
             {{ f.textarea('example_1', 'Пример поста 1', value = voice.examples[0] ?? '', rows = 3, max = 800, hint = 'До трёх ваших удачных постов: по ним ассистент уловит стиль.') }}
             {{ f.textarea('example_2', 'Пример поста 2', value = voice.examples[1] ?? '', rows = 3, max = 800) }}
             {{ f.textarea('example_3', 'Пример поста 3', value = voice.examples[2] ?? '', rows = 3, max = 800) }}
             <div>{{ f.button('Сохранить голос бренда', type = 'submit', icon = 'save') }}</div>
         </form>
+    </section>
+
+    <section class="card" id="channels" aria-labelledby="channels-title">
+        <h2 class="text-lg font-semibold" id="channels-title">Стиль по каналам</h2>
+        <p class="mt-1 text-sm text-muted">У каждого паблика или канала может быть свой стиль: правила, тон, запретные слова и примеры постов. Работая над постом для этого канала, ассистент держит его поверх общего голоса бренда: тон и примеры канала главнее, правила и запретные слова складываются.</p>
+        {% if channel_styles is empty %}
+            <p class="mt-4 text-sm text-muted">Каналов пока нет. <a class="font-medium text-primary-text underline underline-offset-2" href="{{ base }}/channels">Подключить канал</a></p>
+        {% endif %}
+        <div class="mt-4 flex flex-col gap-3">
+        {% for c in channel_styles %}
+            <details class="rounded-ctl border border-line p-4" id="ch-{{ c.id }}">
+                <summary class="flex min-h-11 cursor-pointer flex-wrap items-center gap-2 font-semibold">{{ c.name }} {{ d.platform_badge(c.platform) }} {% if c.has_style %}{{ d.badge('Свой стиль задан', 'success') }}{% else %}{{ d.badge('Общий голос бренда', 'neutral') }}{% endif %}</summary>
+                <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/ai/channels/{{ c.id }}">
+                    {{ csrf_field() }}
+                    {{ f.textarea('rules', 'Правила и формат постов', value = c.style.rules, rows = 4, max = 1500, id = 'rules-' ~ c.id, hint = 'Структура, длина, эмодзи, подпись, хэштеги, ссылки. Каждое правило с новой строки.') }}
+                    {{ f.textarea('tone', 'Тон и стиль', value = c.style.tone, rows = 2, max = 300, id = 'tone-' ~ c.id) }}
+                    {{ f.textarea('forbidden', 'Запретные слова', value = c.style.forbidden|join(', '), rows = 2, id = 'forbidden-' ~ c.id, hint = 'Через запятую; добавляются к запретным словам пространства.') }}
+                    {{ f.textarea('example_1', 'Пример поста 1', value = c.style.examples[0] ?? '', rows = 3, max = 800, id = 'ex1-' ~ c.id, hint = 'Вставьте до трёх удачных постов этого канала: ассистент перенимает их структуру и манеру.') }}
+                    {{ f.textarea('example_2', 'Пример поста 2', value = c.style.examples[1] ?? '', rows = 3, max = 800, id = 'ex2-' ~ c.id) }}
+                    {{ f.textarea('example_3', 'Пример поста 3', value = c.style.examples[2] ?? '', rows = 3, max = 800, id = 'ex3-' ~ c.id) }}
+                    <div class="flex flex-wrap items-center gap-3">{{ f.button('Сохранить стиль канала', type = 'submit', icon = 'save') }}<span class="text-sm text-muted">Пустые поля = канал использует общий голос бренда.</span></div>
+                </form>
+            </details>
+        {% endfor %}
+        </div>
     </section>
 
     <section class="card" id="own" aria-labelledby="own-title">

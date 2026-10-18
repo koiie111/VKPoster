@@ -240,12 +240,13 @@ return static function (Router $router): void {
             });
             $w->post('/team/transfer', [TeamController::class, 'transfer'])->middleware([Authorize::class, ['permission' => 'workspace.transfer']], DenyWhenImpersonating::class);
 
-            $w->group('', [[Authorize::class, ['permission' => 'workspace.settings']]], static function (Router $t): void {
+            $w->group('', [[Authorize::class, ['permission' => 'workspace.settings']]], static function (Router $t) use ($ulid): void {
                 $t->get('/settings', [SettingsController::class, 'show'])->name('workspace.settings');
                 $t->post('/settings', [SettingsController::class, 'update']);
                 // Stage 17: brand voice, own model (bring your own key), credits.
                 $t->get('/settings/ai', [\App\Http\Controllers\Ai\AiSettingsController::class, 'show'])->name('workspace.ai');
                 $t->post('/settings/ai/voice', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveVoice'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 30, 'seconds' => 600]]);
+                $t->post('/settings/ai/channels/{channelId:' . $ulid . '}', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveChannelStyle'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 60, 'seconds' => 600]]);
                 $t->post('/settings/ai/own', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveOwn'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 30, 'seconds' => 600]]);
             });
             $w->post('/delete', [SettingsController::class, 'delete'])->middleware([Authorize::class, ['permission' => 'workspace.delete']], DenyWhenImpersonating::class);

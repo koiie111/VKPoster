@@ -8,6 +8,7 @@ use App\Domain\Ai\AiAction;
 use App\Domain\Ai\AiAssistant;
 use App\Domain\Ai\AiCredits;
 use App\Domain\Ai\AiException;
+use App\Domain\Channel\ChannelRepository;
 use App\Http\WorkspaceRequest;
 use App\Kernel\Http\Request;
 use App\Kernel\Http\Response;
@@ -19,7 +20,7 @@ use App\Kernel\Http\Response;
  */
 final class AiController
 {
-    public function __construct(private readonly AiAssistant $assistant, private readonly AiCredits $credits)
+    public function __construct(private readonly AiAssistant $assistant, private readonly AiCredits $credits, private readonly ChannelRepository $channels)
     {
     }
 
@@ -31,6 +32,9 @@ final class AiController
             return Response::json(['ok' => false, 'message' => 'Неизвестное действие.'], 422);
         }
         $limit = WorkspaceRequest::text($request->input('limit'));
+        // The channel decides the writing style; it is looked up inside this workspace, so another workspace's channel is simply ignored.
+        $channelId = WorkspaceRequest::text($request->input('channel'));
+        $channel = $channelId === '' ? null : $this->channels->find($context, strtoupper($channelId));
         try {
             $answer = $this->assistant->run(
                 $context,
@@ -39,6 +43,7 @@ final class AiController
                 WorkspaceRequest::text($request->input('brief')),
                 WorkspaceRequest::text($request->input('platform')),
                 ctype_digit($limit) ? (int) $limit : 0,
+                $channel?->id,
             );
         } catch (AiException $e) {
             $status = match ($e->reason) {
@@ -59,6 +64,8 @@ final class AiController
             'credits' => $answer->credits,
             'over_limit' => $answer->overLimit,
             'credits_left' => $summary['left'],
+            'style' => $answer->style,
+            'style_channel' => $answer->style === 'channel' && $channel !== null ? $channel->displayName() : null,
         ]);
     }
 }

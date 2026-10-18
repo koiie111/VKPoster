@@ -41,7 +41,7 @@ final class PromptBuilder
             $system[] = 'The result must not exceed ' . $limit . ' characters.';
         }
         if (!$voice->isEmpty()) {
-            $system[] = 'Write in the brand voice described in <brand_voice>; never use the forbidden words.';
+            $system[] = 'Write in the brand voice described in <brand_voice>: follow its tone and format rules, imitate the structure and style of its example posts (never copy them), never use the forbidden words.';
         }
 
         $user = '';

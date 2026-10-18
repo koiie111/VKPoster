@@ -41,6 +41,55 @@ final class AiWorkspaceSettings
         );
     }
 
+    /** The style saved for one channel (empty when none). The channel must already be checked to belong to the workspace. */
+    public function channelStyle(int $workspaceId, int $channelId): BrandVoice
+    {
+        $row = $this->db->select('SELECT style_json FROM ai_channel_styles WHERE workspace_id = ? AND channel_id = ?', [$workspaceId, $channelId])[0] ?? null;
+        $data = $row === null ? null : json_decode((string) $row['style_json'], true);
+
+        return BrandVoice::fromArray(is_array($data) ? $data : []);
+    }
+
+    /** Saves a channel's style; an empty style removes it. */
+    public function saveChannelStyle(int $workspaceId, int $channelId, BrandVoice $style): void
+    {
+        if ($style->isEmpty()) {
+            $this->db->execute('DELETE FROM ai_channel_styles WHERE workspace_id = ? AND channel_id = ?', [$workspaceId, $channelId]);
+
+            return;
+        }
+        $this->db->execute(
+            'INSERT INTO ai_channel_styles (channel_id, workspace_id, style_json, updated_at) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE style_json = VALUES(style_json), updated_at = VALUES(updated_at)',
+            [$channelId, $workspaceId, json_encode($style->toArray(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), DbTime::format($this->clock->now())],
+        );
+    }
+
+    /**
+     * Channel ids (internal) that have a style, for the settings list.
+     *
+     * @return list<int>
+     */
+    public function styledChannels(int $workspaceId): array
+    {
+        return array_map(static fn (array $r): int => (int) $r['channel_id'], $this->db->select('SELECT channel_id FROM ai_channel_styles WHERE workspace_id = ?', [$workspaceId]));
+    }
+
+    /**
+     * What the assistant uses for a post: the workspace's brand voice with the channel's style on top.
+     *
+     * @return array{BrandVoice, string} the voice and where it came from (`channel`, `workspace`, `none`)
+     */
+    public function effectiveVoice(int $workspaceId, ?int $channelId): array
+    {
+        $workspace = $this->brandVoice($workspaceId);
+        $channel = $channelId === null ? new BrandVoice() : $this->channelStyle($workspaceId, $channelId);
+        if (!$channel->isEmpty()) {
+            return [$workspace->withChannel($channel), 'channel'];
+        }
+
+        return [$workspace, $workspace->isEmpty() ? 'none' : 'workspace'];
+    }
+
     /**
      * The workspace's own endpoint when it is switched on and complete.
      *

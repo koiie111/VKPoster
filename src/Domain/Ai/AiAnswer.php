@@ -12,6 +12,8 @@ final class AiAnswer
         public readonly int $credits,
         public readonly bool $overLimit,
         public readonly bool $ownKey,
+        /** Where the writing style came from: `channel`, `workspace` or `none`. */
+        public readonly string $style = 'none',
     ) {
     }
 }
