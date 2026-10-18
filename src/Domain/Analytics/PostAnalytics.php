@@ -56,7 +56,7 @@ final class PostAnalytics
                 $params = [...$params,...$postIds];
             }
             $rows = $this->db->select(
-                'SELECT p.id,p.public_id,p.post_id,p.channel_id,p.sent_at,c.title,c.platform,LEFT(po.base_text,200) AS
+                'SELECT p.id,p.public_id,p.post_id,p.channel_id,p.sent_at,c.title,c.platform,LEFT(po.base_text,201) AS
                 text,s.metrics_json,s.observed_at FROM publications p JOIN channels c ON c.id=p.channel_id AND
                 c.workspace_id=p.workspace_id JOIN posts po ON po.id=p.post_id AND po.workspace_id=p.workspace_id LEFT JOIN
                 post_stats_snapshots s ON s.id=(SELECT MAX(s2.id) FROM post_stats_snapshots s2 WHERE s2.workspace_id=p.workspace_id AND
@@ -90,7 +90,10 @@ final class PostAnalytics
                 PostMetrics::counter($m['shares'] ?? null)
             );
             $time = (DbTime::parse($r['sent_at']) ?? throw new \LogicException('Missing publication date.'))->setTimezone($zone);
-            $post = $r + ['metrics' => $metrics->toArray(),
+            $excerpt = ReportExcerpt::fromText((string) $r['text']);
+            // Keep the existing dashboard/CSV text bound; PDF gets an explicit word-safe excerpt.
+            $r['text'] = mb_substr((string) $r['text'], 0, 200);
+            $post = $r + ['excerpt' => $excerpt, 'metrics' => $metrics->toArray(),
                 'er' => $metrics->er(),
                 'local_date' => $time->format('Y-m-d'),
                 'weekday' => (int)$time->format('N'),

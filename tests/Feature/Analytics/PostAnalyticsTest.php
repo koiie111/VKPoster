@@ -159,4 +159,16 @@ final class PostAnalyticsTest extends BillingTestCase
         self::assertSame(503, $this->get($url)->status);
     }
 
+    public function testReportPdfExcerptDoesNotEndInTheMiddleOfAWord(): void
+    {
+        [$ctx, $post] = $this->fixture();
+        $text = str_repeat('Длинная публикация о технологиях и психологии. ', 30);
+        $this->db->execute('UPDATE posts SET base_text=? WHERE id=?', [$text, $post->id]);
+        $report = $this->report()->report($ctx);
+        self::assertSame(mb_substr($text, 0, 200), $report['posts'][0]['text']);
+        self::assertSame(\App\Domain\Analytics\ReportExcerpt::fromText($text), $report['posts'][0]['excerpt']);
+        self::assertStringEndsWith('…', $report['posts'][0]['excerpt']);
+        self::assertLessThanOrEqual(200, mb_strlen($report['posts'][0]['excerpt']));
+    }
+
 }
