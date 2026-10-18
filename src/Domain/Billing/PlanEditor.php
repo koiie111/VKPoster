@@ -10,7 +10,7 @@ use App\Support\Clock;
 use App\Support\DbTime;
 
 /**
- * Changes of the price list made by the owner in the admin area: name, visibility, prices (rubles per month and per year),
+ * Changes of the price list made by the owner in the admin area: name, visibility, prices (rubles, dollars, euros or stars, per month and per year),
  * limits and the features a plan switches on. Takes effect for new payments at once; what a customer has already paid is not touched
  * (a subscription keeps its own `price_amount`).
  */
@@ -40,6 +40,9 @@ final class PlanEditor
         'white_label' => 'Свой бренд',
     ];
 
+    /** Currencies a plan can be priced in; the checkout offers those that a switched-on payment provider takes. */
+    public const CURRENCIES = ['RUB' => 'рубли', 'USD' => 'доллары', 'EUR' => 'евро', 'XTR' => 'звёзды Telegram'];
+
     private const MAX_LIMIT = 1_000_000_000;
 
     public function __construct(
@@ -60,17 +63,22 @@ final class PlanEditor
         if (mb_strlen($name) < 2 || mb_strlen($name) > 50) {
             $errors[] = 'Название должно быть от 2 до 50 символов.';
         }
+        // Prices by currency and period, in the unit the form shows (rubles, dollars, euros, whole stars); stored as ×100 like all money.
         $prices = [];
-        foreach (['month' => 'в месяц', 'year' => 'в год'] as $period => $label) {
-            $raw = trim(str_replace([' ', "\u{00A0}"], '', (string) ($input['price_' . $period] ?? '')));
-            if ($plan->isFree() || $raw === '') {
-                continue;
+        foreach (self::CURRENCIES as $currency => $currencyLabel) {
+            foreach (['month' => 'в месяц', 'year' => 'в год'] as $period => $label) {
+                $field = 'price_' . $period . ($currency === 'RUB' ? '' : '_' . strtolower($currency));
+                $raw = trim(str_replace([' ', "\u{00A0}"], '', (string) ($input[$field] ?? '')));
+                if ($plan->isFree() || $raw === '') {
+                    continue;
+                }
+                $pattern = $currency === 'XTR' ? '/^\d{1,5}$/' : '/^\d{1,7}([.,]\d{1,2})?$/';
+                if (preg_match($pattern, $raw) !== 1 || (float) str_replace(',', '.', $raw) <= 0) {
+                    $errors[] = 'Цена ' . $label . ' (' . $currencyLabel . ') должна быть положительным ' . ($currency === 'XTR' ? 'целым числом звёзд.' : 'числом.');
+                    continue;
+                }
+                $prices[$currency][$period] = (int) round((float) str_replace(',', '.', $raw) * 100);
             }
-            if (preg_match('/^\d{1,7}([.,]\d{1,2})?$/', $raw) !== 1 || (float) str_replace(',', '.', $raw) <= 0) {
-                $errors[] = 'Цена ' . $label . ' должна быть положительным числом в рублях.';
-                continue;
-            }
-            $prices[$period] = (int) round((float) str_replace(',', '.', $raw) * 100);
         }
         if (!$plan->isFree() && $prices === []) {
             $errors[] = 'Укажите хотя бы одну цену: платный тариф без цены нельзя купить.';
@@ -105,17 +113,19 @@ final class PlanEditor
                 'features_json' => json_encode($features, JSON_THROW_ON_ERROR),
                 'updated_at' => DbTime::format($this->clock->now()),
             ]);
-            foreach (['month', 'year'] as $period) {
-                $this->db->execute('DELETE FROM plan_prices WHERE plan_id = ? AND period = ? AND currency = ?', [$plan->id, $period, 'RUB']);
-                if (isset($prices[$period])) {
-                    $this->db->table('plan_prices')->insert(['plan_id' => $plan->id, 'period' => $period, 'currency' => 'RUB', 'amount' => $prices[$period]]);
+            foreach (array_keys(self::CURRENCIES) as $currency) {
+                foreach (['month', 'year'] as $period) {
+                    $this->db->execute('DELETE FROM plan_prices WHERE plan_id = ? AND period = ? AND currency = ?', [$plan->id, $period, $currency]);
+                    if (isset($prices[$currency][$period])) {
+                        $this->db->table('plan_prices')->insert(['plan_id' => $plan->id, 'period' => $period, 'currency' => $currency, 'amount' => $prices[$currency][$period]]);
+                    }
                 }
             }
         });
         // The history of a price list: what it was and what it became, in the words of the plan form (money in kopecks, limits as typed).
         $this->audit->record('admin.plan_updated', $actorId, 'plan', $plan->code, [
-            'before' => json_encode(['name' => $plan->name, 'month' => $plan->priceFor(BillingPeriod::Month), 'year' => $plan->priceFor(BillingPeriod::Year), 'public' => $plan->isPublic, 'limits' => $plan->limits, 'features' => $plan->features], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-            'after' => json_encode(['name' => $name, 'month' => $prices['month'] ?? null, 'year' => $prices['year'] ?? null, 'public' => ($input['is_public'] ?? '') === '1' || $plan->isFree(), 'limits' => $limits, 'features' => $features], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            'before' => json_encode(['name' => $plan->name, 'month' => $plan->priceFor(BillingPeriod::Month), 'year' => $plan->priceFor(BillingPeriod::Year), 'other_prices' => $plan->prices, 'public' => $plan->isPublic, 'limits' => $plan->limits, 'features' => $plan->features], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            'after' => json_encode(['name' => $name, 'month' => $prices['RUB']['month'] ?? null, 'year' => $prices['RUB']['year'] ?? null, 'other_prices' => $prices, 'public' => ($input['is_public'] ?? '') === '1' || $plan->isFree(), 'limits' => $limits, 'features' => $features], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         ]);
 
         return [];

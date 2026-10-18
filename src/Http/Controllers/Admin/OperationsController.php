@@ -18,7 +18,7 @@ use App\Kernel\Http\Response;
 use App\Kernel\View\View;
 
 /**
- * Admin: the queue and failed jobs (retry, discard), channel health by network, the platform switches and the status notices, the promo codes stub.
+ * Admin: the queue and failed jobs (retry, discard), channel health by network, the platform switches and the status notices.
  */
 final class OperationsController
 {
@@ -117,10 +117,5 @@ final class OperationsController
         $this->flash->toast('Сохранено. Изменения действуют сразу.');
 
         return Response::redirect('/admin/platforms');
-    }
-
-    public function promo(): Response
-    {
-        return $this->view->response('admin/promo.twig');
     }
 }

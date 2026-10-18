@@ -86,6 +86,13 @@ use App\Http\Middleware\RequireStaffPermission;
 use App\Http\Controllers\Admin\BillingAdminController;
 use App\Http\Controllers\Admin\ImpersonationController;
 use App\Http\Controllers\Admin\OperationsController;
+use App\Http\Controllers\Account\ReferralController as AccountReferralController;
+use App\Http\Controllers\ReferralLinkController;
+use App\Http\Middleware\AttributeReferral;
+use App\Http\Controllers\Admin\AddonsAdminController;
+use App\Http\Controllers\Admin\PaymentProvidersController;
+use App\Http\Controllers\Admin\ReferralAdminController;
+use App\Http\Controllers\Admin\PromoAdminController;
 use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Admin\WorkspacesController;
 use App\Http\Middleware\DenyWhenImpersonating;
@@ -115,6 +122,7 @@ return static function (Router $router): void {
     $router->post('/internal/source-events', [SourceReaderController::class, 'event'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-reader-events', 'max' => 600, 'seconds' => 60]]);
 
     // Public site: legal documents, the knowledge base, the status of the networks, and what search engines may read.
+    $router->get('/r/{code:[A-Za-z0-9]{4,12}}', [ReferralLinkController::class, 'follow'])->name('referral.link')->middleware([RateLimit::class, ['bucket' => 'referral-link', 'max' => 120, 'seconds' => 600]]);
     $router->get('/legal/{slug:[a-z]{3,20}}', [LegalController::class, 'show'])->name('legal.show')->middleware(OptionalAuthenticate::class);
     $router->get('/help', [HelpController::class, 'index'])->name('help')->middleware(OptionalAuthenticate::class);
     $router->get('/help/{slug:[a-z0-9-]{1,60}}', [HelpController::class, 'show'])->name('help.show')->middleware(OptionalAuthenticate::class);
@@ -159,7 +167,7 @@ return static function (Router $router): void {
     $router->post('/email/change/' . $token, [SecurityController::class, 'emailConfirm'])->middleware([RateLimit::class, ['bucket' => 'email-change', 'max' => 20, 'seconds' => 3600]]);
 
     // Signed in; the email may still be unconfirmed.
-    $router->group('', [Authenticate::class], static function (Router $r) use ($provider): void {
+    $router->group('', [Authenticate::class, AttributeReferral::class], static function (Router $r) use ($provider): void {
         $r->post('/logout', [LoginController::class, 'logout'])->name('logout');
         $r->post('/logout/all', [LoginController::class, 'logoutAll'])->name('logout.all')->middleware(DenyWhenImpersonating::class);
         $r->post('/impersonation/stop', [ImpersonationController::class, 'stop']);
@@ -180,6 +188,8 @@ return static function (Router $router): void {
             $a->post('/account/login-methods/password', [LoginMethodsController::class, 'setPassword'])->middleware([RateLimit::class, ['bucket' => 'set-password', 'max' => 10, 'seconds' => 600]]);
             $a->post('/account/login-methods/' . $provider . '/link', [LoginMethodsController::class, 'link']);
             $a->post('/account/login-methods/' . $provider . '/unlink', [LoginMethodsController::class, 'unlink']);
+            $a->get('/account/referrals', [AccountReferralController::class, 'show'])->name('account.referrals');
+            $a->post('/account/referrals/withdraw', [AccountReferralController::class, 'withdraw'])->middleware([RateLimit::class, ['bucket' => 'referral-withdraw', 'max' => 10, 'seconds' => 3600]]);
             $a->get('/account/notifications', [NotificationController::class, 'show'])->name('account.notifications');
             $a->post('/account/notifications', [NotificationController::class, 'save']);
             $a->post('/account/notifications/marketing', [NotificationController::class, 'saveMarketing']);
@@ -200,7 +210,7 @@ return static function (Router $router): void {
 
     // The application itself needs a confirmed email.
     $ulid = '[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}';
-    $router->group('', [Authenticate::class, RequireVerifiedEmail::class, RequireConsent::class], static function (Router $r) use ($token, $ulid): void {
+    $router->group('', [Authenticate::class, AttributeReferral::class, RequireVerifiedEmail::class, RequireConsent::class], static function (Router $r) use ($token, $ulid): void {
         $r->get('/app', [AppController::class, 'dashboard'])->name('app');
         $r->get('/workspaces/new', [WorkspaceController::class, 'create'])->name('workspace.new');
         // VK ID sends the browser back here (a fixed address registered in the VK application); the controller checks the workspace and the right.
@@ -239,6 +249,8 @@ return static function (Router $router): void {
             $w->group('/billing', [[Authorize::class, ['permission' => 'workspace.billing']], DenyWhenImpersonating::class], static function (Router $b) use ($ulid): void {
                 $b->get('', [BillingController::class, 'overview'])->name('workspace.billing');
                 $b->get('/plans', [BillingController::class, 'plans'])->name('workspace.billing.plans');
+                $b->get('/addons', [BillingController::class, 'addons'])->name('workspace.billing.addons');
+                $b->post('/addons/checkout', [BillingController::class, 'addonCheckout'])->middleware([RateLimit::class, ['bucket' => 'billing-checkout', 'max' => 20, 'seconds' => 3600]]);
                 $b->post('/checkout', [BillingController::class, 'checkout'])->middleware([RateLimit::class, ['bucket' => 'billing-checkout', 'max' => 20, 'seconds' => 3600]]);
                 $b->get('/pay/{paymentId:' . $ulid . '}', [BillingController::class, 'pay'])->middleware([RateLimit::class, ['bucket' => 'billing-pay', 'max' => 60, 'seconds' => 3600]]);
                 $b->get('/return', [BillingController::class, 'returned'])->middleware([RateLimit::class, ['bucket' => 'billing-return', 'max' => 120, 'seconds' => 600]]);
@@ -497,7 +509,17 @@ return static function (Router $router): void {
             $s->get('/plans', [BillingAdminController::class, 'plans'])->name('admin.plans')->middleware($can('finance.view'));
             $s->get('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'editPlan'])->middleware($can('plans.manage'));
             $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan'])->middleware($can('plans.manage'));
-            $s->get('/promo', [OperationsController::class, 'promo'])->name('admin.promo')->middleware($can('finance.view'));
+            $s->get('/providers', [PaymentProvidersController::class, 'index'])->name('admin.providers')->middleware($can('providers.manage'));
+            $s->post('/providers/{code:[a-z]{3,16}}', [PaymentProvidersController::class, 'save'])->middleware($can('providers.manage'), [RateLimit::class, ['bucket' => 'admin-providers', 'max' => 60, 'seconds' => 3600]]);
+            $s->get('/addons', [AddonsAdminController::class, 'index'])->name('admin.addons')->middleware($can('finance.view'));
+            $s->post('/addons', [AddonsAdminController::class, 'save'])->middleware($can('plans.manage'));
+            $s->get('/referrals', [ReferralAdminController::class, 'index'])->name('admin.referrals')->middleware($can('finance.view'));
+            $s->post('/referrals/settings', [ReferralAdminController::class, 'saveSettings'])->middleware($can('finance.manage'));
+            $s->post('/referrals/payouts/{id:[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}}/{action:paid|reject}', [ReferralAdminController::class, 'payout'])->middleware($can('finance.manage'), [RateLimit::class, ['bucket' => 'admin-payout', 'max' => 60, 'seconds' => 3600]]);
+            $s->post('/referrals/{id:[0-9]{1,12}}/{action:approve|reject}', [ReferralAdminController::class, 'decide'])->middleware($can('finance.manage'));
+            $s->get('/promo', [PromoAdminController::class, 'index'])->name('admin.promo')->middleware($can('finance.view'));
+            $s->post('/promo', [PromoAdminController::class, 'create'])->middleware($can('finance.manage'));
+            $s->post('/promo/{id:[0-9]{1,12}}/toggle', [PromoAdminController::class, 'toggle'])->middleware($can('finance.manage'));
             $s->get('/stats', [StatsController::class, 'publishing'])->name('admin.stats')->middleware($can('stats.view'));
             $s->get('/system', [StatsController::class, 'system'])->name('admin.system')->middleware($can('system.view'));
             $s->get('/queues', [OperationsController::class, 'queues'])->name('admin.queues')->middleware($can('system.view'));
@@ -564,7 +586,7 @@ return static function (Router $router): void {
     $router->post('/webhooks/max/{secret:[A-Za-z0-9_-]{16,128}}', [MaxWebhookController::class, 'receive'])->withoutCsrf();
 
     // Payment providers call this for every payment event: authenticity is checked by the provider's gateway before anything is read.
-    $router->post('/webhooks/billing/{provider:[a-z]{3,12}}', [PaymentWebhookController::class, 'receive'])->withoutCsrf();
+    $router->post('/webhooks/billing/{provider:[a-z]{3,16}}', [PaymentWebhookController::class, 'receive'])->withoutCsrf();
 
     $router->get('/dev/login-as/{id:[^/]+}', [DevLoginController::class, 'loginAs']);
     // The payment page of the test provider (404 outside local/testing).

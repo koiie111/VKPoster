@@ -14,7 +14,7 @@ final class WebhookMask
     public const MASK = '[скрыто]';
     public const LIMIT = 8000;
 
-    private const SECRET_KEY = '/(password|passwd|secret|token|signature|authorization|cookie|api[_-]?key|card|pan|cvc|cvv|email|phone|customer|receipt|payer|account|ip)/i';
+    private const SECRET_KEY = '/(password|passwd|secret|token|signature|authorization|cookie|api[_-]?key|card|pan|cvc|cvv|email|phone|customer|receipt|payer|account|ip|^sign$|hmac)/i';
 
     public static function apply(string $body): string
     {

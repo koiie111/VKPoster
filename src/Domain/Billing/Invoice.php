@@ -32,6 +32,9 @@ final class Invoice
         public readonly DateTimeImmutable $createdAt,
         public readonly ?DateTimeImmutable $paidAt,
         public readonly DateTimeImmutable $expiresAt,
+        public readonly int $discount = 0,
+        public readonly ?int $promoCodeId = null,
+        public readonly ?int $addonPackageId = null,
     ) {
     }
 }

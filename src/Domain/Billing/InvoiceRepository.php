@@ -33,9 +33,12 @@ final class InvoiceRepository
         DateTimeImmutable $periodStart,
         DateTimeImmutable $periodEnd,
         DateTimeImmutable $expiresAt,
+        int $discount = 0,
+        ?int $promoCodeId = null,
+        ?int $addonPackageId = null,
     ): Invoice {
         $publicId = (string) new Ulid();
-        $this->db->transaction(function (Connection $db) use ($workspaceId, $subscriptionId, $planId, $period, $kind, $amount, $listPrice, $currency, $description, $customerEmail, $periodStart, $periodEnd, $expiresAt, $publicId): void {
+        $this->db->transaction(function (Connection $db) use ($workspaceId, $subscriptionId, $planId, $period, $kind, $amount, $listPrice, $currency, $description, $customerEmail, $periodStart, $periodEnd, $expiresAt, $publicId, $discount, $promoCodeId, $addonPackageId): void {
             // The number is built from the row id (gap-free per table, readable on a receipt); the public id stands in until then.
             $id = (int) $db->table('invoices')->insert([
                 'public_id' => $publicId,
@@ -47,6 +50,9 @@ final class InvoiceRepository
                 'kind' => $kind->value,
                 'amount' => $amount,
                 'list_price' => $listPrice,
+                'discount' => $discount,
+                'promo_code_id' => $promoCodeId,
+                'addon_package_id' => $addonPackageId,
                 'currency' => $currency,
                 'status' => InvoiceStatus::Open->value,
                 'description' => mb_substr($description, 0, 255),
@@ -174,6 +180,9 @@ final class InvoiceRepository
             DbTime::parse($row['created_at']) ?? new DateTimeImmutable('@0'),
             DbTime::parse($row['paid_at'] ?? null),
             DbTime::parse($row['expires_at']) ?? new DateTimeImmutable('@0'),
+            (int) ($row['discount'] ?? 0),
+            isset($row['promo_code_id']) ? (int) $row['promo_code_id'] : null,
+            isset($row['addon_package_id']) ? (int) $row['addon_package_id'] : null,
         );
     }
 }

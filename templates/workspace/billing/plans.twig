@@ -12,15 +12,23 @@
     {% if is_trial %}{{ d.alert('info', 'Сейчас у вас пробный период', 'Он закончится ' ~ trial_ends ~ '. Если выбрать тариф сейчас, оплаченный срок начнётся сегодня, остаток пробного периода не переносится.') }}{% endif %}
 
     <nav aria-label="Срок оплаты" class="flex flex-wrap items-center gap-2">
-        <a class="btn btn-sm {{ period == 'month' ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/plans?period=month"{% if period == 'month' %} aria-current="true"{% endif %}>Платить помесячно</a>
-        <a class="btn btn-sm {{ period == 'year' ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/plans?period=year"{% if period == 'year' %} aria-current="true"{% endif %}>Платить за год{% if year_saving %} (выгода до {{ year_saving }}%){% endif %}</a>
+        <a class="btn btn-sm {{ period == 'month' ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/plans?period=month&currency={{ currency }}"{% if period == 'month' %} aria-current="true"{% endif %}>Платить помесячно</a>
+        <a class="btn btn-sm {{ period == 'year' ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/plans?period=year&currency={{ currency }}"{% if period == 'year' %} aria-current="true"{% endif %}>Платить за год{% if year_saving %} (выгода до {{ year_saving }}%){% endif %}</a>
     </nav>
+
+    {% if currencies %}
+    <nav aria-label="Валюта" class="flex flex-wrap items-center gap-2">
+        <span class="text-sm text-muted">Валюта:</span>
+        {% for c in currencies %}<a class="btn btn-sm {{ currency == c.code ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/plans?period={{ period }}&currency={{ c.code }}"{% if currency == c.code %} aria-current="true"{% endif %}>{{ c.label }}</a>{% endfor %}
+    </nav>
+    {% endif %}
 
     {% if not gateways %}{{ d.alert('warning', 'Оплата пока не подключена', 'Приём платежей ещё настраивается. Загляните позже или напишите нам.') }}{% endif %}
 
     <form method="post" action="{{ base }}/checkout" class="flex flex-col gap-6">
         {{ csrf_field() }}
         <input type="hidden" name="period" value="{{ period }}">
+        <input type="hidden" name="currency" value="{{ currency }}">
         <ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {% for c in cards %}
             <li class="card flex flex-col{{ c.is_current ? ' ring-2 ring-primary' : '' }}">
@@ -44,7 +52,8 @@
             <h2 class="text-lg font-semibold" aria-hidden="true">Как оплатить</h2>
             <div class="mt-3 flex flex-col gap-3">
                 {% for name, label in gateways %}{{ f.radio('gateway', label, name, loop.first) }}{% endfor %}
-                {{ f.checkbox('keep_card', 'Продлевать автоматически', true, '1', 'Мы сохраним способ оплаты у платёжной системы и спишем деньги в конце срока. Отключить можно в любой момент. Номер карты мы не видим и не храним.') }}
+                {{ f.input('promo', 'Промокод', id = 'promo-code', hint = 'Если есть. Скидка появится в сумме к оплате; бесплатные дни включаются сразу.', attrs = {maxlength: 32}, autocomplete = 'off') }}
+                {{ f.checkbox('keep_card', 'Продлевать автоматически', true, '1', 'Мы сохраним способ оплаты у платёжной системы и спишем деньги в конце срока (там, где это возможно). Отключить можно в любой момент. Номер карты мы не видим и не храним.') }}
             </div>
         </fieldset>
         {% endif %}

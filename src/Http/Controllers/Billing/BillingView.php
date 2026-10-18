@@ -25,6 +25,8 @@ use App\Domain\Billing\SubscriptionStatus;
 use App\Domain\Media\MediaPresenter;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Payments\GatewayRegistry;
+use App\Domain\Billing\AddonRepository;
+use App\Domain\Billing\Referral\ReferralService;
 use App\Kernel\Config;
 use App\Support\Clock;
 use App\Support\Money;
@@ -49,6 +51,8 @@ final class BillingView
         private readonly GatewayRegistry $gateways,
         private readonly Config $config,
         private readonly Clock $clock,
+        private readonly AddonRepository $addons,
+        private readonly ReferralService $referrals,
     ) {
     }
 
@@ -147,14 +151,26 @@ final class BillingView
     /**
      * @return array<string, mixed>
      */
-    public function plans(WorkspaceContext $context, BillingPeriod $period): array
+    public function plans(WorkspaceContext $context, BillingPeriod $period, string $askedCurrency = ''): array
     {
         $now = $this->clock->now();
         $zone = new DateTimeZone($context->timezone);
         $subscription = $this->subscriptions->ensure($context->workspaceId);
         $current = $this->plans->find($subscription->planId) ?? $this->plans->free();
-        $currency = $this->config->string('billing.currency', 'RUB');
         $public = array_values(array_filter($this->plans->all(), static fn (Plan $p): bool => $p->isPublic));
+        $available = $this->gateways->available();
+        // Currencies the customer can pay in: those a switched-on provider takes and some plan has a price in.
+        $currencies = [];
+        foreach ($available as $gateway) {
+            foreach ($gateway->currencies() as $code) {
+                if (!in_array($code, $currencies, true) && array_filter($public, static fn (Plan $p): bool => $p->priceFor(BillingPeriod::Month, $code) !== null || $p->priceFor(BillingPeriod::Year, $code) !== null) !== []) {
+                    $currencies[] = $code;
+                }
+            }
+        }
+        $paidIn = $subscription->hasPaidPeriod() && $subscription->currentPeriodEnd !== null && $subscription->currentPeriodEnd > $now ? $subscription->currency : null;
+        $default = $this->config->string('billing.currency', 'RUB');
+        $currency = $paidIn ?? (in_array(strtoupper($askedCurrency), $currencies, true) ? strtoupper($askedCurrency) : (in_array($default, $currencies, true) || $currencies === [] ? $default : $currencies[0]));
 
         $cards = [];
         foreach ($public as $plan) {
@@ -164,11 +180,11 @@ final class BillingView
                 'name' => $plan->name,
                 'is_current' => $plan->id === $current->id,
                 'free' => $plan->isFree(),
-                'price' => $plan->isFree() ? '0 ₽' : ($price === null ? null : Money::format($price, $currency)),
+                'price' => $plan->isFree() ? Money::format(0, $currency) : ($price === null ? null : Money::format($price, $currency)),
                 'per' => $plan->isFree() ? 'навсегда' : $period->perLabel(),
                 'monthly' => !$plan->isFree() && $period === BillingPeriod::Year && $price !== null ? 'около ' . Money::format((int) round($price / 1200) * 100, $currency) . ' в месяц' : null,
                 'highlights' => PlanPresenter::highlights($plan),
-                'action' => $this->action($context, $subscription, $current, $plan, $period, $zone),
+                'action' => $this->action($context, $subscription, $current, $plan, $period, $zone, $currency),
             ];
         }
         $yearSaving = null;
@@ -181,8 +197,15 @@ final class BillingView
         }
 
         $gateways = [];
-        foreach ($this->gateways->available() as $gateway) {
-            $gateways[$gateway->name()] = $gateway->label();
+        foreach ($available as $gateway) {
+            if (in_array($currency, $gateway->currencies(), true)) {
+                $gateways[$gateway->name()] = $gateway->label() . ($gateway->supportsRecurring() ? '' : ' (продление вручную)');
+            }
+        }
+
+        $balance = $currency === 'RUB' ? $this->referrals->balance($context->userId) : 0;
+        if ($balance > 0) {
+            $gateways['balance'] = 'Реферальный баланс (' . Money::format($balance) . ')';
         }
 
         return [
@@ -193,8 +216,53 @@ final class BillingView
             'period' => $period->value,
             'year_saving' => $yearSaving,
             'gateways' => $gateways,
+            'currency' => $currency,
+            'currencies' => $paidIn !== null ? [] : array_map(static fn (string $code): array => ['code' => $code, 'label' => Money::symbol($code)], count($currencies) > 1 ? $currencies : []),
             'is_trial' => $subscription->isTrial(),
             'trial_ends' => $subscription->trialEndsAt === null ? null : self::day($subscription->trialEndsAt->setTimezone($zone)),
+        ];
+    }
+
+    /**
+     * The add-on packages the workspace can buy now, in the currency of its paid period, with how to pay and what it already has.
+     *
+     * @return array<string, mixed>
+     */
+    public function addons(WorkspaceContext $context): array
+    {
+        $subscription = $this->subscriptions->ensure($context->workspaceId);
+        $currency = $subscription->currency;
+        $current = $this->plans->find($subscription->planId) ?? $this->plans->free();
+        $canBuy = !$current->isFree() && !$subscription->isTrial() && $subscription->hasPaidPeriod();
+        $packages = [];
+        foreach ($this->addons->all(true) as $package) {
+            $price = $package->priceFor($currency);
+            if ($price !== null) {
+                $packages[] = ['code' => $package->code, 'name' => $package->name, 'summary' => $package->summary(), 'price' => Money::format($price, $currency)];
+            }
+        }
+        $gateways = [];
+        foreach ($this->gateways->available() as $gateway) {
+            if (in_array($currency, $gateway->currencies(), true)) {
+                $gateways[$gateway->name()] = $gateway->label();
+            }
+        }
+        $balance = $currency === 'RUB' ? $this->referrals->balance($context->userId) : 0;
+        if ($balance > 0) {
+            $gateways['balance'] = 'Реферальный баланс (' . Money::format($balance) . ')';
+        }
+        $now = $this->clock->now();
+        $zone = new DateTimeZone($context->timezone);
+
+        return [
+            'workspace' => $context,
+            'can_buy' => $canBuy,
+            'packages' => $packages,
+            'gateways' => $gateways,
+            'currency' => $currency,
+            'active' => array_map(static fn (array $a): array => ['name' => $a['package'], 'until' => self::day($a['valid_until']->setTimezone($zone))], $this->addons->active($context->workspaceId)),
+            'base' => '/w/' . $context->workspacePublicId . '/billing',
+            'today' => self::day($now->setTimezone($zone)),
         ];
     }
 
@@ -203,7 +271,7 @@ final class BillingView
      *
      * @return array{label: string, note: string|null, disabled: bool, primary: bool}
      */
-    private function action(WorkspaceContext $context, Subscription $subscription, Plan $current, Plan $plan, BillingPeriod $period, DateTimeZone $zone): array
+    private function action(WorkspaceContext $context, Subscription $subscription, Plan $current, Plan $plan, BillingPeriod $period, DateTimeZone $zone, string $currency): array
     {
         if ($plan->isFree()) {
             if ($current->isFree()) {
@@ -212,11 +280,11 @@ final class BillingView
 
             return ['label' => 'Бесплатный тариф', 'note' => $subscription->isTrial() ? 'Пробный период закончится сам, и пространство перейдёт на Free.' : 'Чтобы вернуться на Free, отключите автопродление: тариф доработает до конца срока.', 'disabled' => true, 'primary' => false];
         }
-        if ($plan->priceFor($period, $this->config->string('billing.currency', 'RUB')) === null) {
+        if ($plan->priceFor($period, $currency) === null) {
             return ['label' => 'Нет цены на этот срок', 'note' => null, 'disabled' => true, 'primary' => false];
         }
         try {
-            $quote = $this->billing->quote($context->workspaceId, $plan->code, $period);
+            $quote = $this->billing->quote($context->workspaceId, $plan->code, $period, $currency);
         } catch (BillingException $e) {
             $same = $plan->id === $current->id;
 

@@ -45,6 +45,9 @@ final class PriceCalculator
             return $this->fresh($target, $period, $price, $currency, $now);
         }
 
+        if ($subscription->currency !== $currency) {
+            throw new BillingException('Текущий период оплачен в другой валюте (' . $subscription->currency . '). Сменить тариф или оплатить заново в другой валюте можно после его окончания, а пока оплачивайте тем же способом.');
+        }
         if ($current->id === $target->id && $currentPeriod === $period) {
             $window = $end->modify(sprintf('-%d days', $this->renewalLeadDays));
             if ($now < $window && $subscription->status !== SubscriptionStatus::PastDue) {

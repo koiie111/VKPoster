@@ -42,6 +42,41 @@ final class Ledger
     }
 
     /**
+     * Post one balanced transaction of any shape (referral bonuses, withdrawals). The reference `(refType, refId)` makes it idempotent:
+     * the second call with the same pair writes nothing and answers false.
+     *
+     * @param list<array{code: string, name: string, kind: string, amount: int}> $legs debits positive, credits negative; must sum to zero
+     */
+    public function post(string $refType, string $refId, string $memo, string $currency, array $legs): bool
+    {
+        if (array_sum(array_column($legs, 'amount')) !== 0 || count($legs) < 2) {
+            throw new \InvalidArgumentException('A ledger transaction must balance.');
+        }
+
+        return $this->db->transaction(function (Connection $db) use ($refType, $refId, $memo, $currency, $legs): bool {
+            if ($db->table('ledger_entries')->where('ref_type', '=', $refType)->where('ref_id', '=', $refId)->exists()) {
+                return false;
+            }
+            $txn = (string) new Ulid();
+            $now = DbTime::format($this->clock->now());
+            foreach ($legs as $leg) {
+                $db->table('ledger_entries')->insert([
+                    'txn_id' => $txn,
+                    'account_id' => $this->account($db, $leg['code'], $leg['name'], $leg['kind'], $currency),
+                    'amount' => $leg['amount'],
+                    'currency' => $currency,
+                    'ref_type' => $refType,
+                    'ref_id' => mb_substr($refId, 0, 64),
+                    'memo' => mb_substr($memo, 0, 255),
+                    'created_at' => $now,
+                ]);
+            }
+
+            return true;
+        });
+    }
+
+    /**
      * Sum of the entries of an account (0 for an account that does not exist yet).
      */
     public function balance(string $code): int

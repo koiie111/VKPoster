@@ -18,7 +18,7 @@ use DateTimeZone;
  */
 final class ReceiptPdf
 {
-    private const PROVIDERS = ['yookassa' => 'ЮKassa', 'tbank' => 'Т-Банк', 'fake' => 'Тестовая оплата'];
+    private const PROVIDERS = ['yookassa' => 'ЮKassa', 'tbank' => 'Т-Банк', 'cloudpayments' => 'CloudPayments', 'stripe' => 'Stripe', 'paddle' => 'Paddle', 'crypto' => 'Криптовалюта', 'stars' => 'Telegram Stars', 'balance' => 'Реферальный баланс', 'fake' => 'Тестовая оплата'];
 
     public function __construct(private readonly Config $config)
     {

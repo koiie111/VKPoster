@@ -24,6 +24,16 @@ interface PaymentGateway
     /** What the customer sees on the checkout page, e.g. "Банковская карта (ЮKassa)". */
     public function label(): string;
 
+    /**
+     * Currencies this provider takes (ISO codes). The checkout charges in the first one the plan has a price for.
+     *
+     * @return list<string>
+     */
+    public function currencies(): array;
+
+    /** Can the provider charge a saved method later (renewal without the customer). Otherwise the customer renews by hand. */
+    public function supportsRecurring(): bool;
+
     /** Credentials are present (a gateway without them is not offered). */
     public function isConfigured(): bool;
 

@@ -33,6 +33,7 @@ return static fn (Env $env): array => [
     'finance.view' => ['superadmin', 'finance'],
     'finance.manage' => ['superadmin', 'finance'],
     'plans.manage' => ['superadmin', 'finance'],
+    'providers.manage' => ['superadmin'],
     'grants.manage' => ['superadmin', 'finance'],
 
     // Site content and talking to customers.

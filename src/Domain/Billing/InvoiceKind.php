@@ -13,6 +13,7 @@ enum InvoiceKind: string
     case New = 'new';
     case Upgrade = 'upgrade';
     case Renewal = 'renewal';
+    case Addon = 'addon';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum InvoiceKind: string
             self::New => 'Подключение тарифа',
             self::Upgrade => 'Переход на тариф выше',
             self::Renewal => 'Продление',
+            self::Addon => 'Дополнительный пакет',
         };
     }
 }

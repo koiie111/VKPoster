@@ -45,7 +45,7 @@ final class BillingAdminController
         $tz = WorkspaceRequest::user($request)->timezone;
         $status = WorkspaceRequest::text($request->input('status'));
         $query = WorkspaceRequest::text($request->input('q'));
-        $provider = AdminInput::choice($request, 'provider', ['yookassa', 'tbank', 'fake']);
+        $provider = AdminInput::choice($request, 'provider', [...\App\Integrations\Payments\ProviderCatalog::codes(), 'balance', 'fake']);
         $params = ['status' => $status, 'q' => $query, 'provider' => $provider, 'from' => AdminInput::text($request, 'from', 10), 'to' => AdminInput::text($request, 'to', 10)];
 
         return $this->view->response('admin/billing/payments.twig', [

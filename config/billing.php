@@ -31,6 +31,12 @@ return static function (Env $env): array {
             'password' => $env->string('TBANK_PASSWORD'),
             'api_base' => rtrim($env->string('TBANK_API_BASE', 'https://securepay.tinkoff.ru/v2'), '/'),
         ],
+        // Keys of the added providers. The admin area ("Платёжные провайдеры") is the place to enter them; these variables only seed a fresh
+        // install or a headless deployment, and a value saved in the admin area wins.
+        'cloudpayments' => ['public_id' => $env->string('CLOUDPAYMENTS_PUBLIC_ID'), 'api_secret' => $env->string('CLOUDPAYMENTS_API_SECRET')],
+        'stripe' => ['secret_key' => $env->string('STRIPE_SECRET_KEY'), 'webhook_secret' => $env->string('STRIPE_WEBHOOK_SECRET')],
+        'paddle' => ['api_key' => $env->string('PADDLE_API_KEY'), 'webhook_secret' => $env->string('PADDLE_WEBHOOK_SECRET'), 'sandbox' => $env->string('PADDLE_SANDBOX')],
+        'crypto' => ['merchant_id' => $env->string('CRYPTO_MERCHANT_ID'), 'api_key' => $env->string('CRYPTO_API_KEY')],
         // Data for the 54-FZ receipt. `tax_system`: npd | osn | usn_income | usn_income_outcome | patent | envd | esn. `npd` (self-employed): no 54-FZ receipt is sent to the provider, the seller issues receipts in "Мой налог".
         // `vat`: none | vat0 | vat10 | vat20 (an individual entrepreneur on the simplified system is usually "none").
         'tax' => [

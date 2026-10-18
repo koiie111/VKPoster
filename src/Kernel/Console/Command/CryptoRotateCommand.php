@@ -16,11 +16,12 @@ use App\Kernel\Security\Crypto;
  */
 final class CryptoRotateCommand implements Command
 {
-    /** @var list<array{table: string, column: string}> */
+    /** @var list<array{table: string, column: string, key?: string}> `key` is the unique column rows are walked by (default `id`) */
     private const COLUMNS = [
         ['table' => 'users', 'column' => 'totp_secret_enc'],
         ['table' => 'platform_credentials', 'column' => 'secret_enc'],
         ['table' => 'platform_credentials', 'column' => 'refresh_enc'],
+        ['table' => 'payment_providers', 'column' => 'config_enc', 'key' => 'code'],
     ];
 
     public function __construct(private readonly Connection $db, private readonly Crypto $crypto)
@@ -41,19 +42,21 @@ final class CryptoRotateCommand implements Command
     {
         $dry = in_array('--dry-run', $args, true);
         $total = 0;
-        foreach (self::COLUMNS as ['table' => $table, 'column' => $column]) {
+        foreach (self::COLUMNS as $entry) {
+            ['table' => $table, 'column' => $column] = $entry;
+            $key = $entry['key'] ?? 'id';
             $count = 0;
-            $lastId = 0;
+            $lastId = $key === 'id' ? 0 : '';
             do {
-                $rows = $this->db->select(sprintf('SELECT id, %s AS secret FROM %s WHERE id > ? AND %s IS NOT NULL ORDER BY id LIMIT 200', $column, $table, $column), [$lastId]);
+                $rows = $this->db->select(sprintf('SELECT %s AS k, %s AS secret FROM %s WHERE %s > ? AND %s IS NOT NULL ORDER BY %s LIMIT 200', $key, $column, $table, $key, $column, $key), [$lastId]);
                 foreach ($rows as $row) {
-                    $lastId = (int) $row['id'];
+                    $lastId = $key === 'id' ? (int) $row['k'] : (string) $row['k'];
                     $payload = (string) $row['secret'];
                     if ($payload === '' || !$this->crypto->needsRotation($payload)) {
                         continue;
                     }
                     if (!$dry) {
-                        $this->db->execute(sprintf('UPDATE %s SET %s = ? WHERE id = ?', $table, $column), [$this->crypto->rotate($payload), $lastId]);
+                        $this->db->execute(sprintf('UPDATE %s SET %s = ? WHERE %s = ?', $table, $column, $key), [$this->crypto->rotate($payload), $lastId]);
                     }
                     $count++;
                 }

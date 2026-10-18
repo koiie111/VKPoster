@@ -1,0 +1,68 @@
+{#- Admin: referral programme. Variables: enabled, percent, cookie_days, min_payout, payouts, flagged, top, tz. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
+{% set nav_current = 'referrals' %}
+{% block title %}Рефералы · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Реферальная программа', 'Человек делится ссылкой, а с каждой оплаты приглашённого получает долю на баланс. Баланс тратится на тариф или выводится по заявке, которую вы оплачиваете вручную.') }}
+<form class="card mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" method="post" action="/admin/referrals/settings" aria-label="Условия">
+    {{ csrf_field() }}
+    <div class="sm:col-span-2 lg:col-span-4">{{ f.switch('enabled', 'Программа включена', enabled, id = 'ref-enabled') }}</div>
+    {{ f.input('percent', 'Доля с оплат, %', value = percent, id = 'ref-percent', hint = 'От 0 до 90. Начисляется с оплат в рублях.') }}
+    {{ f.input('cookie_days', 'Сколько дней живёт ссылка', value = cookie_days, id = 'ref-days') }}
+    {{ f.input('min_payout', 'Минимальный вывод, ₽', value = min_payout, id = 'ref-min') }}
+    <div class="max-w-xs">{{ a.step_up('ref-code') }}</div>
+    <div class="flex items-end">{{ f.button('Сохранить', type = 'submit', icon = 'save') }}</div>
+</form>
+
+<h2 class="mb-2 text-lg font-semibold">Заявки на вывод</h2>
+<div class="card mb-6 !p-0 overflow-hidden">
+{% set body %}
+    {% for p in payouts %}
+    <tr>
+        <td class="whitespace-nowrap text-muted">{{ p.created_at|date('d.m.Y H:i', tz) }}</td>
+        <td>{{ p.name }}<span class="block text-xs text-muted">{{ p.email }}</span></td>
+        <td class="whitespace-nowrap">{{ money(p.amount) }}</td>
+        <td class="max-w-xs break-words">{{ p.details }}</td>
+        <td>{{ d.badge({requested: 'Ждёт', paid: 'Выплачено', rejected: 'Отклонено'}[p.status] ?? p.status, {requested: 'warn', paid: 'ok', rejected: 'neutral'}[p.status] ?? 'neutral', dot = true) }}{% if p.staff_note %}<span class="block text-xs text-muted">{{ p.staff_note }}</span>{% endif %}</td>
+        <td>{% if p.status == 'requested' %}
+            <form class="flex flex-col gap-2" method="post" action="/admin/referrals/payouts/{{ p.public_id }}/paid">{{ csrf_field() }}
+                <input class="input" name="note" aria-label="Заметка к заявке" placeholder="Заметка" maxlength="300">
+                <div class="max-w-xs">{{ a.step_up('code-' ~ p.public_id) }}</div>
+                <div class="flex gap-2">{{ f.button('Выплачено', type = 'submit', size = 'sm') }}{{ f.button('Отклонить', type = 'submit', variant = 'secondary', size = 'sm', attrs = {formaction: '/admin/referrals/payouts/' ~ p.public_id ~ '/reject'}) }}</div>
+            </form>{% endif %}</td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Когда'}, {label: 'Кто'}, {label: 'Сумма'}, {label: 'Куда'}, {label: 'Состояние'}, {label: ''}], empty = payouts is empty, empty_title = 'Заявок нет', empty_text = 'Они появятся, когда люди попросят вывести баланс.', caption = 'Заявки на вывод', body = body) }}
+</div>
+
+{% if flagged %}
+<h2 class="mb-2 text-lg font-semibold">Ссылки на проверку</h2>
+<p class="mb-2 text-sm text-muted">Похоже на приглашение самого себя. Пока вы не решили, бонусы не начисляются.</p>
+<div class="card mb-6 !p-0 overflow-hidden">
+{% set body %}
+    {% for r in flagged %}
+    <tr>
+        <td>{{ r.referrer_email }}</td><td>{{ r.referred_email }}</td><td>{{ r.reason }}</td>
+        <td><div class="flex gap-2">
+            <form method="post" action="/admin/referrals/{{ r.id }}/approve">{{ csrf_field() }}{{ f.button('Одобрить', type = 'submit', size = 'sm') }}</form>
+            <form method="post" action="/admin/referrals/{{ r.id }}/reject">{{ csrf_field() }}{{ f.button('Отклонить', type = 'submit', variant = 'secondary', size = 'sm') }}</form>
+        </div></td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Пригласил'}, {label: 'Приглашённый'}, {label: 'Почему'}, {label: ''}], caption = 'Ссылки на проверку', body = body) }}
+</div>
+{% endif %}
+
+<h2 class="mb-2 text-lg font-semibold">Лучшие партнёры</h2>
+<div class="card !p-0 overflow-hidden">
+{% set body %}
+    {% for t in top %}<tr><td>{{ t.name }}<span class="block text-xs text-muted">{{ t.email }}</span></td><td>{{ t.invited }}</td><td>{{ money(t.earned) }}</td></tr>{% endfor %}
+{% endset %}
+{{ d.table([{label: 'Партнёр'}, {label: 'Приглашено'}, {label: 'Заработано'}], empty = top is empty, empty_title = 'Пока никого', empty_text = 'Партнёры появятся после первых приглашений.', caption = 'Лучшие партнёры', body = body) }}
+</div>
+{% endblock %}

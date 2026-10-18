@@ -36,6 +36,7 @@ final class AdminAuditReader
         'admin.impersonation_stopped' => 'Выход из-под пользователя',
         'admin.grant' => 'Ручное начисление',
         'admin.plan_updated' => 'Изменён тариф',
+        'admin.provider_updated' => 'Изменены настройки платёжного провайдера',
         'admin.refund' => 'Возврат платежа',
         'admin.payment_reconciled' => 'Платёж сверен с провайдером',
         'admin.finance_exported' => 'Выгрузка для бухгалтерии',

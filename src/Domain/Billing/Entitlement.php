@@ -9,13 +9,18 @@ namespace App\Domain\Billing;
  */
 final class Entitlement
 {
-    public function __construct(public readonly Plan $plan, public readonly ?Subscription $subscription)
+    /**
+     * @param array<string, int> $extra what bought add-ons add to a limit (channels, members, storage_bytes); an unlimited limit stays unlimited
+     */
+    public function __construct(public readonly Plan $plan, public readonly ?Subscription $subscription, private readonly array $extra = [])
     {
     }
 
     public function limit(string $key): ?int
     {
-        return $this->plan->limit($key);
+        $base = $this->plan->limit($key);
+
+        return $base === null ? null : $base + ($this->extra[$key] ?? 0);
     }
 
     public function hasFeature(string $feature): bool

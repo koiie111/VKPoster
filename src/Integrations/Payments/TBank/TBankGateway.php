@@ -53,6 +53,16 @@ final class TBankGateway implements PaymentGateway
         return 'Банковская карта (Т-Банк)';
     }
 
+    public function currencies(): array
+    {
+        return ['RUB'];
+    }
+
+    public function supportsRecurring(): bool
+    {
+        return true;
+    }
+
     public function isConfigured(): bool
     {
         return $this->terminalKey !== '' && $this->password !== '';

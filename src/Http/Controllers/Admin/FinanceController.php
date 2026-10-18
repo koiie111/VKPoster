@@ -70,7 +70,7 @@ final class FinanceController
 
     public function webhooks(Request $request): Response
     {
-        $provider = AdminInput::choice($request, 'provider', ['yookassa', 'tbank', 'fake']);
+        $provider = AdminInput::choice($request, 'provider', [...\App\Integrations\Payments\ProviderCatalog::codes(), 'balance', 'fake']);
         $outcome = AdminInput::choice($request, 'outcome', ['received', 'processed', 'ignored', 'rejected']);
         $params = ['provider' => $provider, 'outcome' => $outcome];
 

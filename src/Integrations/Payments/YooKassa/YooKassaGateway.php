@@ -67,6 +67,16 @@ final class YooKassaGateway implements PaymentGateway
         return 'Банковская карта (ЮKassa)';
     }
 
+    public function currencies(): array
+    {
+        return ['RUB'];
+    }
+
+    public function supportsRecurring(): bool
+    {
+        return true;
+    }
+
     public function isConfigured(): bool
     {
         return $this->shopId !== '' && $this->secretKey !== '';

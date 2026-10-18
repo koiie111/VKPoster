@@ -45,6 +45,16 @@ final class FakeGateway implements PaymentGateway
         return 'Тестовая оплата (только для разработки)';
     }
 
+    public function currencies(): array
+    {
+        return ['RUB'];
+    }
+
+    public function supportsRecurring(): bool
+    {
+        return true;
+    }
+
     public function isConfigured(): bool
     {
         return true;
@@ -77,7 +87,7 @@ final class FakeGateway implements PaymentGateway
 
     public function refund(Payment $payment, int $amount): GatewayRefund
     {
-        return new GatewayRefund('fake-refund-' . $payment->publicId . '-' . $amount, true, $amount);
+        return new GatewayRefund('fake-refund-' . $payment->publicId . '-' . $payment->refundedAmount . '-' . $amount, true, $amount);
     }
 
     public function parseWebhook(Request $request): WebhookEvent

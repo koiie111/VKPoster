@@ -1,0 +1,39 @@
+{#- Admin: add-on packages. Variables: packages, kinds, currencies, editing. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'addons' %}
+{% block title %}Пакеты · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Пакеты', 'Дополнительные каналы, места в команде, место в медиатеке и ИИ-кредиты. Лимитные пакеты действуют заданный срок и складываются с лимитом тарифа; кредиты зачисляются в кошелёк навсегда.') }}
+<form class="card mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" method="post" action="/admin/addons" aria-label="Пакет">
+    {{ csrf_field() }}
+    {{ f.input('code', 'Код', value = editing ? editing.code : '', id = 'addon-code', required = true, hint = 'Латиница, например channels_5. Существующий код обновляется.', attrs = {maxlength: 32}) }}
+    {{ f.input('name', 'Название', value = editing ? editing.name : '', id = 'addon-name', required = true) }}
+    {{ f.select('kind', 'Что даёт', {'': 'Выберите'}|merge(kinds), value = editing ? editing.kind : '', id = 'addon-kind', required = true) }}
+    {{ f.input('quantity', 'Сколько (для места — в МБ)', value = editing ? (editing.kind == 'storage_bytes' ? editing.quantity // 1048576 : editing.quantity) : '', id = 'addon-quantity', required = true) }}
+    {{ f.input('days', 'Срок, дней', value = editing ? editing.days : 30, id = 'addon-days', hint = 'Для кредитов не нужен.') }}
+    {{ f.input('price_rub', 'Цена, ₽', value = editing and editing.prices.RUB is defined ? editing.prices.RUB / 100 : '', id = 'addon-rub') }}
+    {{ f.input('price_usd', 'Цена, $', value = editing and editing.prices.USD is defined ? editing.prices.USD / 100 : '', id = 'addon-usd') }}
+    {{ f.input('price_eur', 'Цена, €', value = editing and editing.prices.EUR is defined ? editing.prices.EUR / 100 : '', id = 'addon-eur') }}
+    {{ f.input('price_xtr', 'Цена, звёзды', value = editing and editing.prices.XTR is defined ? editing.prices.XTR / 100 : '', id = 'addon-xtr') }}
+    {{ f.input('sort', 'Порядок', value = editing ? editing.sort : 0, id = 'addon-sort') }}
+    <div class="flex items-end">{{ f.checkbox('active', 'Продаётся', editing ? editing.active : true, id = 'addon-active') }}</div>
+    <div class="flex items-end">{{ f.button('Сохранить', type = 'submit', icon = 'save') }}</div>
+</form>
+<div class="card !p-0 overflow-hidden">
+{% set body %}
+    {% for p in packages %}
+    <tr>
+        <td class="font-mono">{{ p.code }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.summary }}</td>
+        <td>{% for cur, amount in p.prices %}{{ money(amount, cur) }}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+        <td>{{ d.badge(p.active ? 'Продаётся' : 'Скрыт', p.active ? 'ok' : 'neutral', dot = true) }}</td>
+        <td><a class="btn btn-secondary btn-sm" href="/admin/addons?edit={{ p.code }}">Изменить</a></td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Код'}, {label: 'Название'}, {label: 'Что даёт'}, {label: 'Цены'}, {label: 'Состояние'}, {label: ''}], empty = packages is empty, empty_title = 'Пакетов пока нет', empty_text = 'Создайте первый в форме выше.', caption = 'Пакеты', body = body) }}
+</div>
+{% endblock %}

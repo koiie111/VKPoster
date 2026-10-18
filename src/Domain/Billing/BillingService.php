@@ -8,6 +8,8 @@ use App\Domain\Audit\AuditLog;
 use App\Domain\User\User;
 use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
+use App\Domain\Billing\Referral\ReferralService;
+use App\Integrations\Payments\Balance\BalanceGateway;
 use App\Integrations\Payments\Contracts\GatewayException;
 use App\Integrations\Payments\Contracts\GatewayMethod;
 use App\Integrations\Payments\Contracts\GatewayPayment;
@@ -53,6 +55,10 @@ final class BillingService
         private readonly Config $config,
         private readonly Clock $clock,
         private readonly LoggerInterface $logger,
+        private readonly PromoService $promoService,
+        private readonly PromoRepository $promos,
+        private readonly ReferralService $referrals,
+        private readonly AddonRepository $addons,
     ) {
     }
 
@@ -63,7 +69,7 @@ final class BillingService
      *
      * @throws BillingException
      */
-    public function quote(int $workspaceId, string $planCode, BillingPeriod $period): Quote
+    public function quote(int $workspaceId, string $planCode, BillingPeriod $period, ?string $currency = null): Quote
     {
         $target = $this->plans->findByCode($planCode);
         if ($target === null || !$target->isPublic) {
@@ -72,34 +78,57 @@ final class BillingService
         $subscription = $this->subscriptions->findByWorkspace($workspaceId);
         $current = $subscription === null ? null : $this->plans->find($subscription->planId);
 
-        return $this->calculator->quote($subscription, $current, $target, $period, $this->clock->now(), $this->config->string('billing.currency', 'RUB'));
+        return $this->calculator->quote($subscription, $current, $target, $period, $this->clock->now(), $currency ?? $this->config->string('billing.currency', 'RUB'));
     }
 
     /**
      * Start paying for a plan. A change that costs nothing now (a cheaper plan) is booked for the end of the paid period instead.
      *
      * @param bool $keepCard ask the provider to keep the card, so the plan renews by itself
+     * @param string|null $promoCode a promo code typed by the customer (empty = none)
      * @throws BillingException with a message for the customer
      */
-    public function checkout(WorkspaceContext $context, User $actor, string $planCode, BillingPeriod $period, string $gatewayName, bool $keepCard): CheckoutResult
+    public function checkout(WorkspaceContext $context, User $actor, string $planCode, BillingPeriod $period, string $gatewayName, bool $keepCard, ?string $currency = null, ?string $promoCode = null): CheckoutResult
     {
         if (!$this->permissions->allows($context->role, 'workspace.billing')) {
             throw new BillingException('Оплатой тарифа занимается владелец пространства.');
         }
-        $quote = $this->quote($context->workspaceId, $planCode, $period);
+        $promoCode = trim((string) $promoCode);
+        if ($promoCode !== '' && $this->promos->findByCode(PromoService::normalize($promoCode))?->kind === 'days') {
+            // A free-days code needs no payment at all.
+            $promo = $this->promoService->activateFreeDays($context->workspaceId, $actor->id, $promoCode);
+
+            return CheckoutResult::done('Промокод принят: тариф подключён на ' . $promo->value . ' дн. бесплатно.');
+        }
+        $isBalance = $gatewayName === BalanceGateway::NAME;
+        $gateway = $isBalance ? $this->gateways->forWebhook(BalanceGateway::NAME) : $this->gateways->get($gatewayName);
+        $currency = $this->currencyFor($gateway, $currency, $planCode, $period);
+        $quote = $this->quote($context->workspaceId, $planCode, $period, $currency);
         if (!$quote->immediate) {
             $this->subscriptionService->scheduleChange($context->workspaceId, $quote->plan, $period, $actor->id);
 
             return CheckoutResult::done('Готово: тариф «' . $quote->plan->name . '» начнётся, когда закончится оплаченный срок. До этого всё работает как раньше.');
         }
-        $gateway = $this->gateways->get($gatewayName) ?? throw new BillingException('Этот способ оплаты сейчас недоступен. Выберите другой.');
+        $promo = null;
+        if ($promoCode !== '') {
+            $promo = $this->promoService->check($promoCode, $actor->id, $context->workspaceId, $quote->plan, $quote->currency);
+            $quote = $this->promoService->apply($quote, $promo);
+        }
+        if ($gateway === null) {
+            throw new BillingException('Этот способ оплаты сейчас недоступен. Выберите другой.');
+        }
+        // A provider that cannot charge a saved method later (Paddle, crypto, Stars, the balance) means renewing by hand.
+        $keepCard = $keepCard && $gateway->supportsRecurring();
         $email = (string) $actor->email;
         if ($email === '') {
             throw new BillingException('Добавьте почту в профиле: на неё мы пришлём чек.');
         }
+        if ($isBalance && $this->referrals->balance($actor->id) < $quote->amount) {
+            throw new BillingException('На реферальном балансе не хватает денег для этой оплаты.');
+        }
 
         $subscription = $this->subscriptionService->ensure($context->workspaceId);
-        [$invoice, $payment] = $this->db->transaction(function () use ($context, $subscription, $quote, $email, $gateway, $keepCard): array {
+        [$invoice, $payment] = $this->db->transaction(function () use ($context, $actor, $subscription, $quote, $email, $gateway, $keepCard, $promo): array {
             // One open bill at a time: a new choice replaces the earlier, unpaid one.
             $this->invoices->voidOpen($context->workspaceId);
             $invoice = $this->invoices->create(
@@ -116,11 +145,91 @@ final class BillingService
                 $quote->periodStart,
                 $quote->periodEnd,
                 $this->clock->now()->modify(sprintf('+%d hours', $this->config->int('billing.checkout_ttl_hours', 24))),
+                $quote->discount,
+                $quote->promoCodeId,
             );
+            if ($promo !== null) {
+                $this->promoService->bind($promo, $invoice, $actor->id);
+            }
 
             return [$invoice, $this->payments->create($invoice, $gateway->name(), $keepCard)];
         });
 
+        return $this->startPayment($context, $actor, $gateway, $invoice, $payment, $keepCard, ['plan' => $quote->plan->code, 'period' => $period->value]);
+    }
+
+    /**
+     * Buy an add-on package (more channels, people, library space, AI credits). Needs a paid plan; a package is paid like a plan, once.
+     *
+     * @throws BillingException
+     */
+    public function checkoutAddon(WorkspaceContext $context, User $actor, string $packageCode, string $gatewayName, ?string $currency = null): CheckoutResult
+    {
+        if (!$this->permissions->allows($context->role, 'workspace.billing')) {
+            throw new BillingException('Оплатой тарифа занимается владелец пространства.');
+        }
+        $package = $this->addons->findByCode($packageCode);
+        if ($package === null || !$package->active) {
+            throw new BillingException('Такого пакета нет.');
+        }
+        $subscription = $this->subscriptionService->ensure($context->workspaceId);
+        $plan = $this->plans->find($subscription->planId) ?? $this->plans->free();
+        if ($plan->isFree() || $subscription->isTrial() || !$subscription->hasPaidPeriod()) {
+            throw new BillingException('Пакеты доступны на платных тарифах. Сначала выберите тариф.');
+        }
+        $isBalance = $gatewayName === BalanceGateway::NAME;
+        $gateway = $isBalance ? $this->gateways->forWebhook(BalanceGateway::NAME) : $this->gateways->get($gatewayName);
+        if ($gateway === null) {
+            throw new BillingException('Этот способ оплаты сейчас недоступен. Выберите другой.');
+        }
+        // A paid period is in one currency; a package is paid in it too.
+        $currency = strtoupper($currency ?? $subscription->currency);
+        if (!in_array($currency, $gateway->currencies(), true)) {
+            $currency = $gateway->currencies()[0] ?? $subscription->currency;
+        }
+        $price = $package->priceFor($currency) ?? throw new BillingException('У этого пакета нет цены в выбранной валюте.');
+        $email = (string) $actor->email;
+        if ($email === '') {
+            throw new BillingException('Добавьте почту в профиле: на неё мы пришлём чек.');
+        }
+        if ($isBalance && $this->referrals->balance($actor->id) < $price) {
+            throw new BillingException('На реферальном балансе не хватает денег для этой оплаты.');
+        }
+        $now = $this->clock->now();
+        [$invoice, $payment] = $this->db->transaction(function () use ($context, $subscription, $plan, $package, $price, $currency, $email, $gateway, $now): array {
+            $this->invoices->voidOpen($context->workspaceId);
+            $invoice = $this->invoices->create(
+                $context->workspaceId,
+                $subscription->id,
+                $plan->id,
+                BillingPeriod::Month,
+                InvoiceKind::Addon,
+                $price,
+                $price,
+                $currency,
+                'Пакет «' . $package->name . '»: ' . $package->summary(),
+                $email,
+                $now,
+                $now->modify(sprintf('+%d days', max(1, $package->days))),
+                $now->modify(sprintf('+%d hours', $this->config->int('billing.checkout_ttl_hours', 24))),
+                0,
+                null,
+                $package->id,
+            );
+
+            return [$invoice, $this->payments->create($invoice, $gateway->name(), false)];
+        });
+
+        return $this->startPayment($context, $actor, $gateway, $invoice, $payment, false, ['package' => $package->code]);
+    }
+
+    /**
+     * Ask the provider to start a payment for a new invoice and give the customer the page to pay on. The balance pays right here.
+     *
+     * @param array<string, scalar> $auditMeta
+     */
+    private function startPayment(WorkspaceContext $context, User $actor, PaymentGateway $gateway, Invoice $invoice, Payment $payment, bool $keepCard, array $auditMeta): CheckoutResult
+    {
         $returnUrl = rtrim($this->config->string('app.url'), '/') . '/w/' . $context->workspacePublicId . '/billing/return?payment=' . $payment->publicId;
         try {
             $created = $gateway->createPayment($invoice, $payment, $returnUrl, $keepCard);
@@ -131,6 +240,21 @@ final class BillingService
 
             throw new BillingException($e->forUser());
         }
+        $this->audit->record('billing.checkout_started', $actor->id, 'invoice', $invoice->publicId, $auditMeta + ['amount' => $invoice->amount, 'provider' => $gateway->name()], $context->workspaceId);
+        if ($gateway->name() === BalanceGateway::NAME) {
+            // Paid with the referral balance: take the money, mark the payment paid and let the usual path apply it.
+            $this->payments->attach($payment->id, $created->providerPaymentId, $created->providerStatus, null);
+            if (!$this->referrals->spend($actor->id, $invoice->amount, $payment->publicId)) {
+                $this->payments->setStatus($payment->id, PaymentStatus::Failed, null, 'Не хватает денег на балансе.');
+                $this->db->table('invoices')->where('id', '=', $invoice->id)->update(['status' => InvoiceStatus::Void->value]);
+
+                throw new BillingException('На реферальном балансе не хватает денег для этой оплаты.');
+            }
+            $this->payments->setReference($payment->id, 'paid', 'user:' . $actor->id);
+            $this->sync($this->payments->findById($payment->id) ?? $payment);
+
+            return CheckoutResult::done('Оплачено с реферального баланса. Спасибо!');
+        }
         $url = self::safeRedirect($created->confirmationUrl);
         if ($url === null) {
             $this->logger->error('billing.no_confirmation_url', ['provider' => $gateway->name(), 'payment' => $payment->publicId]);
@@ -140,9 +264,31 @@ final class BillingService
             throw new BillingException('Платёжная система не открыла страницу оплаты. Попробуйте ещё раз.');
         }
         $this->payments->attach($payment->id, $created->providerPaymentId, $created->providerStatus, $url);
-        $this->audit->record('billing.checkout_started', $actor->id, 'invoice', $invoice->publicId, ['plan' => $quote->plan->code, 'period' => $period->value, 'amount' => $invoice->amount, 'provider' => $gateway->name()], $context->workspaceId);
 
         return CheckoutResult::redirect($url, $payment->publicId);
+    }
+
+    /**
+     * The currency a payment is made in: the one the customer picked on the plans page, if the provider takes it and the plan has a price
+     * in it. Without a pick, the first currency of the provider that the plan has a price in.
+     *
+     * @throws BillingException
+     */
+    private function currencyFor(?PaymentGateway $gateway, ?string $asked, string $planCode, BillingPeriod $period): string
+    {
+        $default = $this->config->string('billing.currency', 'RUB');
+        if ($gateway === null) {
+            return $asked ?? $default;
+        }
+        $plan = $this->plans->findByCode($planCode);
+        $options = $asked !== null && $asked !== '' ? [strtoupper($asked)] : $gateway->currencies();
+        foreach ($options as $currency) {
+            if (in_array($currency, $gateway->currencies(), true) && ($plan === null || $plan->priceFor($period, $currency) !== null)) {
+                return $currency;
+            }
+        }
+
+        throw new BillingException('Для этого способа оплаты у тарифа нет цены в нужной валюте. Выберите другой способ или валюту.');
     }
 
     // ---- applying what a provider reports -------------------------------------------------------------------------
@@ -212,6 +358,7 @@ final class BillingService
             }
 
             $this->settle($invoice, $paid, $method);
+            $this->referrals->accrue($paid);
 
             return PaymentOutcome::Settled;
         });
@@ -223,6 +370,11 @@ final class BillingService
     private function settle(Invoice $invoice, Payment $payment, ?PaymentMethod $method): void
     {
         $now = $this->clock->now();
+        if ($invoice->kind === InvoiceKind::Addon) {
+            $this->settleAddon($invoice, $payment);
+
+            return;
+        }
         $subscription = $this->subscriptions->lock($invoice->workspaceId) ?? $this->subscriptionService->ensure($invoice->workspaceId);
         $plan = $this->plans->find($invoice->planId) ?? throw new \LogicException('The plan of a paid invoice is gone.');
         $this->invoices->markPaid($invoice->id, $now);
@@ -232,6 +384,7 @@ final class BillingService
             'status' => SubscriptionStatus::Active->value,
             'period' => $invoice->period->value,
             'price_amount' => $invoice->listPrice,
+            'currency' => $invoice->currency,
             'current_period_start' => DbTime::format($invoice->kind === InvoiceKind::Upgrade ? ($subscription->currentPeriodStart ?? $invoice->periodStart) : $invoice->periodStart),
             'current_period_end' => DbTime::format($invoice->periodEnd),
             'trial_ends_at' => null,
@@ -257,6 +410,29 @@ final class BillingService
 
         $this->audit->record('billing.payment_succeeded', null, 'invoice', $invoice->publicId, ['plan' => $plan->code, 'period' => $invoice->period->value, 'amount' => $invoice->amount, 'kind' => $invoice->kind->value, 'provider' => $payment->provider], $invoice->workspaceId);
         $this->mailer->paymentReceived($invoice, $plan, $invoice->periodEnd);
+    }
+
+    /**
+     * A paid add-on package: limits for its days, or credits in the wallet. The plan and the subscription are not touched.
+     */
+    private function settleAddon(Invoice $invoice, Payment $payment): void
+    {
+        $package = $invoice->addonPackageId === null ? null : $this->addons->find($invoice->addonPackageId);
+        $this->invoices->markPaid($invoice->id, $this->clock->now());
+        if ($package === null) {
+            $this->logger->critical('billing.addon_package_gone', ['invoice' => $invoice->publicId]);
+
+            return;
+        }
+        if ($package->isCredits()) {
+            $workspace = $this->db->table('workspaces')->where('id', '=', $invoice->workspaceId)->first();
+            if ($workspace !== null) {
+                $this->ledger->grant((string) $workspace['public_id'], 'credits', $package->quantity, 'Пакет «' . $package->name . '», счёт ' . $invoice->number);
+            }
+        } else {
+            $this->addons->grant($invoice->workspaceId, $package, $invoice->id, $this->clock->now());
+        }
+        $this->audit->record('billing.addon_paid', null, 'invoice', $invoice->publicId, ['package' => $package->code, 'amount' => $invoice->amount, 'provider' => $payment->provider], $invoice->workspaceId);
     }
 
     private function rememberMethod(Payment $payment, ?GatewayMethod $method): ?PaymentMethod
@@ -368,6 +544,7 @@ final class BillingService
         $this->db->transaction(function () use ($payment, $amount, $refund, $left, $actorId): void {
             $this->ledger->recordRefund($payment, $amount, $refund->refundId);
             $this->payments->addRefund($payment->id, $amount, $amount === $left);
+            $this->referrals->reverse($payment, $amount, $refund->refundId !== '' ? $refund->refundId : $payment->publicId . ':' . $payment->refundedAmount . ':' . $amount);
             $this->audit->record('billing.refunded', $actorId, 'payment', $payment->publicId, ['amount' => $amount], $payment->workspaceId);
         });
     }

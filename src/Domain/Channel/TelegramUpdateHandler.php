@@ -32,7 +32,7 @@ use Throwable;
  */
 final class TelegramUpdateHandler
 {
-    public const UPDATE_TYPES = ['message', 'channel_post', 'edited_channel_post', 'my_chat_member', 'message_reaction_count'];
+    public const UPDATE_TYPES = ['message', 'channel_post', 'edited_channel_post', 'my_chat_member', 'message_reaction_count', 'pre_checkout_query'];
 
     public function __construct(
         private readonly Config $config,
@@ -51,6 +51,7 @@ final class TelegramUpdateHandler
         private readonly \App\Domain\Support\Tickets $tickets,
         private readonly \App\Domain\User\UserRepository $users,
         private readonly \App\Domain\Automation\Crosspost\CrosspostProcessor $crosspost,
+        private readonly \App\Domain\Billing\StarsPayments $stars,
         private readonly \App\Domain\Analytics\TelegramReactions $reactions,
     ) {
     }
@@ -74,6 +75,16 @@ final class TelegramUpdateHandler
             if (is_array($update['channel_post'] ?? null) || is_array($update['edited_channel_post'] ?? null)) {
                 $this->crosspost->ingest($update);
             }
+            if (is_array($update['pre_checkout_query'] ?? null)) {
+                $this->preCheckout($client, $update['pre_checkout_query']);
+
+                return;
+            }
+            if (is_array($update['message']['successful_payment'] ?? null) && is_int($update['message']['from']['id'] ?? null)) {
+                $this->stars->paid($update['message']['successful_payment'], $update['message']['from']['id']);
+
+                return;
+            }
             if (is_array($update['my_chat_member'] ?? null)) {
                 $this->membershipChanged($update['my_chat_member']);
 
@@ -88,6 +99,25 @@ final class TelegramUpdateHandler
         } catch (Throwable $e) {
             $this->logger->error('Telegram update failed', ['exception' => $e]);
         }
+    }
+
+    /**
+     * Telegram Stars: answer the question "may this payment go ahead" within the ten seconds Telegram allows.
+     *
+     * @param array<string, mixed> $query
+     */
+    private function preCheckout(TelegramClient $client, array $query): void
+    {
+        $id = $query['id'] ?? null;
+        if (!is_string($id)) {
+            return;
+        }
+        $answer = $this->stars->preCheckout($query);
+        $params = ['pre_checkout_query_id' => $id, 'ok' => $answer['ok']];
+        if (!$answer['ok']) {
+            $params['error_message'] = $answer['error'];
+        }
+        $client->call('answerPreCheckoutQuery', $params, mutating: true);
     }
 
     /**

@@ -30,6 +30,7 @@ final class Entitlements
         private readonly SubscriptionRepository $subscriptions,
         private readonly ChannelSystem $channels,
         private readonly Config $config,
+        private readonly AddonRepository $addons,
     ) {
     }
 
@@ -38,7 +39,7 @@ final class Entitlements
         $subscription = $this->subscriptions->findByWorkspace($workspaceId);
         $plan = $subscription === null ? null : $this->plans->find($subscription->planId);
 
-        return new Entitlement($plan ?? $this->plans->free(), $plan === null ? null : $subscription);
+        return new Entitlement($plan ?? $this->plans->free(), $plan === null ? null : $subscription, $this->addons->extras($workspaceId));
     }
 
     public function plan(int $workspaceId): Plan
