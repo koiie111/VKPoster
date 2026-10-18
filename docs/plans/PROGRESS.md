@@ -600,3 +600,19 @@ Merge, дополнительный self-review и Stage16 не выполнял
 Финальные числа: **2265 PHP tests / 41086 assertions**, новые analytics tests **15 / 140**;
 PHPStan strict, style, audit (0 advisories), health, migrations, secret scan — passed.
 Покрытие новых Domain/Integrations классов ≥80% PCOV (StatsCollector69/83, остальные80–100%).
+
+### Stage 15 — PDF owner-check layout fix (2026-10-18)
+
+Owner подтвердил subscribers=9, dashboard, unavailable counters и состояние «Мало данных».
+PDF owner-check обнаружил обрыв слова из-за SQL LEFT(...,200) без индикатора усечения
+и узкую автоматическую раскладку таблицы. В отдельной ветке fix/stage-15-pdf-layout
+добавлены bounded word-safe PDF excerpts, A4 column widths, переносы/повтор заголовков,
+последние subscriber snapshots из уже существующего report.followers (без расширения
+scope гостевого отчёта). Исходные тексты и publishing не меняются.
+
+Проверено: Analytics/Approval 58 tests / 667 assertions; полный PHP suite 2448 tests /
+42697 assertions; PHPStan/style; renderer HTTP/security/lifecycle contracts. Реальный
+production Chromium сформировал owner PDF с 9 подписчиками и синтетический отчёт
+40 публикаций / 5 страниц. Все страницы визуально проверены; кириллица, поля, полные
+строки и повторяемые заголовки проверены также структурно. APP_KEY renderer не получает.
+Stage 15 остаётся NEEDS_OWNER до повторной визуальной проверки исправленного PDF.

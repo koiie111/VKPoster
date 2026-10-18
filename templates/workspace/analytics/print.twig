@@ -3,37 +3,93 @@
 <head>
     <meta charset="utf-8">
     <title>Аналитика публикаций</title>
+    <style>
+        body { margin: 0; color: #182333; font: 10pt/1.45 Arial, sans-serif; }
+        h1 { margin: 0 0 8pt; font-size: 21pt; }
+        h2 { margin: 18pt 0 8pt; font-size: 14pt; break-after: avoid; }
+        p { margin: 0 0 8pt; }
+        .note { color: #465366; font-size: 9pt; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; page-break-inside: avoid; }
+        th, td { padding: 7pt 5pt; border-bottom: 1pt solid #d6dde5; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+        th { font-size: 8pt; background: #eef2f6; }
+        td { font-size: 9pt; }
+        .date { white-space: nowrap; font-size: 8pt; }
+        .publication { white-space: pre-line; }
+        .metric { font-variant-numeric: tabular-nums; }
+    </style>
 </head>
 <body>
     <h1>Аналитика публикаций</h1>
     <p>{{ report.from }} — {{ report.to }} · {{ report.timezone }}</p>
-    <p>Накопительные счётчики последнего снимка. Отсутствующие данные не равны нулю.</p>
+    <p class="note">Накопительные счётчики последнего снимка. Отсутствующие данные не равны нулю.</p>
     <p>
         Публикации: {{ report.totals.publications }}.
         Охват: {{ report.totals.reach is null ? 'Нет данных' : report.totals.reach }}.
         ER: {{ report.totals.er is null ? 'Нет данных' : report.totals.er ~ ' %' }}.
     </p>
+    <h2>Публикации</h2>
+    <p class="note">Длинные публикации показаны отрывками с многоточием.</p>
     <table>
+        <colgroup>
+            <col style="width: 13%">
+            <col style="width: 18%">
+            <col style="width: 44%">
+            <col style="width: 11%">
+            <col style="width: 14%">
+        </colgroup>
         <thead>
             <tr>
-                <th>Дата</th>
-                <th>Канал</th>
-                <th>Публикация</th>
-                <th>Охват</th>
-                <th>Вовлечённость</th>
+                <th scope="col">Дата</th>
+                <th scope="col">Канал</th>
+                <th scope="col">Публикация</th>
+                <th scope="col">Охват</th>
+                <th scope="col">Вовлечённость</th>
             </tr>
         </thead>
         <tbody>
             {% for p in report.posts %}
                 <tr>
-                    <td>{{ p.local_date }}</td>
+                    <td class="date">{{ p.local_date }}</td>
                     <td>{{ p.title }}</td>
-                    <td>{{ p.text }}</td>
-                    <td>{{ p.metrics.reach is null ? 'Нет данных' : p.metrics.reach }}</td>
-                    <td>{{ p.metrics.engagement is null ? 'Нет данных' : p.metrics.engagement }}</td>
+                    <td class="publication">{{ p.excerpt }}</td>
+                    <td class="metric">{{ p.metrics.reach is null ? 'Нет данных' : p.metrics.reach }}</td>
+                    <td class="metric">{{ p.metrics.engagement is null ? 'Нет данных' : p.metrics.engagement }}</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
+    {% if report.followers %}
+        <h2>Подписчики</h2>
+        <p class="note">Последний доступный снимок каждого канала за выбранный период.</p>
+        <table>
+            <colgroup>
+                <col style="width: 50%">
+                <col style="width: 30%">
+                <col style="width: 20%">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th scope="col">Канал</th>
+                    <th scope="col">Дата снимка (UTC)</th>
+                    <th scope="col">Подписчики</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set seen = [] %}
+                {% for snapshot in report.followers|reverse %}
+                    {% if snapshot.channel_id not in seen %}
+                        <tr>
+                            <td>{{ snapshot.title }}</td>
+                            <td>{{ snapshot.observed_at|slice(0, 16) }}</td>
+                            <td>{{ snapshot.followers is null ? 'Нет данных' : snapshot.followers }}</td>
+                        </tr>
+                        {% set seen = seen|merge([snapshot.channel_id]) %}
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
 </body>
 </html>
