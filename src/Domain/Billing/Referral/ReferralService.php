@@ -10,6 +10,7 @@ use App\Domain\Billing\Ledger;
 use App\Domain\Billing\Payment;
 use App\Domain\User\User;
 use App\Kernel\Database\Connection;
+use App\Kernel\Security\Crypto;
 use App\Support\Clock;
 use App\Support\DbTime;
 use Symfony\Component\Uid\Ulid;
@@ -35,6 +36,7 @@ final class ReferralService
         private readonly ReferralSettings $settings,
         private readonly AuditLog $audit,
         private readonly Clock $clock,
+        private readonly Crypto $crypto,
     ) {
     }
 
@@ -240,7 +242,13 @@ final class ReferralService
     {
         $sql = 'SELECT p.*, u.email, u.name FROM referral_payouts p JOIN users u ON u.id = p.user_id' . ($status === null ? '' : ' WHERE p.status = ?') . ' ORDER BY p.id DESC LIMIT ' . max(1, min(500, $limit));
 
-        return $this->db->select($sql, $status === null ? [] : [$status]);
+        $rows = $this->db->select($sql, $status === null ? [] : [$status]);
+        foreach ($rows as $i => $row) {
+            // The destination is kept encrypted while the request waits and is wiped once it is handled.
+            $rows[$i]['details'] = $row['status'] === 'requested' && is_string($row['details']) && $row['details'] !== '' ? $this->crypto->decrypt($row['details']) : '';
+        }
+
+        return $rows;
     }
 
     /**
@@ -296,7 +304,7 @@ final class ReferralService
                 ['code' => self::account($user->id), 'name' => 'Реферальный баланс', 'kind' => 'liability', 'amount' => $amount],
                 ['code' => 'referral:payouts', 'name' => 'Выводы реферального баланса', 'kind' => 'liability', 'amount' => -$amount],
             ]);
-            $this->db->table('referral_payouts')->insert(['public_id' => $publicId, 'user_id' => $user->id, 'amount' => $amount, 'details' => $details, 'status' => 'requested', 'created_at' => DbTime::format($this->clock->now())]);
+            $this->db->table('referral_payouts')->insert(['public_id' => $publicId, 'user_id' => $user->id, 'amount' => $amount, 'details' => $this->crypto->encrypt($details), 'status' => 'requested', 'created_at' => DbTime::format($this->clock->now())]);
         });
         $this->audit->record('billing.payout_requested', $user->id, 'payout', $publicId, ['amount' => $amount]);
 
@@ -324,6 +332,7 @@ final class ReferralService
             }
             $this->db->table('referral_payouts')->where('id', '=', (int) $row['id'])->update([
                 'status' => $paid ? 'paid' : 'rejected',
+                'details' => '',
                 'staff_note' => mb_substr(trim($note), 0, 300),
                 'handled_by' => $staffId,
                 'handled_at' => DbTime::format($this->clock->now()),

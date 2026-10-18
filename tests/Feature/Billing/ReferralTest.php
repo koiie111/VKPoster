@@ -230,8 +230,12 @@ final class ReferralTest extends BillingTestCase
 
         $id = $this->referrals()->requestPayout($this->inviter, 50000, 'карта 2200 0000 0000 0000, Иван И.');
         self::assertSame($balance - 50000, $this->referrals()->balance($this->inviter->id));
+        $stored = (string) $this->db->select('SELECT details FROM referral_payouts WHERE public_id = ?', [$id])[0]['details'];
+        self::assertStringNotContainsString('2200', $stored, 'where to send the money is stored encrypted');
+        self::assertSame('карта 2200 0000 0000 0000, Иван И.', $this->referrals()->payouts('requested')[0]['details']);
 
         $this->referrals()->handlePayout($id, false, 'не прошёл перевод', $staff->id);
+        self::assertSame('', (string) $this->db->select('SELECT details FROM referral_payouts WHERE public_id = ?', [$id])[0]['details'], 'wiped once handled');
         self::assertSame($balance, $this->referrals()->balance($this->inviter->id));
 
         try {
