@@ -102,6 +102,17 @@ final class Queue
         ]);
     }
 
+    /** Return the same durable job to its queue without consuming a provider retry attempt. */
+    public function defer(ReservedJob $job, int $delaySeconds): void
+    {
+        $this->db->execute(
+            'UPDATE jobs SET reserved_at=NULL,reserved_by=NULL,attempts=attempts-1,available_at=?
+             WHERE id=? AND attempts=? AND reserved_at IS NOT NULL',
+            [$this->clock->now()->modify('+'.max(1, $delaySeconds).' seconds')->format(self::FORMAT),
+                $job->id, $job->attempts],
+        );
+    }
+
     /**
      * Move a job that ran out of attempts to `failed_jobs`.
      */

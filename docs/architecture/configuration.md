@@ -103,3 +103,14 @@
 Stage 3.2 is accepted on mocked HTTP/contracts. Real integrations need explicit selection plus corresponding env credentials; absent credentials prevent activation. OpenAI/TinEye/Replicate live smoke is deferred to Stage 3.5; Fake remains the dev/test default.
 
 Content hardening env: `CONTENT_CONCURRENCY=2`, `CONTENT_PROVIDER_PER_MINUTE=20`, `CONTENT_VIDEO_PER_HOUR=3`, `CONTENT_VIDEO_PENDING=3`, `CONTENT_STUCK_SECONDS=3600`; cleanup disabled via `CONTENT_RETENTION_ENABLED=false`, `CONTENT_RETENTION_DAYS=30`. Reader independently defaults `READER_ACK_RETENTION_DAYS=0`. See [limits/recovery/retention](modules/content-hardening.md).
+
+### Analytics (Stage15)
+
+ANALYTICS_COLLECTION_ENABLED=false по умолчанию: явное включение read-only сбора.
+ANALYTICS_PDF_URL=http://analytics-pdf:3000 — внутренний фиксированный renderer.
+Подпись POST использует domain-separated derived key, а не master APP_KEY.
+Compose profile analytics: PHP init пишет derived key в dedicated volume, Chromium
+читает только read-only key file (ANALYTICS_PDF_KEY_FILE), без .env/APP_KEY/токенов.
+Новый пользовательский секрет не требуется. analytics-worker обслуживает очередь
+analytics отдельно от publish,default; capacity deferral не расходует attempts. Тарифные
+analytics_days / analytics_export / client_reports используются без новых тарифов.

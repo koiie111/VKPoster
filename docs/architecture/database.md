@@ -426,3 +426,15 @@ post_versions, approvals, post_comments, guest_links, guest_link_posts. Все �
 используют существующий VARCHAR: pending_approval/approved/changes_requested.
 Rollback сохраняет посты, переводя review-состояния в draft. Подробности:
 [Согласование](modules/approvals.md).
+
+## Stage15: post analytics
+
+Migration36: analytics_tasks (workspace/task_key unique, lease, due/completed/error),
+post_stats_snapshots (unique task, publication/channel/workspace, observed_at, nullable
+metrics JSON), channel_stats_snapshots (daily task/followers nullable),
+telegram_stats_reactions (workspace/channel/message, monotonic event_date).
+Migration36 также добавляет publications_stats_due(status,sent_at) для частого tick;
+rollback убирает индекс и новые analytics таблицы, сохраняя publications/posts.
+metrics_json.metric_statuses хранит независимую availability Instagram counters;
+частичный transient прогресс обновляется под тем же unique task_id.
+Удаление channel/workspace cascade.

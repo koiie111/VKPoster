@@ -38,6 +38,45 @@ services:
     command: ["php", "bin/console", "schedule:run"]
     restart: unless-stopped
 
+  analytics-worker:
+    <<: *app
+    command: ["php", "bin/console", "queue:work", "--queue=analytics"]
+    restart: unless-stopped
+
+  analytics-pdf-key:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: dev
+    image: vkposter-app-dev
+    profiles: [analytics]
+    user: "0:0"
+    environment:
+      APP_KEY: ${APP_KEY}
+    command: ["php", "scripts/analytics-pdf-key.php"]
+    read_only: true
+    cap_drop: [ALL]
+    volumes:
+      - analytics-pdf-key:/run/analytics-pdf-key
+      - .:/var/www/html:ro
+
+  analytics-pdf:
+    build: tools/analytics-pdf
+    profiles: [analytics]
+    environment:
+      ANALYTICS_PDF_KEY_FILE: /run/analytics-pdf-key/key
+    volumes:
+      - analytics-pdf-key:/run/analytics-pdf-key:ro
+    depends_on:
+      analytics-pdf-key: { condition: service_completed_successfully }
+    init: true
+    read_only: true
+    tmpfs: [/tmp:size=256m]
+    shm_size: 256mb
+    mem_limit: 1g
+    pids_limit: 256
+    restart: unless-stopped
+
   mysql:
     image: mysql:8.0
     environment:
@@ -92,5 +131,6 @@ services:
     depends_on: [nginx]
 
 volumes:
+  analytics-pdf-key:
   mysql-data:
   minio-data:

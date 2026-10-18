@@ -61,3 +61,17 @@ docker compose -f compose.prod.yaml exec app php bin/console migrate
 
 ## Чего здесь нет (этап 19)
 Автоматические бэкапы и проверка восстановления, мониторинг и оповещения, обновление без простоя, блокировки между несколькими экземплярами планировщика, S3-хранилище медиа для Instagram.
+
+### Analytics workers и изолированный PDF (Stage 15)
+
+`analytics-worker` запускается вместе с основным stack и обслуживает только `analytics`;
+прежний `worker` остаётся `publish,default`. Сбор opt-in: `ANALYTICS_COLLECTION_ENABLED=true`.
+Не объединять медленные analytics API jobs с publish worker. Rate-limit deferral
+сохраняет retry budget; сбой provider по-прежнему ограничен обычной retry policy.
+
+PDF: `docker compose -f compose.prod.yaml --profile analytics up -d --build analytics-pdf`.
+Зависимый trusted PHP init `analytics-pdf-key` пишет derived key в отдельный volume.
+Chromium получает только read-only файл, **никогда master APP_KEY** или app env_file.
+Нового секрета не нужно. При ротации APP_KEY пересоздать init и renderer одной командой:
+`docker compose -f compose.prod.yaml --profile analytics up -d --force-recreate analytics-pdf-key analytics-pdf`.
+Unexpected browser crash завершает Node с code1 для restart policy; SIGTERM — code0.
