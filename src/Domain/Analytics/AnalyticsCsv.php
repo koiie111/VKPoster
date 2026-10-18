@@ -21,7 +21,14 @@ final class AnalyticsCsv
         fwrite($stream, "\xEF\xBB\xBF");
         fputcsv($stream, ['Дата','Канал','Платформа','Текст','Просмотры','Охват','Вовлечённость','ER %'], ';', '"', '');
         foreach ($report['posts'] as $p) {
-            $row = [$p['sent_at'],$p['title'],$p['platform'],$p['text'],$p['metrics']['views'] ?? 'Нет данных',$p['metrics']['reach'] ?? 'Нет данных',$p['metrics']['engagement'] ?? 'Нет данных',$p['er'] ?? 'Нет данных'];
+            $row = [$p['sent_at'],
+                $p['title'],
+                $p['platform'],
+                $p['text'],
+                $p['metrics']['views'] ?? 'Нет данных',
+                $p['metrics']['reach'] ?? 'Нет данных',
+                $p['metrics']['engagement'] ?? 'Нет данных',
+                $p['er'] ?? 'Нет данных'];
             fputcsv($stream, array_map(static fn ($v): string => self::cell((string)$v), $row), ';', '"', '');
         }
         rewind($stream);

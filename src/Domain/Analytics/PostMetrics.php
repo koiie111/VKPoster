@@ -7,13 +7,26 @@ namespace App\Domain\Analytics;
 /** Comparable counters with explicit availability; engagement is independent of views. */
 final class PostMetrics
 {
-    public function __construct(public readonly ?int $views = null, public readonly ?int $reach = null, public readonly ?int $engagement = null, public readonly ?int $likes = null, public readonly ?int $comments = null, public readonly ?int $shares = null)
-    {
+    /** @param array<string,string> $statuses Per-metric provider availability; never inferred zeroes. */
+    public function __construct(
+        public readonly ?int $views = null,
+        public readonly ?int $reach = null,
+        public readonly ?int $engagement = null,
+        public readonly ?int $likes = null,
+        public readonly ?int $comments = null,
+        public readonly ?int $shares = null,
+        public readonly array $statuses = []
+    ) {
     }
     /** @return array<string,int|null> */
     public function toArray(): array
     {
-        return ['views' => $this->views,'reach' => $this->reach,'engagement' => $this->engagement,'likes' => $this->likes,'comments' => $this->comments,'shares' => $this->shares];
+        return ['views' => $this->views,
+            'reach' => $this->reach,
+            'engagement' => $this->engagement,
+            'likes' => $this->likes,
+            'comments' => $this->comments,
+            'shares' => $this->shares];
     }
     public function er(): ?float
     {

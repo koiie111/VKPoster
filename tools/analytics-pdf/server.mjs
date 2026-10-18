@@ -1,13 +1,25 @@
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { chromium } from 'playwright';
 
 // No navigation API: only signed HTML produced by our server. No public listener port is published.
-const key = process.env.APP_KEY || '';
-if (!key) throw new Error('Renderer key required');
-const browser = await chromium.launch({ headless: true });
+const key = process.env.ANALYTICS_PDF_KEY || readFileSync(process.env.ANALYTICS_PDF_KEY_FILE || '/run/analytics-pdf-key/key', 'utf8').trim();
+if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('Renderer key required');
+const browser = await chromium.launch({ headless: true, handleSIGTERM: false, handleSIGINT: false });
+let stopping = false;
+browser.on('disconnected', () => { if (!stopping) process.exit(1); });
+for (const signal of ['SIGTERM', 'SIGINT']) {
+    process.once(signal, async () => {
+        stopping = true;
+        const watchdog = setTimeout(() => process.exit(0), 5000);
+        watchdog.unref();
+        server.close();
+        try { await browser.close(); } finally { process.exit(0); }
+    });
+}
 let active = 0;
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
     req.setTimeout(15000, () => req.destroy());
     if (req.method !== 'POST' || req.url !== '/pdf') { res.writeHead(404).end(); return; }
     if (active >= 2) { res.writeHead(429, {'Retry-After': '10'}).end(); return; }
@@ -31,5 +43,8 @@ http.createServer(async (req, res) => {
         const pdf = await page.pdf({format: 'A4', timeout: 20000, margin: {top: '15mm', bottom: '15mm', left: '12mm', right: '12mm'}});
         res.writeHead(200, {'Content-Type': 'application/pdf', 'Cache-Control': 'no-store'}).end(pdf);
     } catch { if (!res.headersSent) res.writeHead(503).end(); }
-    finally { await context?.close(); --active; }
+    finally {
+        try { await context?.close(); } catch { /* Browser shutdown also closes in-flight contexts. */ }
+        --active;
+    }
 }).listen(3000, '0.0.0.0');

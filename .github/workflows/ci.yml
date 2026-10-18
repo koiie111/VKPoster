@@ -140,7 +140,7 @@ jobs:
       - name: Offline HTML-to-PDF HTTP contract
         shell: bash
         run: |
-          docker run -d --name analytics-pdf -e APP_KEY=synthetic-pdf-contract -p 127.0.0.1:18187:3000 vkposter-analytics-pdf
+          docker run -d --name analytics-pdf -e ANALYTICS_PDF_KEY=$(python3 -c 'import hashlib,hmac; print(hmac.new(b"synthetic-pdf-contract",b"analytics-pdf-v1",hashlib.sha256).hexdigest())') -p 127.0.0.1:18187:3000 vkposter-analytics-pdf
           PDF_TEST_KEY=synthetic-pdf-contract python3 tools/analytics-pdf/smoke.py 2>&1 | tee /tmp/vkposter-pdf.log
       - name: Report failed PDF diagnostics
         if: failure()
@@ -155,3 +155,9 @@ jobs:
                   message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
                   print('::error title=Renderer ' + name + ' failure::' + message)
           PYCODE
+
+      - name: Renderer security and browser lifecycle
+        run: |
+          docker run --rm --network none --read-only --tmpfs /tmp --shm-size=256m \
+            -v "$PWD/tools/analytics-pdf/test-server.mjs:/opt/analytics-pdf/test-server.mjs:ro" \
+            --entrypoint node vkposter-analytics-pdf test-server.mjs

@@ -9,7 +9,7 @@
 - **Текущий этап:** 15
 - **Статус:** NEEDS_OWNER
 - **Ветка / PR:** `stage-15-analytics` / [#26](https://github.com/koiie111/VKPoster/pull/26)
-- **Последнее обновление:** 2026-10-16 (Stage 15 реализован, ожидает живой проверки владельцем)
+- **Последнее обновление:** 2026-10-18 (исправления независимого review; живая проверка владельцем ожидается)
 
 ## Этапы
 
@@ -62,14 +62,35 @@
 ### Этап 15 — Аналитика (запрошено 2026-10-16)
 **Что сделано:** queued snapshots, daily followers, dashboard/ER/best-time, CSV/PDF,
 retention и отчёт по существующей guest capability. Ветка stage-15-analytics, [PR #26](https://github.com/koiie111/VKPoster/pull/26).
-**CI:** [run 38938727884](https://github.com/koiie111/VKPoster/actions/runs/38938727884),
-commit `cc7cc0b`: check, reader и analytics-pdf — success. Pinned production PDF image
-и HTTP contract проверены в CI. Style проверен без cache; диагностические pipelines
-используют bash pipefail и не скрывают коды ошибок.
+**Independent review fixes (2026-10-18):**
+1. PDF использует domain-separated key; trusted PHP init пишет derived key в read-only
+   volume Chromium, без master APP_KEY/токенов/env_file в renderer.
+2. Instagram metrics запрашиваются независимо; availability сохраняется отдельно,
+   transient retry не стирает успешные частичные counters.
+3. Calendar/Queue вызывают BestTimeHints: только engagement/time, без полного report.
+4. В migration36 добавлен publications_stats_due(status,sent_at), обратимый.
+5. После простоя только последний прошедший milestone; ранняя delayed job пропускается.
+6. Queue capacity deferral не расходует attempts; отдельный analytics-worker обслуживает
+   analytics, publishing worker остаётся publish,default.
+7. Chromium crash завершает renderer с code1; intentional SIGTERM/SIGINT — code0.
+8. Internal channel_id убран из dashboard/guest labels; форматирование ограничено Stage15.
+
+**Проверки:** targeted Analytics 29 tests /321 assertions; полный PHP 2279 /41267;
+PHPStan level8+strict, style без cache, composer audit (0 advisories), health — passed.
+Reader offline: 61 tests, 2 opt-in HTTP contracts skipped; Ruff passed. Migration fresh
+(37), upgrade с upstream/main, rollback/replay, existing sent publication — passed.
+Compose env isolation и отдельный CLI analytics worker — passed. Node security/lifecycle
+на pinned production Playwright 1.64.1 — passed (derived key file, wrong/missing
+key, signed PDF, unsigned403, oversized413, SIGTERM=0, browser crash=1).
+GitHub CI повторно запускается после push; результаты доступны в PR #26.
+UI/axe: 4 страницы ×375/768/1440 ×light/dark (24 снимка, просмотрены), axe также360px;
+0 serious/critical и page overflow. Снимки: storage/ui-review/stage-15/.
+PR #26 обновляется в этой же ветке; Stage15 остаётся NEEDS_OWNER. Общий self-review
+не выполнялся; повторная независимая проверка — вторым разработчиком.
 **Как проверить руками:**
 1. В локальном `.env` выставить `ANALYTICS_COLLECTION_ENABLED=true`. Ключи платформ
    вводить только локально, не в чат; используйте уже подключённые свои каналы.
-2. Выполнить `make migrate`, затем `docker compose up -d --force-recreate app worker scheduler`.
+2. Выполнить `make migrate`, затем `docker compose up -d --force-recreate app worker analytics-worker scheduler`.
 3. PDF: `docker compose --profile analytics up -d --build analytics-pdf` (без публичного порта).
 4. Открыть http://localhost:8080/app → «Аналитика» своего workspace. После нескольких
    дней реальных публикаций сравнить периоды/каналы и последние накопительные counters
@@ -201,7 +222,7 @@ commit `cc7cc0b`: check, reader и analytics-pdf — success. Pinned production 
 ### Этап 11 — Лендинг, юридические страницы, админка → MVP (запрошено 2026-10-05)
 **Что сделано:** [PR #16](https://github.com/koiie111/VKPoster/pull/16) (ветка `stage-11-landing-admin-mvp`). Лендинг `/` (цены из БД, FAQ, SEO, Open Graph, `sitemap.xml`, `robots.txt`), юридические страницы `/legal/*` (шаблоны, версии, повторное согласие), баннер cookies, справка `/help` (подключение TG/VK/MAX, частые проблемы), страница `/status` и баннер о сбоях соцсетей, онбординг из трёх шагов, «Сообщить о проблеме», админка `/admin` (пользователи с блокировкой и входом под пользователем, пространства, подписки, платежи и возвраты, тарифы и цены, очереди и упавшие задачи, каналы по сетям, выключатели сетей, заготовка промокодов), `compose.prod.yaml` и `docs/deploy.md`. Подробности: `docs/architecture/modules/site-admin.md`. Скриншоты: `storage/ui-review/stage-11/`.
 **Как проверить руками:**
-1. `git fetch && git checkout stage-11-landing-admin-mvp && make up && make migrate && make seed && make css`, затем `docker compose up -d app worker scheduler` (долгие процессы держат старый код).
+1. `git fetch && git checkout stage-11-landing-admin-mvp && make up && make migrate && make seed && make css`, затем `docker compose up -d app worker analytics-worker scheduler` (долгие процессы держат старый код).
 2. Путь нового пользователя. Откройте http://localhost:8080/ в чистом окне (или инкогнито): прочтите лендинг, нажмите «Попробовать бесплатно», зарегистрируйтесь, подтвердите почту через Mailpit http://localhost:8025, войдите. На главной пространства должен появиться список «Три шага до первой публикации». Подключите тестовый канал (по инструкции из справки), создайте и запланируйте пост. Где вам было непонятно?
 3. Справка и документы: http://localhost:8080/help, http://localhost:8080/legal/offer (виден значок «Шаблон» и места `[[…]]`), http://localhost:8080/status. Баннер cookies внизу должен исчезать после выбора.
 4. Форма «Сообщить о проблеме»: меню профиля → «Сообщить о проблеме», отправьте сообщение: письмо придёт в Mailpit.
@@ -228,8 +249,8 @@ commit `cc7cc0b`: check, reader и analytics-pdf — success. Pinned production 
 ### Этап 09 — MAX (запрошено 2026-10-04)
 **Что сделано:** [PR #14](https://github.com/koiie111/VKPoster/pull/14) (ветка `stage-09-max`). Свой клиент MAX API (токен в заголовке `Authorization`, лимит 2 сообщения в секунду на чат), адаптер (текст в `html`, фото, видео и файлы через `POST /uploads` с ожиданием обработки, кнопки-ссылки, тихая отправка, отключение предпросмотра, закрепление, удаление, правка текста), подключение через бота сервиса по коду `/connect КОД` (вебхук `/webhooks/max/{secret}`) и через свой бот (токен и ссылка `max.ru/имя` или номер канала), проверка здоровья, команды `max:poll` и `max:webhook`. Всё проверено на фикстурах (1300+ тестов зелёные), живого вызова MAX не было. ADR 0007 перечисляет, что не удалось подтвердить по документации. Скриншоты страницы подключения: `storage/ui-review/stage-09/`.
 **Как проверить руками** (нужен верифицированный бот MAX; если его нет, ответьте на вопрос 1 «живой тест отложен» и этап смержится на фикстурах):
-1. `git fetch && git checkout stage-09-max && make up && make migrate && make css`, затем `docker compose up -d app worker scheduler` (процессы держат старый код, перезапуск обязателен).
-2. В `.env` впишите **сами**: `MAX_BOT_TOKEN=…` (токен бота из business.max.ru), `MAX_WEBHOOK_SECRET=…` (16–128 символов `A-Za-z0-9_-`, например результат `openssl rand -hex 16`), `PLATFORMS_ENABLED=telegram,vk,max` (добавьте `max` к тому, что уже стоит). Примените: `docker compose up -d app worker scheduler`.
+1. `git fetch && git checkout stage-09-max && make up && make migrate && make css`, затем `docker compose up -d app worker analytics-worker scheduler` (процессы держат старый код, перезапуск обязателен).
+2. В `.env` впишите **сами**: `MAX_BOT_TOKEN=…` (токен бота из business.max.ru), `MAX_WEBHOOK_SECRET=…` (16–128 символов `A-Za-z0-9_-`, например результат `openssl rand -hex 16`), `PLATFORMS_ENABLED=telegram,vk,max` (добавьте `max` к тому, что уже стоит). Примените: `docker compose up -d app worker analytics-worker scheduler`.
 3. Получение событий. Либо локально: в отдельном окне `make console CMD="max:poll"` (оставьте работать). Либо через туннель с публичным HTTPS на порту 443: `docker compose --profile tunnel up -d tunnel`, адрес из `docker compose logs tunnel | grep trycloudflare` впишите в `APP_URL`, затем `make console CMD="max:webhook set"` и `make console CMD="max:webhook info"` (должен показать адрес со звёздочками вместо секрета).
 4. В MAX создайте тестовый канал (лучше публичный) и добавьте бота администратором: право публиковать сообщения; включите также читать сообщения, удалять и закреплять.
 5. Откройте сайт, войдите, «Каналы» → «Подключить канал» → «MAX» → «Получить код», в канале напишите `/connect КОД`. Страница должна сама показать «подключено», сообщение с кодом должно удалиться, а канал появиться в списке. Если не получилось, посмотрите, что написано на странице под полем кода, и вывод `max:poll`.
@@ -251,9 +272,9 @@ commit `cc7cc0b`: check, reader и analytics-pdf — success. Pinned production 
 ### Этап 08 — VK (запрошено 2026-10-04)
 **Что сделано:** [PR #13](https://github.com/koiie111/VKPoster/pull/13) (ветка `stage-08-vk`). Свой клиент VK API (5.199), адаптер (текст, фото, видео, документы, опросы, закрепление, удаление, первый комментарий, правка текста), подключение сообществ через VK ID OAuth 2.1 (`/w/{id}/channels/connect/vk`, выбор нескольких сообществ), обновление токена под замком (refresh-токен одноразовый), проверка «вы всё ещё администратор», сверка исхода по стене при обрыве соединения (для всех сетей, где адаптер умеет), предупреждение о суточном лимите постов сообщества. `make check` зелёный (1206 тестов, сеть не используется), `make ui-snap STAGE=08` без нарушений axe, скриншоты `storage/ui-review/stage-08/`. Страницу выбора сообществ в скриншотах нет (нужен ответ настоящего VK), её вид проверен тестами. Решение по авторизации и что я не смог подтвердить по документации (dev.vk.com не открывается из моей среды): [ADR 0006](docs/adr/0006-vk-auth.md).
 **Как проверить руками:**
-1. `git fetch && git checkout stage-08-vk && make up && make migrate && make css`, затем `docker compose up -d app worker scheduler` (процессы держат старый код, перезапуск обязателен).
+1. `git fetch && git checkout stage-08-vk && make up && make migrate && make css`, затем `docker compose up -d app worker analytics-worker scheduler` (процессы держат старый код, перезапуск обязателен).
 2. В кабинете VK ID (id.vk.com → «Бизнес» → ваше приложение; можно то же приложение, что для входа на этапе 03) добавьте доверенный адрес возврата `<APP_URL>/channels/connect/vk/callback`. VK ID не принимает `http://localhost`, поэтому нужен публичный HTTPS: туннель из этапа 03 (`docker compose --profile tunnel up -d tunnel`, адрес `docker compose logs tunnel | grep trycloudflare` впишите в `APP_URL`). Обратите внимание, какие права на стену, фото, видео, документы и группы приложению разрешено запрашивать: если VK просит заявку на модерацию доступа, подайте её.
-3. В `.env` впишите **сами**: `VK_CLIENT_ID=…` (и `VK_CLIENT_SECRET=…`, если ключ у приложения есть; если пусто, берутся `VKID_*`) и `PLATFORMS_ENABLED=telegram,vk`. Примените: `docker compose up -d app worker scheduler`.
+3. В `.env` впишите **сами**: `VK_CLIENT_ID=…` (и `VK_CLIENT_SECRET=…`, если ключ у приложения есть; если пусто, берутся `VKID_*`) и `PLATFORMS_ENABLED=telegram,vk`. Примените: `docker compose up -d app worker analytics-worker scheduler`.
 4. Откройте сайт по публичному адресу, войдите, «Каналы» → «Подключить канал» → «ВКонтакте» → «Войти через ВКонтакте», разрешите доступ, отметьте тестовое сообщество (вы в нём администратор или редактор), «Подключить выбранные».
 5. «Новый пост», выберите это сообщество и запланируйте на ближайшие 2–3 минуты по очереди: а) текст; б) 5 фото; в) видео; г) пост с первым комментарием и закреплением (раздел «Дополнительно»); д) пост с «Удалить пост через 5 минут»; по желанию е) документ и ж) опрос. Дождитесь времени и сверьте результат на стене сообщества.
 6. На странице опубликованного поста измените текст («Редактировать опубликованный») и проверьте, что фото остались.
@@ -394,7 +415,7 @@ _Не проверено вживую:_ виджет Telegram и редирек�
 **Что сделано:** PR: https://github.com/koiie111/VKPoster/pull/11 (ветка `stage-06-channels-telegram`). Раздел «Каналы» (список, подключение, пауза, переименование, отключение), общая модель каналов и платформ (контракты, реестр с флагами `PLATFORMS_ENABLED`), свой клиент Telegram Bot API и адаптер, подключение через бота сервиса по коду `/connect КОД` и через свой бот, хранилище токенов только в зашифрованном виде, проверка здоровья каналов с письмом, команды `telegram:poll`, `telegram:webhook`, `channels:check`, `crypto:rotate`. `make check` зелёный (1014 тестов, ни один не ходит в сеть); `make ui-snap STAGE=06` без нарушений axe, скриншоты: `storage/ui-review/stage-06/` (файлы `channels-*`). Вживую с настоящим Telegram я не проверял: у меня нет вашего бота, всё покрыто записанными ответами Bot API.
 **Как проверить руками:**
 1. `git fetch && git checkout stage-06-channels-telegram && make up && make migrate && make css`
-2. В Telegram откройте @BotFather, отправьте `/newbot`, получите токен. В файл `.env` впишите **сами** (в чат не присылайте): `TELEGRAM_BOT_TOKEN=<токен>` и `PLATFORMS_ENABLED=telegram` (имя бота без `@` можно добавить в `TELEGRAM_BOT_USERNAME`, но можно и пропустить). Примените: `docker compose up -d app worker scheduler`.
+2. В Telegram откройте @BotFather, отправьте `/newbot`, получите токен. В файл `.env` впишите **сами** (в чат не присылайте): `TELEGRAM_BOT_TOKEN=<токен>` и `PLATFORMS_ENABLED=telegram` (имя бота без `@` можно добавить в `TELEGRAM_BOT_USERNAME`, но можно и пропустить). Примените: `docker compose up -d app worker analytics-worker scheduler`.
 3. Создайте тестовый канал в Telegram (любое имя, можно закрытый).
 4. Локальная разработка без публичного HTTPS: в отдельном окне терминала запустите приём сообщений бота `make console CMD="telegram:poll"` и оставьте работать (остановка: Ctrl+C). Если хотите проверить вебхук, как в production: впишите в `.env` `TELEGRAM_WEBHOOK_SECRET=<16–128 символов A-Za-z0-9_->` (подойдёт `openssl rand -hex 16`), поднимите туннель `docker compose --profile tunnel up -d tunnel`, возьмите адрес из `docker compose logs tunnel | grep trycloudflare`, впишите его в `APP_URL`, перезапустите `docker compose up -d app` и выполните `make console CMD="telegram:webhook set https://ВАШ-АДРЕС.trycloudflare.com"` (проверка: `telegram:webhook info`). Тогда `telegram:poll` не нужен.
 5. Откройте http://localhost:8080, войдите (например, `/dev/login-as/demo@ezposter.local` при `make seed`, либо своим аккаунтом) → «Каналы» → «Подключить канал» → «Telegram» → «Получить код».

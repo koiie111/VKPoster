@@ -108,5 +108,9 @@ Content hardening env: `CONTENT_CONCURRENCY=2`, `CONTENT_PROVIDER_PER_MINUTE=20`
 
 ANALYTICS_COLLECTION_ENABLED=false по умолчанию: явное включение read-only сбора.
 ANALYTICS_PDF_URL=http://analytics-pdf:3000 — внутренний фиксированный renderer.
-APP_KEY подпись POST, compose profile analytics, без публичного порта. Тарифные
+Подпись POST использует domain-separated derived key, а не master APP_KEY.
+Compose profile analytics: PHP init пишет derived key в dedicated volume, Chromium
+читает только read-only key file (ANALYTICS_PDF_KEY_FILE), без .env/APP_KEY/токенов.
+Новый пользовательский секрет не требуется. analytics-worker обслуживает очередь
+analytics отдельно от publish,default; capacity deferral не расходует attempts. Тарифные
 analytics_days / analytics_export / client_reports используются без новых тарифов.

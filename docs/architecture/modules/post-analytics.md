@@ -8,10 +8,20 @@ Credentials расшифровываются существующим ChannelCre
 Таблицы migration36: analytics_tasks, post_stats_snapshots, channel_stats_snapshots,
 telegram_stats_reactions. Все принадлежат workspace/channel. Background task payload
 содержит только id. CAS lease исключает поздний результат, unique task_id — duplicate
-snapshot. Ошибки safe enum code; platform auth/permanent завершается unavailable,
+snapshot. Publications имеет индекс (status,sent_at) для tick. Ошибки safe enum code; platform auth/permanent завершается unavailable,
 временные ошибки попадают в существующий retry/backoff; один канал не блокирует другой.
 
-Scheduler каждую минуту планирует milestones/daily, очистка 03:43 UTC. Общий лимит60
+Scheduler каждую минуту планирует milestones/daily, очистка 03:43 UTC.
+После простоя выбирается только последний прошедший milestone: максимум одна текущая
+post task за tick, ранние пропущенные сроки не backfill. Запоздавшая job раннего
+milestone завершается milestone_missed без HTTP; observed_at всегда фактический.
+StatsJob обслуживается отдельным analytics-worker (--queue=analytics), прежний worker
+остаётся publish,default. Rate limit / недоступный limiter откладывает ту же job с delay,
+освобождает lease и компенсирует reservation attempt. Provider errors используют обычные
+5 attempts/backoff; recovery не создаёт новую job, пока существующая отложена в Queue.
+Instagram читает каждую metric отдельно: available/unavailable/permission_denied/
+unsupported/transient_failure сохраняются в metric_statuses. Перед retry успешные
+частичные counters сохраняются под тем же task_id; повторный transient не стирает их. Общий лимит60
 stats jobs/min на платформу,30/min на канал плюс прежние VK API rate gates. Redis
 недоступен — запрос к платформе не делается, очередь повторит. Collection по умолчанию
 выключен, явный `ANALYTICS_COLLECTION_ENABLED=true`; повторная проверка есть в worker.
@@ -24,12 +34,22 @@ analytics_export. Guest `/g/{capability}/analytics` использует Stage14
 client_reports, замороженный набор постов, без подписчиков за пределами capability.
 
 Chart.js уже поставляется с проектом (ADR0009); таблицы доступны без JS. Calendar и
-queue slot form показывают scoped best time, без автоматической смены расписания.
+queue slot form показывают scoped best time через узкий BestTimeHints::forWorkspace:
+только sent_at и последний engagement, без report/post text/subscriber snapshots.
+Формула и пороги общие с dashboard, автоматической смены расписания нет.
 Staff workspace card: pending/errors/snapshot count/last completion, без секретов.
 Dashboard usage — idempotent analytics event post_analytics_viewed (workspace/day).
 
 PDF: `docker compose --profile analytics up -d --build analytics-pdf`; production
-так же `-f compose.prod.yaml --profile analytics`. APP_KEY передаётся контейнеру только
-через env, signing HMAC в памяти. ANALYTICS_PDF_URL — operator-controlled endpoint,
-не пользовательский URL. Не публиковать сервис наружу; обновлять pin Playwright/image
-совместно. См. ADR0014 для источников API, формул, ограничений и угроз.
+так же `-f compose.prod.yaml --profile analytics`. PHP AnalyticsPdfKey получает
+`hash_hmac('sha256', 'analytics-pdf-v1', APP_KEY)`. Trusted PHP init service
+analytics-pdf-key атомарно пишет **только производный ключ** в dedicated Docker volume.
+Chromium монтирует volume read-only, получает только путь ANALYTICS_PDF_KEY_FILE,
+не APP_KEY/env_file/токены платформ. Новый секрет в .env не нужен. Missing/wrong key
+fail closed. При ротации APP_KEY пересоздать init и renderer вместе:
+`docker compose --profile analytics up -d --force-recreate analytics-pdf-key analytics-pdf`.
+
+Unexpected Chromium disconnect завершает Node с code1; restart: unless-stopped
+восстанавливает сервис. SIGTERM/SIGINT закрывают браузер намеренно с code0.
+ANALYTICS_PDF_URL — operator-controlled endpoint, не пользовательский URL. Не публиковать
+сервис наружу; обновлять pin Playwright/image совместно. См. ADR0014 для ограничений.

@@ -39,7 +39,7 @@ final class PostAnalyticsTest extends BillingTestCase
     private function drainStats(): void
     {
         $w = $this->app->container()->get(Worker::class);
-        for ($i = 0;$i < 20 && $w->runNext('default', 'stats-test');++$i) {
+        for ($i = 0;$i < 20 && $w->runNext('analytics', 'stats-test');++$i) {
         }
     }
     public function testSchedulerQueueSnapshotsRetryDedupAndDashboard(): void
@@ -94,7 +94,10 @@ final class PostAnalyticsTest extends BillingTestCase
         foreach ([7,30,365] as $days) {
             $this->givePlan($workspace, 'pro', ['analytics_days' => $days]);
             self::assertSame($days, $this->collector()->days($ctx->workspaceId));
-            $this->db->execute('UPDATE post_stats_snapshots SET observed_at=?', [DbTime::format($this->clock->now()->modify('-'.($days - 1).' days'))]);
+            $this->db->execute(
+                'UPDATE post_stats_snapshots SET observed_at=?',
+                [DbTime::format($this->clock->now()->modify('-'.($days - 1).' days'))]
+            );
             $this->collector()->prune();
             self::assertSame(1, $this->db->table('post_stats_snapshots')->count());
         }
@@ -112,7 +115,14 @@ final class PostAnalyticsTest extends BillingTestCase
         $this->http->expect('POST', 'http://analytics-pdf:3000/pdf', 200, '%PDF-1.7 test');
         self::assertSame(200, $this->get($url.'/export.pdf')->status);
         $last = $this->http->requests[array_key_last($this->http->requests) ?? 0] ?? throw new \LogicException('Missing renderer request');
-        self::assertSame(hash_hmac('sha256', $last['options']['body'], \App\Tests\Support\TestEnv::KEY), $last['options']['headers']['X-Report-Signature']);
+        self::assertSame(
+            hash_hmac(
+                'sha256',
+                $last['options']['body'],
+                \App\Domain\Analytics\AnalyticsPdfKey::derive(\App\Tests\Support\TestEnv::KEY)
+            ),
+            $last['options']['headers']['X-Report-Signature']
+        );
         $links = $this->app->container()->get(GuestLinks::class);
         $guest = $links->create($ctx, [$post->publicId], 24);
         self::assertSame(403, $this->get($guest.'/analytics')->status); // Pro has no client_reports.
@@ -126,9 +136,9 @@ final class PostAnalyticsTest extends BillingTestCase
         [$ctx,$post,$channel,$pub] = $this->fixture();
         $this->clock->advance(28 * 86400);
         $this->collector()->tick();
-        self::assertSame(8, $this->db->table('analytics_tasks')->where('publication_id', '=', $pub)->count());
+        self::assertSame(1, $this->db->table('analytics_tasks')->where('publication_id', '=', $pub)->count());
         $this->collector()->tick();
-        self::assertCount(8, $this->db->select('SELECT task_key FROM analytics_tasks WHERE publication_id=?', [$pub]));
+        self::assertCount(1, $this->db->select('SELECT task_key FROM analytics_tasks WHERE publication_id=?', [$pub]));
         $user = $this->app->container()->get(\App\Domain\User\UserRepository::class)->find($ctx->userId) ?? throw new \LogicException();
         $this->actAs($user);
         $old = $this->clock->now()->modify('-366 days')->format('Y-m-d');

@@ -14,13 +14,22 @@ use App\Integrations\Social\Instagram\InstagramStatsFetcher;
 /** Typed registry reuses the existing API clients and their platform rate/error gates. */
 final class StatsFetchers
 {
-    public function __construct(private readonly FakeStatsFetcher $fake, private readonly VkStatsFetcher $vk, private readonly TelegramStatsFetcher $telegram, private readonly MaxStatsFetcher $max, private readonly InstagramStatsFetcher $instagram)
-    {
+    public function __construct(
+        private readonly FakeStatsFetcher $fake,
+        private readonly VkStatsFetcher $vk,
+        private readonly TelegramStatsFetcher $telegram,
+        private readonly MaxStatsFetcher $max,
+        private readonly InstagramStatsFetcher $instagram
+    ) {
     }
     public function for(Platform $platform): StatsFetcher
     {
         return match($platform) {
-            Platform::Fake => $this->fake,Platform::Vk => $this->vk,Platform::Telegram => $this->telegram,Platform::Max => $this->max,Platform::Instagram => $this->instagram
+            Platform::Fake => $this->fake,
+            Platform::Vk => $this->vk,
+            Platform::Telegram => $this->telegram,
+            Platform::Max => $this->max,
+            Platform::Instagram => $this->instagram
         };
     }
 }

@@ -31,12 +31,26 @@ final class TelegramReactions
             $sum += $r['total_count'];
         }
         foreach ($this->channels->sharedBotChannels(Platform::Telegram, (string)$chat) as $channel) {
-            $this->db->execute('INSERT INTO telegram_stats_reactions(workspace_id,channel_id,message_id,event_date,reactions) VALUES(?,?,?,?,?) ON DUPLICATE KEY UPDATE reactions=IF(VALUES(event_date)>=event_date,VALUES(reactions),reactions),event_date=GREATEST(event_date,VALUES(event_date))', [$channel->workspaceId,$channel->id,(string)$message,$date,$sum]);
+            $this->db->execute(
+                'INSERT INTO telegram_stats_reactions(workspace_id,channel_id,message_id,event_date,reactions) VALUES(?,?,?,?,?) ON
+                DUPLICATE KEY UPDATE
+                reactions=IF(VALUES(event_date)>=event_date,VALUES(reactions),reactions),event_date=GREATEST(event_date,VALUES(event_date))',
+                [$channel->workspaceId,
+                $channel->id,
+                (string)$message,
+                $date,
+                $sum]
+            );
         }
     }
     public function count(int $workspace, int $channel, string $message): ?int
     {
-        $r = $this->db->select('SELECT reactions FROM telegram_stats_reactions WHERE workspace_id=? AND channel_id=? AND message_id=?', [$workspace,$channel,$message])[0] ?? null;
+        $r = $this->db->select(
+            'SELECT reactions FROM telegram_stats_reactions WHERE workspace_id=? AND channel_id=? AND message_id=?',
+            [$workspace,
+            $channel,
+            $message]
+        )[0] ?? null;
         return $r === null ? null : (int)$r['reactions'];
     }
 }

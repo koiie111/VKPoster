@@ -9,6 +9,7 @@ use App\Kernel\Queue\AbstractJob;
 /** One publication milestone or one channel/day; retries are read-only and idempotent. */
 final class StatsJob extends AbstractJob
 {
+    public const QUEUE = 'analytics';
     public function __construct(public readonly int $taskId)
     {
     }

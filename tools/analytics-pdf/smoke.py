@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 
 url = os.environ.get('PDF_TEST_URL', 'http://127.0.0.1:18187')
-key = os.environ['PDF_TEST_KEY'].encode()
+key = hmac.new(os.environ['PDF_TEST_KEY'].encode(), b'analytics-pdf-v1', hashlib.sha256).hexdigest().encode()
 
 def send(body, signature=''):
     request = urllib.request.Request(url + '/pdf', body, headers={'X-Report-Signature': signature, 'Content-Type': 'text/html'})
@@ -28,6 +28,8 @@ for attempt in range(30):
 else:
     raise AssertionError('Renderer did not become ready')
 html = '<html lang="ru"><meta charset="utf-8"><h1>Тестовый отчёт</h1><p>0 != нет данных</p><img src="http://example.invalid/never-load"><script>throw Error("must not run")</script></html>'.encode()
+wrong_signature = hmac.new(b'wrong-key', html, hashlib.sha256).hexdigest()
+assert send(html, wrong_signature)[0] == 403
 signature = hmac.new(key, html, hashlib.sha256).hexdigest()
 status, body = send(html, signature)
 assert status == 200, status

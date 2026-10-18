@@ -40,7 +40,7 @@ final class CalendarController
         private readonly PostService $service,
         private readonly Permissions $permissions,
         private readonly Clock $clock,
-        private readonly \App\Domain\Analytics\PostAnalytics $analytics,
+        private readonly \App\Domain\Analytics\BestTimeHints $analytics,
     ) {
     }
 
@@ -110,7 +110,7 @@ final class CalendarController
                 'week' => $base . '/calendar?' . http_build_query(['view' => 'week'] + array_diff_key($query, ['view' => 1]) + ['date' => $anchor->format('Y-m-d')]),
                 'list' => $base . '/calendar?' . http_build_query(['view' => 'list'] + array_diff_key($query, ['view' => 1]) + ['date' => $anchor->format('Y-m-d')]),
             ],
-            'analytics_report' => $this->analytics->report($context),
+            'analytics_report' => $this->analytics->forWorkspace($context),
             'timezone_label' => ScheduleTime::label($context->timezone, $this->clock->now()),
             'timezone' => $context->timezone,
             'base' => $base,

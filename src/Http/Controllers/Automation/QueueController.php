@@ -52,7 +52,7 @@ final class QueueController
         private readonly ChannelRepository $channels,
         private readonly Entitlements $entitlements,
         private readonly Permissions $permissions,
-        private readonly \App\Domain\Analytics\PostAnalytics $analytics,
+        private readonly \App\Domain\Analytics\BestTimeHints $analytics,
     ) {
     }
 
@@ -91,7 +91,7 @@ final class QueueController
         return $this->view->response('workspace/automation/queue_form.twig', [
             'workspace' => $context,
             'queue' => $queue,
-            'analytics_report' => $this->analytics->report($context),
+            'analytics_report' => $this->analytics->forWorkspace($context),
             'days' => self::DAYS,
             'times' => $queue === null ? array_fill(1, 7, '') : $this->timesByDay($queue),
             'channels' => $this->http->channelChoices($context),

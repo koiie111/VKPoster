@@ -30,7 +30,14 @@ final class VkStatsFetcher implements StatsFetcher
                 throw $e;
             }
         }
-        return new PostMetrics(PostMetrics::counter($post['views']['count'] ?? null), $reach, $likes !== null && $comments !== null && $shares !== null ? $likes + $comments + $shares : null, $likes, $comments, $shares);
+        return new PostMetrics(
+            PostMetrics::counter($post['views']['count'] ?? null),
+            $reach,
+            $likes !== null && $comments !== null && $shares !== null ? $likes + $comments + $shares : null,
+            $likes,
+            $comments,
+            $shares
+        );
     }
     public function followers(Channel $channel, Credential $credential): ?int
     {

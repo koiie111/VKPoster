@@ -12,9 +12,11 @@ channel/day. Unique task_key и task_id, lease/fencing и транзакция �
 от дублей при retry/crash/ACK loss. Отдельного publishing pipeline нет.
 
 План: 1/6/24/72/168/336/504/672 часов после sent_at (последний недельный снимок на
-28-й день, горизонт 30 дней). Пропущенные сроки дают текущие наблюдения, не выдуманную
-историю. observed_at — реальное время чтения. Retry 1/5/15/60 минут, 5 попыток;
-планировщик восстанавливает незавершённые задачи спустя 6 часов. Read-only запрос
+28-й день, горизонт 30 дней). При простое создаётся только последний прошедший milestone,
+не несколько исторически ложных снимков. Запоздавшие ранние jobs пропускаются. observed_at — реальное время чтения. Retry 1/5/15/60 минут, 5 попыток;
+планировщик восстанавливает потерянные незавершённые задачи спустя 6 часов,
+но не дублирует отложенные jobs. Analytics работает в отдельной очереди/worker;
+capacity deferral сохраняет job и retry budget, provider errors расходуют attempts. Read-only запрос
 можно повторить. Обработчики ошибок не раскрывают HTTP options/credential.
 
 NULL означает «API не отдаёт / ещё нет снимка». Ноль — только реально полученное 0.
@@ -44,14 +46,19 @@ NULL означает «API не отдаёт / ещё нет снимка». Н
 - Instagram: [Insights with Instagram Login](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/insights),
   существующий v23.0 клиент Stage 12. views/reach/total_interactions и counters,
   followers_count. Метрики зависят от типа media/прав; API refusal отражён как
-  unavailable, не обрушает другие jobs. Страницу Meta инструмент не открыл; live pending.
+  unavailable, не обрушает другие metrics/jobs. Каждая metric читается независимо;
+  availability и частичный прогресс сохраняются перед обычным retry transient failures. Страницу Meta инструмент не открыл; live pending.
 
 Chart.js **не добавляется заново**: используется существующий vendor 4.4.7 и SHA256
 из ADR 0009. CDN нет. Каждому canvas соответствует HTML-таблица, NULL не рисуется нулём.
 
 PDF — HTML→headless Chromium в отдельном tools/analytics-pdf image, Playwright 1.64.1
 (stable upstream release проверен), lockfile. Никаких Node/Chromium в PHP image.
-Внутренний POST подписан HMAC APP_KEY; публичного порта нет. Renderer отвергает
+Внутренний POST подписан **domain-separated** ключом:
+`hash_hmac('sha256', 'analytics-pdf-v1', APP_KEY)`. Master APP_KEY в Chromium не передаётся.
+Одноразовый trusted PHP init пишет derived key в отдельный volume; renderer читает его
+read-only, без app env/credentials. Непредвиденная смерть браузера завершает renderer
+non-zero для Docker restart; намеренный SIGTERM закрывается с code0. Публичного порта нет. Renderer отвергает
 неподписанный/слишком большой HTML, concurrency 2, JS/service workers отключены,
 все network requests Chromium заблокированы, offline context, временные context
 закрываются. Только autoescaped серверный template, никакого пользовательского URL.

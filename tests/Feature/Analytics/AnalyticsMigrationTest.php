@@ -21,10 +21,15 @@ final class AnalyticsMigrationTest extends BillingTestCase
         try {
             $migration->down($this->db);
             self::assertSame(1, $this->db->table('publications')->where('status', '=', 'sent')->count());
+            self::assertSame([], $this->db->select("SHOW INDEX FROM publications WHERE Key_name='publications_stats_due'"));
             $migration->up($this->db);
             self::assertNotNull($this->posts()->find($ctx, $post->publicId));
             self::assertSame(1, $this->db->table('publications')->where('status', '=', 'sent')->count());
             self::assertSame(0, $this->db->table('post_stats_snapshots')->count());
+            $index = $this->db->select("SHOW INDEX FROM publications WHERE Key_name='publications_stats_due'");
+            $columns = array_column($index, 'Column_name', 'Seq_in_index');
+            ksort($columns);
+            self::assertSame(['status','sent_at'], array_values($columns));
         } finally {
             if ($this->db->select("SHOW TABLES LIKE 'analytics_tasks'") === []) {
                 $migration->up($this->db);

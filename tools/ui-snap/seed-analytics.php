@@ -28,7 +28,7 @@ $fixture = new class ('fixture') extends \App\Tests\Support\BillingTestCase {
         $collector = $this->app->container()->get(\App\Domain\Analytics\StatsCollector::class);
         $collector->tick();
         $worker = $this->app->container()->get(\App\Kernel\Queue\Worker::class);
-        for ($i = 0; $i < 200 && $worker->runNext('default', 'analytics-ui'); ++$i) {
+        for ($i = 0; $i < 200 && $worker->runNext('analytics', 'analytics-ui'); ++$i) {
         }
         $guest = $this->app->container()->get(\App\Domain\Approval\GuestLinks::class)->create($ctx, array_slice($ids, 0, 5), 72);
         file_put_contents('storage/testing/analytics-ui.json', json_encode(['workspace' => $ws->publicId,'guest' => $guest], JSON_THROW_ON_ERROR));

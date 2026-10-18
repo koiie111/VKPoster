@@ -46,7 +46,17 @@ final class GuestController
                 $cards[] = ['post' => $post, 'html' => TextFormatter::toHtml($post->baseText), 'variants' => $variants, 'revision' => $this->workflow->revision($ctx, $post), 'can_approve' => $post->status === \App\Domain\Post\PostStatus::PendingApproval && $this->workflow->canApprove($ctx, $post), 'comments' => $this->comments->thread($ctx, $post, (int) $r['link']['id'])];
             }
         }
-        return $this->view->response('guest/approval.twig', ['analytics_report_available' => $this->entitlements->hasFeature($ctx->workspaceId, 'client_reports'), 'guest_error' => $request->attribute('guest_error'), 'token' => $token, 'locked' => $r['locked'], 'cards' => $cards, 'branding' => $white, 'brand_name' => $settings['brand_name'] !== '' ? $settings['brand_name'] : $ctx->workspaceName, 'brand_logo' => $white ? $settings['brand_logo'] : '', 'workspace_name' => $ctx->workspaceName])->withHeader('Cache-Control', 'no-store')->withHeader('Referrer-Policy', 'no-referrer');
+        return $this->view->response('guest/approval.twig', [
+            'analytics_report_available' => $this->entitlements->hasFeature($ctx->workspaceId, 'client_reports'),
+            'guest_error' => $request->attribute('guest_error'),
+            'token' => $token,
+            'locked' => $r['locked'],
+            'cards' => $cards,
+            'branding' => $white,
+            'brand_name' => $settings['brand_name'] !== '' ? $settings['brand_name'] : $ctx->workspaceName,
+            'brand_logo' => $white ? $settings['brand_logo'] : '',
+            'workspace_name' => $ctx->workspaceName,
+        ])->withHeader('Cache-Control', 'no-store')->withHeader('Referrer-Policy', 'no-referrer');
     }
     public function unlock(Request $request): Response
     {

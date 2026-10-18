@@ -433,4 +433,8 @@ Migration36: analytics_tasks (workspace/task_key unique, lease, due/completed/er
 post_stats_snapshots (unique task, publication/channel/workspace, observed_at, nullable
 metrics JSON), channel_stats_snapshots (daily task/followers nullable),
 telegram_stats_reactions (workspace/channel/message, monotonic event_date).
-Удаление channel/workspace cascade; rollback удаляет только эти таблицы.
+Migration36 также добавляет publications_stats_due(status,sent_at) для частого tick;
+rollback убирает индекс и новые analytics таблицы, сохраняя publications/posts.
+metrics_json.metric_statuses хранит независимую availability Instagram counters;
+частичный transient прогресс обновляется под тем же unique task_id.
+Удаление channel/workspace cascade.

@@ -13,8 +13,13 @@ use App\Support\{Clock,DbTime};
 /** Workspace/channel-scoped lifetime counters for publications sent in a selected local-date period. */
 final class PostAnalytics
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly StatsCollector $collector, private readonly ChannelAccessRepository $access, private readonly ChannelRepository $channels)
-    {
+    public function __construct(
+        private readonly Connection $db,
+        private readonly Clock $clock,
+        private readonly StatsCollector $collector,
+        private readonly ChannelAccessRepository $access,
+        private readonly ChannelRepository $channels
+    ) {
     }
     /** @param list<int>|null $postIds Guest capability further restricts the report.
      * @return array<string,mixed>
@@ -50,10 +55,24 @@ final class PostAnalytics
                 $where .= ' AND p.post_id IN ('.implode(',', array_fill(0, count($postIds), '?')).')';
                 $params = [...$params,...$postIds];
             }
-            $rows = $this->db->select('SELECT p.id,p.public_id,p.post_id,p.channel_id,p.sent_at,c.title,c.platform,LEFT(po.base_text,200) AS text,s.metrics_json,s.observed_at FROM publications p JOIN channels c ON c.id=p.channel_id AND c.workspace_id=p.workspace_id JOIN posts po ON po.id=p.post_id AND po.workspace_id=p.workspace_id LEFT JOIN post_stats_snapshots s ON s.id=(SELECT MAX(s2.id) FROM post_stats_snapshots s2 WHERE s2.workspace_id=p.workspace_id AND s2.publication_id=p.id) WHERE '.$where.' ORDER BY p.sent_at DESC,p.id DESC', $params);
+            $rows = $this->db->select(
+                'SELECT p.id,p.public_id,p.post_id,p.channel_id,p.sent_at,c.title,c.platform,LEFT(po.base_text,200) AS
+                text,s.metrics_json,s.observed_at FROM publications p JOIN channels c ON c.id=p.channel_id AND
+                c.workspace_id=p.workspace_id JOIN posts po ON po.id=p.post_id AND po.workspace_id=p.workspace_id LEFT JOIN
+                post_stats_snapshots s ON s.id=(SELECT MAX(s2.id) FROM post_stats_snapshots s2 WHERE s2.workspace_id=p.workspace_id AND
+                s2.publication_id=p.id) WHERE '.$where.' ORDER BY p.sent_at DESC,p.id DESC',
+                $params
+            );
             // Guest reports never widen to channel subscriber history outside the post capability.
             if ($postIds === null) {
-                $followers = $this->db->select('SELECT s.channel_id,c.title,s.observed_at,s.followers FROM channel_stats_snapshots s JOIN channels c ON c.id=s.channel_id AND c.workspace_id=s.workspace_id WHERE s.workspace_id=? AND s.channel_id IN ('.$marks.') AND s.observed_at>=? AND s.observed_at<? ORDER BY s.observed_at', [$ctx->workspaceId,...$channelIds,DbTime::format($start),DbTime::format($end->modify('+1 day'))]);
+                $followers = $this->db->select(
+                    'SELECT s.channel_id,c.title,s.observed_at,s.followers FROM channel_stats_snapshots s JOIN channels c ON
+                    c.id=s.channel_id AND c.workspace_id=s.workspace_id WHERE s.workspace_id=? AND s.channel_id IN ('.$marks.') AND s.observed_at>=? AND s.observed_at<? ORDER BY s.observed_at',
+                    [$ctx->workspaceId,
+                    ...$channelIds,
+                    DbTime::format($start),
+                    DbTime::format($end->modify('+1 day'))]
+                );
             }
         }
         $posts = [];
@@ -62,19 +81,56 @@ final class PostAnalytics
         $platforms = [];
         foreach ($rows as $r) {
             $m = $r['metrics_json'] === null ? [] : json_decode((string)$r['metrics_json'], true, 32, JSON_THROW_ON_ERROR);
-            $metrics = new PostMetrics(PostMetrics::counter($m['views'] ?? null), PostMetrics::counter($m['reach'] ?? null), PostMetrics::counter($m['engagement'] ?? null), PostMetrics::counter($m['likes'] ?? null), PostMetrics::counter($m['comments'] ?? null), PostMetrics::counter($m['shares'] ?? null));
+            $metrics = new PostMetrics(
+                PostMetrics::counter($m['views'] ?? null),
+                PostMetrics::counter($m['reach'] ?? null),
+                PostMetrics::counter($m['engagement'] ?? null),
+                PostMetrics::counter($m['likes'] ?? null),
+                PostMetrics::counter($m['comments'] ?? null),
+                PostMetrics::counter($m['shares'] ?? null)
+            );
             $time = (DbTime::parse($r['sent_at']) ?? throw new \LogicException('Missing publication date.'))->setTimezone($zone);
-            $post = $r + ['metrics' => $metrics->toArray(),'er' => $metrics->er(),'local_date' => $time->format('Y-m-d'),'weekday' => (int)$time->format('N'),'hour' => (int)$time->format('G')];
+            $post = $r + ['metrics' => $metrics->toArray(),
+                'er' => $metrics->er(),
+                'local_date' => $time->format('Y-m-d'),
+                'weekday' => (int)$time->format('N'),
+                'hour' => (int)$time->format('G')];
             $posts[] = $post;
             $daily[$time->format('Y-m-d')][] = $post;
-            $byChannel[(string)$r['title'].' #'.$r['channel_id']][] = $post;
+            $byChannel[(string)$r['channel_id']][] = $post;
             $platforms[(string)$r['platform']][] = $post;
         }
         ksort($daily);
         $top = $posts;
         usort($top, static fn (array $a, array $b): int => ($b['metrics']['engagement'] ?? -1) <=> ($a['metrics']['engagement'] ?? -1));
         $top = array_values(array_filter($top, static fn (array $p): bool => $p['metrics']['engagement'] !== null));
-        return ['from' => $start->format('Y-m-d'),'to' => $end->format('Y-m-d'),'days' => $days,'timezone' => $ctx->timezone,'channels' => $channels,'channel' => $channel ?? '','posts' => $posts,'totals' => self::aggregate($posts),'daily' => array_map(self::aggregate(...), $daily),'by_channel' => array_map(self::aggregate(...), $byChannel),'platforms' => array_map(self::aggregate(...), $platforms),'top' => array_slice($top, 0, 10),'best' => self::bestTime($posts),'followers' => $followers];
+        return ['from' => $start->format('Y-m-d'),
+            'to' => $end->format('Y-m-d'),
+            'days' => $days,
+            'timezone' => $ctx->timezone,
+            'channels' => $channels,
+            'channel' => $channel ?? '',
+            'posts' => $posts,
+            'totals' => self::aggregate($posts),
+            'daily' => array_map(
+                self::aggregate(...),
+                $daily
+            ),
+            'by_channel' => array_map(
+                static fn (array $rows): array => self::aggregate($rows) + ['label' => $rows[0]['title'].' · '.$rows[0]['platform']],
+                $byChannel
+            ),
+            'platforms' => array_map(
+                self::aggregate(...),
+                $platforms
+            ),
+            'top' => array_slice(
+                $top,
+                0,
+                10
+            ),
+            'best' => self::bestTime($posts),
+            'followers' => $followers];
     }
     private function date(string $date, \DateTimeZone $zone): \DateTimeImmutable
     {
@@ -96,7 +152,10 @@ final class PostAnalytics
             $out[$key] = count($posts) > 0 && count($known) === count($posts) ? array_sum($known) : null;
         }
         // Ratio of sums of matched reach and engagement, never the mean of individual percentages.
-        $out['er'] = $out['reach'] !== null && $out['reach'] > 0 && $out['engagement'] !== null ? round(100 * $out['engagement'] / $out['reach'], 2) : null;
+        $out['er'] = $out['reach'] !== null && $out['reach'] > 0 && $out['engagement'] !== null ? round(
+            100 * $out['engagement'] / $out['reach'],
+            2
+        ) : null;
         return $out;
     }
     /** @param list<array<string,mixed>> $posts

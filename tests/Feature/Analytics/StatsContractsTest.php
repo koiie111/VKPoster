@@ -25,7 +25,17 @@ final class StatsContractsTest extends BillingTestCase
         $f = new VkStatsFetcher(new VkApi($this->http, new VkRateGate()));
         $credential = new Credential(Platform::Vk, 'fixture-token');
         $wall = '{"response":[{"views":{"count":100},"likes":{"count":0},"comments":{"count":2},"reposts":{"count":1}}]}';
-        $this->http->expect('POST', VkApi::API_BASE.'wall.getById', 200, $wall)->expect('POST', VkApi::API_BASE.'stats.getPostReach', 200, '{"error":{"error_code":15,"error_msg":"Access denied"}}');
+        $this->http->expect(
+            'POST',
+            VkApi::API_BASE.'wall.getById',
+            200,
+            $wall
+        )->expect(
+            'POST',
+            VkApi::API_BASE.'stats.getPostReach',
+            200,
+            '{"error":{"error_code":15,"error_msg":"Access denied"}}'
+        );
         $m = $f->post($c, $credential, '1');
         self::assertNull($m->reach);
         self::assertSame(100, $m->views);
@@ -69,7 +79,14 @@ final class StatsContractsTest extends BillingTestCase
         $this->http->expect('GET', 'https://platform-api2.max.ru/chats/'.(int)$c->externalId, 200, '{"participants_count":50}');
         self::assertSame(50, $max->followers($c, new Credential(Platform::Max, 'fixture')));
         $ig = $this->app->container()->get(InstagramStatsFetcher::class);
-        $this->http->expect('GET', 'https://graph.instagram.com/v23.0/123/insights', 200, '{"data":[{"name":"views","values":[{"value":100}]},{"name":"reach","values":[{"value":50}]},{"name":"total_interactions","values":[{"value":5}]}]}');
+        foreach (['views' => 100,'reach' => 50,'total_interactions' => 5,'likes' => 2,'comments' => 1,'shares' => 2] as $name => $value) {
+            $this->http->expect(
+                'GET',
+                'https://graph.instagram.com/v23.0/123/insights',
+                200,
+                json_encode(['data' => [['name' => $name,'values' => [['value' => $value]]]]], JSON_THROW_ON_ERROR)
+            );
+        }
         $m = $ig->post($c, new Credential(Platform::Instagram, 'fixture'), '123');
         self::assertSame(10.0, $m->er());
         self::assertSame(100, $m->views);
@@ -86,7 +103,15 @@ final class StatsContractsTest extends BillingTestCase
         $tasks = $this->db->select('SELECT id FROM analytics_tasks ORDER BY id');
         $this->db->execute("UPDATE channels SET platform='telegram',mode='own_bot',credential_id=NULL WHERE id=?", [$a->id]);
         $collector->run((int)$tasks[0]['id']); // missing credential becomes safe unavailable, not an exception.
-        $this->db->execute('UPDATE analytics_tasks SET lease_token=?,lease_until=? WHERE id=?', [str_repeat('a', 32),$this->clock->now()->modify('+1 minute')->format('Y-m-d H:i:s.u'),$tasks[1]['id']]);
+        $this->db->execute(
+            'UPDATE analytics_tasks SET lease_token=?,lease_until=? WHERE id=?',
+            [str_repeat(
+                'a',
+                32
+            ),
+            $this->clock->now()->modify('+1 minute')->format('Y-m-d H:i:s.u'),
+            $tasks[1]['id']]
+        );
         $collector->run((int)$tasks[1]['id']);
         self::assertSame(0, $this->db->table('channel_stats_snapshots')->count());
         $this->clock->advance(61);
@@ -103,7 +128,11 @@ final class StatsContractsTest extends BillingTestCase
         self::assertSame(1, $ops->forWorkspace($workspace->id)['pending']);
         self::assertSame(0, $ops->forWorkspace($workspace->id + 1)['pending']);
         $task = (int)$this->db->select('SELECT id FROM analytics_tasks')[0]['id'];
-        $this->db->execute('UPDATE analytics_tasks SET enqueued_at=? WHERE id=?', [$this->clock->now()->modify('-7 hours')->format('Y-m-d H:i:s.u'),$task]);
+        $this->db->execute(
+            'UPDATE analytics_tasks SET enqueued_at=? WHERE id=?',
+            [$this->clock->now()->modify('-7 hours')->format('Y-m-d H:i:s.u'),
+            $task]
+        );
         $collector->tick();
         self::assertSame(1, $this->db->table('analytics_tasks')->count());
         $this->db->execute("UPDATE channels SET status='paused' WHERE id=?", [$channel->id]);
