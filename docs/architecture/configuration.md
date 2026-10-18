@@ -115,3 +115,15 @@ Compose profile analytics: PHP init пишет derived key в dedicated volume, 
 Новый пользовательский секрет не требуется. analytics-worker обслуживает очередь
 analytics отдельно от publish,default; capacity deferral не расходует attempts. Тарифные
 analytics_days / analytics_export / client_reports используются без новых тарифов.
+
+## ИИ-ассистент (этап 17)
+Модели и ключи задаются в админке (`/admin/ai`, право `ai.manage`, только суперадмин), не в окружении. В окружении только ограничения:
+
+| Переменная | По умолчанию | Смысл |
+|---|---|---|
+| `AI_FAKE` | `true` | без подключённого провайдера отвечает тестовая модель (только вне production) |
+| `AI_MAX_INPUT_CHARS` | `6000` | максимум знаков текста и пожеланий за запрос |
+| `AI_MAX_OUTPUT_TOKENS` | `1024` | потолок ответа модели |
+| `AI_WORKSPACE_PER_MINUTE` | `10` | запросов в минуту на пространство (Redis; при сбое Redis запрос отклоняется) |
+| `AI_TIMEOUT_SECONDS` | `60` | ожидание ответа модели |
+

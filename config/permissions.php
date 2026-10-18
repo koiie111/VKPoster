@@ -41,6 +41,8 @@ return static function (Env $env): array {
     'posts.comment' => ['owner', 'admin', 'editor', 'author', 'client'],
     'guest_links.manage' => ['owner', 'admin', 'editor'],
     'posts.draft' => ['owner', 'admin', 'editor', 'author'],
+    // The AI assistant in the editor: everyone who writes drafts (credits and limits are checked by the service).
+    'ai.use' => ['owner', 'admin', 'editor', 'author'],
 
     // Media library: everyone who works on posts may look and upload; deleting and watermarks are for editors and up.
     'media.view' => ['owner', 'admin', 'editor', 'author', 'viewer'],

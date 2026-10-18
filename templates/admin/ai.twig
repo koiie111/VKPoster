@@ -1,0 +1,72 @@
+{#- Admin: AI assistant providers. Variables: cards (code, label, kind, region, note, custom, enabled, default, usable, key_set, base_url, base_url_default, model, model_default, auth), auth_schemes, default, totals. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
+{% set nav_current = 'ai' %}
+{% block title %}ИИ-провайдеры · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('ИИ-ассистент: провайдеры', 'Выберите, какая модель отвечает пользователям в редакторе. Готовые провайдеры работают по одному ключу; любой сервис с OpenAI-совместимым API добавляется ниже. Ключи хранятся зашифрованными и больше не показываются; пустое поле ключа оставляет сохранённый.') }}
+{% if default is null %}{{ d.alert('info', 'Ни один провайдер не готов', 'Пока тут пусто, ассистент работает только в тестовом режиме локально, а на сайте скажет, что не подключён. Включите провайдера и впишите ключ.') }}{% endif %}
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+    {% for p in cards %}
+    <section class="card flex flex-col gap-4" id="{{ p.code }}" aria-labelledby="h-{{ p.code }}">
+        <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-lg font-semibold" id="h-{{ p.code }}">{{ p.label }}</h2>
+            {% if p.usable and p.default %}{{ d.badge('По умолчанию', 'success') }}{% elseif p.usable %}{{ d.badge('Готов', 'success') }}{% elseif p.enabled %}{{ d.badge('Включён, не хватает ключа или модели', 'warning') }}{% else %}{{ d.badge('Выключен', 'neutral') }}{% endif %}
+            {% if p.region == 'ru' %}{{ d.badge('Данные остаются в РФ', 'info') }}{% elseif p.region == 'world' %}{{ d.badge('Данные уходят за рубеж', 'neutral') }}{% endif %}
+        </div>
+        <p class="text-sm text-muted">{{ p.note }}</p>
+        <form class="flex flex-col gap-4" method="post" action="/admin/ai/{{ p.code }}" autocomplete="off">
+            {{ csrf_field() }}
+            {{ f.switch('enabled', 'Включить провайдера', p.enabled, id = 'enabled-' ~ p.code) }}
+            {{ f.switch('default', 'Отвечать по умолчанию', p.default, id = 'default-' ~ p.code, hint = 'Остальные включённые остаются запасными для ручного выбора в будущем; сейчас отвечает один.') }}
+            {{ f.input('base_url', 'Адрес API', value = p.base_url, id = p.code ~ '-url', placeholder = p.base_url_default, hint = 'https-адрес до /v1 (без /chat/completions).' ~ (p.base_url_default ? ' Пусто = ' ~ p.base_url_default ~ '.' : '')) }}
+            {{ f.input('model', 'Модель', value = p.model, id = p.code ~ '-model', placeholder = p.model_default, hint = p.model_default ? 'Пусто = ' ~ p.model_default ~ '.' : 'Точное название модели у провайдера.') }}
+            {{ f.input('api_key', 'Ключ API', type = 'password', id = p.code ~ '-key', placeholder = p.key_set ? '••••••••' : '', hint = p.key_set ? 'Ключ сохранён; оставьте поле пустым, чтобы не менять.' : 'Ключ выдаёт сам провайдер.') }}
+            {% if p.custom %}
+                {{ f.input('label', 'Название', value = p.label, id = p.code ~ '-label') }}
+                {{ f.select('auth', 'Как передавать ключ', auth_schemes, value = p.auth, id = p.code ~ '-auth') }}
+            {% endif %}
+            <div class="max-w-xs">{{ a.step_up('code-' ~ p.code) }}</div>
+            <div class="flex flex-wrap gap-3">
+                {{ f.button('Сохранить', type = 'submit', icon = 'save') }}
+            </div>
+        </form>
+        {% if p.custom %}
+        <form method="post" action="/admin/ai/{{ p.code }}/delete" class="border-t border-line pt-4">
+            {{ csrf_field() }}
+            <div class="max-w-xs">{{ a.step_up('del-' ~ p.code) }}</div>
+            <div class="mt-3">{{ f.button('Удалить провайдера', type = 'submit', variant = 'danger') }}</div>
+        </form>
+        {% endif %}
+    </section>
+    {% endfor %}
+
+    <section class="card flex flex-col gap-4" id="add" aria-labelledby="h-add">
+        <h2 class="text-lg font-semibold" id="h-add">Добавить свой OpenAI-совместимый</h2>
+        <p class="text-sm text-muted">Для шлюзов, своих серверов (vLLM, Ollama, LM Studio за https) и любых сервисов, у которых есть <code>/chat/completions</code>. Адрес должен быть публичным https: к локальным адресам сервис не обращается.</p>
+        <form class="flex flex-col gap-4" method="post" action="/admin/ai" autocomplete="off">
+            {{ csrf_field() }}
+            {{ f.input('slug', 'Короткое имя', id = 'add-slug', required = true, hint = 'Латиница, цифры, дефис. Например, giga-gateway.') }}
+            {{ f.input('label', 'Название', id = 'add-label', required = true) }}
+            {{ f.input('base_url', 'Адрес API', id = 'add-url', required = true, placeholder = 'https://example.com/v1') }}
+            {{ f.input('model', 'Модель', id = 'add-model', required = true) }}
+            {{ f.input('api_key', 'Ключ API', type = 'password', id = 'add-key', required = true) }}
+            {{ f.select('auth', 'Как передавать ключ', auth_schemes, value = 'bearer', id = 'add-auth') }}
+            {{ f.switch('enabled', 'Сразу включить', true, id = 'add-enabled') }}
+            <div class="max-w-xs">{{ a.step_up('code-add') }}</div>
+            <div>{{ f.button('Добавить', type = 'submit', icon = 'plus') }}</div>
+        </form>
+    </section>
+</div>
+
+<section class="card mt-6" aria-labelledby="usage-title">
+    <h2 class="text-lg font-semibold" id="usage-title">Запросы за 30 дней</h2>
+    <p class="mt-1 text-sm text-muted">Только счётчики: тексты постов и ответов нигде не сохраняются.</p>
+    {% set rows %}
+        {% for t in totals %}<tr><td>{{ t.provider }}</td><td>{{ t.model }}</td><td class="tabular-nums">{{ t.requests }}</td><td class="tabular-nums">{{ t.ok }}</td><td class="tabular-nums">{{ t.credits }}</td><td class="tabular-nums">{{ t.tokens_in }} / {{ t.tokens_out }}</td></tr>{% endfor %}
+    {% endset %}
+    {{ d.table([{label: 'Провайдер'}, {label: 'Модель'}, {label: 'Запросов'}, {label: 'Успешных'}, {label: 'Кредитов'}, {label: 'Токены (вход / выход)'}], empty = totals is empty, empty_title = 'Запросов ещё не было', empty_text = 'Когда пользователи начнут пользоваться ассистентом, здесь появятся счётчики.', body = rows) }}
+</section>
+{% endblock %}

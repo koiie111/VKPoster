@@ -34,6 +34,7 @@ return static fn (Env $env): array => [
     'finance.manage' => ['superadmin', 'finance'],
     'plans.manage' => ['superadmin', 'finance'],
     'providers.manage' => ['superadmin'],
+    'ai.manage' => ['superadmin'],
     'grants.manage' => ['superadmin', 'finance'],
 
     // Site content and talking to customers.

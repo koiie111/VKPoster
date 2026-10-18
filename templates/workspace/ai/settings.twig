@@ -1,0 +1,77 @@
+{#- Workspace AI settings. Variables: workspace (context), base, voice (BrandVoice), own (enabled, base_url, model, auth, key_set), auth_schemes, credits (used, limit, wallet, left), connected. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'workspace' %}
+{% block title %}ИИ-ассистент · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Настройки пространства', href: base ~ '/settings'}, {label: 'ИИ-ассистент'}]) }}
+<div class="mt-3">{{ d.page_header('ИИ-ассистент', 'Ассистент пишет и правит посты в редакторе. Здесь задаётся стиль вашего бренда и, при желании, своя модель.') }}</div>
+<div class="flex flex-col gap-6">
+    {% if not connected %}{{ d.alert('info', 'Ассистент пока не подключён', 'Владелец сервиса подключает модели в админке. Вы можете указать свою модель ниже, и ассистент заработает сразу.') }}{% endif %}
+
+    <section class="card" aria-labelledby="credits-title">
+        <h2 class="text-lg font-semibold" id="credits-title">Кредиты</h2>
+        <p class="mt-1 text-sm text-muted">Успешный ответ тратит кредиты: написать пост — 3, переписать — 2, остальное — 1. Ошибка модели ничего не списывает. Запросы к вашей собственной модели бесплатны.</p>
+        <dl class="mt-4 grid max-w-xl gap-4 sm:grid-cols-3">
+            <div><dt class="text-sm text-muted">Тариф в этом месяце</dt><dd class="text-xl font-bold tabular-nums">{{ credits.limit is null ? 'без лимита' : credits.used ~ ' из ' ~ credits.limit }}</dd></div>
+            <div><dt class="text-sm text-muted">Докупленные</dt><dd class="text-xl font-bold tabular-nums">{{ credits.wallet }}</dd></div>
+            <div><dt class="text-sm text-muted">Осталось всего</dt><dd class="text-xl font-bold tabular-nums">{{ credits.left is null ? '∞' : credits.left }}</dd></div>
+        </dl>
+    </section>
+
+    <section class="card" id="voice" aria-labelledby="voice-title">
+        <h2 class="text-lg font-semibold" id="voice-title">Голос бренда</h2>
+        <p class="mt-1 text-sm text-muted">Ассистент учитывает это в каждом ответе.</p>
+        <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/ai/voice">
+            {{ csrf_field() }}
+            {{ f.textarea('tone', 'Тон и стиль', value = voice.tone, rows = 3, max = 300, hint = 'Например: дружелюбно, на «вы», коротко, без восклицательных знаков.') }}
+            {{ f.textarea('rules', 'Правила и формат постов', value = voice.rules, rows = 4, max = 1500, hint = 'Например: начинаем с вопроса, 3 абзаца, в конце призыв, без хэштегов, подпись «— Команда Кофемании».') }}
+            {{ f.textarea('forbidden', 'Запретные слова', value = voice.forbidden|join(', '), rows = 2, hint = 'Через запятую. Ассистент не будет их использовать.') }}
+            {{ f.textarea('example_1', 'Пример поста 1', value = voice.examples[0] ?? '', rows = 3, max = 800, hint = 'До трёх ваших удачных постов: по ним ассистент уловит стиль.') }}
+            {{ f.textarea('example_2', 'Пример поста 2', value = voice.examples[1] ?? '', rows = 3, max = 800) }}
+            {{ f.textarea('example_3', 'Пример поста 3', value = voice.examples[2] ?? '', rows = 3, max = 800) }}
+            <div>{{ f.button('Сохранить голос бренда', type = 'submit', icon = 'save') }}</div>
+        </form>
+    </section>
+
+    <section class="card" id="channels" aria-labelledby="channels-title">
+        <h2 class="text-lg font-semibold" id="channels-title">Стиль по каналам</h2>
+        <p class="mt-1 text-sm text-muted">У каждого паблика или канала может быть свой стиль: правила, тон, запретные слова и примеры постов. Работая над постом для этого канала, ассистент держит его поверх общего голоса бренда: тон и примеры канала главнее, правила и запретные слова складываются.</p>
+        {% if channel_styles is empty %}
+            <p class="mt-4 text-sm text-muted">Каналов пока нет. <a class="font-medium text-primary-text underline underline-offset-2" href="{{ base }}/channels">Подключить канал</a></p>
+        {% endif %}
+        <div class="mt-4 flex flex-col gap-3">
+        {% for c in channel_styles %}
+            <details class="rounded-ctl border border-line p-4" id="ch-{{ c.id }}">
+                <summary class="flex min-h-11 cursor-pointer flex-wrap items-center gap-2 font-semibold">{{ c.name }} {{ d.platform_badge(c.platform) }} {% if c.has_style %}{{ d.badge('Свой стиль задан', 'success') }}{% else %}{{ d.badge('Общий голос бренда', 'neutral') }}{% endif %}</summary>
+                <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/ai/channels/{{ c.id }}">
+                    {{ csrf_field() }}
+                    {{ f.textarea('rules', 'Правила и формат постов', value = c.style.rules, rows = 4, max = 1500, id = 'rules-' ~ c.id, hint = 'Структура, длина, эмодзи, подпись, хэштеги, ссылки. Каждое правило с новой строки.') }}
+                    {{ f.textarea('tone', 'Тон и стиль', value = c.style.tone, rows = 2, max = 300, id = 'tone-' ~ c.id) }}
+                    {{ f.textarea('forbidden', 'Запретные слова', value = c.style.forbidden|join(', '), rows = 2, id = 'forbidden-' ~ c.id, hint = 'Через запятую; добавляются к запретным словам пространства.') }}
+                    {{ f.textarea('example_1', 'Пример поста 1', value = c.style.examples[0] ?? '', rows = 3, max = 800, id = 'ex1-' ~ c.id, hint = 'Вставьте до трёх удачных постов этого канала: ассистент перенимает их структуру и манеру.') }}
+                    {{ f.textarea('example_2', 'Пример поста 2', value = c.style.examples[1] ?? '', rows = 3, max = 800, id = 'ex2-' ~ c.id) }}
+                    {{ f.textarea('example_3', 'Пример поста 3', value = c.style.examples[2] ?? '', rows = 3, max = 800, id = 'ex3-' ~ c.id) }}
+                    <div class="flex flex-wrap items-center gap-3">{{ f.button('Сохранить стиль канала', type = 'submit', icon = 'save') }}<span class="text-sm text-muted">Пустые поля = канал использует общий голос бренда.</span></div>
+                </form>
+            </details>
+        {% endfor %}
+        </div>
+    </section>
+
+    <section class="card" id="own" aria-labelledby="own-title">
+        <h2 class="text-lg font-semibold" id="own-title">Своя модель</h2>
+        <p class="mt-1 text-sm text-muted">Подключите любую модель с OpenAI-совместимым API (OpenAI, OpenRouter, YandexGPT, ваш сервер за https). Запросы пойдут напрямую к ней с вашим ключом и не потратят кредиты. Ключ хранится зашифрованным и больше не показывается.</p>
+        <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/ai/own" autocomplete="off">
+            {{ csrf_field() }}
+            {{ f.switch('enabled', 'Использовать свою модель', own.enabled, id = 'own-enabled') }}
+            {{ f.input('base_url', 'Адрес API', value = own.base_url, id = 'own-url', placeholder = 'https://api.openai.com/v1', hint = 'Публичный https-адрес до /v1.') }}
+            {{ f.input('model', 'Модель', value = own.model, id = 'own-model', placeholder = 'gpt-4o-mini') }}
+            {{ f.input('api_key', 'Ключ API', type = 'password', id = 'own-key', placeholder = own.key_set ? '••••••••' : '', hint = own.key_set ? 'Ключ сохранён; оставьте поле пустым, чтобы не менять.' : '') }}
+            {{ f.select('auth', 'Как передавать ключ', auth_schemes, value = own.auth, id = 'own-auth', hint = 'Обычно Bearer; для YandexGPT — Api-Key.') }}
+            <div>{{ f.button('Сохранить модель', type = 'submit', icon = 'save') }}</div>
+        </form>
+    </section>
+</div>
+{% endblock %}

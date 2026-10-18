@@ -22,6 +22,8 @@ final class CryptoRotateCommand implements Command
         ['table' => 'platform_credentials', 'column' => 'secret_enc'],
         ['table' => 'platform_credentials', 'column' => 'refresh_enc'],
         ['table' => 'payment_providers', 'column' => 'config_enc', 'key' => 'code'],
+        ['table' => 'ai_providers', 'column' => 'config_enc', 'key' => 'code'],
+        ['table' => 'ai_workspace_settings', 'column' => 'byok_enc', 'key' => 'workspace_id'],
     ];
 
     public function __construct(private readonly Connection $db, private readonly Crypto $crypto)

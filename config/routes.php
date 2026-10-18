@@ -240,9 +240,14 @@ return static function (Router $router): void {
             });
             $w->post('/team/transfer', [TeamController::class, 'transfer'])->middleware([Authorize::class, ['permission' => 'workspace.transfer']], DenyWhenImpersonating::class);
 
-            $w->group('', [[Authorize::class, ['permission' => 'workspace.settings']]], static function (Router $t): void {
+            $w->group('', [[Authorize::class, ['permission' => 'workspace.settings']]], static function (Router $t) use ($ulid): void {
                 $t->get('/settings', [SettingsController::class, 'show'])->name('workspace.settings');
                 $t->post('/settings', [SettingsController::class, 'update']);
+                // Stage 17: brand voice, own model (bring your own key), credits.
+                $t->get('/settings/ai', [\App\Http\Controllers\Ai\AiSettingsController::class, 'show'])->name('workspace.ai');
+                $t->post('/settings/ai/voice', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveVoice'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 30, 'seconds' => 600]]);
+                $t->post('/settings/ai/channels/{channelId:' . $ulid . '}', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveChannelStyle'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 60, 'seconds' => 600]]);
+                $t->post('/settings/ai/own', [\App\Http\Controllers\Ai\AiSettingsController::class, 'saveOwn'])->middleware([RateLimit::class, ['bucket' => 'ai-settings', 'max' => 30, 'seconds' => 600]]);
             });
             $w->post('/delete', [SettingsController::class, 'delete'])->middleware([Authorize::class, ['permission' => 'workspace.delete']], DenyWhenImpersonating::class);
             // Plan and payment: the owner only. `pay` sends the browser on to the provider (a plain page load, see BillingController::checkout).
@@ -372,6 +377,7 @@ return static function (Router $router): void {
                 $p->get('/posts/new', [PostController::class, 'create'])->name('workspace.post.new');
                 $p->post('/posts', [PostController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'post-save', 'max' => 120, 'seconds' => 600]]);
                 $p->post('/posts/autosave', [PostController::class, 'autosave'])->middleware([RateLimit::class, ['bucket' => 'post-autosave', 'max' => 600, 'seconds' => 600]]);
+                $p->post('/ai/run', [\App\Http\Controllers\Ai\AiController::class, 'run'])->middleware([Authorize::class, ['permission' => 'ai.use']], [RateLimit::class, ['bucket' => 'ai-run', 'max' => 60, 'seconds' => 600]]);
                 $p->post('/posts/validate', [PostController::class, 'validate'])->middleware([RateLimit::class, ['bucket' => 'post-validate', 'max' => 600, 'seconds' => 600]]);
                 $p->post('/posts/preview', [PostController::class, 'preview'])->middleware([RateLimit::class, ['bucket' => 'post-preview', 'max' => 600, 'seconds' => 600]]);
                 $item = '/posts/{postId:' . $ulid . '}';
@@ -511,6 +517,10 @@ return static function (Router $router): void {
             $s->post('/plans/{code:[a-z0-9_]{1,32}}', [BillingAdminController::class, 'updatePlan'])->middleware($can('plans.manage'));
             $s->get('/providers', [PaymentProvidersController::class, 'index'])->name('admin.providers')->middleware($can('providers.manage'));
             $s->post('/providers/{code:[a-z]{3,16}}', [PaymentProvidersController::class, 'save'])->middleware($can('providers.manage'), [RateLimit::class, ['bucket' => 'admin-providers', 'max' => 60, 'seconds' => 3600]]);
+            $s->get('/ai', [\App\Http\Controllers\Admin\AiProvidersController::class, 'index'])->name('admin.ai')->middleware($can('ai.manage'));
+            $s->post('/ai', [\App\Http\Controllers\Admin\AiProvidersController::class, 'create'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
+            $s->post('/ai/{code:[a-z0-9-]{3,40}}', [\App\Http\Controllers\Admin\AiProvidersController::class, 'save'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
+            $s->post('/ai/{code:[a-z0-9-]{3,40}}/delete', [\App\Http\Controllers\Admin\AiProvidersController::class, 'delete'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
             $s->get('/addons', [AddonsAdminController::class, 'index'])->name('admin.addons')->middleware($can('finance.view'));
             $s->post('/addons', [AddonsAdminController::class, 'save'])->middleware($can('plans.manage'));
             $s->get('/referrals', [ReferralAdminController::class, 'index'])->name('admin.referrals')->middleware($can('finance.view'));
