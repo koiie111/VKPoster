@@ -19,10 +19,10 @@
 Расчёт ER и агрегатов на фикстурах; «лучшее время» на синтетических данных; ограничение глубины по тарифу; чужой workspace.
 
 ## Проверка владельцем
-1. После нескольких дней реальных публикаций открыть дашборд: цифры совпадают с тем, что показывает VK, TG и MAX? Что важно добавить?
+- [x] 2026-10-18: владелец подтвердил live owner verification на Telegram @sansillusions: реальная публикация и analytics pipeline работают, subscribers 9/9 matched, dashboard и исправленный PDF verified. Views/reach и ER при неизвестном reach корректно unavailable; Best time показывает «Мало данных». CSV/PDF technical checks и CI зелёные. Живые проверки VK/MAX этим подтверждением не заявляются.
 
 ## DoD
-Дашборд работает на реальных данных у владельца.
+- [x] Дашборд работает на реальных данных у владельца. OWNER CHECK completed 2026-10-18; Stage 15 — DONE.
 
 ## Реализация
 
@@ -30,5 +30,5 @@ ADR0014: nullable counters, Queue tasks с lease и idempotency, tariff retentio
 Chart.js переиспользован из ADR0009, PDF вынесен в tools/analytics-pdf. Гостевой отчёт
 использует Stage14 capability и client_reports, не новый механизм ссылок.
 
-Живые API вызовы не запускались. DoD с реальными цифрами остаётся владельцу;
-статус NEEDS_OWNER, не DONE. Stage16 не начинается.
+OWNER CHECK и DoD подтверждены владельцем 2026-10-18; Stage 15 — DONE.
+Исправление PDF: PR #30, без автоматического merge. Следующий этап не начинается.

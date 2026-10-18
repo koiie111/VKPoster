@@ -32,7 +32,7 @@
 | 12 | Instagram | DONE | [#21](https://github.com/koiie111/VKPoster/pull/21) | 2026-10-14 | Решение владельца «б»: код есть, сеть выключена по умолчанию (`instagram` не в `PLATFORMS_ENABLED`); живая проверка отложена владельцем: до неё проверено только на фикстурах (список в ADR 0010). Для включения: Meta-приложение, `INSTAGRAM_APP_ID/SECRET`, публичный https `APP_URL`. Общие точки расширения: `Capabilities::$publicMediaUrls`, `PublishMedia::$url`, `PublishRequest::$mode`, `VariantSpec` суффикс `-jpg` |
 | 13 | Слоты, повторы, триггеры, кросспостинг, RSS, CSV | DONE | PR этапа 13 | 2026-10-14 | Очереди, пул, повторы, триггеры, кросспостинг TG, RSS, импорт CSV/XLSX; ADR 0013. Для 14+: фоновые правила создают посты через `PostService` от имени создателя правила или владельца (`PublishingContexts::forWorkspace`); `PostService::planExisting/unschedule/syncText/draftOf`; лимит `crosspost_rules` общий для правил и лент. Полный набор тестов вырос до 2201: в `phpunit.xml` поднят `memory_limit` до 512M |
 | 14 | Согласование, комментарии, гостевые ссылки | DONE | [#25](https://github.com/koiie111/VKPoster/pull/25) | 2026-10-15 | Согласование и гостевые ссылки merged; исправления review в upstream/main |
-| 15 | Аналитика | NEEDS_OWNER | [#26](https://github.com/koiie111/VKPoster/pull/26) | | CI зелёный; ожидается живая проверка владельцем |
+| 15 | Аналитика | DONE | [#26](https://github.com/koiie111/VKPoster/pull/26), [#30](https://github.com/koiie111/VKPoster/pull/30) | 2026-10-18 | Live owner verification completed: Telegram @sansillusions, subscribers 9/9 matched; dashboard и PDF verified; unavailable Telegram views/reach и ER корректно показаны как «Нет данных» |
 | 16 | Остальные платёжки, рефералка, промокоды | DONE | [#27](https://github.com/koiie111/VKPoster/pull/27) | 2026-10-18 | Реализовано всё из плана, настройка в админке (решение владельца 2026-10-18), ADR 0015. Нужна живая проверка провайдеров с ключами заказчика; провайдеры без ключей не показываются покупателям. Для 17+: пакеты `ai_credits` кладут кредиты в кошелёк `wallet:CRD:<пространство>` (`Ledger::wallet`), этап 17 их тратит |
 | 17 | AI-ассистент, UTM, сокращатель | DONE | [#28](https://github.com/koiie111/VKPoster/pull/28), [#29](https://github.com/koiie111/VKPoster/pull/29) | 2026-10-18 | AI-часть (ADR 0016): провайдеры из коробки и любой OpenAI-совместимый адрес, `/admin/ai`. Ссылки (ADR 0017): авто-UTM на пространство и канал, сокращатель с кликами, защита и отключение из `/admin/links`. Живая проверка AI с ключом отложена владельцем. Для 18: короткие ссылки и UTM можно отдавать через API; техдолг ниже |
 | 18 | Публичный API и вебхуки | TODO | | | |
@@ -77,57 +77,9 @@
 -->
 
 
-### Этап 15 — Аналитика (запрошено 2026-10-16)
-**Что сделано:** queued snapshots, daily followers, dashboard/ER/best-time, CSV/PDF,
-retention и отчёт по существующей guest capability. Ветка stage-15-analytics, [PR #26](https://github.com/koiie111/VKPoster/pull/26).
-**Independent review fixes (2026-10-18):**
-1. PDF использует domain-separated key; trusted PHP init пишет derived key в read-only
-   volume Chromium, без master APP_KEY/токенов/env_file в renderer.
-2. Instagram metrics запрашиваются независимо; availability сохраняется отдельно,
-   transient retry не стирает успешные частичные counters.
-3. Calendar/Queue вызывают BestTimeHints: только engagement/time, без полного report.
-4. В migration36 добавлен publications_stats_due(status,sent_at), обратимый.
-5. После простоя только последний прошедший milestone; ранняя delayed job пропускается.
-6. Queue capacity deferral не расходует attempts; отдельный analytics-worker обслуживает
-   analytics, publishing worker остаётся publish,default.
-7. Chromium crash завершает renderer с code1; intentional SIGTERM/SIGINT — code0.
-8. Internal channel_id убран из dashboard/guest labels; форматирование ограничено Stage15.
-
-**Проверки:** targeted Analytics 29 tests /321 assertions; полный PHP 2279 /41267;
-PHPStan level8+strict, style без cache, composer audit (0 advisories), health — passed.
-Reader offline: 61 tests, 2 opt-in HTTP contracts skipped; Ruff passed. Migration fresh
-(37), upgrade с upstream/main, rollback/replay, existing sent publication — passed.
-Compose env isolation и отдельный CLI analytics worker — passed. Node security/lifecycle
-на pinned production Playwright 1.64.1 — passed (derived key file, wrong/missing
-key, signed PDF, unsigned403, oversized413, SIGTERM=0, browser crash=1).
-GitHub CI повторно запускается после push; результаты доступны в PR #26.
-UI/axe: 4 страницы ×375/768/1440 ×light/dark (24 снимка, просмотрены), axe также360px;
-0 serious/critical и page overflow. Снимки: storage/ui-review/stage-15/.
-PR #26 обновляется в этой же ветке; Stage15 остаётся NEEDS_OWNER. Общий self-review
-не выполнялся; повторная независимая проверка — вторым разработчиком.
-**Как проверить руками:**
-1. В локальном `.env` выставить `ANALYTICS_COLLECTION_ENABLED=true`. Ключи платформ
-   вводить только локально, не в чат; используйте уже подключённые свои каналы.
-2. Выполнить `make migrate`, затем `docker compose up -d --force-recreate app worker analytics-worker scheduler`.
-3. PDF: `docker compose --profile analytics up -d --build analytics-pdf` (без публичного порта).
-4. Открыть http://localhost:8080/app → «Аналитика» своего workspace. После нескольких
-   дней реальных публикаций сравнить периоды/каналы и последние накопительные counters
-   с кабинетами VK/TG/MAX/Instagram. Первый снимок после1ч, затем6/24ч,3/7дней и еженедельно
-   до30дней. Старые пропущенные наблюдения не восстанавливаются задним числом.
-5. Проверить CSV/PDF (Про+), «мало данных» и best-time подсказки в календаре/слотах.
-   Для клиентского отчёта (Агентство) создать Stage14 guest link на нужные опубликованные
-   посты в «Согласование», открыть preview → «Отчёт по публикациям»; проверить PIN/отзыв.
-**Вопросы:**
-1. Совпадают ли доступные счётчики с кабинетами платформ? VK reach зависит от прав,
-   TG views недоступны, reactions только после aggregate update общего админ-бота.
-   - Ответ владельца:
-2. Достаточны ли сводка, ER, топ и best-time? Что важно добавить после живой проверки?
-   - Ответ владельца:
-**Итог проверки (ок / есть замечания):**
-
-
 ## Журнал запусков
 <!-- одна строка на запуск агента, новые сверху: дата · агент · этап · что сделано · итоговый статус -->
+- 2026-10-18 · Codex · этап 15 · OWNER CHECK завершён: @sansillusions, subscribers 9/9, pipeline/dashboard/PDF verified; unavailable reach/ER корректны; только документация в fix/stage-15-pdf-layout, PR #30 без merge · DONE
 - 2026-10-18 · Claude Sonnet 5.5 · этап 17 (ссылки) · владелец: «да» на UTM и сокращатель, живую проверку AI пропустить; авто-UTM, сокращатель, защита, страницы настроек и админки, миграция 43, ADR 0017, справка, тесты, снимки · STAGE_DONE
 - 2026-10-18 · Claude Sonnet 5.5 · этап 17 (AI-часть) · LlmProvider, OpenAI-совместимый и Anthropic адаптеры, пресеты и админка `/admin/ai`, своя модель пространства, кредиты, голос бренда, редактор, ADR 0016, 2412 теста · NEEDS_OWNER
 - 2026-10-18 · Claude Sonnet 5.5 · этап 16 · по решению владельца всё настраивается в админке: провайдеры CloudPayments, Stripe, Paddle, крипта, Stars, валюты, промокоды, рефералка, пакеты, 2334 теста · смержено по указанию владельца, живая проверка отложена
@@ -201,6 +153,53 @@ PR #26 обновляется в этой же ветке; Stage15 остаёт�
 - Этап 20: промокоды и реферальная программа (создание, статистика, заявки на вывод) → этап 16; XLSX-выгрузка (нужен `phpspreadsheet`) → этап 13 или по ответу владельца; аналитика Яндекс Метрики после согласия на cookies → этап 19; события `ai_used`, `referral_signup` и разделы админки для них → этапы 16–17; политика хранения `analytics_events` и `metrics_daily` (сейчас бессрочно) → этап 19; в обычном приложении нет страницы «мои обращения» (обращения видны только персоналу) → при случае.
 
 ## Архив ответов владельца
+
+### Этап 15 — Аналитика (OWNER CHECK завершён 2026-10-18)
+**Что сделано:** queued snapshots, daily followers, dashboard/ER/best-time, CSV/PDF,
+retention и отчёт по существующей guest capability. Ветка stage-15-analytics, [PR #26](https://github.com/koiie111/VKPoster/pull/26).
+**Independent review fixes (2026-10-18):**
+1. PDF использует domain-separated key; trusted PHP init пишет derived key в read-only
+   volume Chromium, без master APP_KEY/токенов/env_file в renderer.
+2. Instagram metrics запрашиваются независимо; availability сохраняется отдельно,
+   transient retry не стирает успешные частичные counters.
+3. Calendar/Queue вызывают BestTimeHints: только engagement/time, без полного report.
+4. В migration36 добавлен publications_stats_due(status,sent_at), обратимый.
+5. После простоя только последний прошедший milestone; ранняя delayed job пропускается.
+6. Queue capacity deferral не расходует attempts; отдельный analytics-worker обслуживает
+   analytics, publishing worker остаётся publish,default.
+7. Chromium crash завершает renderer с code1; intentional SIGTERM/SIGINT — code0.
+8. Internal channel_id убран из dashboard/guest labels; форматирование ограничено Stage15.
+
+**Проверки:** targeted Analytics 29 tests /321 assertions; полный PHP 2279 /41267;
+PHPStan level8+strict, style без cache, composer audit (0 advisories), health — passed.
+Reader offline: 61 tests, 2 opt-in HTTP contracts skipped; Ruff passed. Migration fresh
+(37), upgrade с upstream/main, rollback/replay, existing sent publication — passed.
+Compose env isolation и отдельный CLI analytics worker — passed. Node security/lifecycle
+на pinned production Playwright 1.64.1 — passed (derived key file, wrong/missing
+key, signed PDF, unsigned403, oversized413, SIGTERM=0, browser crash=1).
+GitHub CI PR #26 и PDF bugfix PR #30 прошёл: check / reader / analytics-pdf.
+UI/axe: 4 страницы ×375/768/1440 ×light/dark (24 снимка, просмотрены), axe также360px;
+0 serious/critical и page overflow. Снимки: storage/ui-review/stage-15/.
+PR #26 merged; исправление PDF — [PR #30](https://github.com/koiie111/VKPoster/pull/30). Stage 15 — DONE по подтверждению владельца от 2026-10-18. Общий self-review не выполнялся.
+**Как проверить руками:**
+1. В локальном `.env` выставить `ANALYTICS_COLLECTION_ENABLED=true`. Ключи платформ
+   вводить только локально, не в чат; используйте уже подключённые свои каналы.
+2. Выполнить `make migrate`, затем `docker compose up -d --force-recreate app worker analytics-worker scheduler`.
+3. PDF: `docker compose --profile analytics up -d --build analytics-pdf` (без публичного порта).
+4. Открыть http://localhost:8080/app → «Аналитика» своего workspace. После нескольких
+   дней реальных публикаций сравнить периоды/каналы и последние накопительные counters
+   с кабинетами VK/TG/MAX/Instagram. Первый снимок после1ч, затем6/24ч,3/7дней и еженедельно
+   до30дней. Старые пропущенные наблюдения не восстанавливаются задним числом.
+5. Проверить CSV/PDF (Про+), «мало данных» и best-time подсказки в календаре/слотах.
+   Для клиентского отчёта (Агентство) создать Stage14 guest link на нужные опубликованные
+   посты в «Согласование», открыть preview → «Отчёт по публикациям»; проверить PIN/отзыв.
+**Вопросы:**
+1. Совпадают ли доступные счётчики с кабинетами платформ? VK reach зависит от прав,
+   TG views недоступны, reactions только после aggregate update общего админ-бота.
+   - Ответ владельца (2026-10-18): Telegram @sansillusions: subscribers 9/9 matched; views/reach недоступны через используемый Bot API и показаны как «Нет данных», ER при неизвестном reach также unavailable.
+2. Достаточны ли сводка, ER, топ и best-time? Что важно добавить после живой проверки?
+   - Ответ владельца (2026-10-18): dashboard verified — 1 публикация, правильный канал и платформа, 9 подписчиков, unavailable != 0, Best time «Мало данных». PDF после PR #30 verified: excerpt с многоточием без обрыва слова, таблица/дата/канал читаемы, 9 подписчиков и корректные unavailable metrics.
+**Итог проверки:** ОК. Live owner verification completed 2026-10-18. Реальная публикация и цепочка publication → scheduler → analytics_tasks → analytics queue → analytics-worker → snapshot подтверждены. CSV/PDF technical checks и CI зелёные. Stage 15 — DONE; PR #30 не merge автоматически.
 
 ### Этап 17 — ИИ-ассистент и ссылки (ответ в чате, 2026-10-18)
 Вопрос 5 (делать UTM и сокращатель следующим запуском?): **да**. Живая проверка AI с ключом (вопросы 1–4): **пока пропустить**, владелец вернётся к ней, когда будет ключ; GigaChat, ALT-текст и локальные модели остаются в техдолге. Исходный блок вопросов ниже (поля ответов оставлены пустыми осознанно).
@@ -592,8 +591,9 @@ Playwright1.64.1 image локально столкнулась с Docker content
 Отдельный CI job строит закреплённый production image и запускает тот же HTTP contract.
 Никакие ошибки сборки не скрываются; результат production image определяется CI.
 
-Live VK/TG/MAX/IG сравнение без credentials не выполнялось; требуется владельцу по
-stage-file DoD. TG MTProto не подключён; readonly сбор включается явно env-флагом.
+На момент исходной реализации live-сравнение не выполнялось. 2026-10-18 владелец
+подтвердил Telegram owner verification и DoD; результат — в архиве ответов выше.
+Живые проверки VK/MAX/IG этим подтверждением не заявляются. TG MTProto не подключён; readonly сбор включается явно env-флагом.
 Chart.js4.4.7 уже в проекте, не обновлялся; Sources reader/stash/старые ветки не тронуты.
 Merge, дополнительный self-review и Stage16 не выполнялись.
 
@@ -615,4 +615,4 @@ scope гостевого отчёта). Исходные тексты и publish
 production Chromium сформировал owner PDF с 9 подписчиками и синтетический отчёт
 40 публикаций / 5 страниц. Все страницы визуально проверены; кириллица, поля, полные
 строки и повторяемые заголовки проверены также структурно. APP_KEY renderer не получает.
-Stage 15 остаётся NEEDS_OWNER до повторной визуальной проверки исправленного PDF.
+Повторная визуальная проверка исправленного PDF завершена владельцем 2026-10-18: PDF verified, subscribers 9/9 matched, unavailable reach/ER корректны. Live owner verification completed; Stage 15 — DONE.
