@@ -1,0 +1,47 @@
+{#- Admin: short links and forbidden domains. Variables: links (id, url, target, workspace, platform, clicks, human, created, disabled, reason), q, blocked (one domain per line). -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'links' %}
+{% block title %}Короткие ссылки · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Короткие ссылки', 'Все короткие ссылки сервиса: найдите по коду или адресу и отключите, если на неё пожаловались. Отключённая ссылка отвечает «ссылка отключена» и не ведёт никуда.') }}
+<div class="mt-4 flex flex-col gap-6">
+    <section class="card" aria-labelledby="blocklist-title" id="blocklist">
+        <h2 class="text-lg font-semibold" id="blocklist-title">Запрещённые домены</h2>
+        <p class="mt-1 text-sm text-muted">Фишинг, вредоносные и спам-сайты, по одному домену в строке (поддомены тоже). Посты с такими ссылками не проходят проверку, а уже созданные короткие ссылки на эти сайты сразу отключаются.</p>
+        <form class="mt-4 flex max-w-xl flex-col gap-4" method="post" action="/admin/links/blocklist">
+            {{ csrf_field() }}
+            {{ f.textarea('domains', 'Домены', value = blocked, rows = 6, id = 'domains', hint = 'Например: bad.example.com') }}
+            <div>{{ f.button('Сохранить список', type = 'submit', icon = 'save') }}</div>
+        </form>
+    </section>
+
+    <section class="card" aria-labelledby="links-title">
+        <h2 class="text-lg font-semibold" id="links-title">Ссылки</h2>
+        <form class="mt-4 flex max-w-xl items-end gap-3" method="get" action="/admin/links">
+            <div class="flex-1">{{ f.input('q', 'Код или часть адреса', value = q, id = 'q') }}</div>
+            {{ f.button('Найти', type = 'submit', variant = 'secondary', icon = 'search') }}
+        </form>
+        {% set rows %}
+            {% for l in links %}
+            <tr>
+                <td><span class="font-medium">{{ l.url }}</span><div class="max-w-sm truncate text-xs text-muted" title="{{ l.target }}">{{ l.target }}</div></td>
+                <td>{{ l.workspace }}</td>
+                <td>{% if l.platform %}{{ d.platform_badge(l.platform) }}{% else %}<span class="text-muted">вручную</span>{% endif %}</td>
+                <td class="tabular-nums">{{ l.human }} <span class="text-muted">из {{ l.clicks }}</span></td>
+                <td>{% if l.disabled %}{{ d.badge('Отключена', 'warning') }}{% if l.reason %}<div class="text-xs text-muted">{{ l.reason }}</div>{% endif %}{% else %}{{ d.badge('Работает', 'success') }}{% endif %}</td>
+                <td>
+                    <form class="flex items-center gap-2" method="post" action="/admin/links/{{ l.id }}/toggle">
+                        {{ csrf_field() }}
+                        {% if not l.disabled %}<input class="field !min-h-9 !w-40" type="text" name="reason" maxlength="200" placeholder="Причина" aria-label="Причина отключения ссылки {{ l.url }}">{% endif %}
+                        {{ f.button(l.disabled ? 'Включить' : 'Отключить', type = 'submit', variant = l.disabled ? 'secondary' : 'danger', size = 'sm') }}
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        {% endset %}
+        <div class="mt-4">{{ d.table([{label: 'Ссылка'}, {label: 'Пространство'}, {label: 'Где'}, {label: 'Люди'}, {label: 'Состояние'}, {label: 'Действие'}], empty = links is empty, empty_title = q ? 'Ничего не найдено' : 'Коротких ссылок пока нет', empty_text = q ? 'Проверьте код или часть адреса.' : 'Они появятся, когда пользователи включат сокращение ссылок.', caption = 'Короткие ссылки', body = rows) }}</div>
+    </section>
+</div>
+{% endblock %}

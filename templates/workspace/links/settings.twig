@@ -1,0 +1,83 @@
+{#- Workspace links page. Variables: workspace, base, rule (UtmRule), shorten, channel_rules (id, name, platform, rule, mode), links (url, target, platform, clicks, human, last, created, disabled, id), placeholders, sample. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'workspace' %}
+{% block title %}Ссылки · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Настройки пространства', href: base ~ '/settings'}, {label: 'Ссылки'}]) }}
+<div class="mt-3">{{ d.page_header('Ссылки в постах', 'UTM-метки помогают увидеть в аналитике сайта, из какой соцсети пришли люди. Короткие ссылки делают текст чище и считают переходы.') }}</div>
+<div class="flex flex-col gap-6">
+    <section class="card" id="utm" aria-labelledby="utm-title">
+        <h2 class="text-lg font-semibold" id="utm-title">UTM-метки и короткие ссылки</h2>
+        <p class="mt-1 text-sm text-muted">Метки добавляются при публикации ко всем ссылкам в тексте и на кнопках. Если в ссылке уже есть своя метка, она остаётся как есть; якоря и другие параметры не меняются. Подстановки: {% for p in placeholders %}<code>{{ '{' ~ p ~ '}' }}</code>{{ not loop.last ? ', ' : '' }}{% endfor %}.</p>
+        <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/links">
+            {{ csrf_field() }}
+            {{ f.switch('enabled', 'Добавлять UTM-метки', rule.enabled, id = 'utm-enabled') }}
+            <div class="grid gap-4 sm:grid-cols-2">
+                {{ f.input('source', 'Источник (utm_source)', value = rule.source, id = 'utm-source', hint = 'Обязателен, например {platform}.') }}
+                {{ f.input('medium', 'Канал (utm_medium)', value = rule.medium, id = 'utm-medium') }}
+                {{ f.input('campaign', 'Кампания (utm_campaign)', value = rule.campaign, id = 'utm-campaign', hint = 'Например {month} или название акции.') }}
+                {{ f.input('content', 'Содержание (utm_content)', value = rule.content, id = 'utm-content', hint = 'Необязательно, например {channel}.') }}
+                {{ f.input('term', 'Ключевое слово (utm_term)', value = rule.term, id = 'utm-term', hint = 'Необязательно.') }}
+            </div>
+            {{ f.switch('shorten', 'Сокращать ссылки в постах', shorten, id = 'shorten', hint = 'Адрес в посте станет похожим на ' ~ sample ~ ', у каждой соцсети своя ссылка, переходы считаются.') }}
+            <div>{{ f.button('Сохранить', type = 'submit', icon = 'save') }}</div>
+        </form>
+    </section>
+
+    <section class="card" id="channels" aria-labelledby="channels-title">
+        <h2 class="text-lg font-semibold" id="channels-title">Метки по каналам</h2>
+        <p class="mt-1 text-sm text-muted">По умолчанию канал берёт общие настройки. Здесь можно отключить метки для канала или задать свои.</p>
+        {% if channel_rules is empty %}
+            <p class="mt-4 text-sm text-muted">Каналов пока нет. <a class="font-medium text-primary-text underline underline-offset-2" href="{{ base }}/channels">Подключить канал</a></p>
+        {% endif %}
+        <div class="mt-4 flex flex-col gap-3">
+        {% for c in channel_rules %}
+            <details class="rounded-ctl border border-line p-4" id="ch-{{ c.id }}">
+                <summary class="flex min-h-11 cursor-pointer flex-wrap items-center gap-2 font-semibold">{{ c.name }} {{ d.platform_badge(c.platform) }} {% if c.mode == 'custom' %}{{ d.badge('Свои метки', 'success') }}{% elseif c.mode == 'off' %}{{ d.badge('Без меток', 'warning') }}{% else %}{{ d.badge('Общие настройки', 'neutral') }}{% endif %}</summary>
+                <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/links/channels/{{ c.id }}">
+                    {{ csrf_field() }}
+                    {{ f.select('mode', 'Метки для этого канала', {inherit: 'Как в общих настройках', off: 'Не добавлять', custom: 'Свои метки'}, value = c.mode, id = 'mode-' ~ c.id) }}
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        {{ f.input('source', 'Источник (utm_source)', value = c.rule.source, id = 'src-' ~ c.id) }}
+                        {{ f.input('medium', 'Канал (utm_medium)', value = c.rule.medium, id = 'med-' ~ c.id) }}
+                        {{ f.input('campaign', 'Кампания (utm_campaign)', value = c.rule.campaign, id = 'cmp-' ~ c.id) }}
+                        {{ f.input('content', 'Содержание (utm_content)', value = c.rule.content, id = 'cnt-' ~ c.id) }}
+                        {{ f.input('term', 'Ключевое слово (utm_term)', value = c.rule.term, id = 'trm-' ~ c.id) }}
+                    </div>
+                    <div>{{ f.button('Сохранить', type = 'submit', icon = 'save') }}</div>
+                </form>
+            </details>
+        {% endfor %}
+        </div>
+    </section>
+
+    <section class="card" id="short" aria-labelledby="short-title">
+        <h2 class="text-lg font-semibold" id="short-title">Короткие ссылки</h2>
+        <p class="mt-1 text-sm text-muted">Здесь видны ссылки из ваших постов и те, что вы сделали вручную. «Люди» — переходы без учёта роботов, которые подгружают превью.</p>
+        <form class="mt-4 flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-end" method="post" action="{{ base }}/settings/links/short">
+            {{ csrf_field() }}
+            <div class="flex-1">{{ f.input('url', 'Сократить ссылку', type = 'url', id = 'short-url', placeholder = 'https://example.com/page', required = true) }}</div>
+            <div>{{ f.button('Сократить', type = 'submit', icon = 'link') }}</div>
+        </form>
+        {% set rows %}
+            {% for l in links %}
+            <tr>
+                <td><a class="font-medium text-primary-text underline underline-offset-2" href="{{ l.url }}" rel="noopener">{{ l.url }}</a><div class="max-w-xs truncate text-xs text-muted" title="{{ l.target }}">{{ l.target }}</div></td>
+                <td>{% if l.platform %}{{ d.platform_badge(l.platform) }}{% else %}<span class="text-muted">вручную</span>{% endif %}</td>
+                <td class="tabular-nums">{{ l.human }} <span class="text-muted">из {{ l.clicks }}</span></td>
+                <td>{{ l.disabled ? d.badge('Отключена', 'warning') : d.badge('Работает', 'success') }}</td>
+                <td>
+                    <form method="post" action="{{ base }}/settings/links/short/{{ l.id }}/toggle">
+                        {{ csrf_field() }}
+                        {{ f.button(l.disabled ? 'Включить' : 'Отключить', type = 'submit', variant = 'secondary', size = 'sm') }}
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        {% endset %}
+        <div class="mt-4">{{ d.table([{label: 'Ссылка'}, {label: 'Где'}, {label: 'Люди'}, {label: 'Состояние'}, {label: 'Действие'}], empty = links is empty, empty_title = 'Коротких ссылок пока нет', empty_text = 'Включите сокращение выше или сократите ссылку вручную.', caption = 'Короткие ссылки', body = rows) }}</div>
+    </section>
+</div>
+{% endblock %}
