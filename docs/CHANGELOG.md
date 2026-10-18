@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- Этап 17 (часть «ИИ»): ИИ-ассистент в редакторе (написать пост, переписать под соцсеть, сократить, заголовки, хэштеги, орфография), голос бренда, кредиты (списание после ответа). Провайдеры из коробки настраиваются в админке `/admin/ai`: OpenAI, Anthropic (Claude), Google Gemini, OpenRouter, YandexGPT, DeepSeek, Groq, Mistral, Together AI и любой OpenAI-совместимый адрес; своя модель с собственным ключом на пространство (без кредитов). ADR 0016. UTM и сокращатель ссылок остаются в этапе 17.
+
 - Stage 15 review fixes: derived PDF key isolation, restartable Chromium lifecycle,
   independent Instagram metrics with durable partial progress, narrow best-time hints,
   publications tick index, current-milestone-only planning, isolated analytics worker and

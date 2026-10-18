@@ -35,6 +35,7 @@ abstract class AdminTestCase extends BillingTestCase
         // What a test changed for everybody (settings, the price list) must not leak into the next one.
         $this->db->execute('DELETE FROM app_settings');
         $this->db->execute('DELETE FROM payment_providers');
+        $this->db->execute('DELETE FROM ai_providers');
         $this->restorePriceList();
         parent::tearDown();
     }

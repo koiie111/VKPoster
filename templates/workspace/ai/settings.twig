@@ -1,0 +1,51 @@
+{#- Workspace AI settings. Variables: workspace (context), base, voice (BrandVoice), own (enabled, base_url, model, auth, key_set), auth_schemes, credits (used, limit, wallet, left), connected. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'workspace' %}
+{% block title %}ИИ-ассистент · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.breadcrumbs([{label: 'Настройки пространства', href: base ~ '/settings'}, {label: 'ИИ-ассистент'}]) }}
+<div class="mt-3">{{ d.page_header('ИИ-ассистент', 'Ассистент пишет и правит посты в редакторе. Здесь задаётся стиль вашего бренда и, при желании, своя модель.') }}</div>
+<div class="flex flex-col gap-6">
+    {% if not connected %}{{ d.alert('info', 'Ассистент пока не подключён', 'Владелец сервиса подключает модели в админке. Вы можете указать свою модель ниже, и ассистент заработает сразу.') }}{% endif %}
+
+    <section class="card" aria-labelledby="credits-title">
+        <h2 class="text-lg font-semibold" id="credits-title">Кредиты</h2>
+        <p class="mt-1 text-sm text-muted">Успешный ответ тратит кредиты: написать пост — 3, переписать — 2, остальное — 1. Ошибка модели ничего не списывает. Запросы к вашей собственной модели бесплатны.</p>
+        <dl class="mt-4 grid max-w-xl gap-4 sm:grid-cols-3">
+            <div><dt class="text-sm text-muted">Тариф в этом месяце</dt><dd class="text-xl font-bold tabular-nums">{{ credits.limit is null ? 'без лимита' : credits.used ~ ' из ' ~ credits.limit }}</dd></div>
+            <div><dt class="text-sm text-muted">Докупленные</dt><dd class="text-xl font-bold tabular-nums">{{ credits.wallet }}</dd></div>
+            <div><dt class="text-sm text-muted">Осталось всего</dt><dd class="text-xl font-bold tabular-nums">{{ credits.left is null ? '∞' : credits.left }}</dd></div>
+        </dl>
+    </section>
+
+    <section class="card" id="voice" aria-labelledby="voice-title">
+        <h2 class="text-lg font-semibold" id="voice-title">Голос бренда</h2>
+        <p class="mt-1 text-sm text-muted">Ассистент учитывает это в каждом ответе.</p>
+        <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/ai/voice">
+            {{ csrf_field() }}
+            {{ f.textarea('tone', 'Тон и стиль', value = voice.tone, rows = 3, max = 300, hint = 'Например: дружелюбно, на «вы», коротко, без восклицательных знаков.') }}
+            {{ f.textarea('forbidden', 'Запретные слова', value = voice.forbidden|join(', '), rows = 2, hint = 'Через запятую. Ассистент не будет их использовать.') }}
+            {{ f.textarea('example_1', 'Пример поста 1', value = voice.examples[0] ?? '', rows = 3, max = 800, hint = 'До трёх ваших удачных постов: по ним ассистент уловит стиль.') }}
+            {{ f.textarea('example_2', 'Пример поста 2', value = voice.examples[1] ?? '', rows = 3, max = 800) }}
+            {{ f.textarea('example_3', 'Пример поста 3', value = voice.examples[2] ?? '', rows = 3, max = 800) }}
+            <div>{{ f.button('Сохранить голос бренда', type = 'submit', icon = 'save') }}</div>
+        </form>
+    </section>
+
+    <section class="card" id="own" aria-labelledby="own-title">
+        <h2 class="text-lg font-semibold" id="own-title">Своя модель</h2>
+        <p class="mt-1 text-sm text-muted">Подключите любую модель с OpenAI-совместимым API (OpenAI, OpenRouter, YandexGPT, ваш сервер за https). Запросы пойдут напрямую к ней с вашим ключом и не потратят кредиты. Ключ хранится зашифрованным и больше не показывается.</p>
+        <form class="mt-4 flex max-w-2xl flex-col gap-4" method="post" action="{{ base }}/settings/ai/own" autocomplete="off">
+            {{ csrf_field() }}
+            {{ f.switch('enabled', 'Использовать свою модель', own.enabled, id = 'own-enabled') }}
+            {{ f.input('base_url', 'Адрес API', value = own.base_url, id = 'own-url', placeholder = 'https://api.openai.com/v1', hint = 'Публичный https-адрес до /v1.') }}
+            {{ f.input('model', 'Модель', value = own.model, id = 'own-model', placeholder = 'gpt-4o-mini') }}
+            {{ f.input('api_key', 'Ключ API', type = 'password', id = 'own-key', placeholder = own.key_set ? '••••••••' : '', hint = own.key_set ? 'Ключ сохранён; оставьте поле пустым, чтобы не менять.' : '') }}
+            {{ f.select('auth', 'Как передавать ключ', auth_schemes, value = own.auth, id = 'own-auth', hint = 'Обычно Bearer; для YandexGPT — Api-Key.') }}
+            <div>{{ f.button('Сохранить модель', type = 'submit', icon = 'save') }}</div>
+        </form>
+    </section>
+</div>
+{% endblock %}

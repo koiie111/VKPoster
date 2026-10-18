@@ -9,7 +9,7 @@
 
 {% set nav_current = 'editor' %}
 {% block title %}{{ post ? 'Изменить пост' : 'Новый пост' }} · {{ app_name }}{% endblock %}
-{% block head %}<script src="{{ asset('js/editor.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endblock %}
+{% block head %}<script src="{{ asset('js/editor.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% if can('ai.use') %}<script src="{{ asset('js/ai.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endif %}{% endblock %}
 {% block content %}
 {{ d.breadcrumbs([{label: 'Календарь', href: base ~ '/calendar'}, {label: post ? 'Изменить пост' : 'Новый пост'}]) }}
 {% set head_actions %}
@@ -65,6 +65,50 @@
                 {% endfor %}
             </div>
         </div>
+
+
+        {% if can('ai.use') %}
+        <section class="rounded-ctl border border-line bg-surface-2 p-4" data-ai data-ai-url="{{ base }}/ai/run" aria-labelledby="ai-title">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="flex items-center gap-2 text-base font-semibold" id="ai-title">{{ icon('sparkles', 'h-4 w-4') }}ИИ-помощник</h2>
+                <a class="text-sm text-primary-text underline underline-offset-2" href="{{ base }}/settings/ai">Голос бренда и кредиты</a>
+            </div>
+            <div class="mt-3 grid gap-3 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+                <div class="flex flex-col">
+                    <label class="label" for="ai-action">Что сделать</label>
+                    <select class="field" id="ai-action" data-ai-action>
+                        <option value="generate">Написать пост по теме</option>
+                        <option value="rewrite">Переписать под соцсеть</option>
+                        <option value="shorten">Сократить до лимита</option>
+                        <option value="titles">Придумать заголовки</option>
+                        <option value="hashtags">Подобрать хэштеги</option>
+                        <option value="spellcheck">Проверить орфографию</option>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <label class="label" for="ai-brief">Тема или пожелания</label>
+                    <textarea class="field" id="ai-brief" rows="2" maxlength="2000" data-ai-brief aria-describedby="ai-hint" placeholder="О чём пост, для кого, какой тон"></textarea>
+                </div>
+            </div>
+            <p class="hint" id="ai-hint" data-ai-hint>Опишите тему: ассистент напишет черновик. Остальные действия работают с текстом поста выше.</p>
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+                <button type="button" class="btn btn-primary" data-ai-run>{{ icon('sparkles', 'h-4 w-4') }}<span data-ai-run-label>Сделать</span></button>
+                <span class="text-sm text-muted" role="status" aria-live="polite" data-ai-status></span>
+            </div>
+            <p class="mt-3 text-sm font-medium text-bad-fg" role="alert" data-ai-error hidden></p>
+            <div class="mt-3 flex flex-col gap-3" data-ai-result hidden>
+                <h3 class="text-sm font-semibold">Предложение ассистента</h3>
+                <pre class="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-ctl border border-line bg-surface p-3 text-sm" data-ai-text tabindex="0"></pre>
+                <p class="text-sm text-warn-fg" data-ai-over hidden>Ответ длиннее лимита выбранной соцсети. Запустите «Сократить до лимита».</p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-primary btn-sm" data-ai-replace>Заменить текст поста</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-ai-append>Добавить в конец</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-ai-discard>Отбросить</button>
+                </div>
+                <p class="text-xs text-muted">Проверьте текст перед публикацией: ассистент может ошибаться в фактах.</p>
+            </div>
+        </section>
+        {% endif %}
 
         <div data-problems class="flex flex-col gap-2" aria-live="polite">
             {% if errors.channels is defined %}{% for ch in channels %}{% if errors.channels[ch.id] is defined %}

@@ -14,6 +14,8 @@ final class AuditActions
 {
     /** @var array<string, string> */
     private const LABELS = [
+        'ai.voice_updated' => 'Голос бренда для ИИ изменён',
+        'ai.own_model_updated' => 'Своя ИИ-модель пространства изменена',
         'approval.settings_updated' => 'Настройки согласования изменены',
         'approval.submitted' => 'Пост отправлен на согласование',
         'approval.scheduled' => 'Согласованный пост запланирован',
