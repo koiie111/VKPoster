@@ -138,6 +138,9 @@ final class WorkspaceNav
         }
         $base = '/w/' . $workspace->workspacePublicId;
         $items = [['id' => 'dashboard', 'label' => 'Обзор', 'icon' => 'layout-dashboard', 'href' => $base]];
+        if ($this->can('analytics.view')) {
+            $items[] = ['id' => 'analytics','label' => 'Аналитика','icon' => 'chart-column','href' => $base.'/analytics'];
+        }
         if ($this->permissions->allows($workspace->role, 'calendar.view')) {
             $items[] = ['id' => 'calendar', 'label' => 'Календарь', 'icon' => 'calendar-days', 'href' => $base . '/calendar'];
             $items[] = ['id' => 'approvals', 'label' => 'Согласование', 'icon' => 'message-circle', 'href' => $base . '/approvals'];

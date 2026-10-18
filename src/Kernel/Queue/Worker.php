@@ -48,6 +48,9 @@ final class Worker
             $this->container->call([$job, 'handle']);
             $this->queue->complete($reserved);
             $this->logger->info('queue.job.done', ['job' => $job::class, 'id' => $reserved->id]);
+        } catch (JobDeferred $e) {
+            $this->queue->defer($reserved, $e->delaySeconds);
+            $this->logger->info('queue.job.deferred', ['id' => $reserved->id]);
         } catch (Throwable $e) {
             $this->handleFailure($reserved, $e);
         }

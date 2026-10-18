@@ -1,0 +1,32 @@
+{% extends 'layouts/base.twig' %}
+{% block title %}
+    Отчёт по публикациям ·
+    {{ app_name }}
+{% endblock %}
+{% block head %}
+    <script src="{{ asset('vendor/chart.umd.min.js') }}" nonce="{{ csp_nonce() }}" defer>
+    </script>
+    <script src="{{ asset('js/analytics.js') }}" nonce="{{ csp_nonce() }}" defer>
+    </script>
+{% endblock %}
+{% block body %}
+    <main id="main" class="mx-auto max-w-5xl px-4 py-8">
+        <h1 class="text-2xl font-semibold">
+            Отчёт по публикациям
+        </h1>
+        <p class="my-3">
+            {{ report.from }}
+            —
+            {{ report.to }}
+            ·
+            {{ report.timezone }}
+        </p>
+        <p class="text-sm text-muted">
+            Только посты этой гостевой ссылки. Последние накопительные счётчики.
+        </p>
+        {% include 'workspace/analytics/report.twig' %}
+        <a class="btn btn-secondary mt-4" href="/g/{{ token }}">
+            К согласованию
+        </a>
+    </main>
+{% endblock %}

@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+- Stage 15 review fixes: derived PDF key isolation, restartable Chromium lifecycle,
+  independent Instagram metrics with durable partial progress, narrow best-time hints,
+  publications tick index, current-milestone-only planning, isolated analytics worker and
+  capacity deferral without spending attempts; public reports no longer display internal channel IDs.
+
+- Stage15: queued platform snapshots, nullable metrics, daily followers, workspace dashboard/ER/best-time, scoped CSV/PDF and existing guest reports, tariff retention. Live owner comparison pending.
+
 - PIN гостевых ссылок: неявное подключение phpredis к localhost исключено; недоступный Redis или некорректный результат проверки возвращает 503 без выдачи доступа.
 
 - Этап 14: revision-bound согласование, комментарии/упоминания/версии/diff, гостевые ссылки с TTL/PIN/отзывом, client isolation, email/Telegram preferences, white-label Агентства, audit/metrics/staff counters; прежний publishing pipeline сохранён.

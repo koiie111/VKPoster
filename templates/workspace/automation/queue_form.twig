@@ -6,6 +6,7 @@
 {% set nav_current = 'queues' %}
 {% block title %}{{ queue ? 'Настройки очереди' : 'Новая очередь' }} · {{ app_name }}{% endblock %}
 {% block content %}
+{% include 'workspace/analytics/best.twig' with {report:analytics_report} %}
 {{ d.breadcrumbs([{label: 'Очереди', href: base ~ '/queues'}, {label: queue ? queue.name : 'Новая очередь'}]) }}
 <div class="mt-3">{{ d.page_header(queue ? 'Настройки очереди' : 'Новая очередь', 'Напишите, в какие дни и во сколько выходят посты. Время указывайте по часовому поясу пространства: ' ~ timezone ~ '.') }}</div>
 <form method="post" action="{{ base }}/queues/{{ queue ? queue.publicId : '' }}" class="card flex max-w-3xl flex-col gap-6" novalidate>

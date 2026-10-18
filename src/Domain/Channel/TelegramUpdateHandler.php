@@ -32,7 +32,7 @@ use Throwable;
  */
 final class TelegramUpdateHandler
 {
-    public const UPDATE_TYPES = ['message', 'channel_post', 'edited_channel_post', 'my_chat_member', 'pre_checkout_query'];
+    public const UPDATE_TYPES = ['message', 'channel_post', 'edited_channel_post', 'my_chat_member', 'message_reaction_count', 'pre_checkout_query'];
 
     public function __construct(
         private readonly Config $config,
@@ -52,6 +52,7 @@ final class TelegramUpdateHandler
         private readonly \App\Domain\User\UserRepository $users,
         private readonly \App\Domain\Automation\Crosspost\CrosspostProcessor $crosspost,
         private readonly \App\Domain\Billing\StarsPayments $stars,
+        private readonly \App\Domain\Analytics\TelegramReactions $reactions,
     ) {
     }
 
@@ -65,6 +66,10 @@ final class TelegramUpdateHandler
             return;
         }
         try {
+            if (is_array($update['message_reaction_count'] ?? null)) {
+                $this->reactions->ingest($update['message_reaction_count']);
+                return;
+            }
             $client = $this->clients->make($token);
             // A post in a channel may also feed a cross-posting rule (the processor only looks at channels that have one).
             if (is_array($update['channel_post'] ?? null) || is_array($update['edited_channel_post'] ?? null)) {

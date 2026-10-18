@@ -433,3 +433,14 @@ Rollback сохраняет посты, переводя review-состояни
 - `promo_codes` (`code` UNIQUE, `kind` percent|amount|days, `value`, `currency`, `plan_codes_json`, `first_payment_only`, `max_redemptions`, `valid_from/until`, `active`), `promo_redemptions` (`promo_id`, `workspace_id`, `user_id`, `invoice_id` UNIQUE, `discount`).
 - `addon_packages` (`code`, `kind` channels|members|storage_bytes|ai_credits, `quantity`, `days`, `prices_json`, `active`, `sort`), `workspace_addons` (что куплено и до какого срока, `invoice_id` UNIQUE).
 - `referral_codes` (`user_id` PK, `code` UNIQUE), `referrals` (`referrer_id`, `referred_id` UNIQUE, `status` active|flagged|rejected, `reason`, `ip_hash`), `referral_bonuses` (`payment_id` UNIQUE, `amount`, `reversed`), `referral_payouts` (`public_id`, `user_id`, `amount`, `details` (куда отправить деньги: шифруется `Crypto`, стирается после обработки), `status` requested|paid|rejected, `staff_note`, `handled_by`). Деньги реферального баланса живут в журнале проводок: счета `referral:user:<id>`, `referral:expense`, `referral:spent`, `referral:payouts`.
+## Stage15: post analytics
+
+Migration36: analytics_tasks (workspace/task_key unique, lease, due/completed/error),
+post_stats_snapshots (unique task, publication/channel/workspace, observed_at, nullable
+metrics JSON), channel_stats_snapshots (daily task/followers nullable),
+telegram_stats_reactions (workspace/channel/message, monotonic event_date).
+Migration36 также добавляет publications_stats_due(status,sent_at) для частого tick;
+rollback убирает индекс и новые analytics таблицы, сохраняя publications/posts.
+metrics_json.metric_statuses хранит независимую availability Instagram counters;
+частичный transient прогресс обновляется под тем же unique task_id.
+Удаление channel/workspace cascade.
