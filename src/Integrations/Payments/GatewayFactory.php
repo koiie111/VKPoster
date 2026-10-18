@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Integrations\Payments;
 
+use App\Integrations\Payments\Balance\BalanceGateway;
 use App\Integrations\Payments\CloudPayments\CloudPaymentsGateway;
 use App\Integrations\Payments\Contracts\PaymentGateway;
 use App\Integrations\Payments\Crypto\CryptoGateway;
@@ -67,6 +68,7 @@ final class GatewayFactory
             new PaddleGateway($this->http, $s->value('paddle', 'api_key'), $s->value('paddle', 'webhook_secret'), $this->clock, $s->value('paddle', 'sandbox') === '1', self::currencies($s->value('paddle', 'currencies'), ['USD'])),
             new CryptoGateway($this->http, $s->value('crypto', 'merchant_id'), $s->value('crypto', 'api_key'), $base . '/webhooks/billing/crypto', self::currencies($s->value('crypto', 'currencies'), ['USD'])),
             new StarsGateway($this->db, $this->telegram, $this->config->string('platforms.telegram.bot_token')),
+            new BalanceGateway($this->db),
             new FakeGateway($this->db),
         ];
     }

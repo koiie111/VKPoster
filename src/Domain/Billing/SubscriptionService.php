@@ -108,6 +108,37 @@ final class SubscriptionService
     }
 
     /**
+     * Give a plan for a number of days without a payment (a free-days promo code). The period runs from now and ends by itself.
+     */
+    public function grantDays(int $workspaceId, Plan $plan, int $days, ?int $actorId = null): Subscription
+    {
+        $subscription = $this->ensure($workspaceId);
+        $now = $this->clock->now();
+        $this->subscriptions->update($subscription->id, [
+            'plan_id' => $plan->id,
+            'status' => SubscriptionStatus::Active->value,
+            'period' => BillingPeriod::Month->value,
+            'price_amount' => 0,
+            'current_period_start' => DbTime::format($now),
+            'current_period_end' => DbTime::format($now->modify(sprintf('+%d days', max(1, $days)))),
+            'trial_ends_at' => null,
+            'cancel_at_period_end' => 1,
+            'payment_method_id' => null,
+            'pending_plan_id' => null,
+            'pending_period' => null,
+            'renewal_attempts' => 0,
+            'first_attempt_at' => null,
+            'next_renewal_attempt_at' => null,
+            'last_failure' => null,
+        ]);
+        $this->syncWorkspacePlan($workspaceId, $plan->id);
+        $this->enforce($workspaceId);
+        $this->audit->record('billing.plan_granted', $actorId, 'subscription', $subscription->publicId, ['plan' => $plan->code, 'days' => $days], $workspaceId);
+
+        return $this->ensure($workspaceId);
+    }
+
+    /**
      * Stop charging at the end of the paid period. The plan keeps working until then.
      */
     public function cancelRenewal(int $workspaceId, ?int $actorId): void

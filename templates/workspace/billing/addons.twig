@@ -1,0 +1,48 @@
+{#- Add-on packages. Variables: workspace (context), can_buy, packages, gateways, currency, active, base, today. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'billing' %}
+{% block title %}Пакеты · {{ app_name }}{% endblock %}
+{% block content %}
+{% set head %}{{ f.button('К тарифу и оплате', href = base, icon = 'chevron-left') }}{% endset %}
+{{ d.page_header('Пакеты', 'Больше каналов, мест в команде, места в медиатеке или ИИ-кредитов — без смены тарифа.', body = head) }}
+<div class="flex flex-col gap-6">
+    {% if not can_buy %}
+        {{ d.alert('info', 'Пакеты доступны на платных тарифах', 'Сначала выберите и оплатите тариф, потом сюда можно добавить каналы, людей или место.', f.button('Выбрать тариф', size = 'sm', href = base ~ '/plans')) }}
+    {% elseif not packages %}
+        <div class="card">{{ d.empty_state('Пакетов пока нет', 'Мы добавим их в этом разделе, когда они появятся.', 'star') }}</div>
+    {% else %}
+    {% if active %}
+    <section class="card" aria-labelledby="active-title">
+        <h2 class="text-lg font-semibold" id="active-title">Уже подключено</h2>
+        <ul class="mt-3 space-y-1 text-sm">{% for a in active %}<li>{{ a.name }} — до {{ a.until }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+    <form method="post" action="{{ base }}/addons/checkout" class="flex flex-col gap-6">
+        {{ csrf_field() }}
+        <ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {% for p in packages %}
+            <li class="card flex flex-col">
+                <h2 class="text-lg font-semibold">{{ p.name }}</h2>
+                <p class="mt-1 text-sm text-muted">{{ p.summary }}</p>
+                <p class="mt-3 text-2xl font-bold">{{ p.price }}</p>
+                <div class="mt-auto pt-4"><button type="submit" name="package" value="{{ p.code }}" class="btn btn-block btn-primary"{% if not gateways %} disabled{% endif %}>Купить</button></div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if gateways %}
+        <fieldset class="card">
+            <legend class="sr-only">Как оплатить</legend>
+            <h2 class="text-lg font-semibold" aria-hidden="true">Как оплатить</h2>
+            <div class="mt-3 flex flex-col gap-3">
+                {% for name, label in gateways %}{{ f.radio('gateway', label, name, loop.first) }}{% endfor %}
+            </div>
+        </fieldset>
+        {% else %}
+        {{ d.alert('warning', 'Оплата в этой валюте пока не подключена', 'Напишите нам, и мы поможем.') }}
+        {% endif %}
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

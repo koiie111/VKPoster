@@ -23,6 +23,8 @@ final class Quote
         public readonly DateTimeImmutable $periodEnd,
         public readonly string $description,
         public readonly bool $immediate = true,
+        public readonly int $discount = 0,
+        public readonly ?int $promoCodeId = null,
     ) {
     }
 }

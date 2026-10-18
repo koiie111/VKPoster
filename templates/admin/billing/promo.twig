@@ -1,0 +1,47 @@
+{#- Admin: promo codes. Variables: rows (promo, used), plans, kinds, tz. -#}
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'promo' %}
+{% block title %}Промокоды · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Промокоды', 'Скидка в процентах или суммой, либо бесплатные дни тарифа. Созданный код не редактируется: выключите его и сделайте новый.') }}
+<form class="card mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" method="post" action="/admin/promo" aria-label="Новый промокод">
+    {{ csrf_field() }}
+    {{ f.input('code', 'Код', id = 'promo-code', required = true, hint = 'Например SPRING25.', attrs = {maxlength: 32}) }}
+    {{ f.select('kind', 'Вид', {'': 'Выберите'}|merge(kinds), id = 'promo-kind', required = true) }}
+    {{ f.input('value', 'Размер', id = 'promo-value', required = true, hint = 'Проценты, сумма или число дней.') }}
+    {{ f.select('currency', 'Валюта суммы', {RUB: '₽', USD: '$', EUR: '€'}, id = 'promo-currency', hint = 'Только для скидки суммой.') }}
+    {{ f.input('max', 'Сколько раз можно использовать', id = 'promo-max', hint = 'Пусто — без лимита.') }}
+    {{ f.input('from', 'Действует с', id = 'promo-from', placeholder = 'ГГГГ-ММ-ДД') }}
+    {{ f.input('until', 'Действует по (включительно)', id = 'promo-until', placeholder = 'ГГГГ-ММ-ДД') }}
+    {{ f.input('note', 'Заметка для себя', id = 'promo-note', attrs = {maxlength: 200}) }}
+    <fieldset class="sm:col-span-2 lg:col-span-4">
+        <legend class="label">К каким тарифам подходит</legend>
+        <div class="mt-2 flex flex-wrap gap-4">{% for p in plans %}{{ f.checkbox('plans[]', p.name, false, p.code, id = 'promo-plan-' ~ p.code) }}{% endfor %}</div>
+        <p class="mt-1 text-sm text-muted">Ничего не выбрано — подходит к любому. Для бесплатных дней нужен ровно один тариф.</p>
+    </fieldset>
+    <div class="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center gap-4">
+        {{ f.checkbox('first_payment_only', 'Только на первую оплату пространства', true, id = 'promo-first') }}
+        {{ f.button('Создать', type = 'submit', icon = 'plus') }}
+    </div>
+</form>
+
+<div class="card !p-0 overflow-hidden">
+{% set body %}
+    {% for r in rows %}
+    {% set p = r.promo %}
+    <tr>
+        <td class="font-mono font-medium">{{ p.code }}</td>
+        <td>{{ kinds[p.kind] }}: {% if p.kind == 'percent' %}{{ p.value }}%{% elseif p.kind == 'amount' %}{{ money(p.value, p.currency) }}{% else %}{{ p.value }} дн.{% endif %}</td>
+        <td>{{ p.planCodes ? p.planCodes|join(', ') : 'любой' }}</td>
+        <td>{{ r.used }}{% if p.maxRedemptions %} / {{ p.maxRedemptions }}{% endif %}</td>
+        <td class="whitespace-nowrap text-muted">{{ p.validFrom ? p.validFrom|date('d.m.Y', tz) : '…' }} — {{ p.validUntil ? p.validUntil|date('d.m.Y', tz) : '…' }}</td>
+        <td>{{ d.badge(p.active ? 'Включён' : 'Выключен', p.active ? 'ok' : 'neutral', dot = true) }}</td>
+        <td><form method="post" action="/admin/promo/{{ p.id }}/toggle">{{ csrf_field() }}{{ f.button(p.active ? 'Выключить' : 'Включить', type = 'submit', variant = 'secondary', size = 'sm') }}</form></td>
+    </tr>
+    {% endfor %}
+{% endset %}
+{{ d.table([{label: 'Код'}, {label: 'Скидка'}, {label: 'Тарифы'}, {label: 'Использовано'}, {label: 'Срок'}, {label: 'Состояние'}, {label: ''}], empty = rows is empty, empty_title = 'Промокодов пока нет', empty_text = 'Создайте первый в форме выше.', caption = 'Промокоды', body = body) }}
+</div>
+{% endblock %}

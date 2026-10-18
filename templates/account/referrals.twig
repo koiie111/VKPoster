@@ -1,0 +1,47 @@
+{#- Invitations. Variables: enabled, percent, cookie_days, link, summary, balance, min_payout, payouts, tz. -#}
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% set nav_current = 'settings' %}
+{% block title %}Приглашения · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Приглашения', 'Поделитесь ссылкой: с каждой оплаты приглашённого вы получаете ' ~ percent ~ '% на баланс.') }}
+{% if not enabled %}
+    {{ d.alert('info', 'Программа сейчас на паузе', 'Новые приглашения не засчитываются. Баланс, который у вас уже есть, остаётся вашим.') }}
+{% endif %}
+<div class="mt-6 flex flex-col gap-6">
+    <section class="card" aria-labelledby="link-title">
+        <h2 class="text-lg font-semibold" id="link-title">Ваша ссылка</h2>
+        <p class="mt-2 break-all rounded-card bg-sunken p-3 font-mono text-sm" id="ref-link">{{ link }}</p>
+        <p class="mt-2 text-sm text-muted">Ссылка запоминается в браузере на {{ cookie_days }} дн. Если человек зарегистрируется за это время, он закрепится за вами навсегда. Приглашать самого себя нельзя: такие регистрации бонусов не дают.</p>
+    </section>
+    <section class="card grid gap-4 sm:grid-cols-3" aria-label="Итоги">
+        <div><p class="text-sm text-muted">Пришло людей</p><p class="text-2xl font-bold">{{ summary.people }}</p></div>
+        <div><p class="text-sm text-muted">Заработано всего</p><p class="text-2xl font-bold">{{ money(summary.earned) }}</p></div>
+        <div><p class="text-sm text-muted">Баланс сейчас</p><p class="text-2xl font-bold">{{ money(balance) }}</p></div>
+        {% if summary.flagged %}<p class="text-sm text-muted sm:col-span-3">На проверке: {{ summary.flagged }}. Мы смотрим, не приглашён ли человек с вашего адреса или карты.</p>{% endif %}
+    </section>
+    <section class="card" aria-labelledby="pay-title">
+        <h2 class="text-lg font-semibold" id="pay-title">Чем можно воспользоваться</h2>
+        <p class="mt-1 text-sm text-muted">Баланс можно потратить на тариф или пакет (способ оплаты «Реферальный баланс» на странице тарифов) либо вывести деньги: заявку мы оплачиваем вручную.</p>
+        {% if balance >= min_payout %}
+        <form class="mt-4 grid gap-4 sm:grid-cols-2" method="post" action="/account/referrals/withdraw">
+            {{ csrf_field() }}
+            {{ f.input('amount', 'Сколько вывести, ₽', id = 'wd-amount', hint = 'Не меньше ' ~ money(min_payout) ~ '.', required = true) }}
+            {{ f.input('details', 'Куда перевести', id = 'wd-details', hint = 'Номер карты или телефон для СБП и имя получателя.', required = true, attrs = {maxlength: 500}) }}
+            <div>{{ f.button('Запросить вывод', type = 'submit', icon = 'send') }}</div>
+        </form>
+        {% else %}
+        <p class="mt-3 text-sm text-muted">Вывод открывается с {{ money(min_payout) }}.</p>
+        {% endif %}
+    </section>
+    {% if payouts %}
+    <section class="card !p-0 overflow-hidden">
+    {% set body %}
+        {% for p in payouts %}<tr><td class="whitespace-nowrap text-muted">{{ p.created_at|date('d.m.Y', tz) }}</td><td>{{ money(p.amount) }}</td><td>{{ {requested: 'Ждёт выплаты', paid: 'Выплачено', rejected: 'Отклонено'}[p.status] ?? p.status }}{% if p.staff_note %}<span class="block text-xs text-muted">{{ p.staff_note }}</span>{% endif %}</td></tr>{% endfor %}
+    {% endset %}
+    {{ d.table([{label: 'Когда'}, {label: 'Сумма'}, {label: 'Состояние'}], caption = 'Заявки на вывод', body = body) }}
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

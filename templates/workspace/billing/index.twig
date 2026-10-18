@@ -7,7 +7,7 @@
 {% set base = '/w/' ~ workspace.workspacePublicId ~ '/billing' %}
 {% block title %}Тариф и оплата · {{ app_name }}{% endblock %}
 {% block content %}
-{% set head %}{{ f.button('Сравнить тарифы', href = base ~ '/plans', icon = 'list') }}{% endset %}
+{% set head %}{{ f.button('Пакеты', href = base ~ '/addons', icon = 'plus', variant = 'secondary') }} {{ f.button('Сравнить тарифы', href = base ~ '/plans', icon = 'list') }}{% endset %}
 {{ d.page_header('Тариф и оплата', 'Ваш тариф, сколько вы уже использовали и все платежи.', body = head) }}
 
 <div class="flex flex-col gap-6">

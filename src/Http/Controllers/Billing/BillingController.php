@@ -76,6 +76,7 @@ final class BillingController
                 WorkspaceRequest::text($request->input('gateway')),
                 $request->input('keep_card') === '1',
                 WorkspaceRequest::text($request->input('currency')),
+                WorkspaceRequest::text($request->input('promo')),
             );
         } catch (BillingException $e) {
             $this->flash->toast($e->getMessage(), 'error');
@@ -90,6 +91,31 @@ final class BillingController
 
         // Not straight to the provider: a browser would refuse to follow a redirect from a form to another site (`form-action 'self'`).
         // The next hop is a plain page load of ours, which sends the customer on.
+        return Response::redirect('/w/' . $context->workspacePublicId . '/billing/pay/' . $result->paymentId, 303);
+    }
+
+    public function addons(Request $request): Response
+    {
+        return $this->view->response('workspace/billing/addons.twig', $this->pages->addons(WorkspaceRequest::context($request)));
+    }
+
+    public function addonCheckout(Request $request): Response
+    {
+        $context = WorkspaceRequest::context($request);
+        $back = '/w/' . $context->workspacePublicId . '/billing/addons';
+        try {
+            $result = $this->billing->checkoutAddon($context, WorkspaceRequest::user($request), WorkspaceRequest::text($request->input('package')), WorkspaceRequest::text($request->input('gateway')));
+        } catch (BillingException $e) {
+            $this->flash->toast($e->getMessage(), 'error');
+
+            return Response::redirect($back);
+        }
+        if ($result->paymentId === null) {
+            $this->flash->toast((string) $result->message);
+
+            return Response::redirect('/w/' . $context->workspacePublicId . '/billing');
+        }
+
         return Response::redirect('/w/' . $context->workspacePublicId . '/billing/pay/' . $result->paymentId, 303);
     }
 

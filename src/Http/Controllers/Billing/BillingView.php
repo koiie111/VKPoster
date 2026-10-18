@@ -25,6 +25,8 @@ use App\Domain\Billing\SubscriptionStatus;
 use App\Domain\Media\MediaPresenter;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Payments\GatewayRegistry;
+use App\Domain\Billing\AddonRepository;
+use App\Domain\Billing\Referral\ReferralService;
 use App\Kernel\Config;
 use App\Support\Clock;
 use App\Support\Money;
@@ -49,6 +51,8 @@ final class BillingView
         private readonly GatewayRegistry $gateways,
         private readonly Config $config,
         private readonly Clock $clock,
+        private readonly AddonRepository $addons,
+        private readonly ReferralService $referrals,
     ) {
     }
 
@@ -199,6 +203,11 @@ final class BillingView
             }
         }
 
+        $balance = $currency === 'RUB' ? $this->referrals->balance($context->userId) : 0;
+        if ($balance > 0) {
+            $gateways['balance'] = 'Реферальный баланс (' . Money::format($balance) . ')';
+        }
+
         return [
             'workspace' => $context,
             'cards' => $cards,
@@ -211,6 +220,49 @@ final class BillingView
             'currencies' => $paidIn !== null ? [] : array_map(static fn (string $code): array => ['code' => $code, 'label' => Money::symbol($code)], count($currencies) > 1 ? $currencies : []),
             'is_trial' => $subscription->isTrial(),
             'trial_ends' => $subscription->trialEndsAt === null ? null : self::day($subscription->trialEndsAt->setTimezone($zone)),
+        ];
+    }
+
+    /**
+     * The add-on packages the workspace can buy now, in the currency of its paid period, with how to pay and what it already has.
+     *
+     * @return array<string, mixed>
+     */
+    public function addons(WorkspaceContext $context): array
+    {
+        $subscription = $this->subscriptions->ensure($context->workspaceId);
+        $currency = $subscription->currency;
+        $current = $this->plans->find($subscription->planId) ?? $this->plans->free();
+        $canBuy = !$current->isFree() && !$subscription->isTrial() && $subscription->hasPaidPeriod();
+        $packages = [];
+        foreach ($this->addons->all(true) as $package) {
+            $price = $package->priceFor($currency);
+            if ($price !== null) {
+                $packages[] = ['code' => $package->code, 'name' => $package->name, 'summary' => $package->summary(), 'price' => Money::format($price, $currency)];
+            }
+        }
+        $gateways = [];
+        foreach ($this->gateways->available() as $gateway) {
+            if (in_array($currency, $gateway->currencies(), true)) {
+                $gateways[$gateway->name()] = $gateway->label();
+            }
+        }
+        $balance = $currency === 'RUB' ? $this->referrals->balance($context->userId) : 0;
+        if ($balance > 0) {
+            $gateways['balance'] = 'Реферальный баланс (' . Money::format($balance) . ')';
+        }
+        $now = $this->clock->now();
+        $zone = new DateTimeZone($context->timezone);
+
+        return [
+            'workspace' => $context,
+            'can_buy' => $canBuy,
+            'packages' => $packages,
+            'gateways' => $gateways,
+            'currency' => $currency,
+            'active' => array_map(static fn (array $a): array => ['name' => $a['package'], 'until' => self::day($a['valid_until']->setTimezone($zone))], $this->addons->active($context->workspaceId)),
+            'base' => '/w/' . $context->workspacePublicId . '/billing',
+            'today' => self::day($now->setTimezone($zone)),
         ];
     }
 
