@@ -272,6 +272,77 @@ PHP;
         self::assertSame(0, $this->db->table('posts')->count());
     }
 
+    public function testSlowOperationClaimsKeyReleasesItOnFailureAndRecoversStaleClaim(): void
+    {
+        [$ctx, $token] = $this->fixture();
+        $identity = $this->tokens()->authenticate($token);
+        $idempotency = $this->app->container()->get(Idempotency::class);
+        $request = new Request('POST', '/api/v1/media', body: ['url' => 'https://images.example/a.jpg'], headers: ['authorization' => 'Bearer ' . $token, 'idempotency-key' => 'slow-1']);
+        $created = static fn (): Response => Response::json(['data' => ['id' => 'media']], 201);
+        $first = $idempotency->run($identity, $request, function () use ($idempotency, $identity, $request, $created): Response {
+            try {
+                $idempotency->run($identity, $request, $created, static fn (Response $r) => null, true);
+                self::fail('A concurrent duplicate must not run.');
+            } catch (\App\Domain\Api\ApiException $e) {
+                self::assertSame(409, $e->status);
+                self::assertSame('idempotency_in_progress', $e->errorCode);
+            }
+            return $created();
+        }, static fn (Response $r) => null, true);
+        self::assertSame(201, $first->status);
+        $replay = $idempotency->run($identity, $request, static fn (): Response => throw new \LogicException('Stored result must be replayed.'), static fn (Response $r) => null, true);
+        self::assertSame($first->body, $replay->body);
+        self::assertSame('true', $replay->header('Idempotency-Replayed'));
+
+        $failing = new Request('POST', '/api/v1/media', body: ['url' => 'https://images.example/b.jpg'], headers: ['authorization' => 'Bearer ' . $token, 'idempotency-key' => 'slow-2']);
+        try {
+            $idempotency->run($identity, $failing, static fn (): Response => throw new \RuntimeException('download failed'), static fn (Response $r) => null, true);
+            self::fail('The failure must propagate.');
+        } catch (\RuntimeException) {
+        }
+        self::assertSame(1, $this->db->table('api_idempotency')->count(), 'A failed slow request must not keep its key.');
+        $retry = $idempotency->run($identity, $failing, $created, static fn (Response $r) => null, true);
+        self::assertSame(201, $retry->status);
+
+        // A worker that died after claiming leaves an unfinished row; after the lease another request may take it over.
+        $stale = new Request('POST', '/api/v1/media', body: ['url' => 'https://images.example/c.jpg'], headers: ['authorization' => 'Bearer ' . $token, 'idempotency-key' => 'slow-3']);
+        $idempotency->run($identity, $stale, function () use ($idempotency, $identity, $stale, $created): Response {
+            $this->clock->advance(181);
+            $taken = $idempotency->run($identity, $stale, $created, static fn (Response $r) => null, true);
+            self::assertSame(201, $taken->status);
+            return $created();
+        }, static fn (Response $r) => null, true);
+        self::assertSame(3, $this->db->table('api_idempotency')->count());
+    }
+
+    public function testPostListingBatchLoadsRelatedRowsAndKeepsRestrictedVisibility(): void
+    {
+        [$ctx, $token] = $this->fixture();
+        $workspace = $this->workspaces->findById($ctx->workspaceId) ?? throw new \LogicException();
+        $owner = $this->app->container()->get(\App\Domain\User\UserRepository::class)->find($ctx->userId) ?? throw new \LogicException();
+        $channel = $this->fakeChannel($workspace, $owner, 'batch-channel');
+        for ($i = 0; $i < 4; ++$i) {
+            $this->scheduled($ctx, [$channel], '+' . ($i + 1) . ' hour', 'Batch ' . $i);
+        }
+        self::assertSame(201, $this->api($token, 'POST', '/posts', ['text' => 'No channels'], 'no-channels')->status);
+        $page = $this->data($this->api($token, 'GET', '/posts?limit=100'));
+        self::assertCount(5, $page['data']);
+        $withChannel = 0;
+        foreach ($page['data'] as $row) {
+            if ($row['text'] !== 'No channels') {
+                ++$withChannel;
+                self::assertSame($channel->publicId, $row['variants'][0]['channel_id']);
+                self::assertCount(1, $row['publications']);
+            }
+        }
+        self::assertSame(4, $withChannel);
+        $paged = $this->data($this->api($token, 'GET', '/posts?limit=2'));
+        self::assertCount(2, $paged['data']);
+        self::assertIsString($paged['next_cursor']);
+        $this->app->container()->get(ChannelAccessRepository::class)->set($ctx, $ctx->userId, []);
+        self::assertSame([], $this->data($this->api($token, 'GET', '/posts'))['data']);
+    }
+
     public function testMaintenancePreservesJsonContractWithoutSessionBypass(): void
     {
         [$ctx, $token] = $this->fixture();

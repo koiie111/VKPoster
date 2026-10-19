@@ -68,7 +68,7 @@ final class PublicApi implements MiddlewareInterface
             }
             $request = $request->withAttribute('api', $identity)->withAttribute('workspace', $ctx);
             $response = in_array($request->method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)
-                ? $this->idempotency->run($identity, $request, fn (): Response => $next($request), fn (Response $saved) => $this->resources->authorizeReplay($identity, $request, $saved))
+                ? $this->idempotency->run($identity, $request, fn (): Response => $next($request), fn (Response $saved) => $this->resources->authorizeReplay($identity, $request, $saved), $request->path === '/api/v1/media')
                 : $next($request);
         } catch (ApiException $e) {
             $response = $this->error($e->status, $e->errorCode, $e->getMessage());

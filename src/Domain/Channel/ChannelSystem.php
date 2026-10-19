@@ -133,7 +133,10 @@ final class ChannelSystem
                 'last_health_at' => DbTime::format($this->clock->now()),
                 'updated_at' => DbTime::format($this->clock->now()),
             ]);
-            $this->webhooks->capture($channel->workspaceId, 'channel.error', ['channel_id' => $channel->publicId, 'status' => $status->value], 'channel:' . $channel->id . ':' . $this->clock->now()->format('U.u'));
+            // Only a real transition is an event: repeated failed checks of an already broken or paused channel stay silent.
+            if ($channel->status !== $status) {
+                $this->webhooks->capture($channel->workspaceId, 'channel.error', ['channel_id' => $channel->publicId, 'status' => $status->value], 'channel:' . $channel->id . ':' . $status->value . ':' . $this->clock->now()->format('U.u'));
+            }
         });
     }
 

@@ -7,7 +7,7 @@ namespace App\Domain\Api;
 use App\Domain\Analytics\PostAnalytics;
 use App\Domain\Channel\ChannelRepository;
 use App\Domain\Media\{MediaFetcher, MediaService};
-use App\Domain\Post\{Post, PostDraft, PostOptions, VariantInput, PostRepository, PostService, PublicationRepository};
+use App\Domain\Post\{Post, PostDraft, PostOptions, PostVariant, Publication, VariantInput, PostRepository, PostService, PublicationRepository};
 use App\Domain\Workspace\Permissions;
 use App\Kernel\Database\Connection;
 use App\Kernel\Http\{Request, UploadedFile};
@@ -59,21 +59,64 @@ final class ApiResources
         $this->ability($who, 'posts:read', 'calendar.view');
         $limit = $this->limit($request);
         $after = $this->cursor->decode($who, 'posts', self::text($request->query['cursor'] ?? ''));
-        $rows = $this->db->select('SELECT public_id FROM posts WHERE workspace_id=? AND public_id>? ORDER BY public_id LIMIT 200', [$who->context->workspaceId, $after]);
+        $workspace = $who->context->workspaceId;
+        $allowed = $this->service->allowedChannels($who->context);
+        $rows = $this->db->select('SELECT * FROM posts WHERE workspace_id=? AND public_id>? ORDER BY public_id LIMIT 200', [$workspace, $after]);
         $data = [];
         $last = $after;
-        foreach ($rows as $row) {
-            $last = (string) $row['public_id'];
-            $post = $this->posts->find($who->context, $last);
-            if ($post !== null && $this->visible($who, $post)) {
-                $data[] = $this->present($who, $post);
-                if (count($data) === $limit) {
-                    break;
+        // Related rows are loaded once per chunk of $limit posts instead of once per post.
+        foreach (array_chunk($rows, max(1, $limit)) as $chunk) {
+            $posts = array_map(PostRepository::hydrate(...), $chunk);
+            $ids = array_map(static fn (Post $p): int => $p->id, $posts);
+            $variants = $this->variantsOf($workspace, $ids);
+            $publications = $this->publicationsOf($workspace, $ids);
+            $channels = $this->channelIds($workspace);
+            foreach ($posts as $post) {
+                $last = $post->publicId;
+                if ($this->visibleWith($allowed, $variants[$post->id] ?? [])) {
+                    $data[] = $this->render($post, $variants[$post->id] ?? [], $channels, $publications[$post->id] ?? []);
+                    if (count($data) === $limit) {
+                        break 2;
+                    }
                 }
             }
         }
-        $more = $last !== '' && $this->db->select('SELECT id FROM posts WHERE workspace_id=? AND public_id>? LIMIT 1', [$who->context->workspaceId, $last]) !== [];
+        $more = $last !== '' && $this->db->select('SELECT id FROM posts WHERE workspace_id=? AND public_id>? LIMIT 1', [$workspace, $last]) !== [];
         return ['data' => $data, 'next_cursor' => $more ? $this->cursor->encode($who, 'posts', $last) : null];
+    }
+
+    /** @param list<int> $ids
+     * @return array<int,list<PostVariant>>
+     */
+    private function variantsOf(int $workspace, array $ids): array
+    {
+        $grouped = [];
+        foreach ($this->db->select('SELECT * FROM post_variants WHERE workspace_id=? AND post_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY id', [$workspace, ...$ids]) as $row) {
+            $grouped[(int) $row['post_id']][] = PostRepository::hydrateVariant($row);
+        }
+        return $grouped;
+    }
+
+    /** @param list<int> $ids
+     * @return array<int,list<Publication>>
+     */
+    private function publicationsOf(int $workspace, array $ids): array
+    {
+        $grouped = [];
+        foreach ($this->db->select('SELECT * FROM publications WHERE workspace_id=? AND post_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY id', [$workspace, ...$ids]) as $row) {
+            $grouped[(int) $row['post_id']][] = PublicationRepository::hydrate($row);
+        }
+        return $grouped;
+    }
+
+    /** @return array<int,string> channel row id => public id */
+    private function channelIds(int $workspace): array
+    {
+        $map = [];
+        foreach ($this->db->select('SELECT id,public_id FROM channels WHERE workspace_id=?', [$workspace]) as $row) {
+            $map[(int) $row['id']] = (string) $row['public_id'];
+        }
+        return $map;
     }
 
     public function find(ApiIdentity $who, string $id): Post
@@ -87,13 +130,27 @@ final class ApiResources
 
     private function visible(ApiIdentity $who, Post $post): bool
     {
-        if (!$this->service->canSee($who->context, $post)) {
+        return $this->service->canSee($who->context, $post)
+            && $this->visibleWith($this->service->allowedChannels($who->context), $this->posts->variants($who->context, $post));
+    }
+
+    /**
+     * A public resource must never expose a mixed allowed/disallowed set of variants; a restricted member needs at least one
+     * variant, all of them in allowed channels.
+     *
+     * @param list<int>|null $allowed
+     * @param list<PostVariant> $variants
+     */
+    private function visibleWith(?array $allowed, array $variants): bool
+    {
+        if ($allowed === null) {
+            return true;
+        }
+        if ($variants === []) {
             return false;
         }
-        // A public resource must never expose a mixed allowed/disallowed set of variants.
-        $allowed = $this->service->allowedChannels($who->context);
-        foreach ($this->posts->variants($who->context, $post) as $variant) {
-            if ($allowed !== null && !in_array($variant->channelId, $allowed, true)) {
+        foreach ($variants as $variant) {
+            if (!in_array($variant->channelId, $allowed, true)) {
                 return false;
             }
         }
@@ -227,12 +284,32 @@ final class ApiResources
     /** @return array<string,mixed> */
     private function present(ApiIdentity $who, Post $post): array
     {
-        $variants = [];
-        foreach ($this->posts->variants($who->context, $post) as $v) {
-            $channel = $v->channelId === null ? null : $this->channels->findById($who->context, $v->channelId);
-            $variants[] = ['channel_id' => $channel?->publicId, 'platform' => $v->platform->value, 'text' => $v->text, 'media_ids' => $v->mediaIds, 'options' => $v->options?->toArray()];
+        $variants = $this->posts->variants($who->context, $post);
+        $channels = [];
+        foreach ($variants as $v) {
+            if ($v->channelId !== null && !isset($channels[$v->channelId])) {
+                $channel = $this->channels->findById($who->context, $v->channelId);
+                if ($channel !== null) {
+                    $channels[$v->channelId] = $channel->publicId;
+                }
+            }
         }
-        return ['id' => $post->publicId, 'status' => $post->status->value, 'text' => $post->baseText, 'media_ids' => $post->mediaIds, 'options' => $post->options->toArray(), 'variants' => $variants, 'scheduled_at' => $post->scheduledAt?->format(DATE_ATOM), 'created_at' => $post->createdAt->format(DATE_ATOM), 'updated_at' => $post->updatedAt->format(DATE_ATOM), 'publications' => array_map(static fn ($p): array => ['id' => $p->publicId, 'status' => $p->status->value], $this->publications->forPost($who->context, $post))];
+        return $this->render($post, $variants, $channels, $this->publications->forPost($who->context, $post));
+    }
+
+    /**
+     * @param list<PostVariant> $variants
+     * @param array<int,string> $channels channel row id => public id
+     * @param list<Publication> $publications
+     * @return array<string,mixed>
+     */
+    private function render(Post $post, array $variants, array $channels, array $publications): array
+    {
+        $rows = [];
+        foreach ($variants as $v) {
+            $rows[] = ['channel_id' => $v->channelId === null ? null : ($channels[$v->channelId] ?? null), 'platform' => $v->platform->value, 'text' => $v->text, 'media_ids' => $v->mediaIds, 'options' => $v->options?->toArray()];
+        }
+        return ['id' => $post->publicId, 'status' => $post->status->value, 'text' => $post->baseText, 'media_ids' => $post->mediaIds, 'options' => $post->options->toArray(), 'variants' => $rows, 'scheduled_at' => $post->scheduledAt?->format(DATE_ATOM), 'created_at' => $post->createdAt->format(DATE_ATOM), 'updated_at' => $post->updatedAt->format(DATE_ATOM), 'publications' => array_map(static fn (Publication $p): array => ['id' => $p->publicId, 'status' => $p->status->value], $publications)];
     }
 
     private function ability(ApiIdentity $who, string $scope, string $permission): void

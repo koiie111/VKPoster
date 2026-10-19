@@ -236,6 +236,10 @@ final class WebhookTest extends BillingTestCase
         $this->app->container()->get(\App\Domain\Channel\ChannelSystem::class)->recordBroken($channel, \App\Domain\Channel\ChannelStatus::Error, 'Never deliver this');
         self::assertSame(1, $this->db->table('outgoing_webhook_events')->where('type', '=', 'approval.approved')->count());
         self::assertSame(1, $this->db->table('outgoing_webhook_events')->where('type', '=', 'channel.error')->count());
+        // A repeated failed check of the same broken channel is not a new event.
+        $broken = $this->app->container()->get(\App\Domain\Channel\ChannelRepository::class)->findById($ctx, $channel->id) ?? throw new \LogicException();
+        $this->app->container()->get(\App\Domain\Channel\ChannelSystem::class)->recordBroken($broken, \App\Domain\Channel\ChannelStatus::Error, 'Still broken');
+        self::assertCount(1, $this->db->select("SELECT id FROM outgoing_webhook_events WHERE type='channel.error'"));
         self::assertStringNotContainsString('Never deliver this', json_encode($this->db->select('SELECT payload_json FROM outgoing_webhook_events'), JSON_THROW_ON_ERROR));
     }
 
