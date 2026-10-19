@@ -1,0 +1,7 @@
+{
+  "name": "vkposter-openapi-check",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {"test": "node validate.cjs"},
+  "devDependencies": {"@apidevtools/swagger-parser": "13.1.0"}
+}

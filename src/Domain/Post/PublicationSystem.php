@@ -18,7 +18,7 @@ use LogicException;
  */
 final class PublicationSystem
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly \App\Domain\Webhook\WebhookOutbox $webhooks)
     {
     }
 
@@ -66,7 +66,16 @@ final class PublicationSystem
             }
         }
 
-        return $this->db->execute('UPDATE publications SET ' . $sets . ' WHERE id = ? AND status = ?', [...array_values($changes), $id, $from->value]) === 1;
+        return $this->db->transaction(function () use ($sets, $changes, $id, $from, $to): bool {
+            $changed = $this->db->execute('UPDATE publications SET ' . $sets . ' WHERE id = ? AND status = ?', [...array_values($changes), $id, $from->value]) === 1;
+            if ($changed && in_array($to, [PublicationStatus::Sent, PublicationStatus::Failed], true)) {
+                $row = $this->db->select('SELECT p.workspace_id,p.public_id,p.attempt,po.public_id post_id,c.public_id channel_id FROM publications p JOIN posts po ON po.id=p.post_id AND po.workspace_id=p.workspace_id LEFT JOIN channels c ON c.id=p.channel_id AND c.workspace_id=p.workspace_id WHERE p.id=?', [$id])[0] ?? null;
+                if ($row !== null) {
+                    $this->webhooks->capture((int) $row['workspace_id'], $to === PublicationStatus::Sent ? 'post.published' : 'post.failed', ['publication_id' => (string) $row['public_id'], 'post_id' => (string) $row['post_id'], 'channel_id' => (string) ($row['channel_id'] ?? '')], 'publication:' . $id . ':' . $row['attempt'] . ':' . $to->value);
+                }
+            }
+            return $changed;
+        });
     }
 
     /**

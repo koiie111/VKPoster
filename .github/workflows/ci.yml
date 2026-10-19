@@ -97,6 +97,11 @@ jobs:
               print('::error title=Dev image check failure::' + message)
           PYCODE
 
+      - name: Validate public OpenAPI 3.1 contract
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work/tools/openapi node:22-alpine \
+            sh -ec 'npm ci --ignore-scripts --no-audit --no-fund && npm test'
+
       - name: Build API reference (phpDocumentor)
         run: docker run --rm -v "$PWD:/data" phpdoc/phpdoc:3 run -d src -t docs/reference
 

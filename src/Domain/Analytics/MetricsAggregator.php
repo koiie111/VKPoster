@@ -94,6 +94,10 @@ final class MetricsAggregator
             [$from, $to],
         ));
 
+        foreach ($this->db->select("SELECT name, COUNT(*) AS c FROM analytics_events WHERE name IN ('api_token_created', 'api_webhook_created') AND occurred_at >= ? AND occurred_at < ? GROUP BY name", [$from, $to]) as $row) {
+            $add('api_created', (string) $row['name'], (int) $row['c']);
+        }
+
         // Stage 13: what people set up (from the audit journal) and what the automation did (from its own tables).
         foreach ($this->db->select("SELECT action, COUNT(*) AS c FROM audit_log WHERE action IN ('queue.created', 'evergreen.created', 'recurring.created', 'trigger.created', 'crosspost.created', 'rss.created', 'import.confirmed') AND created_at >= ? AND created_at < ? GROUP BY action", [$from, $to]) as $row) {
             $add('automation_created', (string) $row['action'], (int) $row['c']);

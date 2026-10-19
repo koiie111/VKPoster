@@ -1,0 +1,46 @@
+[
+  {
+    "name": "api-settings",
+    "url": "/w/{ws}/settings/api",
+    "login_as": "api-ui@example.com",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  },
+  {
+    "name": "api-empty",
+    "url": "/w/{ws}/settings/api",
+    "login_as": "api-empty-ui@example.com",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  },
+  {
+    "name": "api-plan",
+    "url": "/w/{ws}/settings/api",
+    "login_as": "api-free-ui@example.com",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  },
+  {
+    "name": "api-docs",
+    "url": "/api/docs"
+  },
+  {
+    "name": "api-admin",
+    "url": "/admin/workspaces/{api_ws}",
+    "login_as": "api-staff-ui@example.com",
+    "actions": [
+      {
+        "click": "button[data-cookie-choice='necessary']"
+      }
+    ]
+  }
+]

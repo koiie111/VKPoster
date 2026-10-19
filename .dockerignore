@@ -43,3 +43,5 @@ node_modules
 **/secrets.*
 **/.phpunit.cache
 **/.php-cs-fixer.cache
+
+**/node_modules

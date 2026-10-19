@@ -1,0 +1,89 @@
+{% extends 'layouts/app.twig' %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/display.twig' as d %}
+{% import 'components/overlay.twig' as o %}
+{% set nav_current = 'workspace' %}
+{% block title %}API и вебхуки{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    {{ d.page_header('API и вебхуки', 'Подключайте внешние инструменты к этому пространству.') }}
+    <p class="text-sm text-muted">Время в таблицах: {{ workspace.timezone }}.</p>
+    <p><a class="text-primary-text underline" href="/api/docs">Документация REST API</a></p>
+    {% if form_error %}{{ d.alert('error', 'Изменения не сохранены', form_error) }}{% endif %}
+    {% if secret %}
+        <section class="card" aria-labelledby="secret-title">
+            <h2 class="text-lg font-semibold" id="secret-title">{{ secret_label }}: сохраните сейчас</h2>
+            <p class="my-3 text-sm text-muted">Секрет показан только один раз. Храните его в менеджере паролей. После ухода со страницы увидеть его снова нельзя.</p>
+            {{ f.input('new-secret', secret_label, value = secret, attrs = {readonly: true, autocomplete: 'off', spellcheck: 'false'}) }}
+        </section>
+    {% endif %}
+    {% if not available %}
+        {{ d.alert('info', 'Нужен тариф Про или выше', 'API и вебхуки недоступны на текущем тарифе.') }}
+        {{ f.button('Посмотреть тарифы', href = '/w/' ~ workspace.workspacePublicId ~ '/billing/plans') }}
+    {% else %}
+    <section class="card" aria-labelledby="token-title">
+        <h2 class="text-lg font-semibold" id="token-title">API-токены</h2>
+        <p class="my-3 text-sm text-muted">Выберите минимальные права. Токен действует от вашего имени с учётом текущей роли и доступных каналов.</p>
+        <form class="grid max-w-2xl gap-4" method="post" action="{{ base }}/tokens">
+            {{ csrf_field() }}
+            {{ f.input('name', 'Название токена', value = form.name|default(''), required = true, attrs = {maxlength: 100}) }}
+            <fieldset><legend class="mb-2 font-medium">Права токена</legend>
+                {% for scope in scopes %}{{ f.checkbox('scopes[]', scope, checked = scope in form.scopes|default([]), value = scope) }}{% endfor %}
+            </fieldset>
+            {{ f.input('expires_at', 'Действует до', type = 'date', value = form.expires_at|default(''), hint = 'Начало указанного дня в часовом поясе пространства. Пусто — без срока.') }}
+            <div>{{ f.button('Создать токен', type = 'submit') }}</div>
+        </form>
+        {% if tokens is empty %}
+            <div class="mt-4">{{ d.empty_state('Токенов пока нет', 'Создайте токен для первого подключения.', 'link') }}</div>
+        {% else %}
+            {% set token_rows %}{% for token in tokens %}
+                <tr><th scope="row">{{ token.name }}</th><td class="break-words">{{ token.scopes_json }}</td><td>{{ token.expires_at ? (token.expires_at ~ ' UTC')|date('d.m.Y H:i', workspace.timezone) : 'Без срока' }}</td><td>{{ token.last_used_at ? (token.last_used_at ~ ' UTC')|date('d.m.Y H:i', workspace.timezone) : 'Ещё не использовался' }}</td><td>
+                    {% if token.revoked_at %}Отозван{% else %}
+                    {{ f.button('Отозвать', variant = 'secondary', attrs = {'data-dialog-open': 'revoke-' ~ token.public_id}) }}
+                    {{ o.confirm_dialog('revoke-' ~ token.public_id, 'Отозвать токен?', token.name, 'Подключённые приложения потеряют доступ.', base ~ '/tokens/' ~ token.public_id ~ '/revoke', 'Отозвать токен') }}
+                    {% endif %}
+                </td></tr>
+            {% endfor %}{% endset %}
+            {{ d.table([{label:'Токен'}, {label:'Права'}, {label:'Срок'}, {label:'Активность'}, {label:'Действие'}], caption = 'Токены пространства', body = token_rows) }}
+        {% endif %}
+    </section>
+    <section class="card" aria-labelledby="webhooks-title">
+        <h2 class="text-lg font-semibold" id="webhooks-title">Вебхуки</h2>
+        {% if not hook_access %}
+            <p class="mt-3 text-sm text-muted">Подписки на события пространства доступны администратору с доступом ко всем каналам.</p>
+        {% else %}
+        <p class="my-3 text-sm text-muted">Уведомления доставляются в фоне. Получатель должен проверять подпись и сохранять event id, чтобы исключать повторы.</p>
+        <form class="grid max-w-2xl gap-4" method="post" action="{{ base }}/webhooks">
+            {{ csrf_field() }}
+            {{ f.input('url', 'URL получателя', type = 'url', value = form.url|default(''), required = true, attrs = {maxlength: 2000}, hint = 'Публичный HTTP(S) URL без логина и пароля.') }}
+            <fieldset><legend class="mb-2 font-medium">События</legend>
+                {% for event in events %}{{ f.checkbox('events[]', event, checked = event in form.events|default([]), value = event) }}{% endfor %}
+            </fieldset>
+            <div>{{ f.button('Добавить вебхук', type = 'submit') }}</div>
+        </form>
+        {% if hooks is empty %}<div class="mt-4">{{ d.empty_state('Вебхуков пока нет', 'Добавьте URL для уведомлений о событиях.', 'link') }}</div>{% else %}
+            {% set hook_rows %}{% for hook in hooks %}<tr>
+                <th scope="row" class="break-all">{{ hook.url }}</th><td class="break-words">{{ hook.events_json }}</td><td>{{ hook.enabled ? 'Включён' : 'Выключен' }}</td><td>{{ hook.consecutive_failures }}</td><td>
+                    <form method="post" action="{{ base }}/webhooks/{{ hook.public_id }}/toggle">{{ csrf_field() }}{{ f.button(hook.enabled ? 'Выключить' : 'Включить', type = 'submit', variant = 'secondary') }}</form>
+                </td>
+            </tr>{% endfor %}{% endset %}
+            {{ d.table([{label:'URL'}, {label:'События'}, {label:'Статус'}, {label:'Ошибок подряд'}, {label:'Действие'}], caption = 'Подписки на события', body = hook_rows) }}
+        {% endif %}
+        {% endif %}
+    </section>
+    {% if hook_access %}
+    <section class="card" aria-labelledby="deliveries-title">
+        <h2 class="text-lg font-semibold" id="deliveries-title">Последние доставки</h2>
+        {% if deliveries is empty %}{{ d.empty_state('Доставок пока нет', 'Они появятся после события, на которое подписан вебхук.', 'send') }}{% else %}
+        {% set delivery_rows %}{% for delivery in deliveries %}<tr>
+            <th scope="row">{{ delivery.type }}</th><td class="break-all">{{ delivery.event_id }}</td><td>{{ delivery.status }}</td><td>{{ delivery.attempts }}</td><td>{{ delivery.response_status|default('Нет ответа', true) }}</td><td>{{ delivery.error_code|default('Нет', true) }}</td><td>{{ (delivery.next_attempt_at ~ ' UTC')|date('d.m.Y H:i', workspace.timezone) }}</td><td>
+                {% if delivery.status == 'failed' %}<form method="post" action="{{ base }}/deliveries/{{ delivery.public_id }}/retry">{{ csrf_field() }}{{ f.button('Повторить', type = 'submit', variant = 'secondary') }}</form>{% endif %}
+            </td>
+        </tr>{% endfor %}{% endset %}
+        {{ d.table([{label:'Событие'}, {label:'Event ID'}, {label:'Статус'}, {label:'Попыток'}, {label:'HTTP'}, {label:'Ошибка'}, {label:'Следующая попытка'}, {label:'Действие'}], caption = 'Журнал доставок', body = delivery_rows) }}
+        {% endif %}
+    </section>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

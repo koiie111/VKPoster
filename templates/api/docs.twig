@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>REST API · {{ app_name }}</title>
+    <link rel="stylesheet" href="{{ asset('css/api-docs.css') }}">
+</head>
+<body>
+    <header><a href="/app">{{ app_name }}</a> · REST API v1 · <a href="/api/openapi.yaml">OpenAPI 3.1</a> · <a href="/help/public-api">Примеры интеграций</a></header>
+    <main id="api-reference" aria-label="Документация REST API"></main>
+    <script type="module" src="{{ asset('js/api-docs.js') }}"></script>
+</body>
+</html>

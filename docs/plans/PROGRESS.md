@@ -6,10 +6,10 @@
 
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
-- **Текущий этап:** 18 (Публичный API и вебхуки), следующий в таблице; этап 17 завершён
-- **Статус:** TODO (этап 17 смержен: PR [#29](https://github.com/koiie111/VKPoster/pull/29))
-- **Ветка / PR:** `main`
-- **Последнее обновление:** 2026-10-18 (этап 17: UTM и сокращатель ссылок; живая проверка AI с ключом отложена владельцем)
+- **Текущий этап:** 18 (Публичный API и исходящие вебхуки)
+- **Статус:** DONE
+- **Ветка / PR:** `stage-18-public-api`
+- **Последнее обновление:** 2026-10-19 (этап 18 завершён; PR без автоматического merge)
 
 ## Этапы
 
@@ -35,7 +35,7 @@
 | 15 | Аналитика | DONE | [#26](https://github.com/koiie111/VKPoster/pull/26), [#30](https://github.com/koiie111/VKPoster/pull/30) | 2026-10-18 | Live owner verification completed: Telegram @sansillusions, subscribers 9/9 matched; dashboard и PDF verified; unavailable Telegram views/reach и ER корректно показаны как «Нет данных» |
 | 16 | Остальные платёжки, рефералка, промокоды | DONE | [#27](https://github.com/koiie111/VKPoster/pull/27) | 2026-10-18 | Реализовано всё из плана, настройка в админке (решение владельца 2026-10-18), ADR 0015. Нужна живая проверка провайдеров с ключами заказчика; провайдеры без ключей не показываются покупателям. Для 17+: пакеты `ai_credits` кладут кредиты в кошелёк `wallet:CRD:<пространство>` (`Ledger::wallet`), этап 17 их тратит |
 | 17 | AI-ассистент, UTM, сокращатель | DONE | [#28](https://github.com/koiie111/VKPoster/pull/28), [#29](https://github.com/koiie111/VKPoster/pull/29) | 2026-10-18 | AI-часть (ADR 0016): провайдеры из коробки и любой OpenAI-совместимый адрес, `/admin/ai`. Ссылки (ADR 0017): авто-UTM на пространство и канал, сокращатель с кликами, защита и отключение из `/admin/links`. Живая проверка AI с ключом отложена владельцем. Для 18: короткие ссылки и UTM можно отдавать через API; техдолг ниже |
-| 18 | Публичный API и вебхуки | TODO | | | |
+| 18 | Публичный API и вебхуки | DONE | `stage-18-public-api` | 2026-10-19 | Stateless Bearer API, scoped tokens, transactional idempotency, OpenAPI 3.1 + self-hosted Redoc; signed SSRF-safe outgoing webhooks through existing Queue. Owner verification не требуется; merge не выполнялся |
 | 19 | Hardening и production | TODO | | | |
 | 22 | Короткие видео: TikTok, YouTube Shorts, Reels, VK Клипы | TODO | | | Будущая функция, добавлена владельцем 2026-10-13. Перед стартом нужны решения владельца по сетям (см. файл этапа) |
 | 23 | Источники контента, Радар, обработка материалов | TODO | [#18](https://github.com/koiie111/VKPoster/pull/18), [#20](https://github.com/koiie111/VKPoster/pull/20) | | Добавлен по решению владельца 2026-10-12; код от внешнего разработчика (PR #18), доработан и влит через PR #20. Ответы владельца получены 2026-10-14 (ADR 0012): остаётся реализация (аккаунты reader в админке и свой аккаунт пользователя, OpenAI-совместимые провайдеры, тарифы) и живая проверка. Функция **выключена** (`SOURCES_ENABLED=false`) до их завершения |
@@ -616,3 +616,19 @@ production Chromium сформировал owner PDF с 9 подписчикам
 40 публикаций / 5 страниц. Все страницы визуально проверены; кириллица, поля, полные
 строки и повторяемые заголовки проверены также структурно. APP_KEY renderer не получает.
 Повторная визуальная проверка исправленного PDF завершена владельцем 2026-10-18: PDF verified, subscribers 9/9 matched, unavailable reach/ER корректны. Live owner verification completed; Stage 15 — DONE.
+
+
+## Stage 18 — verification (2026-10-19)
+
+Public API uses existing PostService/MediaService/PostAnalytics and publishing pipeline; no parallel publisher. API tokens and webhook settings are gated by live workspace permissions and Pro+ entitlements. New migration 44 contains only API/outbox/delivery storage and is reversible.
+
+- Full PHP suite: **2484 tests / 43,168 assertions**, passed.
+- API/webhook/OpenAPI/migration tests: **30 tests / 406 assertions**, passed; includes real concurrent PHP processes sharing an idempotency key, permission downgrade replay guard, approval/billing isolation, HMAC, DNS rebinding, backoff, independent recipients, lost ACK/lease recovery and retention.
+- New Domain class line coverage: **83–100%**, PCOV targeted run.
+- PHPStan, code style/CSS check, Composer audit, phpDocumentor, vendor SHA-256 and secret scan: passed.
+- Cold test-database migration, upgrade with existing drafts, rollback/replay: passed. Local app migration upgrade and `/healthz`: passed.
+- OpenAPI 3.1 validation (Swagger Parser 13.1.0) + bidirectional route parity: passed (8 paths / 11 operations).
+- `make ui-snap STAGE=18`: 5 screens × widths 360/375/768/1440 × light/dark, no blocking axe issues or page overflow; screenshots in `storage/ui-review/stage-18/` (not committed).
+- Reader offline regression: 61 discovered tests, 59 passed / 2 optional PHP HTTP contracts skipped in offline invocation; reader code unchanged.
+
+Known contract limits: idempotency results have a 24h TTL; webhook delivery is at least once and unordered, receivers must deduplicate event IDs and verify timestamp/HMAC. Completed history retention is at least 35d; pending work is retained. No real third-party receiver or public publication was invoked in automated tests. No new external credentials are required. Stage 19 not started. PR is submitted without merge; owner can merge after green CI.
