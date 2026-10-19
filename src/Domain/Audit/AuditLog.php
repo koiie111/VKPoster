@@ -21,6 +21,7 @@ final class AuditLog
         private readonly Clock $clock,
         private readonly RequestContext $context,
         private readonly Analytics $analytics,
+        private readonly \App\Domain\Webhook\WebhookOutbox $webhooks,
     ) {
     }
 
@@ -35,16 +36,21 @@ final class AuditLog
         if (is_int($staff)) {
             $meta['impersonator'] = $staff;
         }
-        $this->db->table('audit_log')->insert([
-            'workspace_id' => $workspaceId,
-            'actor_id' => $actorId,
-            'action' => $action,
-            'subject_type' => $subjectType,
-            'subject_id' => $subjectId,
-            'ip' => $this->context->request()?->ip(),
-            'meta_json' => $meta === [] ? null : json_encode($meta, JSON_THROW_ON_ERROR),
-            'created_at' => DbTime::format($this->clock->now()),
-        ]);
+        $this->db->transaction(function () use ($action, $actorId, $subjectType, $subjectId, $meta, $workspaceId): void {
+            $id = $this->db->table('audit_log')->insert([
+                'workspace_id' => $workspaceId,
+                'actor_id' => $actorId,
+                'action' => $action,
+                'subject_type' => $subjectType,
+                'subject_id' => $subjectId,
+                'ip' => $this->context->request()?->ip(),
+                'meta_json' => $meta === [] ? null : json_encode($meta, JSON_THROW_ON_ERROR),
+                'created_at' => DbTime::format($this->clock->now()),
+            ]);
+            if ($workspaceId !== null && str_starts_with($action, 'approval.')) {
+                $this->webhooks->capture($workspaceId, $action, ['subject_type' => $subjectType ?? '', 'subject_id' => $subjectId ?? ''], 'audit:' . $id);
+            }
+        });
         // The business event behind the audit entry (a registration, a payment). A failure here must never undo the action that was audited.
         try {
             $this->analytics->fromAudit($action, $actorId, $subjectId, $meta, $workspaceId);

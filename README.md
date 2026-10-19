@@ -60,3 +60,16 @@ Stage 3.2 is accepted on mocked HTTP/contracts. Real integrations need explicit 
 Stage 3.3 Automation: optional Source/Radar policies, existing minute scheduler/default worker, durable checkpoints and draft-only export. All costly steps default off; missing provider credentials require review without breaking startup. [Operations and limits](docs/architecture/modules/content-automation.md).
 
 Content operations (3.4): `make console CMD="content:status"`, `make console CMD="content:maintain"` (recovery + dry-run retention). Cleanup requires explicit env opt-in; see [hardening](docs/architecture/modules/content-hardening.md).
+
+
+## Public API (Stage 18)
+
+Pro+ workspace settings → API and webhooks. Documentation: `/api/docs`, OpenAPI 3.1: `/api/openapi.yaml`; [integration examples](resources/help/public-api.md), [architecture](docs/architecture/modules/public-api.md). No new service credentials are needed. Keep the standard scheduler and default queue worker running for webhook delivery and cleanup.
+
+Contract validation (developer tool only):
+
+```sh
+docker run --rm -v "$PWD:/work" -w /work/tools/openapi node:22-alpine sh -ec 'npm ci --ignore-scripts --no-audit --no-fund && npm test'
+```
+
+Visual tests can use `tools/ui-snap/seed-api.php` against a **disposable app_test** database, then `UI_SNAP_BASE_URL` points at the isolated app, `UI_SNAP_API_WS` contains the fixture workspace public ID from `storage/testing/api-ui.json`, and `make ui-snap STAGE=18` / `make a11y STAGE=18` exercise settings (populated/empty/plan gate), staff counters and self-hosted documentation. Never run the fixture against your working database: it deliberately resets synthetic test data.

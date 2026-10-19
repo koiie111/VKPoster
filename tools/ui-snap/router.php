@@ -7,7 +7,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 $request = \App\Kernel\Http\Request::fromGlobals();
 $public = dirname(__DIR__, 2) . '/public';
 $file = realpath($public . $request->path);
-if ($file !== false && str_starts_with($file, $public . '/assets/') && is_file($file)) {
+if ($file !== false && (str_starts_with($file, $public . '/assets/') || $file === $public . '/api/openapi.yaml') && is_file($file)) {
     return false;
 }
 require $public . '/index.php';

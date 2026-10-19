@@ -1,0 +1,27 @@
+body { margin: 0; font-family: Arial, sans-serif; }
+header { padding: 1rem; border-bottom: 1px solid #ccc; }
+a { color: #164bba; }
+/* Redoc's default small labels and HTTP badges need stronger contrast for WCAG AA. */
+html.light:root {
+  --color-warm-grey-5: #555761;
+  --color-warm-grey-6: #555761;
+  --color-warm-grey-7: #555761;
+  --color-brand-4: #555761;
+  --text-color-helper: #555761;
+  --text-color-disabled: #555761;
+}
+html.light:root #api-reference .tag-get, html.light:root #api-reference .tag-query { --tag-color: #137347; }
+html.light:root #api-reference .tag-post { --tag-color: #174cbc; }
+html.light:root #api-reference .tag-put { --tag-color: #9a4a04; }
+html.light:root #api-reference .tag-patch { --tag-color: #775700; }
+html.light:root #api-reference .tag-delete { --tag-color: #b42318; }
+html.light:root #api-reference .tag-options, html.light:root #api-reference .tag-head { --tag-color: #5b30a3; }
+html.dark header { background: #1a1c21; color: #f5f5f5; }
+html.dark header a { color: #9ec1ff; }
+
+html.light:root {
+  --color-blue-6: #174cbc;
+  --color-blue-7: #174cbc;
+  --color-green-7: #137347;
+}
+html.dark:root { --color-warm-grey-5: #c4c6d1; }

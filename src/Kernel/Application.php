@@ -100,7 +100,11 @@ final class Application
             );
         };
 
-        return $pipeline->run(self::GLOBAL_MIDDLEWARE, $request, $core);
+        $middleware = $request->path === '/api/v1' || str_starts_with($request->path, '/api/v1/')
+            ? [SecurityHeaders::class, \App\Http\Middleware\PublicApi::class]
+            : self::GLOBAL_MIDDLEWARE;
+
+        return $pipeline->run($middleware, $request, $core);
     }
 
     /**

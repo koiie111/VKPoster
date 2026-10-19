@@ -14,3 +14,5 @@ storage/agent-logs/
 storage/ui-review/
 /public/assets/build/*
 !/public/assets/build/.gitkeep
+
+/tools/openapi/node_modules/

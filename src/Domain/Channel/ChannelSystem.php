@@ -17,7 +17,7 @@ use DateTimeImmutable;
  */
 final class ChannelSystem
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly \App\Domain\Webhook\WebhookOutbox $webhooks)
     {
     }
 
@@ -126,12 +126,15 @@ final class ChannelSystem
 
     public function recordBroken(Channel $channel, ChannelStatus $status, string $message): void
     {
-        $this->db->table('channels')->where('id', '=', $channel->id)->update([
-            'status' => $status->value,
-            'last_error' => mb_substr($message, 0, 500),
-            'last_health_at' => DbTime::format($this->clock->now()),
-            'updated_at' => DbTime::format($this->clock->now()),
-        ]);
+        $this->db->transaction(function () use ($channel, $status, $message): void {
+            $this->db->table('channels')->where('id', '=', $channel->id)->update([
+                'status' => $status->value,
+                'last_error' => mb_substr($message, 0, 500),
+                'last_health_at' => DbTime::format($this->clock->now()),
+                'updated_at' => DbTime::format($this->clock->now()),
+            ]);
+            $this->webhooks->capture($channel->workspaceId, 'channel.error', ['channel_id' => $channel->publicId, 'status' => $status->value], 'channel:' . $channel->id . ':' . $this->clock->now()->format('U.u'));
+        });
     }
 
     /**

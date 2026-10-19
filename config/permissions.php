@@ -23,6 +23,7 @@ return static function (Env $env): array {
     'workspace.transfer' => ['owner'],
 
     // Workspace settings, people and connected channels.
+    'api.manage' => ['owner', 'admin'],
     'workspace.settings' => ['owner', 'admin'],
     'members.manage' => ['owner', 'admin'],
     'channels.manage' => ['owner', 'admin'],

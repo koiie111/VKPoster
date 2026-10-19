@@ -18,6 +18,8 @@ use App\Kernel\Queue\Schedule;
  * Later stages register their tasks here, e.g. `$schedule->call('publish-due', '* * * * *', ...)`.
  */
 return static function (Schedule $schedule): void {
+    $schedule->call('outgoing-webhooks', '* * * * *', [\App\Domain\Webhook\WebhookDispatcher::class, 'tick']);
+    $schedule->call('api-webhooks-prune', '13 4 * * *', [\App\Domain\Webhook\WebhookDispatcher::class, 'prune']);
     $schedule->call('post-statistics', '* * * * *', [\App\Domain\Analytics\StatsCollector::class, 'tick']);
     $schedule->call('post-statistics-retention', '43 3 * * *', [\App\Domain\Analytics\StatsCollector::class, 'prune']);
     $schedule->call('content-maintenance', '37 * * * *', [\App\Domain\Content\Operations\ContentMaintenance::class, 'tick']);

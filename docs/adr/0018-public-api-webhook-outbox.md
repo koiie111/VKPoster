@@ -1,0 +1,11 @@
+# ADR 0018 — Stateless public API and transactional webhook outbox
+
+Status: accepted for Stage 18, 2026-10-19.
+
+Public API Bearer auth must not inherit browser sessions or CSRF exceptions accidentally. Select a dedicated middleware boundary only for `/api/v1`; keep management in existing workspace settings and role/entitlement infrastructure. Use existing domain services and publishing queue. No SDK, alternative post lifecycle or webhook-specific queue framework is introduced.
+
+Durable mutation fences store canonical request hash and 2xx response under a token-scoped unique key in the same DB transaction as domain changes. Outgoing events are recorded with domain transitions; fanout and retry use the existing scheduler/Queue, delivery leases and stable event IDs. This provides atomic inbox/outbox state and at-least-once HTTP, not impossible exactly-once remote execution. Receiver deduplication and timestamp/HMAC verification are documented.
+
+Redoc 3.0.1 (official `redoc` npm distribution) supports OpenAPI 3.1. Bundle and license are checked in; checksum is pinned. Official reference: https://redocly.com/docs/redoc/deployment/html and https://redocly.com/docs/redoc/intro. Redoc generates its styles at runtime: only the isolated, static `/api/docs` page permits inline **styles**. Scripts remain same-origin, without inline scripts, unsafe-eval, CDN or Google Fonts; workspace CSP is unchanged. The docs render a trusted checked-in spec, never user HTML. JSON syntax within `.yaml` avoids a production YAML parser dependency. A developer/CI-only validator checks the complete spec; PHP tests enforce route parity.
+
+Accessibility/browser verification: Redoc's stock small labels/badges/code tokens need AA contrast overrides. They are isolated in api-docs.css. Its two branding SVGs are vendored and the bundle's two URLs patched to same-origin assets (documented checksums/license retained); the external module bootstrap disables telemetry explicitly. Trusted embedded font data is allowed only by the documentation page's font-src. No external runtime requests are required. Swagger Parser 13.1.0 is locked under tools/openapi as a CI/developer-only dependency, absent from production images.

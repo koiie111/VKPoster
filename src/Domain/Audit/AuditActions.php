@@ -14,6 +14,11 @@ final class AuditActions
 {
     /** @var array<string, string> */
     private const LABELS = [
+        'api.token_created' => 'Создан API-токен',
+        'api.token_revoked' => 'API-токен отозван',
+        'api.webhook_created' => 'Создана подписка на вебхук',
+        'api.webhook_toggled' => 'Изменено состояние вебхука',
+        'api.webhook_retry' => 'Запрошен повтор доставки вебхука',
         'ai.channel_style_updated' => 'Стиль ИИ для канала изменён',
         'ai.voice_updated' => 'Голос бренда для ИИ изменён',
         'ai.own_model_updated' => 'Своя ИИ-модель пространства изменена',

@@ -43,5 +43,6 @@
         <dt>Последнее завершение, UTC</dt><dd>{{ post_stats.last ?? 'Нет данных' }}</dd>
     </dl>
 </section>
+<section class="card mt-4" aria-labelledby="api-metrics"><h2 id="api-metrics" class="text-lg font-semibold">API и вебхуки</h2><dl class="mt-3 grid grid-cols-2 gap-2 text-sm"><dt>Активные токены</dt><dd>{{ api_stats.tokens }}</dd><dt>Включённые подписки</dt><dd>{{ api_stats.hooks }}</dd><dt>Ожидающие доставки</dt><dd>{{ api_stats.pending }}</dd><dt>Неудачные доставки</dt><dd>{{ api_stats.failed }}</dd><dt>Последнее завершение, UTC</dt><dd>{{ api_stats.last ?? 'Нет данных' }}</dd></dl></section>
 <section class="card mt-4" aria-labelledby="approval-metrics"><h2 id="approval-metrics" class="text-lg font-semibold">Согласование</h2><dl class="mt-3 grid grid-cols-2 gap-2 text-sm"><dt>Ожидают решения</dt><dd>{{ approval_stats.pending }}</dd><dt>Согласованы</dt><dd>{{ approval_stats.approved }}</dd><dt>Нужны изменения</dt><dd>{{ approval_stats.changes }}</dd><dt>Комментарии</dt><dd>{{ approval_stats.comments }}</dd><dt>Активные гостевые ссылки</dt><dd>{{ approval_stats.links }}</dd></dl></section>
 {% endblock %}

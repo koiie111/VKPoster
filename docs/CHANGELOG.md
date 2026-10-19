@@ -95,3 +95,11 @@ Optional Source/Radar automation policies, bounded periodic Discovery, existing 
 ### Sources 3.4 — production hardening
 
 Recovery of interrupted processing, durable orphan registry with opt-in retention, shared provider request/concurrency/video budgets and circuit protection, authenticated reader heartbeat, safe console metrics and outbox quarantine/requeue. No real/live provider calls or publishing changes.
+
+
+## 2026-10-19 — Stage 18
+
+- Workspace API tokens with scopes, expiry/revoke, live permissions and Pro+ gates; stateless REST `/api/v1`, cursor pagination, durable idempotency and fail-closed rate limits.
+- Existing channels/media/posts/variants/scheduling/publications/analytics exposed through domain services; unavailable statistics remain null.
+- Signed outgoing webhooks, transactional outbox, existing Queue, fenced retries/recovery, SSRF checks on every delivery, management/history/manual retry and staff counters.
+- Self-hosted Redoc + OpenAPI 3.1 route parity/validation, curl/n8n/Make and receiver signature examples; no new external credentials required.

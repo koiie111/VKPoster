@@ -102,7 +102,20 @@ use App\Http\Middleware\TrackVisit;
 use App\Kernel\Http\Router;
 
 return static function (Router $router): void {
+    $api = \App\Http\Controllers\Api\ResourcesController::class;
+    $router->get('/api/v1/channels', [$api, 'channels'])->withoutCsrf();
+    $router->get('/api/v1/posts', [$api, 'posts'])->withoutCsrf();
+    $router->post('/api/v1/posts', [$api, 'create'])->withoutCsrf();
+    $router->get('/api/v1/posts/{id}', [$api, 'show'])->withoutCsrf();
+    $router->patch('/api/v1/posts/{id}', [$api, 'update'])->withoutCsrf();
+    $router->delete('/api/v1/posts/{id}', [$api, 'delete'])->withoutCsrf();
+    $router->post('/api/v1/posts/{id}/schedule', [$api, 'schedule'])->withoutCsrf();
+    $router->post('/api/v1/posts/{id}/unschedule', [$api, 'unschedule'])->withoutCsrf();
+    $router->get('/api/v1/publications/{id}', [$api, 'publication'])->withoutCsrf();
+    $router->post('/api/v1/media', [$api, 'media'])->withoutCsrf();
+    $router->get('/api/v1/stats', [$api, 'stats'])->withoutCsrf();
     $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(TrackVisit::class, OptionalAuthenticate::class);
+    $router->get('/api/docs', [\App\Http\Controllers\Api\DocumentationController::class, 'show']);
     $router->get('/healthz', [HealthController::class, 'show'])->name('health');
     $router->get('/internal/source-image-jobs', [\App\Http\Controllers\Sources\ImageReaderController::class, 'jobs'])->middleware([RateLimit::class, ['bucket' => 'source-images-list', 'max' => 120, 'seconds' => 60]]);
     // Stage 14 guest capability routes keep normal session CSRF protection; no registration is needed.
@@ -242,6 +255,15 @@ return static function (Router $router): void {
 
             $w->group('', [[Authorize::class, ['permission' => 'workspace.settings']]], static function (Router $t) use ($ulid): void {
                 $t->get('/settings', [SettingsController::class, 'show'])->name('workspace.settings');
+                $apiSettings = \App\Http\Controllers\Api\SettingsController::class;
+                $t->group('/settings/api', [[Authorize::class, ['permission' => 'api.manage']]], static function (Router $a) use ($apiSettings, $ulid): void {
+                    $a->get('', [$apiSettings, 'show'])->name('workspace.api');
+                    $a->post('/tokens', [$apiSettings, 'createToken']);
+                    $a->post('/tokens/{id:' . $ulid . '}/revoke', [$apiSettings, 'revoke']);
+                    $a->post('/webhooks', [$apiSettings, 'createWebhook']);
+                    $a->post('/webhooks/{id:' . $ulid . '}/toggle', [$apiSettings, 'toggle']);
+                    $a->post('/deliveries/{id:' . $ulid . '}/retry', [$apiSettings, 'retry']);
+                });
                 $t->post('/settings', [SettingsController::class, 'update']);
                 // Stage 17: brand voice, own model (bring your own key), credits.
                 $t->get('/settings/ai', [\App\Http\Controllers\Ai\AiSettingsController::class, 'show'])->name('workspace.ai');

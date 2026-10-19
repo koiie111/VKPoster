@@ -120,6 +120,9 @@ services:
   ui-snap:
     build: tools/ui-snap
     image: vkposter-ui-snap
+    environment:
+      UI_SNAP_BASE_URL: ${UI_SNAP_BASE_URL:-http://nginx}
+      UI_SNAP_API_WS: ${UI_SNAP_API_WS:-}
     profiles: [tools]
     volumes: [".:/work"]
     depends_on: [nginx]

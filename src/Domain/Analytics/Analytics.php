@@ -59,6 +59,7 @@ final class Analytics
             $this->firstTouch->attribute($actorId);
         }
         match ($action) {
+            'api.token_created', 'api.webhook_created', 'api.token_revoked', 'api.webhook_toggled', 'api.webhook_retry',
             'approval.submitted', 'approval.approved', 'approval.changes_requested', 'guest_link.created',
             'queue.created', 'evergreen.created', 'recurring.created', 'trigger.created', 'crosspost.created', 'rss.created', 'import.confirmed',
             'content.draft_created', 'selection.semantic_settings_updated', 'source.images_completed', 'source.images_failed', 'source.images_stale',

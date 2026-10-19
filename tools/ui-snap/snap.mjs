@@ -41,6 +41,10 @@ for (const item of list) {
         await page.goto(`${base}/dev/login-as/${encodeURIComponent(item.login_as)}`, { waitUntil: 'networkidle' });
       }
       let url = template;
+      if (url.includes('{api_ws}')) {
+        if (!process.env.UI_SNAP_API_WS) throw new Error('UI_SNAP_API_WS fixture required');
+        url = url.replace('{api_ws}', process.env.UI_SNAP_API_WS);
+      }
       if (url.includes('{approval_ws}')) {
         if (!process.env.UI_SNAP_APPROVAL_WS) throw new Error('UI_SNAP_APPROVAL_WS fixture required');
         url = url.replace('{approval_ws}', process.env.UI_SNAP_APPROVAL_WS);

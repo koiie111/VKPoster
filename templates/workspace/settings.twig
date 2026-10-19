@@ -31,6 +31,13 @@
         <div class="mt-4">{{ f.button('Настроить ссылки', variant = 'secondary', icon = 'link', href = '/w/' ~ workspace.workspacePublicId ~ '/settings/links') }}</div>
     </section>
 
+    {% if can('api.manage') %}
+    <section class="card" aria-labelledby="api-title">
+        <h2 class="text-lg font-semibold" id="api-title">API и вебхуки</h2>
+        <p class="mt-2 text-sm text-muted">Токены для внешних приложений и уведомления о событиях пространства.</p>
+        <div class="mt-4">{{ f.button('Настроить API и вебхуки', variant = 'secondary', href = '/w/' ~ workspace.workspacePublicId ~ '/settings/api') }}</div>
+    </section>
+    {% endif %}
     {% include 'workspace/approvals/settings.twig' %}
     <section class="card" id="leave" aria-labelledby="leave-title">
         <h2 class="text-lg font-semibold" id="leave-title">Выйти из пространства</h2>

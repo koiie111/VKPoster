@@ -22,6 +22,7 @@ use PHPUnit\Framework\TestCase;
 final class PermissionsTest extends TestCase
 {
     private const MATRIX = [
+        'api.manage' => ['owner' => true, 'admin' => true, 'editor' => false, 'author' => false, 'viewer' => false, 'client' => false],
         'posts.approve' => ['owner' => true,'admin' => true,'editor' => true,'author' => true,'viewer' => true,'client' => true],
         'posts.comment' => ['owner' => true,'admin' => true,'editor' => true,'author' => true,'viewer' => false,'client' => true],
         'guest_links.manage' => ['owner' => true,'admin' => true,'editor' => true,'author' => false,'viewer' => false,'client' => false],
