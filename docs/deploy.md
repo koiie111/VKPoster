@@ -1,77 +1,189 @@
-# Развёртывание на сервере (минимальная инструкция для MVP)
+# Production preparation and deployment
 
-Подробная инструкция (бэкапы, мониторинг, обновления без простоя, аварийное восстановление) будет на этапе 19. Здесь то, что нужно, чтобы запустить сервис на одном VDS в России.
+Stage 19 is **IN_PROGRESS**. This is a reviewed preparation/runbook, not evidence
+that a production server exists. Owner-only activation is 19.8: VDS/domain/DNS,
+SSH host keys and protected GitHub environment, real credentials, TLS, offsite
+restore and registration → payment → publication. No v1.0.0 is created in 19A.
+See [current evidence](security/stage-19a-status.md), [runbook](runbook.md),
+[configuration](architecture/configuration.md), [ASVS findings](security/asvs-l2.md).
 
-## Что понадобится
-- VDS с Docker и плагином Docker Compose (2 ядра, 4 ГБ памяти, 40 ГБ диска хватит для начала). Сервер должен находиться в России: так требует 152-ФЗ для данных граждан РФ.
-- Домен, направленный на сервер.
-- Обратный прокси с HTTPS (nginx + certbot или Caddy) на самом сервере. Приложение слушает только `127.0.0.1:8080`, наружу его выставляет прокси.
-- Почтовый SMTP (свой или сервис рассылок) для писем: подтверждение почты, сброс пароля, уведомления.
+## Host and trust boundary
 
-## Первый запуск
-1. Клонируйте репозиторий и перейдите в него: `git clone … && cd VKPoster`.
-2. `cp .env.production.example .env` и заполните **каждое** значение:
-   - `APP_URL`: адрес с `https://`, без слэша в конце;
-   - `APP_KEY`: `openssl rand -base64 32`. **Сохраните копию ключа отдельно** (менеджер паролей): без него токены каналов и 2FA прочитать нельзя;
-   - `DB_PASSWORD`, `DB_ROOT_PASSWORD`: длинные случайные строки;
-   - `TRUSTED_PROXIES`: адрес вашего обратного прокси (без этого лимиты запросов считают всех посетителей одним человеком);
-   - `MAIL_DSN`, `MAIL_FROM`, `SUPPORT_EMAIL`;
-   - ключи соцсетей и платёжных систем по списку в `.env.example`.
-3. Соберите и запустите: `docker compose -f compose.prod.yaml up -d --build`.
-4. Примените миграции: `docker compose -f compose.prod.yaml exec app php bin/console migrate`.
-5. Создайте сотрудника-администратора (пароль будет показан один раз): `docker compose -f compose.prod.yaml exec app php bin/console user:create-admin you@example.com --name="Имя"`.
-6. Настройте обратный прокси: `https://ваш-домен` → `http://127.0.0.1:8080`, с заголовками `X-Forwarded-For`, `X-Forwarded-Proto`, `Host`. Пример для nginx:
+Use a supported Linux host with Docker Engine/Compose plugin, systemd, `flock`,
+`curl`, OpenSSL and time synchronization. Actual region/legal/data-residency,
+capacity, SMTP and storage providers must be approved by the owner before deploy.
+Do not size the host from the old 2 CPU/4 GB MVP estimate: compose contains explicit
+per-service memory/CPU/PID limits, plus MySQL, Redis, optional Chromium and workers.
+The load report states its measured hardware; it is not a universal sizing guarantee.
 
-   ```
-   location / {
-       proxy_pass http://127.0.0.1:8080;
-       proxy_set_header Host $host;
-       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-       proxy_set_header X-Forwarded-Proto $scheme;
-       client_max_body_size 55m;
-   }
-   ```
-7. Откройте сайт, войдите администратором, включите двухфакторную защиту («Безопасность»). Без неё админка не откроется. Затем откройте `/admin`.
+Host Caddy terminates public HTTPS/HTTP2 and compresses responses. Adapt
+[docker/caddy/Caddyfile](../docker/caddy/Caddyfile) only after DNS/owner approval;
+configure service supervision, certificate persistence and renewal. Caddy → nginx
+is loopback `127.0.0.1:8080`; MySQL/Redis have no public ports. SSH is restricted to
+approved operators. Verify firewall and exact trusted-proxy addresses on the host.
+The isolated test CA is **never** installed as a production trust root.
 
-## Вебхуки соцсетей
-После того как сайт открывается по HTTPS:
-- Telegram: `docker compose -f compose.prod.yaml exec app php bin/console telegram:webhook set https://ваш-домен` (в `.env` должен быть `TELEGRAM_WEBHOOK_SECRET`);
-- MAX: `… max:webhook set https://ваш-домен`;
-- ЮKassa: в кабинете укажите адрес уведомлений `https://ваш-домен/webhooks/billing/yookassa`, события `payment.succeeded` и `payment.canceled`.
+App/worker images use a native Alpine runtime; build/dev/CSS use glibc (ADR 0021).
+Root filesystems are read-only, writable storage/tmp paths are explicit, capabilities
+are dropped and `no-new-privileges`/resource limits applied. PHP runs non-root.
+Private-container TCP traffic is not a substitute for inter-host TLS; see ASVS gaps.
 
-## Что проверить перед открытием для людей
-- `https://ваш-домен/healthz` отвечает `{"db":"ok","redis":"ok"}`.
-- Письмо о подтверждении почты доходит (зарегистрируйте тестовый аккаунт).
-- Тексты оферты и политики заполнены: файлы `resources/legal/*.md`, незаполненные места помечены `[[…]]`. Пока они есть, на страницах виден значок «Шаблон», а в админке предупреждение. После правки текста поднимите дату `version:` в начале файла: люди увидят просьбу подтвердить согласие заново.
-- `/robots.txt` разрешает индексацию (только при `APP_ENV=production`), `/sitemap.xml` открывается.
-- Работают воркер и планировщик: `docker compose -f compose.prod.yaml ps` показывает `worker` и `scheduler` как `running`. Планировщик должен быть **один**.
+## Secrets and configuration
 
-## Обновление
-```
-git pull
-docker compose -f compose.prod.yaml up -d --build
-docker compose -f compose.prod.yaml exec app php bin/console migrate
-```
-Воркер и планировщик пересоздаются вместе с приложением: долгие процессы держат старый код, поэтому после обновления их нужно перезапускать (команда выше это делает).
+Provision `/etc/ezposter/app.env` externally, owner/mode 0600, from the **public**
+`.env.production.example`. Never put it in an image, Git or command output.
+Keep `APP_KEY`/old `APP_KEYS` in a separate protected recovery vault. Configure a
+non-default application DB account, root DB password and required Redis AUTH.
+`APP_URL` must be HTTPS, `APP_DEBUG=0`, `DEV_*` disabled; `TRUSTED_PROXIES` must
+identify the actual proxy chain, never wildcard/universal networks.
+Configure SMTP, legal text, storage and only the providers actually used.
 
-## Резервные копии (минимум)
-- База: `docker compose -f compose.prod.yaml exec mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" app' > backup.sql` по расписанию (cron), копии хранить вне сервера.
-- Файлы медиатеки: том `app-storage` (`docker volume inspect …`).
-- `.env` и `APP_KEY`: в менеджере паролей.
+A separate backup key file is base64 32 random bytes, regular file/mode 0600,
+accessible to the app UID in the ops container. Store a second recoverable copy
+outside the host and outside backup archives. Never print either application or
+backup keys in CI logs. Key rotation: [runbook](runbook.md); preserve old keys until
+ciphertext migration and recovery validation complete. Reader session/env remain
+separate private runtime state; production reader provisioning is not implied here.
 
-## Чего здесь нет (этап 19)
-Автоматические бэкапы и проверка восстановления, мониторинг и оповещения, обновление без простоя, блокировки между несколькими экземплярами планировщика, S3-хранилище медиа для Instagram.
+## Release layout and first activation (owner 19.8)
 
-### Analytics workers и изолированный PDF (Stage 15)
+Provision `/opt/ezposter` with `compose.prod.yaml`, `docker/mysql/my.cnf`,
+`docker/mysql/production.cnf`, `scripts/deploy-release.sh` and the directories needed
+by these reviewed relative mounts. Release CI copies these files over pinned SSH.
+Provision a least-privilege GHCR pull login on the server independently of app env.
+No Docker socket is mounted in application containers. Protect GitHub `production`
+environment, require approval and set deploy host/user/key/known-hosts secrets there.
+A host key mismatch is a hard failure, not a reason to disable SSH checking.
 
-`analytics-worker` запускается вместе с основным stack и обслуживает только `analytics`;
-прежний `worker` остаётся `publish,default`. Сбор opt-in: `ANALYTICS_COLLECTION_ENABLED=true`.
-Не объединять медленные analytics API jobs с publish worker. Rate-limit deferral
-сохраняет retry budget; сбой provider по-прежнему ограничен обычной retry policy.
+Release workflow accepts only a `v*` tag whose commit is in main history, runs CI
+and security, then publishes versioned app/web/ops/pdf images to GHCR. Deploy is off
+unless the original repository sets `PRODUCTION_DEPLOY_ENABLED=true`. An explicit
+`RELEASE_SCHEMA_BACKWARD_COMPATIBLE=true` declaration is mandatory. The deploy runner
+uses the common `.operations.lock`, pulls images, migrates before rollout, restarts
+app/workers/scheduler, and waits for `/readyz`. The previous `.release.env` image refs
+are retained for rollback. Tags must not be overwritten; retain previous images.
 
-PDF: `docker compose -f compose.prod.yaml --profile analytics up -d --build analytics-pdf`.
-Зависимый trusted PHP init `analytics-pdf-key` пишет derived key в отдельный volume.
-Chromium получает только read-only файл, **никогда master APP_KEY** или app env_file.
-Нового секрета не нужно. При ротации APP_KEY пересоздать init и renderer одной командой:
-`docker compose -f compose.prod.yaml --profile analytics up -d --force-recreate analytics-pdf-key analytics-pdf`.
-Unexpected browser crash завершает Node с code1 для restart policy; SIGTERM — code0.
+Analytics renderer is optional: `PRODUCTION_ANALYTICS_ENABLED=true` enables the
+release `analytics` profile, updates the verify-only renderer; no master/derived HMAC key init container in production.
+Renderer receives only its derived read-only key, never master APP_KEY/app env.
+Set the corresponding app analytics configuration consistently. On first activation
+create a staff administrator using the existing CLI and enable 2FA; inspect the
+one-time initial password only locally. Enable real webhooks only after HTTPS works.
+No public test publication or real payment is part of automated 19A validation.
+
+## Availability and rollback
+
+`/healthz` is liveness only, independent of DB/Redis/session. `/readyz` checks database,
+Redis and migration count and returns 503 on failure. Configure external uptime on
+HTTPS `/readyz`; queue checks also use `ops:status` and queue-specific heartbeats.
+Exactly one scheduler process is intended; MySQL advisory lock also rejects overlaps.
+Scale existing `worker` services, not a second publishing implementation.
+
+A failed migration stops rollout while preserving running images. Failed readiness
+rolls back **images only**, and only when the declared schema is backwards-compatible.
+No automatic DDL reversal, reset, queue truncation or volume deletion. For incompatible
+DDL, stop and use the separately reviewed backup/migration recovery procedure.
+First deploy has no previous release to restore. Compose `up` is not a zero-downtime
+rolling orchestrator; allow a maintenance window and check in-flight worker shutdown.
+
+## Encrypted backup and recovery
+
+Use `ops:backup` from the **matching released ops image**, not an ad-hoc plaintext
+`mysqldump` shell command. External directories must exist with private permissions;
+never let Compose silently create secret files. SQL backup uses single-transaction,
+coordinate-bearing dump when binlog backup is enabled, authenticated encryption,
+manifest/checksum validation, offsite upload and only then local SQL retention.
+Credentials stay in a private temporary option file, not argv. Use a separate
+least-privilege backup account; do not give the app global backup privileges.
+The read-only MySQL Unix socket is available to ops on the same host; it avoids
+weakening certificate validation for MySQL client utilities.
+
+`docker/systemd/ezposter-backup.*` and `ezposter-binlogs.*` are **inactive templates**.
+After a successful release they read `/etc/ezposter/app.env` and `.release.env`, and
+share `.operations.lock` with deployment. Daily SQL and hourly closed-binlog archives
+are encrypted and uploaded; active binlogs are excluded, source binlogs never purged
+by the app. Optional explicit rotation requires the separate backup account.
+Local SQL retention defaults to 30 days (minimum 7), only after verified offsite upload.
+Encrypted binlogs are retained conservatively until a tested continuity/retention
+policy exists. MySQL raw-binlog expiry is 7 days: alert and restore-drill before this
+window is exhausted. Never delete a log required by a retained base snapshot.
+Offsite bucket lifecycle must preserve the base-snapshot/binlog recovery chain.
+Monitor timer failure, archive age, free disk and offsite reachability; a missed timer
+must alert, not silently rely on a future daily backup. Check timers after reboot.
+
+S3 archive and media buckets require versioning enabled. `ops:backup check-media`
+rejects local media as an offsite/versioned backup. Actual offsite object-version
+restore is owner 19.8; contracts alone are not proof of cloud recovery. SQL restore
+requires an empty `app_restore_*` DB and a separate account granted **only that exact
+escaped name**. Never restore into the live app database. Real local SQL + encrypted
+binlog replay uses Oracle MySQL tools matching the source on a separate recovery
+stand; MariaDB output is not rewritten merely to force MySQL compatibility.
+
+## Monitoring and logs
+
+`ops:status` is the existing queue/system/platform/payment read model exposed via CLI.
+Queue workers heartbeat separately; alerts use opt-in `OPS_*` settings and Redis
+suppression. Test alert delivery/uptime independently in 19.8. GlitchTip store transport
+is optional, HTTPS only, bounded timeout and no bodies/headers/arguments/PII; provision
+self-hosted GlitchTip separately (ADR 0020). No alert was sent during local tests.
+
+App JSON logs rotate daily and expire after 30 days. Container logs are size-bounded;
+nginx operational logs omit request URL/query, IP, cookies and referrer so capability
+links do not leak. Keep production `LOG_LEVEL` at an appropriate non-debug level.
+Protect log access/shipper and configure host retention/remote transport; Docker size
+rotation alone does not prove a 30-day remote retention policy. MySQL slow log is off
+by default because SQL may contain PII; enable bounded incident capture only, then
+sanitize and remove it. See the runbook's 16 incident procedures.
+
+## Activation checklist
+
+- Review ASVS residual risks and host controls; do not claim L2 certification.
+- Green release/security CI, previous-image and isolated-restore drill available.
+- Private env/key permissions, firewall/proxy chain and public TLS/renewal checked.
+- Healthy app/database/Redis and all queue heartbeats; singleton scheduler.
+- SMTP and opt-in alert delivery, external uptime, backup timers and offsite age checked.
+- S3 versioning, source/media recovery and application keys independently recoverable.
+- Owner registration → payment → publication and restore on a separate stand.
+- Only then decide production readiness/version tag; Stage 19A does not do this.
+
+
+### Stage 19A gates added on 2026-10-20
+
+Do not deploy this uncommitted preparation. MySQL 8.4.11 passed fresh/upgrade/replay
+and the full PHP suite but failed PITR snapshot compatibility: current MariaDB dump
+client issues removed SHOW MASTER STATUS. Engine migration is stopped; 8.0 baseline
+is unchanged and its infrastructure CVEs remain blocking. See
+[per-finding disposition](security/infra-findings-stage19a.md), not an ignore list.
+
+Provision isolated purpose-key Transit and private app/renderer capabilities with
+TLS trust anchor before startup (ADR0025). Production rejects APP_KEY/APP_KEYS/local
+pepper files. Pepper HMAC stays inside Transit; do not mount an active master key.
+Use VAULT_APP_TOKEN_HOST_PATH, VAULT_PDF_TOKEN_HOST_PATH and VAULT_CA_HOST_PATH;
+app capability files are UID1000,0400/0600. Tokens are replaceable credentials,
+not key material. Verify renewal/revocation and server recovery in19.8.
+
+[ADR 0022](adr/0022-regional-egress.md) defines RU Core with per-platform regional
+egress. Keep Core/internal API direct; VK/MAX may remain direct while Telegram
+reader/publisher use a configured EU proxy/private tunnel. No global server VPN.
+Live exit-IP/connectivity/failure validation is 19.8; no EU VPS has been provisioned.
+
+## Stage19A final MySQL / crypto baseline
+
+MySQL8.4.11 derived official server and matching Oracle8.4.11 CLI are defined in
+ADR0024. Build `docker/mysql` target `server` before a local production-stand run;
+never change the owner's existing8.0 volume by an unattended Compose restart.
+Production cutover is a separate reviewed owner19.8 action. Dev's existing8.0
+container is deliberately unchanged; the isolated test profile and CI use8.4.
+
+Read ADR0025 before crypto cutover. Use initialized durable OpenBao-compatible
+Transit with independently generated app/webhook/links/pdf/password/clicks keys,
+least-privilege renewable app token and separate PDF verify-only token. The endpoint
+must select an active node; authenticated redirects are not followed. Do not use a
+single-node ephemeral test fixture as a production backend. Real HA, Raft snapshot/
+unseal recovery and audited custody require owner verification.
+
+Local-only PDF shared-key init remains available in compose.yaml for development.
+Production renderer has only its verify capability and CA, not a shared signing key.
+`CRYPTO_BACKEND=vault` is mandatory; an unset backend/token/CA or forbidden raw key
+must be fixed, never bypassed with the dev backend. See runbook10 for migration and
+cross-format rollback constraints.

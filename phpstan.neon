@@ -24,3 +24,7 @@ services:
         class: App\Tools\PHPStan\WorkspaceScopedRepositoryRule
         tags:
             - phpstan.rules.rule
+    -
+        class: App\Tools\PHPStan\SecurityRule
+        tags:
+            - phpstan.rules.rule

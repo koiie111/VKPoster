@@ -16,6 +16,26 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(MediaService::class)]
 final class MediaUploadTest extends MediaTestCase
 {
+    /** @return iterable<string, array{int}> */
+    public static function scannerFailures(): iterable
+    {
+        yield 'known malware' => [422];
+        yield 'scanner unavailable' => [503];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('scannerFailures')]
+    public function testScannerFailureStoresAndServesNothing(int $status): void
+    {
+        [, $workspace] = $this->ownerSession();
+        $scanner = $this->createMock(\App\Kernel\Security\MalwareScanner::class);
+        $scanner->expects(self::once())->method('scanFile')->willThrowException(new \App\Kernel\Exception\HttpException($status, 'Проверка безопасности файла не пройдена.'));
+        $this->app->container()->instance(\App\Kernel\Security\MalwareScanner::class, $scanner);
+        $result = $this->upload($workspace, MediaFixtures::jpeg(), 'synthetic.jpg');
+        self::assertSame($status, $result['response']->status);
+        self::assertSame([], $this->db->select('SELECT id FROM media'));
+        self::assertSame([], $this->storage->objects);
+    }
+
     public function testUploadingAPhotoStoresReencodedFileAndThumbnail(): void
     {
         [, $workspace] = $this->ownerSession();

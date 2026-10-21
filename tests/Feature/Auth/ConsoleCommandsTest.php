@@ -34,6 +34,8 @@ final class ConsoleCommandsTest extends AuthTestCase
             $container->get(UserRepository::class),
             $container->get(PasswordHasher::class),
             $container->get(PasswordPolicy::class),
+            $container->get(\App\Domain\Auth\AuthTokens::class),
+            $container->get(\App\Kernel\Config::class),
             $stdinPassword === null ? null : static fn (): string => $stdinPassword,
         );
         $out = new Output();
@@ -42,7 +44,7 @@ final class ConsoleCommandsTest extends AuthTestCase
         return [$code, $out->contents()];
     }
 
-    public function testCreatesAConfirmedSuperadminWithAGeneratedPasswordShownOnce(): void
+    public function testCreatesAConfirmedSuperadminWithSingleUseExpiringActivationInsteadOfPassword(): void
     {
         [$code, $output] = $this->createAdmin(['Owner@Example.com', '--name=Владелец']);
 
@@ -51,10 +53,18 @@ final class ConsoleCommandsTest extends AuthTestCase
         self::assertSame(1, (int) $row['is_superadmin']);
         self::assertNotNull($row['email_verified_at']);
         self::assertSame('Владелец', $row['name']);
-        self::assertStringContainsString('Generated password', $output);
-        $generated = trim(substr($output, (int) strrpos($output, ': ') + 2));
-        self::assertSame(24, strlen($generated));
-        self::assertTrue(password_verify($generated, (string) $row['password_hash']));
+        self::assertNull($row['password_hash']);
+        self::assertStringContainsString('One-time activation link', $output);
+        self::assertSame(1, preg_match('~https?://[^\\s]+(/password/reset/[A-Za-z0-9_-]+)~', $output, $match));
+        self::assertArrayHasKey(0, $match);
+        $path = (string) parse_url($match[0] ?? throw new \LogicException('Activation URL missing'), PHP_URL_PATH);
+        self::assertSame(200, $this->get($path)->status);
+        $token = basename($path);
+        $tokens = $this->app->container()->get(\App\Domain\Auth\AuthTokens::class);
+        self::assertNotNull($tokens->consume($token, \App\Domain\Auth\TokenType::PasswordReset));
+        self::assertNull($tokens->consume($token, \App\Domain\Auth\TokenType::PasswordReset));
+        self::assertSame([], $this->db->select('SELECT id FROM auth_tokens WHERE token_hash = ?', [$token]));
+
     }
 
     public function testUsesAPasswordFromStdinAfterCheckingThePolicy(): void

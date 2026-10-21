@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_call:
   pull_request:
   push:
     branches: [main]
@@ -14,13 +15,14 @@ jobs:
     timeout-minutes: 30
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:8.4.11
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: app
           MYSQL_USER: app
           MYSQL_PASSWORD: app
         ports: ["3306:3306"]
+        volumes: ["stage19-ci-mysql-run:/var/run/mysqld"]
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -proot --silent"
           --health-interval=5s --health-timeout=5s --health-retries=30
@@ -36,8 +38,11 @@ jobs:
       DB_DATABASE: app_test
       DB_USERNAME: app
       DB_PASSWORD: app
+      TEST_DB_SOCKET: /run/test-mysql/mysqld.sock
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: "6379"
+      REDIS_PRODUCTION_TEST_HOST: 127.0.0.1
+      REDIS_PRODUCTION_TEST_PORT: "6380"
     steps:
       - uses: actions/checkout@v4
 
@@ -56,8 +61,20 @@ jobs:
 
       - name: Create test database
         run: |
-          docker exec "$(docker ps -qf ancestor=mysql:8.0)" \
-            mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS app_test; GRANT ALL ON app_test.* TO 'app'@'%';"
+          docker exec -i "$(docker ps -qf ancestor=mysql:8.4.11)" mysql -uroot -proot <<'SQL'
+          CREATE DATABASE IF NOT EXISTS app_test;
+          GRANT ALL ON app_test.* TO 'app'@'%';
+          CREATE DATABASE IF NOT EXISTS app_restore_stage19;
+          CREATE USER IF NOT EXISTS 'stage19_restore'@'%' IDENTIFIED BY 'isolated-fixture-only';
+          GRANT ALL ON `app\_restore\_stage19`.* TO 'stage19_restore'@'%';
+          CREATE USER IF NOT EXISTS 'stage19_wildcard_restore'@'%' IDENTIFIED BY 'isolated-fixture-only';
+          GRANT ALL ON app_restore_stage19.* TO 'stage19_wildcard_restore'@'%';
+          CREATE DATABASE IF NOT EXISTS app_check_stage19;
+          GRANT ALL ON app_check_stage19.* TO 'app'@'%';
+          SQL
+
+      - name: Start isolated authenticated Redis test fixture
+        run: docker run -d --name redis-production-test -p 127.0.0.1:6380:6379 redis:7-alpine redis-server --requirepass "$(python3 -c 'print("r"*48)')"
 
       - name: Cache composer
         uses: actions/cache@v4
@@ -72,9 +89,9 @@ jobs:
           mkdir -p ~/.cache/composer
           sudo chown -R 1000:1000 ~/.cache/composer . 2>/dev/null || true
           docker run --rm --network host \
-            -e APP_ENV -e DB_HOST -e DB_PORT -e DB_DATABASE -e DB_USERNAME -e DB_PASSWORD -e REDIS_HOST -e REDIS_PORT \
+            -e TEST_DB_SOCKET -e APP_ENV -e DB_HOST -e DB_PORT -e DB_DATABASE -e DB_USERNAME -e DB_PASSWORD -e REDIS_HOST -e REDIS_PORT -e REDIS_PRODUCTION_TEST_HOST -e REDIS_PRODUCTION_TEST_PORT \
             -e COMPOSER_CACHE_DIR=/composer-cache \
-            -v "$PWD:/var/www/html" -v "$HOME/.cache/composer:/composer-cache" \
+            -v "$PWD:/var/www/html" -v "$HOME/.cache/composer:/composer-cache" -v stage19-ci-mysql-run:/run/test-mysql:ro \
             vkposter-app-dev bash -euo pipefail -c '
               composer install --no-interaction --prefer-dist
               sh scripts/build-css.sh
@@ -83,6 +100,7 @@ jobs:
               composer stan
               composer test
               composer audit
+              SCHEMA_CHECK_DATABASE=app_check_stage19 php scripts/check-schema.php
             ' 2>&1 | tee /tmp/vkposter-check.log
 
       - name: Report failed check diagnostics
@@ -96,6 +114,9 @@ jobs:
               message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
               print('::error title=Dev image check failure::' + message)
           PYCODE
+
+      - name: Environment documentation inventory
+        run: python3 scripts/check-env-documentation.py
 
       - name: Validate public OpenAPI 3.1 contract
         run: |
@@ -145,7 +166,7 @@ jobs:
       - name: Offline HTML-to-PDF HTTP contract
         shell: bash
         run: |
-          docker run -d --name analytics-pdf -e ANALYTICS_PDF_KEY=$(python3 -c 'import hashlib,hmac; print(hmac.new(b"synthetic-pdf-contract",b"analytics-pdf-v1",hashlib.sha256).hexdigest())') -p 127.0.0.1:18187:3000 vkposter-analytics-pdf
+          docker run -d --name analytics-pdf -e APP_ENV=testing -e ANALYTICS_PDF_KEY=$(python3 -c 'import hashlib,hmac; print(hmac.new(b"synthetic-pdf-contract",b"analytics-pdf-v1",hashlib.sha256).hexdigest())') -p 127.0.0.1:18187:3000 vkposter-analytics-pdf
           PDF_TEST_KEY=synthetic-pdf-contract python3 tools/analytics-pdf/smoke.py 2>&1 | tee /tmp/vkposter-pdf.log
       - name: Report failed PDF diagnostics
         if: failure()

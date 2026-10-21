@@ -43,6 +43,7 @@ final class MediaService
         private readonly Clock $clock,
         private readonly Entitlements $entitlements,
         private readonly string $tmpDir,
+        private readonly ?\App\Kernel\Security\MalwareScanner $scanner = null,
     ) {
     }
 
@@ -61,6 +62,7 @@ final class MediaService
             throw new MediaException(sprintf('Файл больше %s МБ.', self::megabytes($this->limits->maxFileBytes)));
         }
         $this->assertQuota($context, $size);
+        $this->scanner?->scanFile($path);
 
         $mime = $verifiedMime ?? self::sniff($path);
         if (!isset(self::TYPES[$mime])) {

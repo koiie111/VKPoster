@@ -38,6 +38,8 @@ final class PasswordPolicyTest extends TestCase
         return [
             'too short' => ['abc123', 'слишком короткий'],
             'nine characters' => ['abcdefg12', 'слишком короткий'],
+            'eleven characters' => ['abcdefghi12', 'слишком короткий'],
+            'padding with spaces' => ['abcd        efgh', 'слишком короткий'],
             'too long' => [str_repeat('x1', 65), 'длиннее 128'],
             'one repeated character' => ['aaaaaaaaaaaa', 'слишком простой'],
             'two characters only' => ['abababababab', 'слишком простой'],
@@ -68,6 +70,7 @@ final class PasswordPolicyTest extends TestCase
     {
         self::assertNotNull($this->policy()->check('пароль123'), 'nine characters, even though it is 15 bytes');
         self::assertNull($this->policy()->check('парольпарольx9'));
+        self::assertNull($this->policy()->check('m7Qz9xT2pL8!'));
     }
 
     public function testHibpLookupSendsOnlyAFiveCharacterPrefixAndRejectsBreachedPasswords(): void

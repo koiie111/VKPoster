@@ -252,7 +252,7 @@ final class TelegramClient
     public function downloadFile(string $filePath, int $maxBytes): string
     {
         try {
-            $response = $this->http->request('GET', $this->apiBase . '/file/bot' . $this->token . '/' . $filePath, ['timeout' => 20, 'http_errors' => false]);
+            $response = $this->http->request('GET', $this->apiBase . '/file/bot' . $this->token . '/' . $filePath, ['egress_provider' => 'telegram', 'timeout' => 20, 'http_errors' => false]);
         } catch (GuzzleException) {
             throw new PlatformError(ErrorKind::Temporary, 'Could not download a file from Telegram.', 'Не удалось связаться с Telegram.');
         }
@@ -273,7 +273,7 @@ final class TelegramClient
      */
     public function call(string $method, array $params = [], array $files = [], bool $mutating = false, int $timeout = 30): array
     {
-        $options = ['timeout' => $timeout, 'connect_timeout' => 10, 'http_errors' => false];
+        $options = ['egress_provider' => 'telegram', 'timeout' => $timeout, 'connect_timeout' => 10, 'http_errors' => false];
         $handles = [];
         if ($files === []) {
             $options['json'] = $params;

@@ -18,12 +18,14 @@ final class Signer
 
     public function sign(string $data): string
     {
-        return $this->base64Url(hash_hmac('sha256', $data, $this->crypto->deriveKey('signer'), true));
+        return $this->crypto->isIsolated() ? $this->crypto->signature('signer', $data)
+            : $this->base64Url($this->crypto->mac('signer', $data));
     }
 
     public function verify(string $data, string $signature): bool
     {
-        return hash_equals($this->sign($data), $signature);
+        return $this->crypto->isIsolated() ? $this->crypto->verifySignature('signer', $data, $signature)
+            : hash_equals($this->sign($data), $signature);
     }
 
     /**

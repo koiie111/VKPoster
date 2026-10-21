@@ -17,11 +17,12 @@ final class SecretRedactor implements ProcessorInterface
 {
     public const MASK = '[redacted]';
 
-    private const PATTERN = '/(password|passwd|secret|token|authorization|cookie|api[_-]?key|private[_-]?key|^code$|^pin$|(auth|oauth|otp|totp|sms|email|verification|confirm|recovery|login)[_-]?code)/i';
+    private const PATTERN = '/(proxy|egress_url|password|passwd|secret|token|authorization|cookie|api[_-]?key|private[_-]?key|app[_-]?keys?|dsn|email|phone|^body$|^payload$|^caption$|^text$|^code$|^pin$|(auth|oauth|otp|totp|sms|email|verification|confirm|recovery|login)[_-]?code)/i';
 
     public function __invoke(LogRecord $record): LogRecord
     {
         return $record->with(
+            message: $this->text($record->message),
             context: $this->redact($record->context),
             extra: $this->redact($record->extra),
         );
@@ -34,13 +35,17 @@ final class SecretRedactor implements ProcessorInterface
     public function redact(array $data, int $depth = 0): array
     {
         $result = [];
-        foreach ($data as $key => $value) {
+        foreach (array_slice($data, 0, 50, true) as $key => $value) {
             if (is_string($key) && preg_match(self::PATTERN, $key) === 1) {
                 $result[$key] = self::MASK;
-            } elseif (is_array($value) && $depth < 8) {
-                $result[$key] = $this->redact($value, $depth + 1);
+            } elseif (is_array($value)) {
+                $result[$key] = $depth < 8 ? $this->redact($value, $depth + 1) : self::MASK;
+            } elseif ($value instanceof \Throwable) {
+                $result[$key] = ['class' => $value::class, 'file' => basename($value->getFile()), 'line' => $value->getLine()];
+            } elseif (is_object($value)) {
+                $result[$key] = self::MASK;
             } elseif (is_string($value)) {
-                $result[$key] = preg_replace('~/g/[a-f0-9]{64}\.[A-Za-z0-9_-]{43}~', '/g/' . self::MASK, $value);
+                $result[$key] = $this->text($value);
             } else {
                 $result[$key] = $value;
             }
@@ -48,4 +53,14 @@ final class SecretRedactor implements ProcessorInterface
 
         return $result;
     }
+    private function text(string $value): string
+    {
+        $value = preg_replace('~/g/[a-f0-9]{64}\.[A-Za-z0-9_-]{43}~', '/g/' . self::MASK, $value) ?? self::MASK;
+        $value = preg_replace('~(/(?:password/reset|email/verify|email/change|invitations)/)[A-Za-z0-9_-]{43}~', '$1' . self::MASK, $value) ?? self::MASK;
+        $value = preg_replace('~([?&](?:code|token|access_token|api_key|signature)=)[^&\s]*~i', '$1' . self::MASK, $value) ?? self::MASK;
+        $value = preg_replace('/(Bearer\s+)[A-Za-z0-9._~+\/=-]+/i', '$1' . self::MASK, $value) ?? self::MASK;
+
+        return mb_substr($value, 0, 4096);
+    }
+
 }

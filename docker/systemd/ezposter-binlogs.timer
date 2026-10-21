@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly encrypted MySQL binlogs archive
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=120
+Unit=ezposter-binlogs.service
+
+[Install]
+WantedBy=timers.target

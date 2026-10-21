@@ -51,7 +51,7 @@
         <form class="mt-4 grid gap-4 sm:grid-cols-2" method="post" action="/account/password">
             {{ csrf_field() }}
             <div class="sm:col-span-2">{{ f.input('current_password', 'Текущий пароль', type = 'password', required = true, autocomplete = 'current-password', error = errors('current_password')|first) }}</div>
-            {{ f.input('password', 'Новый пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 10 символов.', attrs = {minlength: 10, maxlength: 128}) }}
+            {{ f.input('password', 'Новый пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 12 символов.', attrs = {minlength: 12, maxlength: 128}) }}
             {{ f.input('password_confirmation', 'Повторите новый пароль', type = 'password', required = true, autocomplete = 'new-password') }}
             <div class="sm:col-span-2">{{ f.button('Сменить пароль', type = 'submit', variant = 'secondary') }}</div>
         </form>
@@ -166,4 +166,5 @@
 {% endset %}
 {{ o.modal('disable-2fa-dialog', 'Отключить двухфакторную защиту?', 'Без неё вход в аккаунт будет защищён только паролем.', 'md', disable_body) }}
 {% endif %}
+{% if user.hasTwoFactor %}{{ f.hardware_keys('manage', hardware_keys, has_password) }}{% endif %}
 {% endblock %}

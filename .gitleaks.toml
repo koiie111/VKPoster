@@ -1,0 +1,13 @@
+title = "VKPoster: default detection, narrow documented exceptions"
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Deterministic bytes 0..31 test key; tests only (docs/security/gitleaks.md)"
+condition = "AND"
+paths = ['''(^|/)(tests/Support/TestEnv\.php|tools/telegram-reader/tests/run_ci_contract\.sh)$''']
+regexTarget = "secret"
+regexes = ['''^AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=?$''']

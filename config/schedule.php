@@ -18,6 +18,10 @@ use App\Kernel\Queue\Schedule;
  * Later stages register their tasks here, e.g. `$schedule->call('publish-due', '* * * * *', ...)`.
  */
 return static function (Schedule $schedule): void {
+    $schedule->call('application-log-retention', '19 3 * * *', static function (\App\Kernel\Operations\LogRetention $retention): void {
+        $retention->prune(dirname(__DIR__) . '/storage/logs');
+    });
+    $schedule->call('operational-monitor', '* * * * *', [\App\Kernel\Operations\OperationalMonitor::class, 'tick']);
     $schedule->call('outgoing-webhooks', '* * * * *', [\App\Domain\Webhook\WebhookDispatcher::class, 'tick']);
     $schedule->call('api-webhooks-prune', '13 4 * * *', [\App\Domain\Webhook\WebhookDispatcher::class, 'prune']);
     $schedule->call('post-statistics', '* * * * *', [\App\Domain\Analytics\StatsCollector::class, 'tick']);
@@ -46,6 +50,7 @@ return static function (Schedule $schedule): void {
     $schedule->call('metrics-aggregate', '12 * * * *', [MetricsAggregator::class, 'recent']);
     // Hourly: sends the owner's daily report when it is the chosen hour and today's has not gone out yet.
     $schedule->call('daily-report', '5 * * * *', [DailyReport::class, 'tick']);
+    $schedule->call('egress-probe', '* * * * *', [\App\Kernel\HttpClient\EgressProbe::class, 'tick']);
     $schedule->call('short-link-clicks-prune', '51 3 * * *', [\App\Domain\Link\ShortLinks::class, 'prune']);
     $schedule->call('webhook-events-prune', '47 3 * * *', [WebhookEvents::class, 'prune']);
 };

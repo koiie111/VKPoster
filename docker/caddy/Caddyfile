@@ -1,0 +1,20 @@
+# Host service; replace the placeholder only during 19.8. Never bind MySQL/Redis publicly.
+example.com {
+    encode zstd gzip
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+    # Preserve the application's per-response CSP and frame restrictions.
+    reverse_proxy 127.0.0.1:8080 {
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 65s
+            read_timeout 70s
+            write_timeout 70s
+        }
+    }
+    # No access log: URL capabilities and personal data must not reach host logs.
+}

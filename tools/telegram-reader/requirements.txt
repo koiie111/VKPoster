@@ -102,3 +102,8 @@ Pillow==12.3.0 \
 qrcode==8.2 \
     --hash=sha256:16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f \
     --hash=sha256:35c3f2a4172b33136ab9f6b3ef1c00260dd2f66f858f24d88418a015f446506c
+
+# Telethon proxy backend; public PyPI release hashes, no service credentials.
+python-socks[asyncio]==3.1.1 \
+    --hash=sha256:327e0d6378702c73a7790bf732e9f01392f17b48c7348a50b5bd1f710c2df1be \
+    --hash=sha256:8d3e817cdbe858dc0bb8c8fdc8e79b6ce37acce110d33374c6f57a675cc9029e

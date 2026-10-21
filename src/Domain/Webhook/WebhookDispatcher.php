@@ -69,7 +69,7 @@ final class WebhookDispatcher
                 $payload = (string) $row['payload_json'];
                 $event = json_decode($payload, true, 16, JSON_THROW_ON_ERROR);
                 $timestamp = (string) $now->getTimestamp();
-                $signature = hash_hmac('sha256', $timestamp . '.' . $payload, $this->crypto->decrypt((string) $row['secret_enc']));
+                $signature = hash_hmac('sha256', $timestamp . '.' . $payload, $this->crypto->decrypt((string) $row['secret_enc'], 'webhook'));
                 $response = $this->http->request('POST', (string) $row['url'], ['user_url' => true, 'timeout' => 10, 'connect_timeout' => 3, 'allow_redirects' => false, 'follow_redirects' => false, 'http_errors' => false, 'stream' => true, 'headers' => ['Content-Type' => 'application/json', 'X-Signature' => 't=' . $timestamp . ',v1=' . $signature, 'X-Webhook-Id' => $event['id']], 'body' => $payload]);
                 $status = $response->getStatusCode();
                 $response->getBody()->close();

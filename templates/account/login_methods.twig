@@ -63,7 +63,7 @@
             {% if not user.email %}
             <div class="sm:col-span-2">{{ f.input('email', 'Почта', type = 'email', value = old('email'), required = true, autocomplete = 'email', placeholder = 'anna@example.com', error = errors('email')|first, hint = 'Сюда придёт письмо для подтверждения.') }}</div>
             {% endif %}
-            {{ f.input('password', 'Новый пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 10 символов.', attrs = {minlength: 10, maxlength: 128}) }}
+            {{ f.input('password', 'Новый пароль', type = 'password', required = true, autocomplete = 'new-password', error = errors('password')|first, hint = 'От 12 символов.', attrs = {minlength: 12, maxlength: 128}) }}
             {{ f.input('password_confirmation', 'Повторите пароль', type = 'password', required = true, autocomplete = 'new-password') }}
             {% if user.hasTwoFactor() %}
             <div class="sm:col-span-2">{{ f.input('code', 'Код из приложения или резервный код', required = true, autocomplete = 'one-time-code', error = errors('code')|first, hint = 'Двухфакторная защита включена, поэтому нужен код.') }}</div>

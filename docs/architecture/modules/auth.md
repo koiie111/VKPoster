@@ -69,3 +69,20 @@
 ## Известные ограничения
 - Список частых паролей сгенерирован (≈8,6 тыс. записей длиной от 10 символов); его можно заменить файлом побольше без правок кода.
 - Страницы политики и оферты (ссылка в форме регистрации) появятся на этапе 11.
+
+
+## Stage 19A hardening
+
+Password minimum is 12 (repeated spaces combined only for length), local strength/reveal
+controls, one-use one-hour admin activation, external versioned verifier pepper,
+128-bit recovery codes and salted migration of old short-code verifiers. See
+[security architecture](../security.md) and [ADR0023](../../adr/0023-authentication-hardening.md).
+`WebAuthnService` / `WebAuthnController` add hardware second-factor enrollment and
+revocation to existing account auth/CSRF; login endpoints are
+`POST /login/2fa/webauthn/options` and `/verify`. Management endpoints are
+`POST /account/webauthn/begin`, `/register`, `/revoke`. Durable challenges and public
+credentials are in migration46; reset/disable MFA revokes both. Enrollment/revocation
+need fresh password (if set) and existing second factor, with fail-closed throttles.
+Audit events: `auth.webauthn.enrolled`, `auth.webauthn.revoked`; normal sign-in uses
+the existing session/journal/audit pipeline. Synthetic P-256 and Chromium virtual
+authenticator tests do not substitute real production device/RP verification.

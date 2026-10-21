@@ -1,0 +1,104 @@
+name: Security
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - run: python3 scripts/security/gitleaks.py
+      - run: sh scripts/security/scan.sh semgrep
+  production-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/php/Dockerfile
+          target: prod
+          load: true
+          tags: ezposter-app:stage19
+          cache-from: type=gha,scope=prod
+          cache-to: type=gha,mode=max,scope=prod
+      - run: sh scripts/security/scan.sh trivy ezposter-app:stage19
+      - run: sh scripts/check-docker-context.sh
+
+      - name: Build production web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/php/Dockerfile
+          target: web
+          load: true
+          tags: ezposter-web:stage19
+          cache-from: type=gha,scope=prod
+      - run: sh scripts/security/scan.sh trivy ezposter-web:stage19
+      - name: Build operational image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/php/Dockerfile
+          target: ops
+          load: true
+          tags: ezposter-ops:stage19
+          cache-from: type=gha,scope=prod
+      - run: sh scripts/security/scan.sh trivy ezposter-ops:stage19
+      - name: Build isolated Chromium runtime
+        uses: docker/build-push-action@v6
+        with:
+          context: tools/analytics-pdf
+          file: tools/analytics-pdf/Dockerfile
+          load: true
+          tags: ezposter-pdf:stage19
+      - run: sh scripts/security/scan.sh trivy ezposter-pdf:stage19
+      - name: Isolated reader runtime (no env/session in build context)
+        run: docker build -t ezposter-reader:stage19 tools/telegram-reader
+      - run: sh scripts/security/scan.sh trivy ezposter-reader:stage19
+      - name: Production configuration and release runner regressions
+        run: python3 -m unittest discover -s scripts/tests -v
+      - run: docker build -t ezposter-redis:stage19 docker/redis
+      - run: docker build -t ezposter-caddy:stage19 docker/caddy
+      - run: docker build --target server -t ezposter-mysql:stage19 docker/mysql
+      - run: docker build -t ezposter-openbao:stage19 docker/openbao
+      - run: sh scripts/security/scan.sh trivy ezposter-openbao:stage19
+      - run: python3 scripts/security/mysql84-upgrade.py
+      - run: sh scripts/security/mysql84-pitr-stand.sh
+      - name: Install locked development test dependencies for the real isolated crypto contract
+        run: |
+          docker build --target dev -t ezposter-crypto-test:stage19 -f docker/php/Dockerfile .
+          docker run --rm --user "$(id -u):$(id -g)" -e COMPOSER_CACHE_DIR=/tmp/composer -v "$PWD:/var/www/html" ezposter-crypto-test:stage19 composer install --no-scripts --no-interaction --prefer-dist
+          mkdir -p storage/logs storage/tmp storage/cache/twig
+          chmod 0777 storage/logs storage/tmp storage/cache storage/cache/twig
+      - run: python3 scripts/security/crypto-stand.py
+      - name: Isolated production runtime and HTTPS DAST
+        run: python3 scripts/security/production-stand.py
+
+  infrastructure-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['ezposter-mysql:stage19', 'ezposter-redis:stage19', 'ezposter-caddy:stage19', 'ezposter-openbao:stage19', 'clamav/clamav:1.5.4_base']
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.image == 'ezposter-openbao:stage19'
+        run: docker build -t ezposter-openbao:stage19 docker/openbao
+      - if: matrix.image == 'ezposter-mysql:stage19'
+        run: docker build --target server -t ezposter-mysql:stage19 docker/mysql
+      - if: matrix.image == 'ezposter-caddy:stage19'
+        run: docker build -t ezposter-caddy:stage19 docker/caddy
+      - if: matrix.image == 'ezposter-redis:stage19'
+        run: docker build -t ezposter-redis:stage19 docker/redis
+      - run: sh scripts/security/scan.sh trivy '${{ matrix.image }}'

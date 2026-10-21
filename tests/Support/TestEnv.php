@@ -57,6 +57,8 @@ final class TestEnv
             'REDIS_HOST' => self::process('REDIS_HOST', 'redis'),
             'REDIS_PORT' => self::process('REDIS_PORT', '6379'),
             'REDIS_DB' => '15', // dev data (sessions, rate limits) lives in db 0 and must survive test runs
+            'BACKUP_DB_SOCKET' => self::process('TEST_DB_SOCKET', ''),
+            'RESTORE_DB_SOCKET' => self::process('TEST_DB_SOCKET', ''),
             'LOG_DISABLE_STDERR' => '1',
             // Sources are off by default in production; the tests exercise the feature.
             'SOURCES_ENABLED' => '1',
@@ -93,8 +95,21 @@ final class TestEnv
         // The fake provider is refused in production, so tests that boot a production app get it switched off.
         if (($overrides['APP_ENV'] ?? '') === 'production') {
             $vars['DEV_OAUTH_FAKE'] = '0';
+            $vars['MALWARE_SCANNER'] = 'clamd';
+            $vars['APP_URL'] = 'https://example.com';
+            $vars['TRUSTED_PROXIES'] = '127.0.0.1';
+            $vars['REDIS_PASSWORD'] = str_repeat('r', 48);
+            $vars['REDIS_HOST'] = self::process('REDIS_PRODUCTION_TEST_HOST', 'redis-production-test');
+            $vars['REDIS_PORT'] = self::process('REDIS_PRODUCTION_TEST_PORT', '6379');
         }
 
+        if (($overrides['APP_ENV'] ?? '') === 'production') {
+            unset($vars['APP_KEY']);
+            $vars['CRYPTO_BACKEND'] = 'vault';
+            $vars['VAULT_TRANSIT_URL'] = 'https://synthetic-vault.invalid';
+            $vars['VAULT_TOKEN_FILE'] = self::tokenFixture();
+            $vars['EGRESS_IDENTITY_SALT'] = str_repeat('s', 32);
+        }
         return new Env($overrides + $vars);
     }
 
@@ -111,12 +126,35 @@ final class TestEnv
      */
     public static function app(array $overrides = []): Application
     {
-        return Application::create(self::basePath(), self::env($overrides));
+        $app = Application::create(self::basePath(), self::env($overrides));
+        if (($overrides['APP_ENV'] ?? '') === 'production') {
+            $app->container()->instance(\App\Kernel\Security\IsolatedCrypto::class, new FakeIsolatedCrypto());
+        }
+        return $app;
     }
 
-    /**
-     * A fresh connection to the test database (`app_test`).
-     */
+    /** Private runtime-only synthetic capability; never reads an owner file. */
+    private static function tokenFixture(): string
+    {
+        static $path = null;
+        if ($path === null) {
+            $path = tempnam(sys_get_temp_dir(), 'transit-fixture-');
+            if ($path === false) {
+                throw new \RuntimeException('Cannot provision test capability.');
+            }
+            file_put_contents($path, bin2hex(random_bytes(32)));
+            chmod($path, 0600);
+            $file = $path;
+            register_shutdown_function(static function () use ($file): void {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            });
+        }
+        return $path;
+    }
+
+    /** A fresh connection to the test database (`app_test`). */
     public static function connection(): Connection
     {
         $config = self::config();

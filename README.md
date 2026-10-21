@@ -73,3 +73,10 @@ docker run --rm -v "$PWD:/work" -w /work/tools/openapi node:22-alpine sh -ec 'np
 ```
 
 Visual tests can use `tools/ui-snap/seed-api.php` against a **disposable app_test** database, then `UI_SNAP_BASE_URL` points at the isolated app, `UI_SNAP_API_WS` contains the fixture workspace public ID from `storage/testing/api-ui.json`, and `make ui-snap STAGE=18` / `make a11y STAGE=18` exercise settings (populated/empty/plan gate), staff counters and self-hosted documentation. Never run the fixture against your working database: it deliberately resets synthetic test data.
+
+### Production preparation (Stage 19A)
+
+Not a production release. Current validation and blockers: [Stage 19A ledger](docs/security/stage-19a-status.md).
+Deployment preparation: [deploy](docs/deploy.md), [16-incident runbook](docs/runbook.md),
+[operations boundary](docs/architecture/modules/operations.md). No server/DNS changes
+or v1.0.0 tag are performed by the local verification tools.

@@ -1,0 +1,1 @@
+[{"name":"operational-system","url":"/admin/system","login_as":"staff@ezposter.local"},{"name":"auth-registration","url":"/register"},{"name":"account-security","url":"/account/security","login_as":"staff@ezposter.local"},{"name":"security-components","url":"/dev/ui"}]

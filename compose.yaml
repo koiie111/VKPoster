@@ -17,6 +17,35 @@ x-app: &app
     redis: { condition: service_healthy }
 
 services:
+  mysql-operations-test:
+    build:
+      context: docker/mysql
+      target: server
+    image: ezposter-mysql:stage19
+    profiles: [test]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app_test
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+    volumes:
+      - operations-test-mysql:/var/lib/mysql
+      - operations-test-socket:/var/run/mysqld
+      - ./docker/mysql/operations-test-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # Synthetic password fixture only; production env checks must exercise real Redis AUTH.
+  redis-production-test:
+    image: redis:7-alpine
+    profiles: [test]
+    command: ["redis-server", "--requirepass", "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"]
+    tmpfs: [/data]
+    restart: "no"
+
   nginx:
     image: nginx:1.27-alpine
     ports: ["127.0.0.1:8080:80"]
@@ -52,6 +81,7 @@ services:
     profiles: [analytics]
     user: "0:0"
     environment:
+      APP_ENV: local
       APP_KEY: ${APP_KEY}
     command: ["php", "scripts/analytics-pdf-key.php"]
     read_only: true
@@ -64,6 +94,7 @@ services:
     build: tools/analytics-pdf
     profiles: [analytics]
     environment:
+      APP_ENV: local
       ANALYTICS_PDF_KEY_FILE: /run/analytics-pdf-key/key
     volumes:
       - analytics-pdf-key:/run/analytics-pdf-key:ro
@@ -134,6 +165,8 @@ services:
     depends_on: [nginx]
 
 volumes:
+  operations-test-mysql:
+  operations-test-socket:
   analytics-pdf-key:
   mysql-data:
   minio-data:

@@ -25,7 +25,7 @@ final class Crypto
      * @param array<string, string> $keys key id => base64 key (32 bytes decoded), must contain the current id
      * @throws CryptoException
      */
-    public function __construct(private readonly string $currentKeyId, array $keys)
+    public function __construct(private readonly string $currentKeyId, #[\SensitiveParameter] array $keys, private readonly ?IsolatedCrypto $isolated = null)
     {
         $this->keys = [];
         foreach ($keys as $id => $encoded) {
@@ -38,13 +38,16 @@ final class Crypto
             }
             $this->keys[$id] = $raw;
         }
-        if (!isset($this->keys[$currentKeyId])) {
+        if (preg_match('/^[A-Za-z0-9_-]{1,32}$/D', $currentKeyId) !== 1 || ($isolated === null && !isset($this->keys[$currentKeyId]))) {
             throw new CryptoException('Current encryption key is not configured.');
         }
     }
 
-    public function encrypt(string $plaintext): string
+    public function encrypt(#[\SensitiveParameter] string $plaintext, string $purpose = 'application'): string
     {
+        if ($this->isolated !== null) {
+            return 'v3:' . $purpose . ':' . $this->isolated->encrypt($plaintext, $purpose);
+        }
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $cipher = sodium_crypto_secretbox($plaintext, $nonce, $this->keys[$this->currentKeyId]);
 
@@ -54,9 +57,18 @@ final class Crypto
     /**
      * @throws CryptoException when the payload is malformed, the key is unknown, or it was tampered with
      */
-    public function decrypt(string $payload): string
+    public function decrypt(string $payload, string $purpose = 'application'): string
     {
         $parts = explode(':', $payload, 3);
+        if (count($parts) === 3 && $parts[0] === 'v3' && $this->isolated !== null) {
+            if ($parts[1] !== $purpose) {
+                throw new CryptoException('Ciphertext purpose mismatch.');
+            }
+            return $this->isolated->decrypt($parts[2], $purpose);
+        }
+        if (count($parts) === 3 && $parts[0] === 'v2' && $this->isolated !== null) {
+            return $this->isolated->decryptLegacy($parts[2]);
+        }
         if (count($parts) !== 3 || $parts[0] !== self::VERSION) {
             throw new CryptoException('Unsupported ciphertext format.');
         }
@@ -80,11 +92,14 @@ final class Crypto
     /**
      * True when the payload was encrypted with a key other than the current one.
      */
-    public function needsRotation(string $payload): bool
+    public function needsRotation(string $payload, string $purpose = 'application'): bool
     {
         $parts = explode(':', $payload, 3);
 
-        return ($parts[1] ?? '') !== $this->currentKeyId;
+        if ($this->isolated !== null) {
+            return count($parts) !== 3 || $parts[0] !== 'v3' || $parts[1] !== $purpose || $this->isolated->needsRotation($parts[2], $purpose);
+        }
+        return $parts[0] !== self::VERSION || ($parts[1] ?? '') !== $this->currentKeyId;
     }
 
     /**
@@ -92,16 +107,44 @@ final class Crypto
      *
      * @throws CryptoException
      */
-    public function rotate(string $payload): string
+    public function rotate(string $payload, string $purpose = 'application'): string
     {
-        return $this->encrypt($this->decrypt($payload));
+        $parts = explode(':', $payload, 3);
+        if ($this->isolated !== null && count($parts) === 3 && $parts[0] === 'v3' && $parts[1] === $purpose) {
+            return 'v3:' . $purpose . ':' . $this->isolated->rewrap($parts[2], $purpose);
+        }
+        return $this->encrypt($this->decrypt($payload, $purpose), $purpose);
     }
 
     /**
      * Raw bytes of the current key, for deriving sub-keys (see `Signer`).
      */
+    public function mac(string $purpose, #[\SensitiveParameter] string $data): string
+    {
+        return $this->isolated !== null ? $this->isolated->mac($purpose, $data) : hash_hmac('sha256', $data, $this->deriveKey($purpose), true);
+    }
+
+    public function isIsolated(): bool
+    {
+        return $this->isolated !== null;
+    }
+
+    public function signature(string $purpose, #[\SensitiveParameter] string $data): string
+    {
+        return $this->isolated !== null ? $this->isolated->macToken($purpose, $data) : bin2hex($this->mac($purpose, $data));
+    }
+
+    public function verifySignature(string $purpose, #[\SensitiveParameter] string $data, string $signature): bool
+    {
+        return $this->isolated !== null ? $this->isolated->verifyMac($purpose, $data, $signature)
+            : hash_equals($this->signature($purpose, $data), $signature);
+    }
+
     public function deriveKey(string $purpose): string
     {
+        if ($this->isolated !== null) {
+            throw new CryptoException('Isolated keys cannot be exported.');
+        }
         return hash_hkdf('sha256', $this->keys[$this->currentKeyId], 32, $purpose);
     }
 }

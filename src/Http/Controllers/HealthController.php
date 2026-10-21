@@ -18,8 +18,13 @@ final class HealthController
 
     public function show(): Response
     {
-        $result = $this->health->run();
+        return Response::json(['status' => 'ok']);
+    }
 
-        return Response::json($result, HealthCheck::isHealthy($result) ? 200 : 503);
+    public function ready(): Response
+    {
+        $result = $this->health->ready(count(\App\Support\Fs::glob(dirname(__DIR__, 3) . '/database/migrations/*.php')));
+
+        return Response::json($result, in_array('fail', $result, true) ? 503 : 200);
     }
 }

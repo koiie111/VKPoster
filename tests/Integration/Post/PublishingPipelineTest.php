@@ -114,6 +114,18 @@ final class PublishingPipelineTest extends PostTestCase
         self::assertSame(1, $this->db->select('SELECT COUNT(*) AS n FROM jobs WHERE queue = ?', [PublishJob::QUEUE])[0]['n']);
     }
 
+    public function testSchedulerDrainsMoreThanOneBatchWithoutDuplicateJobs(): void
+    {
+        [$context, $channel] = $this->setUpWorkspace();
+        for ($i = 0; $i < 501; ++$i) {
+            $this->scheduled($context, [$channel], '+30 seconds');
+        }
+        $scheduler = $this->app->container()->get(PublicationScheduler::class);
+        self::assertSame(501, $scheduler->enqueueDue());
+        self::assertSame(0, $scheduler->enqueueDue());
+        self::assertSame(501, $this->db->select('SELECT COUNT(*) AS n FROM jobs WHERE queue = ?', [PublishJob::QUEUE])[0]['n']);
+    }
+
     public function testALostJobIsCreatedAgain(): void
     {
         [$context, $channel] = $this->setUpWorkspace();

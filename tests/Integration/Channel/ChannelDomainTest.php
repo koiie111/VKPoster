@@ -115,6 +115,26 @@ final class ChannelDomainTest extends ChannelTestCase
         $this->app->container()->get(ChannelCredentials::class)->forChannel($stolen);
     }
 
+    public function testCryptoOutageBeforeDispatchIsRetryableWithoutCallingPlatform(): void
+    {
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $credential = $this->app->container()->get(CredentialVault::class)->store($this->contextFor($workspace, $owner), Platform::Telegram, 'bot_token', 'synthetic');
+        $channel = $this->makeChannel($workspace, $owner, mode: ChannelMode::OwnBot, credentialId: $credential);
+        $this->db->execute('UPDATE platform_credentials SET secret_enc=? WHERE id=?', ['v3:application:vault:v1:Zml4dHVyZQ==', $credential]);
+        $backend = $this->createMock(\App\Kernel\Security\IsolatedCrypto::class);
+        $backend->expects(self::once())->method('decrypt')->willThrowException(new \App\Kernel\Exception\CryptoUnavailableException('Isolated cryptographic service unavailable.'));
+        $this->app->container()->instance(Crypto::class, new Crypto('isolated', [], $backend));
+        try {
+            $this->app->container()->get(ChannelCredentials::class)->forChannel($channel);
+            self::fail('Unavailable crypto allowed credential use.');
+        } catch (PlatformError $error) {
+            self::assertSame(ErrorKind::Temporary, $error->kind);
+            self::assertSame(30, $error->retryAfter);
+            self::assertFalse($error->concernsChannel());
+        }
+        self::assertSame([], $this->http->requests);
+    }
+
     public function testTheSharedBotTokenComesFromTheEnvironment(): void
     {
         [$owner, $workspace] = $this->ownerWithWorkspace();
@@ -325,6 +345,129 @@ final class ChannelDomainTest extends ChannelTestCase
         self::assertFalse($both->needsRotation((string) $rows[0]['secret_enc']));
         self::assertSame('old-secret', $both->decrypt((string) $rows[0]['secret_enc']));
         self::assertSame($current, (string) $rows[1]['secret_enc'], 'secrets already on the current key are left as they are');
+    }
+
+    public function testWebhookSecretRotationSurvivesRetiringOldKey(): void
+    {
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $oldKey = base64_encode(str_repeat('o', 32));
+        $newKey = base64_encode(str_repeat('n', 32));
+        $old = new Crypto('old', ['old' => $oldKey]);
+        $both = new Crypto('new', ['new' => $newKey, 'old' => $oldKey]);
+        $secret = 'synthetic-webhook-rotation-value';
+        $this->db->execute(
+            'INSERT INTO webhook_subscriptions (public_id, workspace_id, created_by, url, secret_enc, events_json, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW(6))',
+            [(string) new \Symfony\Component\Uid\Ulid(), $workspace->id, $owner->id, 'https://example.com/hooks', $old->encrypt($secret), '[]']
+        );
+        $command = new CryptoRotateCommand($this->db, $both);
+        $command->run(['--dry-run'], new Output());
+        $before = (string) $this->db->select('SELECT secret_enc FROM webhook_subscriptions')[0]['secret_enc'];
+        self::assertTrue($both->needsRotation($before));
+        self::assertSame($secret, $old->decrypt($before));
+        $command->run([], new Output());
+        $after = (string) $this->db->select('SELECT secret_enc FROM webhook_subscriptions')[0]['secret_enc'];
+        self::assertFalse($both->needsRotation($after));
+        self::assertSame($secret, (new Crypto('new', ['new' => $newKey]))->decrypt($after));
+    }
+
+    public function testOfflineLegacyKeyringMigrationPreservesWebhookAndQueuedMail(): void
+    {
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $oldKey = base64_encode(str_repeat('o', 32));
+        $olderKey = base64_encode(str_repeat('z', 32));
+        $old = new Crypto('old', ['old' => $oldKey]);
+        $older = new Crypto('older', ['older' => $olderKey]);
+        $target = new Crypto('isolated', [], new \App\Tests\Support\FakeIsolatedCrypto());
+        $this->db->execute(
+            'INSERT INTO webhook_subscriptions (public_id,workspace_id,created_by,url,secret_enc,events_json,created_at) VALUES (?,?,?,?,?,?,NOW(6))',
+            [(string) new \Symfony\Component\Uid\Ulid(), $workspace->id, $owner->id, 'https://example.com/hooks', $older->encrypt('synthetic webhook'), '[]']
+        );
+        $job = new \App\Domain\Notification\SendMailJob('synthetic@example.com', 'fixture', 'welcome', $old->encrypt('{"name":"synthetic"}'));
+        $this->app->container()->get(\App\Kernel\Queue\Queue::class)->dispatch($job);
+        $payload = json_encode(['class' => $job::class, 'data' => $job->toPayload()], JSON_THROW_ON_ERROR);
+        $this->db->execute('INSERT INTO failed_jobs(queue,payload_json,attempts,error,failed_at) VALUES(?,?,?,?,NOW(6))', ['default', $payload, 1, 'synthetic']);
+        $file = tempnam(sys_get_temp_dir(), 'legacy-fixture-');
+        self::assertNotFalse($file);
+        file_put_contents($file, json_encode(['old' => $oldKey, 'older' => $olderKey], JSON_THROW_ON_ERROR));
+        chmod($file, 0600);
+        $command = new CryptoRotateCommand($this->db, $target, TestEnv::config());
+        try {
+            $args = ['--legacy-keyring-file=' . $file];
+            $command->run([...$args, '--dry-run'], new Output());
+            $before = (string) $this->db->select('SELECT secret_enc FROM webhook_subscriptions')[0]['secret_enc'];
+            self::assertSame('synthetic webhook', $older->decrypt($before));
+            $command->run($args, new Output());
+            $after = (string) $this->db->select('SELECT secret_enc FROM webhook_subscriptions')[0]['secret_enc'];
+            self::assertSame('synthetic webhook', $target->decrypt($after, 'webhook'));
+            foreach (['jobs', 'failed_jobs'] as $table) {
+                $json = json_decode((string) $this->db->select('SELECT payload_json FROM ' . $table)[0]['payload_json'], true, 32, JSON_THROW_ON_ERROR);
+                self::assertSame('{"name":"synthetic"}', $target->decrypt($json['data']['data']));
+            }
+            $out = new Output();
+            $command->run([], $out);
+            self::assertStringContainsString('Done: 0 secret(s).', $out->contents());
+            // The target has no legacy raw keys; migrated data remains readable without the old keyring.
+            $this->expectException(\App\Kernel\Exception\CryptoException::class);
+            $target->decrypt($before);
+        } finally {
+            unlink($file);
+        }
+    }
+
+    public function testInterruptedLegacyMigrationResumesAndFencesConcurrentUpdates(): void
+    {
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $key = base64_encode(str_repeat('l', 32));
+        $legacy = new Crypto('old', ['old' => $key]);
+        $ids = [];
+        foreach ([1, 2, 3] as $index) {
+            $this->db->execute(
+                'INSERT INTO webhook_subscriptions(public_id,workspace_id,created_by,url,secret_enc,events_json,created_at)VALUES(?,?,?,?,?,?,NOW(6))',
+                [(string) new \Symfony\Component\Uid\Ulid(), $workspace->id, $owner->id, 'https://example.com/hook/' . $index, $legacy->encrypt('synthetic-' . $index), '[]']
+            );
+            $ids[] = (int) $this->db->pdo()->lastInsertId();
+        }
+        $file = tempnam(sys_get_temp_dir(), 'legacy-recovery-fixture-');
+        self::assertNotFalse($file);
+        file_put_contents($file, json_encode(['old' => $key], JSON_THROW_ON_ERROR));
+        chmod($file, 0600);
+        $fake = new \App\Tests\Support\FakeIsolatedCrypto();
+        $backend = $this->createMock(\App\Kernel\Security\IsolatedCrypto::class);
+        $calls = 0;
+        $backend->method('encrypt')->willReturnCallback(static function (string $text, string $purpose) use (&$calls, $fake): string {
+            if (++$calls === 2) {
+                throw new \App\Kernel\Exception\CryptoUnavailableException('Synthetic interruption.');
+            }
+            return $fake->encrypt($text, $purpose);
+        });
+        try {
+            $args = ['--legacy-keyring-file=' . $file];
+            try {
+                (new CryptoRotateCommand($this->db, new Crypto('isolated', [], $backend), TestEnv::config()))->run($args, new Output());
+                self::fail('Interruption ignored.');
+            } catch (\App\Kernel\Exception\CryptoUnavailableException $error) {
+                self::assertSame('Synthetic interruption.', $error->getMessage());
+            }
+            $rows = $this->db->select('SELECT secret_enc FROM webhook_subscriptions ORDER BY id');
+            self::assertStringStartsWith('v3:webhook:', (string) $rows[0]['secret_enc']);
+            self::assertSame('synthetic-2', $legacy->decrypt((string) $rows[1]['secret_enc']));
+            $target = new Crypto('isolated', [], $fake);
+            $racing = $this->createMock(\App\Kernel\Security\IsolatedCrypto::class);
+            $racing->method('needsRotation')->willReturn(false);
+            $racing->method('encrypt')->willReturnCallback(function (string $text, string $purpose) use ($target, $fake, $ids): string {
+                if ($text === 'synthetic-2') {
+                    $this->db->execute('UPDATE webhook_subscriptions SET secret_enc=? WHERE id=?', [$target->encrypt('concurrent-secret', 'webhook'), $ids[1]]);
+                }
+                return $fake->encrypt($text, $purpose);
+            });
+            (new CryptoRotateCommand($this->db, new Crypto('isolated', [], $racing), TestEnv::config()))->run($args, new Output());
+            $rows = $this->db->select('SELECT secret_enc FROM webhook_subscriptions ORDER BY id');
+            self::assertSame('synthetic-1', $target->decrypt((string) $rows[0]['secret_enc'], 'webhook'));
+            self::assertSame('concurrent-secret', $target->decrypt((string) $rows[1]['secret_enc'], 'webhook'));
+            self::assertSame('synthetic-3', $target->decrypt((string) $rows[2]['secret_enc'], 'webhook'));
+        } finally {
+            unlink($file);
+        }
     }
 
     public function testAChannelCannotBeAssignedToAMemberBeforeItExists(): void

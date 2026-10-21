@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Kernel\Console\Command;
 
 use App\Domain\Auth\PasswordPolicy;
+use App\Domain\Auth\AuthTokens;
+use App\Domain\Auth\TokenType;
+use App\Kernel\Config;
 use App\Domain\User\UserRepository;
 use App\Kernel\Console\Command;
 use App\Kernel\Console\Output;
@@ -12,7 +15,7 @@ use App\Kernel\Security\PasswordHasher;
 
 /**
  * `user:create-admin <email> [--name="Имя"] [--password-stdin]`: creates a confirmed super-admin, or
- * promotes an existing user. Without `--password-stdin` a random password is generated and printed once.
+ * promotes an existing user. Without `--password-stdin` a single-use, one-hour activation link is printed locally; no initial long-term password exists.
  * Passwords are never accepted as command-line arguments (they would end up in shell history).
  */
 final class CreateAdminCommand implements Command
@@ -21,6 +24,8 @@ final class CreateAdminCommand implements Command
         private readonly UserRepository $users,
         private readonly PasswordHasher $hasher,
         private readonly PasswordPolicy $policy,
+        private readonly AuthTokens $tokens,
+        private readonly Config $config,
         private readonly ?\Closure $passwordReader = null,
     ) {
     }
@@ -59,10 +64,13 @@ final class CreateAdminCommand implements Command
             $this->users->setSuperadmin($existing->id, true);
             $this->users->markVerified($existing->id);
             $out->line(sprintf('User #%d is now a super-admin.', $existing->id));
+            if ($existing->passwordHash === null) {
+                $this->printActivation($existing->id, $out);
+            }
 
             return 0;
         }
-        $generated = null;
+        $password = null;
         if ($stdin) {
             $password = $this->passwordReader !== null ? ($this->passwordReader)() : rtrim((string) fgets(STDIN), "\r\n");
             $problem = $this->policy->check($password, $email);
@@ -71,13 +79,11 @@ final class CreateAdminCommand implements Command
 
                 return 1;
             }
-        } else {
-            $password = $generated = $this->randomPassword();
         }
         $user = $this->users->create([
             'email' => $email,
             'name' => $name === '' ? 'Администратор' : $name,
-            'password_hash' => $this->hasher->hash($password),
+            'password_hash' => $password === null ? null : $this->hasher->hash($password),
             'email_verified_at' => new \DateTimeImmutable('now', new \DateTimeZone('UTC')),
             'is_superadmin' => true,
         ]);
@@ -87,21 +93,16 @@ final class CreateAdminCommand implements Command
             return 1;
         }
         $out->line(sprintf('Super-admin #%d created: %s', $user->id, $email));
-        if ($generated !== null) {
-            $out->line('Generated password (shown once, change it after signing in): ' . $generated);
+        if ($password === null) {
+            $this->printActivation($user->id, $out);
         }
 
         return 0;
     }
 
-    private function randomPassword(): string
+    private function printActivation(int $userId, Output $out): void
     {
-        $alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
-        $out = '';
-        for ($i = 0; $i < 24; ++$i) {
-            $out .= $alphabet[random_int(0, strlen($alphabet) - 1)];
-        }
-
-        return $out;
+        $token = $this->tokens->issue($userId, TokenType::PasswordReset, 3600);
+        $out->line('One-time activation link (expires in 1 hour): ' . rtrim($this->config->string('app.url'), '/') . '/password/reset/' . rawurlencode($token));
     }
 }

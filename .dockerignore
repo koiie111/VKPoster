@@ -45,3 +45,13 @@ node_modules
 **/.php-cs-fixer.cache
 
 **/node_modules
+
+**/.git
+**/.gitconfig
+**/.git-credentials
+**/.docker
+**/.kube
+**/.config/gcloud
+**/auth.json
+**/.yarnrc*
+**/.cache

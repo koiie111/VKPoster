@@ -15,7 +15,7 @@ use Throwable;
 /** Internal HTTP ingress: dedicated bearer secret, bounded payloads, sanitized operational errors and commit-before-ACK. */
 final class SourceReaderController
 {
-    public function __construct(private readonly Config $config, private readonly SourceIngress $ingress, private readonly LoggerInterface $logger, private readonly \App\Support\Heartbeat $heartbeat)
+    public function __construct(private readonly Config $config, private readonly SourceIngress $ingress, private readonly LoggerInterface $logger, private readonly \App\Support\Heartbeat $heartbeat, private readonly ?\App\Kernel\HttpClient\EgressHealth $egress = null)
     {
     }
 
@@ -30,6 +30,19 @@ final class SourceReaderController
         $this->authenticate($request);
         if (strlen($request->rawBody) > 1024) {
             throw new HttpException(413, 'Too large');
+        }
+        $payload = $request->rawBody === '' ? [] : $request->json();
+        if (isset($payload['egress'])) {
+            $state = is_array($payload['egress']) ? ($payload['egress']['state'] ?? null) : null;
+            $mode = is_array($payload['egress']) ? ($payload['egress']['mode'] ?? null) : null;
+            if (!in_array($state, ['ok', 'fail', 'unknown'], true) || !in_array($mode, ['direct', 'http', 'socks5', 'tunnel'], true)) {
+                throw new HttpException(400, 'Invalid reader egress observation');
+            }
+            $routeId = $payload['egress']['route_id'] ?? '';
+            if (!is_string($routeId) || preg_match('/^[a-f0-9]{64}$/D', $routeId) !== 1) {
+                throw new HttpException(400, 'Invalid reader egress identity');
+            }
+            $this->egress?->recordReader($state, $mode, $routeId);
         }
         $this->heartbeat->beat('telegram-reader');
         return Response::json(['ack' => true])->withHeader('Cache-Control', 'no-store');
