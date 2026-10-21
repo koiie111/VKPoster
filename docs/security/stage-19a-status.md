@@ -178,3 +178,9 @@ result until the new complete CI run finishes.
 Production-image CI on0ed4343 passed all gates, including actual Transit/Chromium,
 engine upgrade, encrypted PITR, Linux DAC and private-volume ZAP export. All nine
 other CI jobs passed; only the Composer full-suite timeout required this follow-up.
+
+Subsequent production CI hit upstream PECL HTTP500/502/504 on Imagick/Redis
+while building its dev-only crypto fixture image. A rerun reproduced the outage.
+Pinned Redis6.3.0, Imagick3.8.1 and pcov1.0.12 now install individually through
+a shared three-attempt/backoff helper, requiring each compiled module before
+enabling it. Exhaustion still fails closed; no test or extension is optional.

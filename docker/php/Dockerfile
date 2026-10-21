@@ -36,13 +36,14 @@ ARG TAILWIND_SHA256_AMD64=7d24f7fa191d2193b78cd5f5a42a6093e14409521908529f42d80b
 ARG TAILWIND_SHA256_ARM64=69b1378b8133192d7d2feb12a116fa12d035594f58db3eff215879e4ad8cf39b
 ARG TARGETARCH
 
+COPY docker/php/install-pecl.sh /usr/local/bin/install-pecl
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libicu-dev libzip-dev libpng-dev libjpeg-dev libwebp-dev libfreetype-dev \
         libmagickwand-dev libsodium-dev ffmpeg fonts-dejavu-core unzip git curl ca-certificates \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd exif zip opcache sodium pcntl \
-    && pecl install redis imagick \
+    && sh /usr/local/bin/install-pecl redis-6.3.0 imagick-3.8.1 \
     && docker-php-ext-enable redis imagick \
     && rm -rf /var/lib/apt/lists/* /tmp/pear
 
@@ -69,13 +70,7 @@ COPY --from=client-build /opt/mysql /opt/mysql
 RUN for binary in mysql mysqldump mysqlbinlog; do ln -s /opt/mysql/client /opt/mysql/$binary; done \
     && mkdir -p /etc/pki/tls/certs \
     && ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
-# PECL occasionally returns500 for the dev-only coverage archive; never skip the extension.
-RUN set -eu; installed=0; \
-    for attempt in 1 2 3; do \
-      if pecl install pcov; then installed=1; break; fi; \
-      if [ "$attempt" -lt 3 ]; then sleep "$((attempt * 2))"; fi; \
-    done; \
-    test "$installed" = 1; docker-php-ext-enable pcov
+RUN sh /usr/local/bin/install-pecl pcov-1.0.12 && docker-php-ext-enable pcov
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/50-app.ini
 COPY docker/php/php-dev.ini /usr/local/etc/php/conf.d/60-app-dev.ini
@@ -111,11 +106,12 @@ USER app
 
 # ---- minimal serving runtime: no Tailwind/build toolchain (ADR 0021) ----
 FROM php:8.3-fpm-alpine3.24@sha256:454b11c8907e32878ce92e87b13c14e1bbe6e1b10f4f96d4a19c9b62ec675d41 AS prod
+COPY docker/php/install-pecl.sh /usr/local/bin/install-pecl
 RUN apk add --no-cache ca-certificates ffmpeg font-dejavu \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS pax-utils icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev imagemagick-dev libsodium-dev \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql intl gd exif zip opcache sodium pcntl \
-    && pecl install redis imagick \
+    && sh /usr/local/bin/install-pecl redis-6.3.0 imagick-3.8.1 \
     && docker-php-ext-enable redis imagick \
     && runDeps="$(scanelf --needed --nobanner --recursive /usr/local/lib/php/extensions | awk '{ n = split($2, a, ","); for (i=1; i<=n; i++) print "so:" a[i] }' | sort -u)" \
     && apk add --no-cache --virtual .runtime-deps $runDeps \
