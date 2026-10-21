@@ -2,6 +2,7 @@
 import unittest
 from unittest.mock import patch
 import subprocess
+import io
 from scripts.security.crypto_fixture import CryptoFixture, runtime_environment
 
 
@@ -25,12 +26,15 @@ class CryptoIsolationTest(unittest.TestCase):
         fixture.capabilities.append("synthetic-app-capability")
         try:
             failed = subprocess.CompletedProcess(["fixture"], 1, b"synthetic-app-capability", b"synthetic-root-capability ")
-            with patch("scripts.security.crypto_fixture.subprocess.run", return_value=failed), patch("scripts.security.crypto_fixture.Path.read_text", side_effect=PermissionError("private UID1000")), patch("scripts.security.crypto_fixture.Path.write_text") as write:
+            with patch("scripts.security.crypto_fixture.subprocess.run", return_value=failed), patch("scripts.security.crypto_fixture.Path.read_text", side_effect=PermissionError("private UID1000")), patch("scripts.security.crypto_fixture.Path.write_text") as write, patch("scripts.security.crypto_fixture.sys.stderr", new_callable=io.StringIO) as stderr:
                 with self.assertRaisesRegex(RuntimeError, "redacted evidence"):
                     fixture.run(["fixture"])
                 diagnostic = write.call_args.args[0]
                 self.assertNotIn(fixture.root, diagnostic)
                 self.assertNotIn(fixture.capabilities[0], diagnostic)
                 self.assertIn("[redacted]", diagnostic)
+                self.assertNotIn(fixture.root, stderr.getvalue())
+                self.assertNotIn(fixture.capabilities[0], stderr.getvalue())
+                self.assertIn("[redacted]", stderr.getvalue())
         finally:
             fixture.temporary.cleanup()

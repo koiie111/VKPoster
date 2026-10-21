@@ -7,5 +7,7 @@ RUN npm ci --omit=dev --no-audit --no-fund \
     && rm -rf /usr/lib/node_modules/npm /usr/bin/npm /usr/bin/npx \
         /ms-playwright/firefox-* /ms-playwright/webkit-* /var/lib/apt/lists/*
 COPY server.mjs ./
+# Private verify-only capability mounts must be owned by this stable non-root UID.
+RUN test "$(id -u pwuser)" = 1001 && test "$(id -g pwuser)" = 1001
 USER pwuser
 CMD ["node", "server.mjs"]

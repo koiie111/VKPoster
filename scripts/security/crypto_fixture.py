@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import ssl
+import sys
 import subprocess
 import tempfile
 import time
@@ -35,13 +36,15 @@ class CryptoFixture:
     def run(self, args, **kwargs):
         result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
         if result.returncode:
-            diagnostic = (result.stderr + result.stdout).decode(errors='replace')[-32768:]
+            diagnostic = (result.stderr + result.stdout).decode(errors='replace')
             # Host runner UID may not read capability files owned by container UID1000.
             for capability in self.capabilities:
                 diagnostic = diagnostic.replace(capability, '[redacted]')
             if self.root:
                 diagnostic = diagnostic.replace(self.root, '[redacted]')
+            diagnostic = diagnostic[-32768:]  # Bound only after redaction, never cut through a capability.
             Path('/tmp/stage19-crypto-command-error.log').write_text(diagnostic)
+            print(diagnostic[-4096:], file=sys.stderr)  # Synthetic stand only, after capability/root redaction.
             raise RuntimeError('Isolated crypto fixture command failed; redacted evidence saved outside Git.')
         return result
 
@@ -84,7 +87,9 @@ class CryptoFixture:
             for op in ("encrypt", "decrypt", "rewrap", "hmac", "verify"):
                 app.append('path "transit/' + op + '/' + key + ('/*' if op in ("hmac", "verify") else '') + '" { capabilities = ["update"] }')
         self.token("app", "\n".join(app))
-        self.token("pdf", 'path "transit/verify/vkposter-pdf/sha2-256" { capabilities = ["update"] }')
+        pdf_policy = 'path "transit/verify/vkposter-pdf/sha2-256" { capabilities = ["update"] }'
+        self.token("pdf", pdf_policy)  # App-UID operator test exercises the verify-only ACL directly.
+        self.token("renderer", pdf_policy, uid=1001)  # Separate actual renderer capability, never mounted into PHP.
         self.token("rotate", '\n'.join('path "transit/keys/vkposter-' + purpose + '/rotate" { capabilities = ["update"] }' for purpose in PURPOSES) + '\npath "transit/keys/vkposter-app/config" { capabilities = ["update"] }')
         return self
 
@@ -97,15 +102,17 @@ class CryptoFixture:
         except urllib.error.HTTPError as error:
             raise RuntimeError("Isolated crypto API rejected operation: HTTP " + str(error.code)) from None
 
-    def token(self, name, policy):
+    def token(self, name, policy, uid=1000):
+        if uid not in (1000, 1001):
+            raise RuntimeError("Unexpected fixture role UID")
         self.api("PUT", "sys/policies/acl/fixture-" + name, {"policy": policy})
         value = self.api("POST", "auth/token/create", {"policies": ["fixture-" + name], "no_default_policy": True, "ttl": "1h"})["auth"]["client_token"]
         self.capabilities.append(value)
         file = self.path / (name + ".token")
         file.write_text(value)
         file.chmod(0o600)
-        # App runs UID1000; only the disposable capability file is changed.
-        self.run(["docker", "run", "--rm", "--network", "none", "--user", "0:0", "-v", str(self.path) + ":/fixture", "--entrypoint", "sh", IMAGE, "-c", "chown 1000:1000 /fixture/" + name + ".token"])
+        # Each service receives only its own0600 capability at its real runtime UID.
+        self.run(["docker", "run", "--rm", "--network", "none", "--user", "0:0", "-v", str(self.path) + ":/fixture", "--entrypoint", "sh", IMAGE, "-c", "chown " + str(uid) + ":" + str(uid) + " /fixture/" + name + ".token"])
 
     def close(self):
         try:

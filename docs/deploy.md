@@ -159,7 +159,9 @@ Provision isolated purpose-key Transit and private app/renderer capabilities wit
 TLS trust anchor before startup (ADR0025). Production rejects APP_KEY/APP_KEYS/local
 pepper files. Pepper HMAC stays inside Transit; do not mount an active master key.
 Use VAULT_APP_TOKEN_HOST_PATH, VAULT_PDF_TOKEN_HOST_PATH and VAULT_CA_HOST_PATH;
-app capability files are UID1000,0400/0600. Tokens are replaceable credentials,
+app capability files are UID1000,0400/0600; the separate verify-only PDF capability
+is UID1001 (pwuser),0400/0600. The image build checks this UID explicitly. Never
+make a capability world/group-readable to work around a mount ownership mismatch. Tokens are replaceable credentials,
 not key material. Verify renewal/revocation and server recovery in19.8.
 
 [ADR 0022](adr/0022-regional-egress.md) defines RU Core with per-platform regional

@@ -140,3 +140,16 @@ UID's private file. Negative redaction test, actual TLS Transit/Chromium, produc
 health/worker scaling/rollback and HTTPS ZAP repeat PASS. Runtime capabilities and
 production file-mode checks are unchanged. CI must execute the remaining stands;
 none is skipped to obtain a green result.
+
+
+### Renderer UID verification
+
+Native CI passed the39-assertion Transit test and exposed a separate PDF mount
+ownership error: Playwright pwuser is UID1001, not app UID1000. The renderer now
+receives its own verify-only capability at0600/UID1001; the application mount is
+unchanged. The pinned image build asserts pwuser UID/GID1001 and deploy instructions
+specify separate owners. A real named-Linux-volume regression proves wrong-owner
+EACCES, correct-owner success, and denial to app UID1000; it does not rely on Docker
+Desktop bind-mount permission emulation. Actual Chromium/Transit repeat PASS. CI
+fixture diagnostics are bounded only after root/capability redaction, allowing
+further failures to be diagnosed without publishing credentials.

@@ -37,7 +37,7 @@ try:
             '-e','VAULT_PDF_VERIFY_URL='+fixture.endpoint+'/v1/transit/verify/vkposter-pdf/sha2-256',
             '-e','VAULT_PDF_TOKEN_FILE=/run/secrets/transit-pdf.token',
             '-e','NODE_EXTRA_CA_CERTS=/run/secrets/transit-ca.pem',
-            '-v',str(fixture.path/'pdf.token')+':/run/secrets/transit-pdf.token:ro',
+            '-v',str(fixture.path/'renderer.token')+':/run/secrets/transit-pdf.token:ro',
             '-v',str(fixture.path/'ca.pem')+':/run/secrets/transit-ca.pem:ro',
             '-v',str(ROOT/'tools/analytics-pdf/server.mjs')+':/opt/analytics-pdf/server.mjs:ro',
             'ezposter-pdf:stage19'])

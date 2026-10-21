@@ -122,7 +122,7 @@ def verify(crypto):
             "VAULT_TRANSIT_URL": crypto.endpoint,
             "VAULT_TRANSIT_KEY": "vkposter",
             "VAULT_APP_TOKEN_HOST_PATH": str(crypto.path / "app.token"),
-            "VAULT_PDF_TOKEN_HOST_PATH": str(crypto.path / "pdf.token"),
+            "VAULT_PDF_TOKEN_HOST_PATH": str(crypto.path / "renderer.token"),
             "VAULT_CA_HOST_PATH": str(crypto.path / "ca.pem"),
             "TRUSTED_PROXIES": "172.16.0.0/12",
             "REDIS_PASSWORD": secrets.token_hex(24),
