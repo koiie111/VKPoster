@@ -98,7 +98,8 @@ jobs:
               sh scripts/build-css.sh --check
               composer cs
               composer stan
-              composer test
+              # The full DB/security suite exceeds the default Composer 300s on hosted runners.
+              composer run-script --timeout=900 test
               composer audit
               SCHEMA_CHECK_DATABASE=app_check_stage19 php scripts/check-schema.php
             ' 2>&1 | tee /tmp/vkposter-check.log

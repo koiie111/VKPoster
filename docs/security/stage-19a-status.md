@@ -169,3 +169,12 @@ A later native CI run stopped before contracts on an upstream PECL HTTP500 while
 downloading dev-only pcov1.0.12. The existing installation now has three bounded
 attempts/backoff and still fails if none succeeds; no extension/test is disabled.
 This download failure is not counted as a crypto/PDF test failure or a pass.
+
+CI follow-up: hosted amd64 PHPUnit reached the final tests without an assertion
+failure before Composer terminated it at its default300-second process limit.
+Only the CI full-suite command now uses an explicit bounded900-second timeout;
+the30-minute job limit and every test remain enforced. This is not a passing
+result until the new complete CI run finishes.
+Production-image CI on0ed4343 passed all gates, including actual Transit/Chromium,
+engine upgrade, encrypted PITR, Linux DAC and private-volume ZAP export. All nine
+other CI jobs passed; only the Composer full-suite timeout required this follow-up.
