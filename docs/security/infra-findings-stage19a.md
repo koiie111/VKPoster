@@ -308,3 +308,26 @@ artifact. Final scan:0 CRITICAL/0 HIGH. No exception or severity suppression.
 | CVE-2026-78667 | stdlib | v1.27.1 | 1.27.2 | A — rebuilt Go1.27.3, scan clear |
 | CVE-2026-78669 | stdlib | v1.27.1 | 1.27.2 | A — rebuilt Go1.27.3, scan clear |
 | CVE-2026-97031 | stdlib | v1.27.1 | 1.27.2 | A — rebuilt Go1.27.3, scan clear |
+
+
+## Fresh CI database: Pillow12.3.0 findings (2026-10-21)
+
+The earlier local cached2026-10-19 Trivy database did not report these findings.
+Fresh CI correctly stopped the reader image with1 CRITICAL/6 HIGH; do not count the
+old scan as current evidence. All seven are classification A: applicable decoder/
+encoder library with official fixed release13.0.0. No reachability waiver or ignore.
+Pinned13.0.0 wheel/sdist hashes are taken from official PyPI release metadata; Python
+3.13 is supported. All other reader dependencies and credentials/session are unchanged.
+
+| CVE | Severity | Affected | Applicable fix / disposition |
+|---|---|---|---|
+| CVE-2026-112403 | CRITICAL | Pillow12.3.0 | A —13.0.0;67 reader cases +2 HTTP contracts PASS; fresh CI scan enforced |
+| CVE-2026-112397 | HIGH | Pillow12.3.0 | A —13.0.0; same tested image/fresh CI gate |
+| CVE-2026-112400 | HIGH | Pillow12.3.0 | A —13.0.0; same tested image/fresh CI gate |
+| CVE-2026-112404 | HIGH | Pillow12.3.0 | A —13.0.0; same tested image/fresh CI gate |
+| CVE-2026-112895 | HIGH | Pillow12.3.0 | A —13.0.0; same tested image/fresh CI gate |
+| CVE-2026-112896 | HIGH | Pillow12.3.0 | A —13.0.0; same tested image/fresh CI gate |
+| CVE-2026-112897 | HIGH | Pillow12.3.0 | A —13.0.0; same tested image/fresh CI gate |
+
+Primary sources: [Pillow13.0.0 release notes](https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html)
+and [official PyPI metadata](https://pypi.org/pypi/pillow/13.0.0/json).

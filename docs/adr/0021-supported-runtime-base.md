@@ -84,3 +84,12 @@ and SHA checks PASS. New image Trivy0 HIGH/CRITICAL. No real Telegram login/sess
 was mounted or used. Existing owner state/env are not replaced or deleted; UID1000
 and /state contract remain. Real Telegram/regional-exit live check remains19.8.
 [Official supported tags](https://raw.githubusercontent.com/docker-library/official-images/master/library/python).
+
+
+### Subsequent security dependency update
+
+Fresh CI on2026-10-21 reported seven new Pillow12.3.0 findings (1C/6H).
+The separately validated security update pins official Pillow13.0.0 artifacts,
+retains all other reader dependencies, and passes67 offline cases plus2 actual PHP
+HTTP contracts. Fresh CI scanning is mandatory; no decoder reachability ignore.
+See the individual infrastructure disposition for the CVE list and release sources.

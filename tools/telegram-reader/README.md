@@ -133,7 +133,7 @@ docker volume rm vkposter-reader-offline-verification
 
 ## Фактически проверено 2026-10-04
 
-- Docker build и CLI help/status, uid 1000, Telethon 1.45.0, Pillow 12.3.0.
+- Docker build и CLI help/status, uid 1000, Telethon 1.45.0, Pillow 13.0.0.
 - 23 offline tests прошли с `--network none`.
 - Три отдельных контейнера: seed = 1 message/1 revision; recover = 41/42;
   replay = 41/42. Повторный запуск не добавил дублей.

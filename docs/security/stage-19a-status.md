@@ -4,8 +4,11 @@ Stage19 remains **IN_PROGRESS**. Branch `stage-19-hardening-prod`, baseline
 `8f01fbe31f7b52c8be0bafd9ca8f4e9f668a33b5`. Production19.8 is not executed.
 No production deploy, v1.0.0, history rewrite, old branch deletion or stash change.
 The former MySQL tooling and crypto-isolation blockers have been remediated below.
-Local closure gates passed;19A is ready for CI and independent review, not merge
-or production sign-off.
+Local closure gates passed;PR32 is under CI, not merge or production sign-off.
+Fresh CI surfaced Pillow12.3.0 decoder findings absent from the old local cached DB;
+pinned13.0.0 passes reader/HTTP contracts; fresh CI scan remains enforced without
+suppressions (individual ledger). Local DB refresh failed with mirror EOF and is
+not counted as a successful fresh scan. Main amd64 PHP and OpenBao CI passed.
 
 ## Secret and source gates
 
