@@ -41,8 +41,13 @@ try:
     before=start(name+'-80','mysql:8.0',volumes[0])
     with tempfile.TemporaryDirectory(prefix='stage19-schema-baseline-') as temporary:
         baseline=Path(temporary)
+        # Public Git archive only: Linux runner UID1001 must permit ops UID1000 traversal.
+        # Never apply this to token/key/environment fixture directories.
+        baseline.chmod(0o755)
         archive=run(['git','archive',BASELINE,'database/migrations','config'],cwd=ROOT)
         run(['tar','-xf','-','-C',str(baseline)],input=archive)
+        run(['docker','run','--rm','--network','none','-v',str(baseline)+':/baseline:ro',IMAGE,'php','-r',
+             'if (!is_readable("/baseline/database/migrations") || !is_readable("/baseline/config/billing.php")) { throw new RuntimeException("Public baseline archive is not readable by the non-root ops user"); }'])
         php="require 'vendor/autoload.php';$db=new App\\Kernel\\Database\\Connection($argv[1],3306,'app_test','app','app');(new App\\Kernel\\Database\\Migrator($db,'/baseline/database/migrations'))->migrate();$db->execute('INSERT INTO users(email,name,created_at,updated_at)VALUES(?,?,NOW(6),NOW(6))',['upgrade@example.test','Кириллица 😀']);"
         run(['docker','run','--rm','--network',network,'-v',str(baseline)+':/baseline:ro',IMAGE,'php','-r',php,name+'-80'])
         run(['docker','stop',name+'-80'])

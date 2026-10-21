@@ -170,6 +170,10 @@ def verify(crypto):
             stderr=subprocess.DEVNULL,
         )
         (folder / "key.pem").chmod(0o600)
+        # Caddy runs UID0 without DAC_OVERRIDE: retain0600 and set ownership explicitly.
+        run(["docker", "run", "--rm", "--network", "none", "--user", "0:0",
+             "-v", str(folder) + ":/fixture", "--entrypoint", "sh", "ezposter-caddy:stage19",
+             "-c", "chown 0:0 /fixture/key.pem"])
         caddy = (
             (ROOT / "docker/caddy/Caddyfile")
             .read_text()

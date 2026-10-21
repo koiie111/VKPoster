@@ -121,3 +121,22 @@ Raft+unseal recovery, cold DB cutover/rollback, offsite S3 object restore, SMTP/
 remote uptime, fresh malware signatures and registration→payment→publication on
 production. Dedicated backup key custody and old keyring/capability/hash inventories
 are required. No credentials requested in chat. Stage19 DoD/tag/deploy remain pending.
+
+
+## Linux CI fixture ownership follow-up
+
+The first amd64 build exposed an arm64-only loader glob; both bundle recipes now
+use the loader resolved by `ldd` and execute all three Oracle CLIs during build.
+The following native amd64 PHP CI passed. Fresh CI also passed all image scans
+with Pillow13.0.0, then exposed UID1001 runner→UID1000 ops access to the0700 public
+baseline archive. The archive alone is0755 and has a non-root readability preflight;
+repeat cold engine upgrade PASS. No key/env directory is made public by this change.
+
+Related private TLS fixtures now retain0600 and assign the actual server UID in a
+one-time initializer. Actual Linux file-open regression proves a cap-drop-all root
+process cannot read another UID's0600 key; correct ownership succeeds. Capability
+redaction keeps synthetic values in fixture memory rather than reopening another
+UID's private file. Negative redaction test, actual TLS Transit/Chromium, production
+health/worker scaling/rollback and HTTPS ZAP repeat PASS. Runtime capabilities and
+production file-mode checks are unchanged. CI must execute the remaining stands;
+none is skipped to obtain a green result.

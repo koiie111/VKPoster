@@ -30,13 +30,15 @@ class CryptoFixture:
         self.temporary = tempfile.TemporaryDirectory(prefix="stage19-crypto-")
         self.path = Path(self.temporary.name)
         self.root = None
+        self.capabilities = []
 
     def run(self, args, **kwargs):
         result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
         if result.returncode:
             diagnostic = (result.stderr + result.stdout).decode(errors='replace')[-32768:]
-            for file in self.path.glob('*.token'):
-                diagnostic = diagnostic.replace(file.read_text().strip(), '[redacted]')
+            # Host runner UID may not read capability files owned by container UID1000.
+            for capability in self.capabilities:
+                diagnostic = diagnostic.replace(capability, '[redacted]')
             if self.root:
                 diagnostic = diagnostic.replace(self.root, '[redacted]')
             Path('/tmp/stage19-crypto-command-error.log').write_text(diagnostic)
@@ -47,6 +49,8 @@ class CryptoFixture:
         self.path.chmod(0o755)  # Only synthetic CA/token fixtures, each capability remains 0600.
         self.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2", "-keyout", str(self.path / "tls.key"), "-out", str(self.path / "ca.pem"), "-subj", "/CN=" + self.name, "-addext", "subjectAltName=DNS:" + self.name + ",DNS:localhost,IP:127.0.0.1"])
         (self.path / "tls.key").chmod(0o600)
+        # Server drops all capabilities; keep0600 but assign its actual UID, not runner UID1001.
+        self.run(["docker", "run", "--rm", "--network", "none", "--user", "0:0", "-v", str(self.path) + ":/fixture", "--entrypoint", "sh", IMAGE, "-c", "chown 0:0 /fixture/tls.key"])
         (self.path / "config.hcl").write_text('storage "raft" { path = "/tmp/bao-data" node_id = "fixture" }\ncluster_addr = "https://' + self.name + ':8201"\nlistener "tcp" { address = "0.0.0.0:8200" tls_cert_file = "/fixture/ca.pem" tls_key_file = "/fixture/tls.key" }\napi_addr = "https://' + self.name + ':8200"\n')
         self.run(["docker", "run", "-d", "--name", self.name, "--label", "stage19.fixture=crypto", "--network", self.network, "--user", "0:0", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--read-only", "--tmpfs", "/tmp:size=64m,mode=1777", "-p", "127.0.0.1::8200", "-v", str(self.path) + ":/fixture:ro", "--entrypoint", "bao", IMAGE, "server", "-config=/fixture/config.hcl"])
         port = json.loads(self.run(["docker", "inspect", self.name, "--format", "{{json .NetworkSettings.Ports}}"]).stdout)["8200/tcp"][0]["HostPort"]
@@ -96,6 +100,7 @@ class CryptoFixture:
     def token(self, name, policy):
         self.api("PUT", "sys/policies/acl/fixture-" + name, {"policy": policy})
         value = self.api("POST", "auth/token/create", {"policies": ["fixture-" + name], "no_default_policy": True, "ttl": "1h"})["auth"]["client_token"]
+        self.capabilities.append(value)
         file = self.path / (name + ".token")
         file.write_text(value)
         file.chmod(0o600)
@@ -107,4 +112,5 @@ class CryptoFixture:
             subprocess.run(["docker", "rm", "-f", self.name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         finally:
             self.root = None
+            self.capabilities.clear()
             self.temporary.cleanup()
