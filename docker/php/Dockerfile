@@ -23,9 +23,11 @@ RUN set -eux; mkdir -p /opt/mysql/bin /opt/mysql/lib; \
       cp /usr/bin/$binary /opt/mysql/bin/; \
       ldd /usr/bin/$binary | awk '/=> \// {print $3} /^[[:space:]]*\// {print $1}' | while read lib; do cp -L "$lib" /opt/mysql/lib/; done; \
     done; \
-    cp -L /lib/ld-linux* /opt/mysql/lib/; \
     printf '%s\n' '#!/bin/sh' 'exec /opt/mysql/lib/ld-linux*.so.* --library-path /opt/mysql/lib /opt/mysql/bin/"$(basename "$0")" "$@"' > /opt/mysql/client; \
-    chmod 0755 /opt/mysql/client
+    chmod 0755 /opt/mysql/client; \
+    for binary in mysql mysqldump mysqlbinlog; do \
+      /opt/mysql/lib/ld-linux*.so.* --library-path /opt/mysql/lib /opt/mysql/bin/$binary --version; \
+    done
 
 FROM php:8.3-fpm-trixie@sha256:ed67b5fcd7600614dd651621a04214fbe16d373262cb31eb50bc224c18cf0e88 AS base
 

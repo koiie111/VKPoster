@@ -8,7 +8,7 @@
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
 - **Текущий этап:** 19 (Hardening и production), часть A
 - **Статус:** IN_PROGRESS
-- **Ветка / PR:** `stage-19-hardening-prod` (PR не создан)
+- **Ветка / PR:** `stage-19-hardening-prod` / [#32](https://github.com/koiie111/VKPoster/pull/32)
 - **Последнее обновление:** 2026-10-21 (19A: MySQL8.4.11 / Oracle8.4 backup/PITR validated; purpose-isolated OpenBao crypto implemented; 19A local gates PASS, готово к CI/независимому review; production sign-off не выполнен — docs/security/stage-19a-status.md. Stage19 IN_PROGRESS, production owner verification19.8 не выполнена)
 
 ## Этапы
