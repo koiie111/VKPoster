@@ -153,3 +153,19 @@ EACCES, correct-owner success, and denial to app UID1000; it does not rely on Do
 Desktop bind-mount permission emulation. Actual Chromium/Transit repeat PASS. CI
 fixture diagnostics are bounded only after root/capability redaction, allowing
 further failures to be diagnosed without publishing credentials.
+
+
+### ZAP report portability
+
+A named-Linux-volume probe with the actual ZAP image reproduced UID1000 failing to
+write a runner-UID1001 directory0755. The scanner now uses a unique private Linux
+volume0700/UID1000; only zap.json and zap.html are exported to a new private host run
+directory. No caller-directory chown, world-writable mount or root scanner is used.
+Actual isolated HTTPS ZAP remains0 FAIL/0 WARN/3 INFO/58 PASS and reports persist;
+volume cleanup checks its fixture label. Original/previous reports are retained.
+
+
+A later native CI run stopped before contracts on an upstream PECL HTTP500 while
+downloading dev-only pcov1.0.12. The existing installation now has three bounded
+attempts/backoff and still fails if none succeeds; no extension/test is disabled.
+This download failure is not counted as a crypto/PDF test failure or a pass.

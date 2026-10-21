@@ -69,7 +69,13 @@ COPY --from=client-build /opt/mysql /opt/mysql
 RUN for binary in mysql mysqldump mysqlbinlog; do ln -s /opt/mysql/client /opt/mysql/$binary; done \
     && mkdir -p /etc/pki/tls/certs \
     && ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
-RUN pecl install pcov && docker-php-ext-enable pcov
+# PECL occasionally returns500 for the dev-only coverage archive; never skip the extension.
+RUN set -eu; installed=0; \
+    for attempt in 1 2 3; do \
+      if pecl install pcov; then installed=1; break; fi; \
+      if [ "$attempt" -lt 3 ]; then sleep "$((attempt * 2))"; fi; \
+    done; \
+    test "$installed" = 1; docker-php-ext-enable pcov
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/50-app.ini
 COPY docker/php/php-dev.ini /usr/local/etc/php/conf.d/60-app-dev.ini
