@@ -36,10 +36,20 @@ docker run -d --name "$mysql" --label stage19.fixture=mysql84-patched --network 
 # This intentionally synthetic password matches the production-config fixture, never a real Redis secret.
 docker run -d --name "$redis" --label stage19.fixture=mysql84-patched --network "$prefix" --memory 128m --tmpfs /data \
     redis:7-alpine redis-server --requirepass "$(python3 -c 'print("r"*48)')" >/dev/null
+mysql_ready=false
 for attempt in $(seq 1 120); do
-    if docker exec "$mysql" mysql -uroot -proot -N -e 'SELECT 1' >/dev/null 2>&1; then break; fi
+    # The temporary entrypoint server answers socket queries but has networking disabled.
+    # Wait for the final daemon without replacing the production Unix-socket transport policy.
+    state=$(docker exec "$mysql" mysql -uroot -proot -N -e 'SELECT @@skip_networking' 2>/dev/null || true)
+    if [ "$state" = 0 ]; then
+        mysql_ready=true
+        break
+    fi
     sleep 1
 done
-docker exec "$mysql" mysql -uroot -proot -N -e 'SELECT 1' >/dev/null 2>&1
+if [ "$mysql_ready" != true ]; then
+    echo 'Isolated final MySQL daemon did not become ready' >&2
+    exit 1
+fi
 PITR_MYSQL_FIXTURE=$mysql PITR_TEST_NETWORK=$prefix PITR_REDIS_HOST=$redis \
     python3 scripts/security/mysql84-pitr.py

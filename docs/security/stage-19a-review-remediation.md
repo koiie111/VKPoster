@@ -75,3 +75,10 @@ TCP connection (`VERIFY_IDENTITY`, the fixture CA, and the restricted fixture us
 before either driver assertion. Local real PDO/Oracle positive and hostname-mismatch
 checks and Ruff passed again. Production TLS enforcement remains unchanged; the
 fixture reports only bounded exception class/code on failure, not token/error bodies.
+
+A subsequent runner stopped before TLS at the PITR shell fixture's silent second
+socket probe. Its bootstrap guard now requires `@@skip_networking=0`, distinguishing
+the final daemon from the entrypoint's temporary server while retaining the approved
+Unix-socket operations path. A fresh isolated MySQL/Redis/OpenBao coordinate-backup,
+restricted restore and authenticated binlog replay passed locally; strict Semgrep
+also passed with no JSON errors. No production image, TLS mode or assertion was relaxed.
