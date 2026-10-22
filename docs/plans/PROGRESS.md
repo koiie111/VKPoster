@@ -9,7 +9,7 @@
 - **Текущий этап:** 19 (Hardening и production), часть A
 - **Статус:** IN_PROGRESS
 - **Ветка / PR:** `stage-19-hardening-prod` / [#32](https://github.com/koiie111/VKPoster/pull/32)
-- **Последнее обновление:** 2026-10-22 (19A review remediation: 8 findings implemented; PHP2574/44099, TLS/runtime/PITR/ZAP passed; fresh Trivy10 images0 Critical/High; local gates passed, mandatory CI pending. Details: docs/security/stage-19a-review-remediation.md. Stage19 IN_PROGRESS; owner19.8 not executed.)
+- **Последнее обновление:** 2026-10-22 (19A review remediation: 8 findings implemented; PHP2575/44103, TLS/runtime/PITR/ZAP passed; fresh Trivy10 images0 Critical/High; local gates passed, mandatory CI pending. Details: docs/security/stage-19a-review-remediation.md. Stage19 IN_PROGRESS; owner19.8 not executed.)
 
 ## Этапы
 

@@ -27,12 +27,13 @@ final class Signer
         if (!$this->crypto->isIsolated()) {
             return hash_equals($this->sign($data), $signature);
         }
+        // Legacy MACs can also start with t1_; native Transit tokens are longer than43 characters.
+        if (preg_match('/^[A-Za-z0-9_-]{43}$/D', $signature) === 1) {
+            return $this->crypto->verifyLegacySignature($data, $signature);
+        }
         if (preg_match('/^t1_([A-Za-z0-9_-]{16,256})$/D', $signature, $parts) === 1) {
             $native = base64_decode(strtr($parts[1], '-_', '+/'), true);
             return is_string($native) && $this->crypto->verifySignature('signer', $data, $native);
-        }
-        if (preg_match('/^[A-Za-z0-9_-]{43}$/D', $signature) === 1) {
-            return $this->crypto->verifyLegacySignature($data, $signature);
         }
         return false;
     }

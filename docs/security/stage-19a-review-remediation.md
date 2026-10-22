@@ -27,9 +27,9 @@ See ADR0025 for the envelope/import design and operator custody steps.
 
 ## Validation ledger
 
-- Targeted PHP:65 tests /1006 assertions, including migration rollback protection;
+- Targeted PHP:66 tests /1010 assertions, including migration rollback protection;
  100 concurrent actual in-process HTTP readiness requests also passed.
-- Full PHP:2574 tests /44099 assertions; one opt-in real Transit test executed separately.
+- Full PHP:2575 tests /44103 assertions; one opt-in real Transit test executed separately.
 - Real TLS OpenBao:1 test /43 assertions plus actual Chromium PDF verified.
 - Reader:67 cases; two actual PHP HTTP contracts executed separately (commit/ACK,
   duplicate/edit/restart, images across Sources). No live Telegram/provider requests.
@@ -89,3 +89,10 @@ and checks the preserved8.0 restart likewise. Fresh cold-copy8.0.46→8.4.11 pas
 with all45→48 migration files, existing Cyrillic/emoji, UTC/utf8mb4 and the intact
 original8.0 rollback volume. The report counts migration files rather than confusing
 that count with the highest numbered filename. Strict Semgrep remained clean.
+
+
+A synthetic B1 regression also covers a legacy43-character MAC whose bytes happen
+to start with `t1_`. Length-based legacy verification now precedes the versioned
+transport decoder; genuine Transit tokens are longer. Old valid capabilities are
+not accidentally decoded as the new format. Tampering remains rejected. Updated
+full PHP2575/44103 and targeted66/1010 passed; no token value is hardcoded in the test.
