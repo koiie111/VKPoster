@@ -6,6 +6,8 @@ namespace App\Kernel\Security;
 
 use App\Kernel\Exception\CryptoException;
 use App\Kernel\HttpClient\HttpClientInterface;
+use App\Support\Clock;
+use App\Support\SystemClock;
 
 /** Non-exportable derived AES-GCM/HMAC operations through the existing HTTP boundary; no retry/fallback. */
 final class VaultTransit implements IsolatedCrypto
@@ -21,6 +23,9 @@ final class VaultTransit implements IsolatedCrypto
         private readonly string $tokenFile,
         private readonly string $caFile = '',
         private readonly string $legacyKeyName = '',
+        private readonly string $legacySignerKey = '',
+        private readonly int $legacySignerUntil = 0,
+        private readonly Clock $clock = new SystemClock(),
     ) {
         self::validateConfiguration($endpoint, $keyName, $tokenFile, $caFile);
     }
@@ -109,9 +114,28 @@ final class VaultTransit implements IsolatedCrypto
         if (preg_match('/^vault:v[1-9][0-9]*:(?:[a-f0-9]{64}|[A-Za-z0-9+\/]{43}=)$/D', $token) !== 1) {
             return false;
         }
-        $this->version($purpose);
+        if ((int) substr(explode(':', $token, 3)[1], 1) > $this->version($purpose)) {
+            return false;
+        }
         $row = $this->call('POST', 'verify/' . $this->key($purpose) . '/sha2-256', [
             'input' => base64_encode($data), 'context' => base64_encode('vkposter:' . $purpose), 'hmac' => $token,
+        ]);
+        return ($row['valid'] ?? false) === true;
+    }
+
+    /** Legacy HKDF signing key must be imported offline as a non-exportable HMAC key; verify-only ACL. */
+    public function verifyLegacyMac(string $data, string $signature): bool
+    {
+        if ($this->legacySignerUntil < $this->clock->now()->getTimestamp() || preg_match('/^[a-zA-Z0-9_-]{1,64}$/D', $this->legacySignerKey) !== 1
+            || preg_match('/^[A-Za-z0-9_-]{43}$/D', $signature) !== 1) {
+            return false;
+        }
+        $raw = base64_decode(strtr($signature, '-_', '+/'), true);
+        if (!is_string($raw) || strlen($raw) !== 32) {
+            return false;
+        }
+        $row = $this->call('POST', 'verify/' . $this->legacySignerKey . '/sha2-256', [
+            'input' => base64_encode($data), 'hmac' => 'vault:v1:' . base64_encode($raw),
         ]);
         return ($row['valid'] ?? false) === true;
     }
@@ -134,9 +158,9 @@ final class VaultTransit implements IsolatedCrypto
         return $value;
     }
 
-    public function version(string $purpose): int
+    public function version(string $purpose, bool $refresh = false): int
     {
-        if (!isset($this->versions[$purpose])) {
+        if ($refresh || !isset($this->versions[$purpose])) {
             $data = $this->call('GET', 'keys/' . $this->key($purpose));
             if (($data['type'] ?? '') !== 'aes256-gcm96' || ($data['derived'] ?? false) !== true
                 || ($data['exportable'] ?? true) !== false || ($data['allow_plaintext_backup'] ?? true) !== false

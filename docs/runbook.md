@@ -181,3 +181,25 @@ verify restore/replay on a separate target before traffic cutover (ADR0024).
 RPO≤1hour requires enabled rotation, successful hourly archive/offsite delivery and
 monitoring. With binlogs disabled, only the last verified daily snapshot is recoverable.
 Record actual RTO from a production-sized isolated drill in19.8.
+
+
+## Review remediation recovery procedures (Stage19A)
+
+- OAuth: `oauth_refresh_attempts.response_saved` means encrypted credentials are durable;
+  restore Transit and retry the normal credential consumer. It recovers without contacting
+  the provider. `recovery_required` means an unsaved/uncertain one-shot response: reconnect
+  explicitly; never clear the fence to replay the old refresh token. Do not dump encrypted
+  envelopes/credential rows into logs. Migration47 rollback refuses unresolved recovery.
+- Backup: only verified/fsynced atomic renamed files are final. Target locks serialize
+  writers and are released by the OS on crash. Next run removes only regular stale partials
+  for its locked target. Legacy truncated final binlogs are quarantined and rebuilt from
+  the still-available immutable closed source; other corruption/auth failure stops loudly.
+  Preserve quarantine evidence and source logs for investigation. Never consider a partial
+  an offsite success. Archive-directory lock prevents overlapping binlog runs.
+- Egress: connect timeout/TLS-connect failure stays safe pre-dispatch and retryable across
+  direct/HTTP/SOCKS/tunnel; post-dispatch/read timeout remains uncertain. Error chains do
+  not retain credential-bearing requests or raw proxy diagnostics.
+- App rollback: follow deploy.md; never invoke dependency reconciliation or DB downgrade.
+  Verify all pulled digest references against the promotion manifest before migration.
+- Backlog (not implemented in this pass): configurable readiness HTTP_PORT in host runner;
+  binlog S3 delivery manifest/retention to avoid repeated versioned uploads.

@@ -120,7 +120,10 @@ return static function (Container $c, string $base): void {
             $env->string('VAULT_TRANSIT_KEY', 'vkposter'),
             $env->required('VAULT_TOKEN_FILE'),
             $env->string('VAULT_CA_FILE'),
-            $env->string('VAULT_LEGACY_TRANSIT_KEY')
+            $env->string('VAULT_LEGACY_TRANSIT_KEY'),
+            $env->string('VAULT_LEGACY_SIGNER_KEY'),
+            $env->int('VAULT_LEGACY_SIGNER_UNTIL'),
+            $c->get(Clock::class)
         );
     });
     $c->factory(Crypto::class, static function (Container $c): Crypto {
@@ -429,6 +432,17 @@ return static function (Container $c, string $base): void {
         'replicate' => $c->get(\App\Integrations\Images\ReplicateImageEnhancementProvider::class), 'disabled' => new \App\Integrations\Images\DisabledImageEnhancementProvider(), default => new \App\Integrations\Images\FakeImageEnhancementProvider(!$c->get(Config::class)->isProduction())
     });
 
+    $c->factory(\App\Kernel\ReadinessState::class, static function (Container $c) use ($base): \App\Kernel\ReadinessState {
+        $config = $c->get(Config::class);
+        $expected = count(\App\Support\Fs::glob($base . '/database/migrations/*.php'));
+        $identity = hash('sha256', json_encode([[$config->string('database.host'), $config->string('database.database')], $config->env()->string('VAULT_TRANSIT_URL'), $config->env()->string('VAULT_TRANSIT_KEY'), $config->env()->string('CLAMD_ENDPOINT'), $expected], JSON_THROW_ON_ERROR));
+        return new \App\Kernel\ReadinessState(
+            static fn (): \Redis => $c->get(\Redis::class),
+            $c->get(Clock::class),
+            static fn (): array => $c->get(HealthCheck::class)->ready($expected),
+            $identity
+        );
+    });
     $c->factory(HealthCheck::class, static fn (Container $c): HealthCheck => new HealthCheck($c->get(Config::class)->env()->all(), $c->get(\App\Kernel\HttpClient\EgressHealth::class), $c->get(Config::class)->env()->string('CRYPTO_BACKEND') === 'vault' ? $c->get(\App\Kernel\Security\IsolatedCrypto::class) : null));
 
     $c->factory(Schedule::class, static function (Container $c) use ($base): Schedule {

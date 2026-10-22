@@ -49,7 +49,7 @@ final class HealthCheck
             try {
                 if ($this->crypto !== null) {
                     foreach (['application', 'webhook', 'signer', 'pdf', 'password', 'clicks'] as $purpose) {
-                        $this->crypto->version($purpose);
+                        $this->crypto->version($purpose, true);
                     }
                     $result['crypto'] = 'ok';
                 }

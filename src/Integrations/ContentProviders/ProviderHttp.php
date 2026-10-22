@@ -59,6 +59,9 @@ final class ProviderHttp
                 if ($e instanceof \GuzzleHttp\Exception\ConnectTimeoutException) {
                     throw new ProviderException('pre_dispatch_timeout', true);
                 }
+                if ($e instanceof \GuzzleHttp\Exception\ConnectException) {
+                    throw new ProviderException('pre_dispatch_connection', true);
+                }
                 if ($method === 'GET' && $attempt < 2) {
                     ($this->sleep)(250000 * (2 ** $attempt));
                     continue;

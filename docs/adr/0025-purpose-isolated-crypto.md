@@ -108,10 +108,52 @@ on the actual VDS. A transient fixture is not evidence of production HA or an HS
 
 ### Existing signed capabilities at first Transit cutover
 
-Old local Sodium-signed links/cursors are not silently verified with the new remote
-key: importing a raw signing master into the normal app would defeat isolation.
-Inventory outstanding guest/media capabilities, let their bounded TTL expire or
-reissue them during the controlled cutover. Preserve data ciphertext with the
-explicit offline keyring migration above. Future Transit rotations retain native
-key-version verification; they do not require reissuing every link. This first-cutover
-step belongs in the owner19.8 rollout/rollback rehearsal.
+New signatures use `t1_` plus base64url of the native versioned Transit MAC.
+The version remains inside the authenticated token; guest routes accept this URL-safe
+format and the legacy 43-character format. Logs mask both.
+
+Keep existing bounded-TTL capabilities valid during first cutover by importing **only
+the old HKDF-SHA256 signer subkey**, not the application master, into a separate
+non-exportable Transit `hmac` key. Use an isolated owner-controlled migration process:
+read the old private keyring, derive `HKDF(master, info="signer", length=32)`, place
+its standard-base64 value in a private0600 tmpfs file; run the official
+`bao transit import transit/keys/<legacy-links> @<private-file> type=hmac exportable=false allow_plaintext_backup=false`
+with an operator capability and verified TLS; remove the temporary file. Never pass
+key material as argv/env, never mount it or the operator capability into normal PHP.
+Import is one-time and fails if the key already exists. Verify a synthetic/owner
+capability before rollout, without logging its URL/signature.
+
+The application ACL receives only `update` on
+`transit/verify/<legacy-links>/sha2-256`; no `hmac`, export, import or rotation rights
+for this historical key. Set `VAULT_LEGACY_SIGNER_KEY` to its name and
+`VAULT_LEGACY_SIGNER_UNTIL` to the UTC epoch of the last outstanding capability expiry.
+The default0 disables compatibility. Keep this import unchanged through the TTL;
+after expiry remove the verify ACL/config. New links always use the new purpose key.
+This also preserves old media/unsubscribe URLs that use the shared Signer; encrypted
+pagination cursors follow the explicit ciphertext/keyring migration policy above.
+
+Reference: https://openbao.org/docs/commands/transit/import/ (OpenBao2.7 supports
+standard-base64 symmetric HMAC import via a private file and BYOK wrapping).
+The disposable real TLS fixture proves legacy verification and denies legacy MAC
+generation to PHP. Owner19.8 must perform the actual private-key custody/import.
+
+### One-shot OAuth refresh recovery
+
+Before provider dispatch, wrap a random per-attempt secretbox DEK with the application
+Transit purpose and persist a unique active credential fence. After provider success,
+locally encrypt and durably save the response with this ephemeral key **before any
+further Transit operation**. Only the wrapped DEK and encrypted response enter SQL;
+raw master/HMAC/pepper keys still never enter PHP. The ephemeral DEK exists only in
+process memory and is zeroed. Final token encryption can fail safely: retry unwraps
+the saved response and atomically replaces the token pair without another provider call.
+Credential fingerprints bind plaintext token identity, not random wrapping bytes, so
+`crypto:rotate` cannot permit an old one-shot refresh to be resent. Rotation includes
+`oauth_refresh_attempts.recovery_key_enc`.
+
+Distributed limitation, explicitly accepted by the owner: if the process dies after
+dispatch/provider success but before the first durable encrypted receipt, the provider
+cannot replay an idempotent refresh. Mark `recovery_required`, mark channels as requiring
+reconnection, and never automatically reuse the old refresh token. Saved responses
+recover automatically; an unsaved response requires reconnect. No plaintext fallback.
+Migration47 refuses rollback while unresolved attempts exist. App image rollback is
+separate from schema rollback and must retain this forward-compatible recovery state.

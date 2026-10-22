@@ -100,4 +100,15 @@ final class SecretRedactorTest extends TestCase
             self::assertStringContainsString('state=visible', (string) $data['uri']);
         }
     }
+    public function testLegacyAndVersionedGuestCapabilitiesAreMaskedInPathsAndMessages(): void
+    {
+        $redactor = new SecretRedactor();
+        foreach ([str_repeat('x', 43), 't1_' . str_repeat('A', 90), 'vault:v2:' . str_repeat('a', 64)] as $signature) {
+            $url = '/g/' . str_repeat('a', 64) . '.' . $signature . '/analytics';
+            $data = $redactor->redact(['uri' => $url]);
+            self::assertStringStartsWith('/g/[redacted]', $data['uri']);
+            self::assertStringNotContainsString($signature, $data['uri']);
+        }
+    }
+
 }

@@ -49,7 +49,8 @@ separate private runtime state; production reader provisioning is not implied he
 
 Provision `/opt/ezposter` with `compose.prod.yaml`, `docker/mysql/my.cnf`,
 `docker/mysql/production.cnf`, `scripts/deploy-release.sh` and the directories needed
-by these reviewed relative mounts. Release CI copies these files over pinned SSH.
+by these reviewed relative mounts. The owner provisions infrastructure files; application
+release CI copies only Compose, its app runner and the verified image manifest over pinned SSH.
 Provision a least-privilege GHCR pull login on the server independently of app env.
 No Docker socket is mounted in application containers. Protect GitHub `production`
 environment, require approval and set deploy host/user/key/known-hosts secrets there.
@@ -73,8 +74,8 @@ No public test publication or real payment is part of automated 19A validation.
 
 ## Availability and rollback
 
-`/healthz` is liveness only, independent of DB/Redis/session. `/readyz` checks database,
-Redis and migration count and returns 503 on failure. Configure external uptime on
+`/healthz` is liveness only, independent of DB/Redis/session. `/readyz` reads bounded-age
+scheduler health state and returns503 on failed, stale or missing state; no per-request remote probes. Configure external uptime on
 HTTPS `/readyz`; queue checks also use `ops:status` and queue-specific heartbeats.
 Exactly one scheduler process is intended; MySQL advisory lock also rejects overlaps.
 Scale existing `worker` services, not a second publishing implementation.
@@ -189,3 +190,59 @@ Production renderer has only its verify capability and CA, not a shared signing 
 `CRYPTO_BACKEND=vault` is mandatory; an unset backend/token/CA or forbidden raw key
 must be fixed, never bypassed with the dev backend. See runbook10 for migration and
 cross-format rollback constraints.
+
+
+## Stage19A review: immutable application promotion and infrastructure boundary
+
+Release builds each candidate once, scans `repository@sha256:...`, records the digest,
+and runs the isolated runtime/crypto/PITR checks against those exact artifacts. Only
+then does `release-artifacts.py promote` tag unchanged manifests and emit
+`release-images.env`. SBOM/provenance remain attached. There is no rebuild after this
+gate. Existing different version tags, scan/publish mismatch, or pulled/deployed digest
+mismatch fail closed. The separate dev harness is not a published release artifact.
+
+Owner-controlled `/etc/ezposter/infra.env` (regular0600) owns all infrastructure image
+pins/settings (MYSQL_IMAGE and REDIS_IMAGE in the base Compose). Caddy/OpenBao
+remain separately owner-provisioned infra; ClamAV stays explicitly pinned in the
+reviewed Compose. Their upgrade files/profiles are outside app CD. The
+application release manifest contains only APP_IMAGE, WEB_IMAGE, PDF_IMAGE, OPS_IMAGE.
+The infra env is applied last, including during rollback of old app release files that
+may contain obsolete infrastructure settings. Do not upload/replace infra config from
+the app release workflow. Provision its reviewed pins/production.cnf independently.
+
+Application invocation:
+`MIGRATIONS_BACKWARD_COMPATIBLE=true bash scripts/deploy-release.sh VERSION REGISTRY_PREFIX /opt/ezposter/release-images.env`
+requires healthy pre-existing MySQL, Redis and ClamAV. It pulls pinned app artifacts,
+runs forward migration, then starts only app/nginx/worker/scheduler/analytics-worker
+(and optional analytics-pdf) with `--no-deps --no-build`. Failed readiness restores
+only previous application images. **Application rollback is not database rollback.**
+
+A MySQL/infra upgrade is a separate owner-approved19.8 maintenance operation, for
+example `docker compose -f compose.prod.yaml --env-file /etc/ezposter/app.env --env-file /opt/ezposter/.release.env --env-file /etc/ezposter/infra.env up -d --no-deps --no-build mysql`
+only after verified backup, isolated restore, compatibility rehearsal and explicit
+infra pin change. Never downgrade the DB engine on its current data volume. App CD
+never executes this command or targets stateful infra. Check old/new container IDs
+and image digests before/after the owner maintenance window.
+
+`/healthz` remains cheap public liveness. `/readyz` returns only generic cached
+`ok`/`unavailable`; it never probes Transit, clamd or SQL. The existing scheduler
+refreshes dependency health once per minute with a45s Redis single-flight lease,
+15s minimum probe interval and90s freshness bound (Redis TTL120s). Missing, stale,
+or inaccessible state fails closed503. Start/restore the scheduler when readiness
+is stale; repeatedly requesting the endpoint cannot repair or overload dependencies.
+The cached identity includes schema/runtime endpoints; no dependency details appear
+in the public response. Retain the scheduler during rollout and allow its first tick.
+
+Operations TCP transport requires an explicit mounted `OPERATIONS_DB_TLS_CA_FILE`.
+Oracle CLI uses VERIFY_IDENTITY; PDO verifies CA/hostname and checks negotiated TLS
+before any grants query or FLUSH. No insecure production TCP fallback. Unix socket
+backup stays the default. For isolated remote restore mount that target's CA into the
+ops container read-only using a reviewed Compose override. Local/testing can use the
+separate unencrypted fixture policy; never apply it in production.
+
+
+Migration47 cutover also requires a reviewed rollback target: a pre47 image whose
+readiness demands exactly46 migrations cannot become ready on schema47 merely by
+setting the compatibility flag. Keep recovery data/schema forward, and rehearse an
+actually compatible application recovery image before declaring compatibility in19.8.
+The runner never compensates by downgrading MySQL or destroying OAuth recovery state.

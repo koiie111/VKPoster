@@ -40,6 +40,21 @@ final class BinlogBackupTest extends TestCase
             file_put_contents($root . '/source/binlog.000003', "\xfebin" . 'next active');
             self::assertSame(2, $service->backup($root . '/backup', false));
             self::assertCount(2, \App\Support\Fs::glob($root . '/backup/*.ezb'));
+            // Reproduce the old writer's SIGKILL residue. Rebuild only a proven truncated archive.
+            $bytes = (string) file_get_contents($files[0]);
+            file_put_contents($files[0], substr($bytes, 0, -1));
+            self::assertSame(2, $service->backup($root . '/backup', false));
+            self::assertCount(1, \App\Support\Fs::glob($files[0] . '.corrupt-*'));
+            self::assertCount(2, \App\Support\Fs::glob($root . '/backup/*.ezb'));
+            $bytes = (string) file_get_contents($files[0]);
+            $bytes[100] = chr(ord($bytes[100]) ^ 1);
+            file_put_contents($files[0], $bytes);
+            try {
+                $service->backup($root . '/backup', false);
+                self::fail('Authenticated corruption must remain visible.');
+            } catch (\RuntimeException $error) {
+                self::assertSame('Backup authentication failed.', $error->getMessage());
+            }
             unlink($output);
             rename($files[0], $files[0] . '.moved.ezb');
             $this->expectExceptionMessage('Invalid binlog archive');

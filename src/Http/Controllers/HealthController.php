@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Kernel\HealthCheck;
+use App\Kernel\ReadinessState;
 use App\Kernel\Http\Response;
 
 /**
@@ -12,7 +12,7 @@ use App\Kernel\Http\Response;
  */
 final class HealthController
 {
-    public function __construct(private readonly HealthCheck $health)
+    public function __construct(private readonly ReadinessState $health)
     {
     }
 
@@ -23,8 +23,7 @@ final class HealthController
 
     public function ready(): Response
     {
-        $result = $this->health->ready(count(\App\Support\Fs::glob(dirname(__DIR__, 3) . '/database/migrations/*.php')));
-
-        return Response::json($result, in_array('fail', $result, true) ? 503 : 200);
+        $ready = $this->health->ready();
+        return Response::json(['status' => $ready ? 'ok' : 'unavailable'], $ready ? 200 : 503);
     }
 }

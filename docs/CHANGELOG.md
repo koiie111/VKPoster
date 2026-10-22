@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- Stage19A review remediation: URL-safe versioned/legacy guest signatures, infrastructure-independent
+  application rollback, verified atomic backup publication, consistent direct/proxy transport errors,
+  shared operations TLS policy, scheduler-owned cached readiness, encrypted one-shot OAuth recovery,
+  and build-once digest promotion. Migration47 stores refresh fences/envelopes; production19.8 remains pending.
+
 - Stage 19A preparation (IN_PROGRESS): production runtime/container restrictions,
   authenticated Redis, queue-specific health and singleton scheduler; bounded/redacted
   logs and optional Telegram/GlitchTip alerts; encrypted SQL/binlog archives and isolated

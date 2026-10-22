@@ -86,7 +86,8 @@ final class BackupService
         $socket = $env->string('RESTORE_DB_SOCKET');
         $dsn = $socket !== '' ? sprintf('mysql:unix_socket=%s;dbname=%s', $socket, $target)
             : sprintf('mysql:host=%s;port=%d;dbname=%s', $env->string('RESTORE_DB_HOST', $this->config->string('database.host')), $env->int('RESTORE_DB_PORT', $this->config->int('database.port')), $target);
-        $pdo = new \PDO($dsn, $user, $env->required('RESTORE_DB_PASSWORD'), [\PDO::ATTR_TIMEOUT => 5]);
+        $pdo = new \PDO($dsn, $user, $env->required('RESTORE_DB_PASSWORD'), OperationsDbPolicy::pdoOptions($this->config, $socket));
+        OperationsDbPolicy::assertTransport($pdo, $this->config, $socket);
         $grants = $pdo->query('SHOW GRANTS');
         if ($grants === false) {
             throw new RuntimeException('Cannot verify restore account privileges.');
@@ -188,9 +189,7 @@ final class BackupService
             // Local Unix sockets are a secure transport; do not disable TLS verification on TCP.
             $options .= "host=localhost\nprotocol=SOCKET\nsocket=\"" . addcslashes($socket, "\\\"\n\r") . "\"\n";
         }
-        if ($socket === '' && $this->config->isProduction()) {
-            $options .= "ssl-mode=VERIFY_IDENTITY\n";
-        }
+        $options .= OperationsDbPolicy::cliOptions($this->config, $socket);
         file_put_contents($file, $options);
         try {
             $process = proc_open(

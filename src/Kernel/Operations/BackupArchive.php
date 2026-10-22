@@ -26,7 +26,68 @@ final class BackupArchive
         return $key;
     }
 
+    /** Publish only complete authenticated files. Per-target locks survive crashes without stale ownership. */
     public function transform(string $input, string $output, string $key, bool $decrypt = false): void
+    {
+        if (is_link($output . '.lock')) {
+            throw new RuntimeException('Invalid backup lock.');
+        }
+        $lock = fopen($output . '.lock', 'c');
+        if ($lock === false) {
+            throw new RuntimeException('Backup lock unavailable.');
+        }
+        chmod($output . '.lock', 0600);
+        $partial = $output . '.partial-' . bin2hex(random_bytes(12));
+        try {
+            if (!flock($lock, LOCK_EX) || file_exists($output) || is_link($output)) {
+                throw new RuntimeException('Backup output already exists.');
+            }
+            // Only files in this target namespace, while holding its exclusive lock.
+            foreach (\App\Support\Fs::glob($output . '.partial-*') as $stale) {
+                if (is_file($stale) && !is_link($stale)) {
+                    unlink($stale);
+                }
+            }
+            $this->transformStream($input, $partial, $key, $decrypt);
+            if (!$decrypt) {
+                $this->transformStream($partial, $partial . '.verify', $key, true);
+                if (!hash_equals((string) hash_file('sha256', $input), (string) hash_file('sha256', $partial . '.verify'))) {
+                    throw new RuntimeException('Backup verification failed.');
+                }
+                unlink($partial . '.verify');
+            }
+            $sync = fopen($partial, 'r+b');
+            if ($sync === false) {
+                throw new RuntimeException('Backup sync unavailable.');
+            }
+            try {
+                if (!fflush($sync) || !fsync($sync)) {
+                    throw new RuntimeException('Backup sync failed.');
+                }
+            } finally {
+                fclose($sync);
+            }
+            if (!rename($partial, $output)) {
+                throw new RuntimeException('Backup publication failed.');
+            }
+            // Directory fsync is supported on Linux; platforms without it still retain atomic rename.
+            $directory = fopen(dirname($output), 'r');
+            if ($directory !== false) {
+                @fsync($directory);
+                fclose($directory);
+            }
+        } finally {
+            foreach ([$partial, $partial . '.verify'] as $temporary) {
+                if (is_file($temporary) && !is_link($temporary)) {
+                    unlink($temporary);
+                }
+            }
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    private function transformStream(string $input, string $output, string $key, bool $decrypt = false): void
     {
         if (strlen($key) !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_KEYBYTES || is_link($input) || file_exists($output)) {
             throw new RuntimeException('Invalid backup key/path or existing output.');

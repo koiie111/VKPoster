@@ -145,8 +145,10 @@ final class TestEnv
             file_put_contents($path, bin2hex(random_bytes(32)));
             chmod($path, 0600);
             $file = $path;
-            register_shutdown_function(static function () use ($file): void {
-                if (is_file($file)) {
+            $ownerPid = getmypid();
+            register_shutdown_function(static function () use ($file, $ownerPid): void {
+                // Forked resilience tests inherit shutdown hooks, but do not own the parent capability.
+                if (getmypid() === $ownerPid && is_file($file)) {
                     unlink($file);
                 }
             });

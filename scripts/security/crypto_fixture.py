@@ -1,6 +1,8 @@
 """Disposable real OpenBao/TLS fixture. Synthetic capabilities only; no owner env/session."""
 
 import base64
+import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -80,7 +82,22 @@ class CryptoFixture:
         self.api("POST", "transit/keys/vkposter-legacy", {"type": "aes256-gcm96", "derived": True, "exportable": False, "allow_plaintext_backup": False})
         legacy = self.api("POST", "transit/encrypt/vkposter-legacy", {"plaintext": base64.b64encode(b"synthetic legacy value").decode(), "context": base64.b64encode(b"vkposter:secrets").decode()})
         (self.path / "legacy.cipher").write_text(legacy["data"]["ciphertext"])
-        app = ['path "transit/decrypt/vkposter-legacy" { capabilities = ["update"] }']
+        # Import only a synthetic historical signer subkey via BYOK, never into app PHP.
+        prk = hmac.new(bytes(32), bytes(range(32)), hashlib.sha256).digest()
+        signing = hmac.new(prk, b"signer\x01", hashlib.sha256).digest()
+        imported = self.path / "legacy-signer.key"
+        imported.write_bytes(base64.b64encode(signing))
+        imported.chmod(0o600)
+        try:
+            self.run(["docker", "run", "--rm", "--network", self.network, "--user", "0:0",
+                "-v", str(self.path) + ":/fixture:ro", "-e", "BAO_ADDR=" + self.endpoint,
+                "-e", "BAO_CACERT=/fixture/ca.pem", "-e", "BAO_TOKEN=" + self.root,
+                "--entrypoint", "bao", IMAGE, "transit", "import", "transit/keys/vkposter-legacy-links",
+                "@/fixture/legacy-signer.key", "type=hmac", "exportable=false", "allow_plaintext_backup=false"])
+        finally:
+            imported.unlink()
+        app = ['path "transit/decrypt/vkposter-legacy" { capabilities = ["update"] }',
+               'path "transit/verify/vkposter-legacy-links/sha2-256" { capabilities = ["update"] }']
         for purpose in PURPOSES:
             key = "vkposter-" + purpose
             app.append('path "transit/keys/' + key + '" { capabilities = ["read"] }')

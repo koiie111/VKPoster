@@ -105,6 +105,15 @@ final class RealTransitTest extends TestCase
         self::assertSame('synthetic legacy value', $legacyCrypto->decrypt($v2));
         self::assertSame('synthetic legacy value', $rotated->decrypt($legacyCrypto->rotate($v2)));
         self::assertSame('synthetic legacy value', $rotated->decrypt($legacyCrypto->rotate($v2, 'webhook'), 'webhook'));
+        $legacySigner = new \App\Kernel\Security\Signer(new Crypto('test', ['test' => \App\Tests\Support\TestEnv::KEY]), new \App\Tests\Support\FakeClock());
+        $oldSignature = $legacySigner->sign('guest:synthetic');
+        $compat = new VaultTransit($http, $url, 'vkposter', '/fixture/app.token', '/fixture/ca.pem', '', 'vkposter-legacy-links', PHP_INT_MAX);
+        self::assertTrue($compat->verifyLegacyMac('guest:synthetic', $oldSignature));
+        self::assertFalse($compat->verifyLegacyMac('guest:tampered', $oldSignature));
+        $expired = new VaultTransit($http, $url, 'vkposter', '/fixture/app.token', '/fixture/ca.pem', '', 'vkposter-legacy-links', 1);
+        self::assertFalse($expired->verifyLegacyMac('guest:synthetic', $oldSignature));
+        $denied = $http->request('POST', $url . '/v1/transit/hmac/vkposter-legacy-links/sha2-256', ['headers' => ['X-Vault-Token' => $appToken], 'verify' => '/fixture/ca.pem', 'json' => ['input' => base64_encode('guest:synthetic')]]);
+        self::assertSame(403, $denied->getStatusCode(), 'App cannot generate historical-key signatures.');
         $this->expectException(\App\Kernel\Exception\CryptoException::class);
         $rotated->deriveKey('export');
     }

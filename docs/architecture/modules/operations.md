@@ -7,9 +7,9 @@ existing `/admin/system` remains protected by the staff permissions and rate lim
 `config/schedule.php` opts into deduplicated Telegram alerts only when configured.
 A complete host outage must be detected by an external uptime check in 19.8.
 
-`HealthCheck` distinguishes liveness from DB/Redis/schema readiness. HTTP probes
-skip session/Twig middleware; they expose component states, not credentials or
-exception messages. Redis authenticates when configured; production requires it.
+`HealthCheck` performs dependency probes in the existing scheduler; `ReadinessState`
+caches the generic result with single-flight and a bounded age. HTTP probes skip
+session/Twig middleware and reveal no component names, credentials or errors. Redis authenticates when configured; production requires it.
 Queue heartbeats are per publish/default/analytics; the common worker key remains
 compatible. `ScheduleRunCommand` uses a connection-scoped MySQL advisory lock.
 A second instance refuses to run, and MySQL releases the lock after disconnect.
@@ -32,7 +32,8 @@ only event code/class with bounded HTTP timeouts; notification errors cannot rec
 
 Release builds and deployment scripts are in `.github/workflows/release.yml` and
 `scripts/deploy-release.sh`. They gate main-history tags, run checks, publish GHCR
-images and require owner-enabled protected environment. Failed readiness rolls back
+exact digest artifacts by promotion (no rebuild), and require owner-enabled protected environment.
+App-only manifests and --no-deps prevent application rollback from changing infrastructure. Failed readiness rolls back
 images only when the schema is explicitly compatible; no DB rollback is implied.
 No production tag or actual SSH deployment has been performed in Stage 19A.
 

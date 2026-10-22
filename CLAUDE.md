@@ -71,3 +71,10 @@ container against a disposable DB only (fresh/rollback/replay; optional --baseli
 binlog archival and isolated restore; external keys/S3/backup-account configuration
 are required. Never use the application DB as a restore target.
 `docs/architecture/modules/domain-catalog.md` indexes every Domain directory.
+
+Review remediation: `/readyz` reads Redis cached health; the existing scheduler owns
+`readiness-refresh` (no heavy HTTP probes). `scripts/security/operations-tls-stand.py`
+validates real PDO/Oracle TLS against a disposable server. Release deployment takes
+`VERSION REGISTRY_PREFIX VERIFIED_IMAGES_FILE`; owner-controlled infra.env is separate
+and app rollback always uses --no-deps. See ADR0025 for verify-only legacy signatures
+and migration47 encrypted OAuth recovery; never replay a recovery_required refresh.

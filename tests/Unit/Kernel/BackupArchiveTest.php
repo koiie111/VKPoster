@@ -47,4 +47,66 @@ final class BackupArchiveTest extends TestCase
             rmdir($root);
         }
     }
+    public function testKilledWriterLeavesOnlyPartialAndConcurrentRerunPublishesOneVerifiedArchive(): void
+    {
+        $root = sys_get_temp_dir() . '/backup-crash-' . bin2hex(random_bytes(8));
+        mkdir($root, 0700);
+        $key = random_bytes(32);
+        $source = $root . '/source';
+        $output = $root . '/encrypted';
+        // A sufficiently large input allows deterministic interruption as soon as a partial appears.
+        $file = fopen($source, 'wb');
+        self::assertIsResource($file);
+        for ($i = 0; $i < 128; ++$i) {
+            fwrite($file, str_repeat('synthetic backup bytes', 50000));
+        }
+        fclose($file);
+        try {
+            $pid = pcntl_fork();
+            self::assertNotSame(-1, $pid);
+            if ($pid === 0) {
+                (new BackupArchive())->transform($source, $output, $key);
+                exit(0);
+            }
+            $deadline = microtime(true) + 5;
+            while (\App\Support\Fs::glob($output . '.partial-*') === [] && microtime(true) < $deadline) {
+                usleep(1000);
+            }
+            self::assertNotEmpty(\App\Support\Fs::glob($output . '.partial-*'));
+            posix_kill($pid, SIGKILL);
+            pcntl_waitpid($pid, $status);
+            self::assertTrue(pcntl_wifsignaled($status));
+            self::assertFileDoesNotExist($output);
+            $children = [];
+            for ($i = 0; $i < 2; ++$i) {
+                $pid = pcntl_fork();
+                self::assertNotSame(-1, $pid);
+                if ($pid === 0) {
+                    try {
+                        (new BackupArchive())->transform($source, $output, $key);
+                        exit(0);
+                    } catch (RuntimeException $error) {
+                        exit($error->getMessage() === 'Backup output already exists.' ? 10 : 1);
+                    }
+                }
+                $children[] = $pid;
+            }
+            $exits = [];
+            foreach ($children as $child) {
+                pcntl_waitpid($child, $status);
+                $exits[] = pcntl_wexitstatus($status);
+            }
+            sort($exits);
+            self::assertSame([0, 10], $exits);
+            self::assertSame([], \App\Support\Fs::glob($output . '.partial-*'));
+            (new BackupArchive())->transform($output, $root . '/plain', $key, true);
+            self::assertSame(hash_file('sha256', $source), hash_file('sha256', $root . '/plain'));
+        } finally {
+            foreach (\App\Support\Fs::glob($root . '/*') as $path) {
+                unlink($path);
+            }
+            rmdir($root);
+        }
+    }
+
 }

@@ -10,8 +10,14 @@ use App\Kernel\Exception\CryptoException;
 /** Test-only DI replacement. Never available to production configuration or autoload. */
 final class FakeIsolatedCrypto implements IsolatedCrypto
 {
+    public int $encryptCalls = 0;
+    public ?int $failEncryptionAt = null;
     public function encrypt(string $plaintext, string $purpose = 'application'): string
     {
+        ++$this->encryptCalls;
+        if ($this->encryptCalls === $this->failEncryptionAt) {
+            throw new CryptoException('Synthetic Transit outage.');
+        }
         return 'vault:v1:' . base64_encode($purpose . ':' . $plaintext);
     }
     public function decrypt(string $ciphertext, string $purpose = 'application'): string
@@ -40,6 +46,11 @@ final class FakeIsolatedCrypto implements IsolatedCrypto
         $parts = explode(':', $token, 3);
         return count($parts) === 3 && hash_equals($this->macToken($purpose, $data, (int) substr($parts[1], 1)), $token);
     }
+    public function verifyLegacyMac(string $data, string $signature): bool
+    {
+        $key = hash_hkdf('sha256', (string) base64_decode(TestEnv::KEY, true), 32, 'signer');
+        return hash_equals(rtrim(strtr(base64_encode(hash_hmac('sha256', $data, $key, true)), '+/', '-_'), '='), $signature);
+    }
     public function needsRotation(string $ciphertext, string $purpose = 'application'): bool
     {
         return !str_starts_with($ciphertext, 'vault:v1:');
@@ -48,7 +59,7 @@ final class FakeIsolatedCrypto implements IsolatedCrypto
     {
         return $this->encrypt($this->decrypt($ciphertext, $purpose), $purpose);
     }
-    public function version(string $purpose): int
+    public function version(string $purpose, bool $refresh = false): int
     {
         return 1;
     }

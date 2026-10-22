@@ -80,6 +80,7 @@ jobs:
           docker run --rm --user "$(id -u):$(id -g)" -e COMPOSER_CACHE_DIR=/tmp/composer -v "$PWD:/var/www/html" ezposter-crypto-test:stage19 composer install --no-scripts --no-interaction --prefer-dist
           mkdir -p storage/logs storage/tmp storage/cache/twig
           chmod 0777 storage/logs storage/tmp storage/cache storage/cache/twig
+      - run: python3 scripts/security/operations-tls-stand.py
       - run: python3 scripts/security/crypto-stand.py
       - name: Isolated production runtime and HTTPS DAST
         run: python3 scripts/security/production-stand.py

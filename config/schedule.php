@@ -18,6 +18,7 @@ use App\Kernel\Queue\Schedule;
  * Later stages register their tasks here, e.g. `$schedule->call('publish-due', '* * * * *', ...)`.
  */
 return static function (Schedule $schedule): void {
+    $schedule->call('readiness-refresh', '* * * * *', [\App\Kernel\ReadinessState::class, 'refresh']);
     $schedule->call('application-log-retention', '19 3 * * *', static function (\App\Kernel\Operations\LogRetention $retention): void {
         $retention->prune(dirname(__DIR__) . '/storage/logs');
     });

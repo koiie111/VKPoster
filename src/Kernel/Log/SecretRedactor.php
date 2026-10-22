@@ -55,7 +55,7 @@ final class SecretRedactor implements ProcessorInterface
     }
     private function text(string $value): string
     {
-        $value = preg_replace('~/g/[a-f0-9]{64}\.[A-Za-z0-9_-]{43}~', '/g/' . self::MASK, $value) ?? self::MASK;
+        $value = preg_replace('~/g/[a-f0-9]{64}\.(?:t1_[A-Za-z0-9_-]{16,256}|vault:v[0-9]+:[A-Za-z0-9+\/=]+|[A-Za-z0-9_-]{43})~', '/g/' . self::MASK, $value) ?? self::MASK;
         $value = preg_replace('~(/(?:password/reset|email/verify|email/change|invitations)/)[A-Za-z0-9_-]{43}~', '$1' . self::MASK, $value) ?? self::MASK;
         $value = preg_replace('~([?&](?:code|token|access_token|api_key|signature)=)[^&\s]*~i', '$1' . self::MASK, $value) ?? self::MASK;
         $value = preg_replace('/(Bearer\s+)[A-Za-z0-9._~+\/=-]+/i', '$1' . self::MASK, $value) ?? self::MASK;

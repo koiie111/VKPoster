@@ -4329,6 +4329,78 @@
             "EXTRA": ""
         },
         {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": "auto_increment"
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "credential_id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "active_credential_id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "input_fingerprint",
+            "COLUMN_TYPE": "char(64)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "state",
+            "COLUMN_TYPE": "varchar(32)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "recovery_key_enc",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "response_enc",
+            "COLUMN_TYPE": "mediumtext",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "created_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "updated_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
             "TABLE_NAME": "outgoing_webhook_events",
             "COLUMN_NAME": "id",
             "COLUMN_TYPE": "bigint unsigned",
@@ -12120,6 +12192,34 @@
             "NON_UNIQUE": 0,
             "SEQ_IN_INDEX": 1,
             "COLUMN_NAME": "public_id"
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "INDEX_NAME": "active_credential_id",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "active_credential_id"
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "INDEX_NAME": "oauth_refresh_history",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "credential_id"
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "INDEX_NAME": "oauth_refresh_history",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "id"
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "id"
         },
         {
             "TABLE_NAME": "outgoing_webhook_events",

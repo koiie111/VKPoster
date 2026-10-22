@@ -103,4 +103,28 @@ final class EgressRoutesTest extends TestCase
         $this->expectException(SsrfException::class);
         $transport->request('POST', 'https://api.example/', ['headers' => ['Authorization' => 'Bearer fixture']]);
     }
+    public function testTransportClassificationIsIdenticalForEveryRouteAndContainsNoProxySecrets(): void
+    {
+        foreach (['direct', 'http', 'socks5', 'tunnel'] as $mode) {
+            foreach ([\GuzzleHttp\Exception\ConnectTimeoutException::class => ['pre_dispatch_timeout', true],
+                ConnectException::class => ['pre_dispatch_connection', true],
+                \GuzzleHttp\Exception\NetworkTimeoutException::class => ['transport_failed', false],
+                \GuzzleHttp\Exception\RequestException::class => ['transport_failed', false]] as $type => [$category, $retryable]) {
+                $routes = new EgressRoutes(new Env(['EGRESS_TELEGRAM_MODE' => $mode,
+                    'EGRESS_TELEGRAM_PROXY_URL' => $mode === 'direct' ? '' : ($mode === 'http' ? 'http' : 'socks5h') . '://fixture-user:fixture-password@127.0.0.1:1080']));
+                $handler = new MockHandler([new $type('fixture-password', new Request('POST', 'https://api.telegram.org'))]);
+                $transport = new GuzzleHttpClient(new SsrfGuard(), null, new Client(['handler' => $handler]), $routes);
+                try {
+                    (new \App\Integrations\ContentProviders\ProviderHttp($transport))->json('POST', 'https://api.telegram.org', []);
+                    self::fail('Transport must fail.');
+                } catch (\App\Integrations\ContentProviders\ProviderException $error) {
+                    self::assertSame($category, $error->category, $mode . ':' . $type);
+                    self::assertSame($retryable, $error->retryable);
+                    self::assertNull($error->getPrevious());
+                    self::assertStringNotContainsString('fixture-password', serialize($error));
+                }
+            }
+        }
+    }
+
 }

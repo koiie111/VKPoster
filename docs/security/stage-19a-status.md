@@ -184,3 +184,11 @@ while building its dev-only crypto fixture image. A rerun reproduced the outage.
 Pinned Redis6.3.0, Imagick3.8.1 and pcov1.0.12 now install individually through
 a shared three-attempt/backoff helper, requiring each compiled module before
 enabling it. Exhaustion still fails closed; no test or extension is optional.
+
+
+## Independent review remediation, 2026-10-22
+
+See [eight finding fixes and validation ledger](stage-19a-review-remediation.md).
+The pass preserves Stage19 IN_PROGRESS and owner19.8 boundaries. No merge or deploy.
+The owner accepted fail-closed OAuth recovery_required/reconnect only for an unsaved
+one-shot response; already saved encrypted responses recover automatically.

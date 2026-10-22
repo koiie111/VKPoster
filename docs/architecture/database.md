@@ -18,7 +18,16 @@
 - `webhook_deliveries`: workspace/subscription/event, public ULID, lifecycle pending/processing/completed/failed/skipped, attempt count/next-attempt/completed/enqueued timestamps, fenced lease, safe HTTP status/error enum. UNIQUE(subscription_id,event_id).
 - `webhook_delivery_attempts`: delivery FK, timestamp, HTTP status and safe error enum; no response body.
 
-Workspace deletion cascades API state; token deletion cascades its idempotency records. Terminal events older than configured retention (minimum 35d) cascade deliveries/attempts only when no pending/processing delivery remains. Migration rollback drops only these six tables, in dependency order; existing posts, approvals and publishing data are preserved.
+Workspace deletion cascades API state; token deletion cascades its idempotency records. Terminal events older than configured retention (minimum 35d) cascade deliveries/attempts only when no pending/processing delivery remains. Migration rollback drops only these six tables, in dependency order; existing posts, approvals and publishing data are preserved.### OAuth refresh recovery (migration47)
+
+`oauth_refresh_attempts` stores one active fence per platform credential (nullable unique
+`active_credential_id`), input token fingerprint, lifecycle state, Transit-wrapped random
+per-attempt DEK, encrypted provider response and timestamps. No plaintext credentials.
+`prepared` is safe to retry before dispatch; `dispatched` without receipt becomes
+`recovery_required`; `response_saved` resumes final Transit encryption; `completed` and
+superseded/rejected history are retained. Credential FK cascades only with explicit
+credential removal. Unresolved attempts block migration rollback; do not clear fences
+as a retry workaround. See ADR0025 for owner-accepted unsaved-response limitation.
 
 <!-- generated-schema:start -->
 ## Полный каталог схемы (автоматический)
@@ -86,6 +95,7 @@ Workspace deletion cascades API state; token deletion cascades its idempotency r
 - `migrations`: `id`, `migration`, `batch`
 - `notification_settings`: `user_id`, `type`, `email`, `telegram`
 - `notifications`: `id`, `public_id`, `user_id`, `workspace_id`, `type`, `title`, `body`, `url`, `sent_email`, `sent_telegram`, `read_at`, `created_at`
+- `oauth_refresh_attempts`: `id`, `credential_id`, `active_credential_id`, `input_fingerprint`, `state`, `recovery_key_enc`, `response_enc`, `created_at`, `updated_at`
 - `outgoing_webhook_events`: `id`, `public_id`, `workspace_id`, `event_key`, `type`, `payload_json`, `created_at`, `dispatched_at`
 - `payment_methods`: `id`, `public_id`, `workspace_id`, `provider`, `provider_method_id`, `customer_key`, `title`, `status`, `created_at`
 - `payment_providers`: `code`, `enabled`, `config_enc`, `updated_by`, `updated_at`

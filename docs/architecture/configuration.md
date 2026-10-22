@@ -287,6 +287,7 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `OAUTH_ORDER` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `OPENAI_API_KEY` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
 | `OPENAI_CONTENT_MODEL` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
+| `OPERATIONS_DB_TLS_CA_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationsDbPolicy.php](../../src/Kernel/Operations/OperationsDbPolicy.php) |
 | `OPS_IMAGE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `OPS_MONITOR_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationalMonitor.php](../../src/Kernel/Operations/OperationalMonitor.php) |
 | `OPS_TELEGRAM_BOT_TOKEN` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationalMonitor.php](../../src/Kernel/Operations/OperationalMonitor.php) |
@@ -344,6 +345,8 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `VAULT_APP_TOKEN_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `VAULT_CA_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php), [src/Kernel/Config.php](../../src/Kernel/Config.php) |
 | `VAULT_CA_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `VAULT_LEGACY_SIGNER_KEY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php) |
+| `VAULT_LEGACY_SIGNER_UNTIL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php) |
 | `VAULT_LEGACY_TRANSIT_KEY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php) |
 | `VAULT_PDF_TOKEN_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `VAULT_TOKEN_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php), [src/Kernel/Config.php](../../src/Kernel/Config.php) |

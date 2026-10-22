@@ -18,6 +18,7 @@ final class CryptoRotateCommand implements Command
 {
     /** @var list<array{table: string, column: string, key?: string}> `key` is the unique column rows are walked by (default `id`) */
     private const COLUMNS = [
+        ['table' => 'oauth_refresh_attempts', 'column' => 'recovery_key_enc'],
         ['table' => 'users', 'column' => 'totp_secret_enc'],
         ['table' => 'referral_payouts', 'column' => 'details'],
         ['table' => 'webhook_subscriptions', 'column' => 'secret_enc'],

@@ -11,4 +11,4 @@ WorkingDirectory=/opt/ezposter
 UMask=0077
 NoNewPrivileges=yes
 TimeoutStartSec=30min
-ExecStart=/usr/bin/flock -w 300 /opt/ezposter/.operations.lock /usr/bin/docker compose -f compose.prod.yaml --env-file /etc/ezposter/app.env --env-file /opt/ezposter/.release.env --profile ops run --rm --no-deps backup php bin/console ops:backup binlogs /backup
+ExecStart=/usr/bin/flock -w 300 /opt/ezposter/.operations.lock /usr/bin/docker compose -f compose.prod.yaml --env-file /etc/ezposter/app.env --env-file /opt/ezposter/.release.env --env-file /etc/ezposter/infra.env --profile ops run --rm --no-deps backup php bin/console ops:backup binlogs /backup

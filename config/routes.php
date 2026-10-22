@@ -120,7 +120,7 @@ return static function (Router $router): void {
     $router->get('/readyz', [HealthController::class, 'ready'])->name('ready');
     $router->get('/internal/source-image-jobs', [\App\Http\Controllers\Sources\ImageReaderController::class, 'jobs'])->middleware([RateLimit::class, ['bucket' => 'source-images-list', 'max' => 120, 'seconds' => 60]]);
     // Stage 14 guest capability routes keep normal session CSRF protection; no registration is needed.
-    $guest = '/g/{token:[a-f0-9]{64}\\.[A-Za-z0-9_-]{43}}';
+    $guest = '/g/{token:[a-f0-9]{64}\\.(?:[A-Za-z0-9_-]{43}|t1_[A-Za-z0-9_-]{16,256})}';
     $gc = \App\Http\Controllers\Approvals\GuestController::class;
     $router->get($guest, [$gc, 'show'])->middleware([RateLimit::class, ['bucket' => 'guest-preview', 'max' => 120, 'seconds' => 60]]);
     $router->get($guest . '/analytics', [\App\Http\Controllers\Analytics\PostAnalyticsController::class, 'guest'])->middleware([RateLimit::class, ['bucket' => 'guest-analytics','max' => 30,'seconds' => 60]]);

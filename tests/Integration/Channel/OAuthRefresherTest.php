@@ -131,7 +131,7 @@ final class OAuthRefresherTest extends ChannelTestCase
         self::assertSame('REFRESH-OLD', $this->stored($id)['refresh']);
     }
 
-    public function testVkBeingDownLeavesThePairAloneAndIsTemporary(): void
+    public function testVkResponseFailureRequiresRecoveryWithoutReusingOneShotToken(): void
     {
         [$channel, $id] = $this->vkChannel(60);
         $this->http->expect('POST', self::TOKEN_URL, 503, '<html>down</html>');
@@ -140,8 +140,8 @@ final class OAuthRefresherTest extends ChannelTestCase
             $this->credentials()->forChannel($channel);
             self::fail();
         } catch (PlatformError $e) {
-            self::assertSame(ErrorKind::Temporary, $e->kind);
-            self::assertFalse($e->concernsChannel(), 'an outage must not mark the channel broken');
+            self::assertSame(ErrorKind::Auth, $e->kind);
+            self::assertStringContainsString('Переподключите', $e->forUser());
         }
         self::assertSame('ACCESS-OLD', $this->stored($id)['access']);
     }
@@ -266,4 +266,146 @@ final class OAuthRefresherTest extends ChannelTestCase
             self::assertSame(ErrorKind::Temporary, $e->kind);
         }
     }
+    public function testTransitFailureBeforeDispatchMakesNoProviderRequest(): void
+    {
+        $backend = new \App\Tests\Support\FakeIsolatedCrypto();
+        $this->app->container()->instance(Crypto::class, new Crypto('isolated', [], $backend));
+        [$channel] = $this->vkChannel(60);
+        $backend->failEncryptionAt = $backend->encryptCalls + 1;
+        try {
+            $this->credentials()->forChannel($channel);
+            self::fail('Wrapping the recovery key must succeed before dispatch.');
+        } catch (\App\Kernel\Exception\CryptoException) {
+            self::assertSame([], $this->http->requests);
+            self::assertSame([], $this->db->select('SELECT * FROM oauth_refresh_attempts'));
+        }
+    }
+
+    public function testSavedEncryptedResponseSurvivesTransitFailureAndRestartWithoutSecondCall(): void
+    {
+        $backend = new \App\Tests\Support\FakeIsolatedCrypto();
+        $crypto = new Crypto('isolated', [], $backend);
+        $this->app->container()->instance(Crypto::class, $crypto);
+        [$channel, $id] = $this->vkChannel(60);
+        // The wrapping call succeeds; the first final credential encryption fails after durable receipt.
+        $backend->failEncryptionAt = $backend->encryptCalls + 2;
+        $this->http->expect('POST', self::TOKEN_URL, 200, VkFixtures::raw('oauth_tokens_refreshed'));
+        try {
+            $this->credentials()->forChannel($channel);
+            self::fail('Expected a transient Transit outage after provider success.');
+        } catch (\App\Kernel\Exception\CryptoException) {
+            $attempt = $this->db->select('SELECT * FROM oauth_refresh_attempts')[0];
+            self::assertSame('response_saved', $attempt['state']);
+            self::assertStringNotContainsString('ACCESS-2', json_encode($attempt, JSON_THROW_ON_ERROR));
+            self::assertStringNotContainsString('REFRESH-2', json_encode($attempt, JSON_THROW_ON_ERROR));
+            self::assertSame('REFRESH-OLD', $this->stored($id)['refresh']);
+        }
+        // A fresh service instance models restart. It must consume the saved envelope, not VK's old token.
+        $refresher = new OAuthRefresher(
+            $this->db,
+            $crypto,
+            $this->app->container()->get(VkOAuth::class),
+            $this->app->container()->get(InstagramOAuth::class),
+            TestEnv::redis(),
+            $this->clock,
+            new \Psr\Log\NullLogger()
+        );
+        self::assertSame('ACCESS-2', $refresher->accessToken($channel));
+        self::assertSame('ACCESS-2', $this->credentials()->forChannel($channel)->secret);
+        self::assertCount(1, $this->http->requests);
+        self::assertSame('REFRESH-2', $this->stored($id)['refresh']);
+        self::assertSame('completed', $this->db->select('SELECT state FROM oauth_refresh_attempts')[0]['state']);
+    }
+
+    public function testCrashAfterDispatchWithoutReceiptFailsClosedAndNeverReusesRefreshToken(): void
+    {
+        [$channel, $id] = $this->vkChannel(60);
+        $recovery = new \App\Domain\Channel\OAuthRefreshRecovery($this->db, $this->app->container()->get(Crypto::class), $this->clock);
+        $row = $this->db->select('SELECT * FROM platform_credentials WHERE id=?', [$id])[0];
+        $attempt = $recovery->prepare($row);
+        $recovery->dispatch($attempt['id']);
+        // Simulate death after dispatch/response but before durable receipt. No reuse is safe here.
+        sodium_memzero($attempt['key']);
+        for ($retry = 0; $retry < 2; ++$retry) {
+            try {
+                $this->credentials()->forChannel($channel);
+                self::fail('Uncertain one-shot refresh must require reconnect.');
+            } catch (PlatformError $error) {
+                self::assertSame(ErrorKind::Auth, $error->kind);
+                self::assertStringNotContainsString('REFRESH-OLD', $error->getMessage());
+            }
+        }
+        self::assertSame([], $this->http->requests);
+        self::assertSame('recovery_required', $this->db->select('SELECT state FROM oauth_refresh_attempts')[0]['state']);
+        self::assertSame('error', $this->db->select('SELECT status FROM channels WHERE id=?', [$channel->id])[0]['status']);
+    }
+
+    public function testCrashBeforeDispatchCanRetryAndExplicitProviderRejectionHasNoSavedResponse(): void
+    {
+        [$channel, $id] = $this->vkChannel(60);
+        $recovery = new \App\Domain\Channel\OAuthRefreshRecovery($this->db, $this->app->container()->get(Crypto::class), $this->clock);
+        $attempt = $recovery->prepare($this->db->select('SELECT * FROM platform_credentials WHERE id=?', [$id])[0]);
+        sodium_memzero($attempt['key']);
+        $this->http->expect('POST', self::TOKEN_URL, 400, VkFixtures::raw('oauth_error'));
+        try {
+            $this->credentials()->forChannel($channel);
+            self::fail('Provider refusal must remain a safe explicit refusal.');
+        } catch (PlatformError $error) {
+            self::assertSame(ErrorKind::Auth, $error->kind);
+        }
+        $rows = $this->db->select('SELECT * FROM oauth_refresh_attempts ORDER BY id');
+        self::assertSame(['abandoned_before_dispatch', 'provider_rejected'], array_column($rows, 'state'));
+        self::assertSame([null, null], array_column($rows, 'active_credential_id'));
+        self::assertSame([null, null], array_column($rows, 'response_enc'));
+        self::assertCount(1, $this->http->requests);
+    }
+
+    public function testLateDispatchReceiptCanRecoverButLateUncertainObserverCannotDestroyIt(): void
+    {
+        [$channel, $id] = $this->vkChannel(60);
+        $recovery = new \App\Domain\Channel\OAuthRefreshRecovery($this->db, $this->app->container()->get(Crypto::class), $this->clock);
+        $row = $this->db->select('SELECT * FROM platform_credentials WHERE id=?', [$id])[0];
+        $attempt = $recovery->prepare($row);
+        $recovery->dispatch($attempt['id']);
+        try {
+            $recovery->uncertain($attempt['id'], $id);
+        } catch (PlatformError $error) {
+            self::assertSame(ErrorKind::Auth, $error->kind);
+        }
+        // A still-running dispatch owner may persist its genuine response after its Redis lease expired.
+        $recovery->save($attempt['id'], $attempt['key'], ['access' => 'LATE-ACCESS', 'refresh' => 'LATE-REFRESH', 'expires' => 3600]);
+        sodium_memzero($attempt['key']);
+        foreach (['response_saved', 'completed'] as $state) {
+            if ($state === 'completed') {
+                self::assertSame('LATE-ACCESS', $this->credentials()->forChannel($channel)->secret);
+            }
+            try {
+                $recovery->uncertain($attempt['id'], $id);
+            } catch (PlatformError $error) {
+                self::assertSame(ErrorKind::Temporary, $error->kind);
+            }
+            self::assertSame($state, $this->db->select('SELECT state FROM oauth_refresh_attempts')[0]['state']);
+        }
+        self::assertSame([], $this->http->requests);
+    }
+
+    public function testMigrationRollbackRefusesAnUnresolvedOneShotAttempt(): void
+    {
+        [, $id] = $this->vkChannel(60);
+        $recovery = new \App\Domain\Channel\OAuthRefreshRecovery($this->db, $this->app->container()->get(Crypto::class), $this->clock);
+        $attempt = $recovery->prepare($this->db->select('SELECT * FROM platform_credentials WHERE id=?', [$id])[0]);
+        $recovery->dispatch($attempt['id']);
+        sodium_memzero($attempt['key']);
+        $migration = require dirname(__DIR__, 3) . '/database/migrations/2026_10_21_000047_oauth_refresh_recovery.php';
+        try {
+            $migration->down($this->db);
+            self::fail('Unresolved receipts/fences must prevent destructive schema rollback.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Resolve pending OAuth recovery', $error->getMessage());
+        }
+        self::assertSame('dispatched', $this->db->select('SELECT state FROM oauth_refresh_attempts')[0]['state']);
+        // This synthetic dispatch never reached a provider; leave subsequent migration tests a clean fixture.
+        $this->db->execute('DELETE FROM oauth_refresh_attempts WHERE id=?', [$attempt['id']]);
+    }
+
 }

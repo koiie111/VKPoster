@@ -140,6 +140,12 @@ final class Crypto
             : hash_equals($this->signature($purpose, $data), $signature);
     }
 
+    /** Verify-only compatibility; old signing keys stay inside Transit, never in normal app PHP. */
+    public function verifyLegacySignature(string $data, string $signature): bool
+    {
+        return $this->isolated?->verifyLegacyMac($data, $signature) ?? false;
+    }
+
     public function deriveKey(string $purpose): string
     {
         if ($this->isolated !== null) {

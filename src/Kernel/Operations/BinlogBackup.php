@@ -28,6 +28,25 @@ final class BinlogBackup
         if (!is_dir($directory) || is_link($directory) || (fileperms($directory) & 0077) !== 0) {
             throw new RuntimeException('Binlog backup directory must be private (0700).');
         }
+        $lock = fopen($directory . '/binlog-archive.lock', 'c');
+        if ($lock === false) {
+            throw new RuntimeException('Binlog archive lock unavailable.');
+        }
+        chmod($directory . '/binlog-archive.lock', 0600);
+        try {
+            if (!flock($lock, LOCK_EX | LOCK_NB)) {
+                throw new RuntimeException('Binlog archival already running.');
+            }
+            return $this->archiveLogs($directory, $offsite);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    private function archiveLogs(string $directory, bool $offsite): int
+    {
+        $env = $this->config->env();
         $source = $env->required('BACKUP_BINLOG_DIRECTORY');
         if (!is_dir($source) || is_link($source)) {
             throw new RuntimeException('Binlog source must be a regular read-only directory.');
@@ -43,7 +62,8 @@ final class BinlogBackup
                 $env->int('BACKUP_DB_PORT', $this->config->int('database.port')),
                 $this->config->string('database.database')
             );
-            $connection = new \PDO($dsn, $user, $env->required('BACKUP_DB_PASSWORD'), [\PDO::ATTR_TIMEOUT => 5]);
+            $connection = new \PDO($dsn, $user, $env->required('BACKUP_DB_PASSWORD'), OperationsDbPolicy::pdoOptions($this->config, $env->string('BACKUP_DB_SOCKET')));
+            OperationsDbPolicy::assertTransport($connection, $this->config, $env->string('BACKUP_DB_SOCKET'));
             $rotate = $connection->prepare('FLUSH BINARY LOGS');
             if ($rotate === false || !$rotate->execute()) {
                 throw new RuntimeException('Binlog rotation failed.');
@@ -71,13 +91,25 @@ final class BinlogBackup
             }
             $plain = $directory . '/verify-' . bin2hex(random_bytes(12));
             try {
-                $this->archive->transform($encrypted, $plain, $key, true);
+                try {
+                    $this->archive->transform($encrypted, $plain, $key, true);
+                } catch (RuntimeException $error) {
+                    if ($error->getMessage() !== 'Truncated backup.') {
+                        throw $error; // Authentication failures remain visible; do not conceal wrong keys/corruption.
+                    }
+                    // Legacy pre-atomic SIGKILL residue: preserve evidence, rebuild from the still-available closed log.
+                    rename($encrypted, $encrypted . '.corrupt-' . bin2hex(random_bytes(8)));
+                    $this->archive->transform($file, $encrypted, $key);
+                    $this->archive->transform($encrypted, $plain, $key, true);
+                }
                 if (!hash_equals($hash, (string) hash_file('sha256', $plain)) || !hash_equals($hash, (string) hash_file('sha256', $file))) {
                     throw new RuntimeException('Closed binlog changed or archive verification failed.');
                 }
             } finally {
-                if (is_file($plain)) {
-                    unlink($plain);
+                foreach ([$plain, $plain . '.lock'] as $temporary) {
+                    if (is_file($temporary) && !is_link($temporary)) {
+                        unlink($temporary);
+                    }
                 }
             }
             if ($offsite) {

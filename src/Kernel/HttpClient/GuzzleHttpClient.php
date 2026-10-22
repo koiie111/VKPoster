@@ -59,12 +59,16 @@ final class GuzzleHttpClient implements HttpClientInterface
                 $this->egressHealth?->record($provider, $route['mode'], true);
             } catch (\GuzzleHttp\Exception\GuzzleException $error) {
                 $this->egressHealth?->record($provider, $route['mode'], false);
-                if ($route['mode'] === 'direct') {
-                    throw $error;
-                }
                 $this->logger?->warning('egress.transport_failed', ['provider' => $provider, 'mode' => $route['mode']]);
-                $request = new \GuzzleHttp\Psr7\Request($method, $url);
+                // Exception serialization must not retain URL credentials, tokens or request bodies.
+                $request = new \GuzzleHttp\Psr7\Request($method, 'https://transport.invalid/');
                 // Guzzle 8 separates pre-dispatch ConnectException from post-connect NetworkTimeoutException.
+                if ($error instanceof \GuzzleHttp\Exception\ConnectTimeoutException) {
+                    throw new \GuzzleHttp\Exception\ConnectTimeoutException('Connection timed out before dispatch.', $request);
+                }
+                if ($error instanceof \GuzzleHttp\Exception\NetworkTimeoutException) {
+                    throw new \GuzzleHttp\Exception\NetworkTimeoutException('Response outcome is uncertain.', $request);
+                }
                 if ($error instanceof \GuzzleHttp\Exception\ConnectException) {
                     throw new \GuzzleHttp\Exception\ConnectException('Egress connection unavailable.', $request);
                 }
