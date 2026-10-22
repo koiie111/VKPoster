@@ -5,6 +5,9 @@ declare(strict_types=1);
 use App\Kernel\Env;
 
 return static function (Env $env): array {
+    if (!in_array($env->string('CRYPTO_BACKEND', 'sodium'), ['sodium', 'vault'], true)) {
+        throw new \App\Kernel\Exception\ConfigException('Invalid CRYPTO_BACKEND.');
+    }
     // APP_KEY: current key (base64, 32 bytes). APP_KEYS: older keys kept only for decryption,
     // "id:base64,id:base64". See docs/architecture/security.md for the rotation procedure.
     $old = [];
@@ -15,7 +18,7 @@ return static function (Env $env): array {
 
     return [
         'key_id' => $env->string('APP_KEY_ID', 'k1'),
-        'key' => $env->required('APP_KEY'),
+        'key' => ($env->string('APP_ENV') === 'production' || $env->string('CRYPTO_BACKEND', 'sodium') === 'vault') ? '' : $env->required('APP_KEY'),
         'old_keys' => $old,
         'argon' => [
             'memory_kib' => $env->int('ARGON_MEMORY_KIB', 65536),

@@ -11,7 +11,7 @@ use Psr\Http\Message\ResponseInterface;
 /** Unauthenticated HTTPS media downloads: DNS guard/pinning with redirects rejected, bounded streaming, MIME and magic validation. */
 final class SafeDownloads
 {
-    public function __construct(private readonly HttpClientInterface $http, private readonly SsrfGuard $guard)
+    public function __construct(private readonly HttpClientInterface $http, private readonly SsrfGuard $guard, private readonly ?\App\Kernel\Security\MalwareScanner $scanner = null)
     {
     }
     /** @param list<string> $mimes */
@@ -51,6 +51,7 @@ final class SafeDownloads
             } finally {
                 $response->getBody()->close();
             }
+            $this->scanner?->scanBytes($bytes);
             $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
             if ($bytes === '' || !in_array($mime, $mimes, true)) {
                 throw new ProviderException('invalid_download_content');

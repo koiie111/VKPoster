@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from .auth import AuthInputError, authenticate
+from .egress import connect_with_backoff
 from .integration import Outbox, run_sources
 from .model import channel_username
 from .qr import QRDisplay, authenticate_qr
@@ -48,13 +49,17 @@ async def live(args, state, store):
         if args.command == "login-qr":
             with QRDisplay(args.qr_port) as display:
                 await authenticate_qr(
-                    transport.client, display, allow_password=sys.stdin.isatty()
+                    transport.client,
+                    display,
+                    allow_password=sys.stdin.isatty(),
+                    connect=lambda: connect_with_backoff(transport.client, store),
                 )
         else:
             await authenticate(
                 transport.client,
                 os.environ.get("TELEGRAM_PHONE", ""),
                 interactive=args.command == "login",
+                connect=lambda: connect_with_backoff(transport.client, store),
             )
         me = await transport.call(lambda: transport.client.get_me())
         if me.bot:
@@ -116,7 +121,16 @@ def main():
         description="Изолированный read-only Telegram spike"
     )
     parser.add_argument(
-        "command", choices=("login", "login-qr", "smoke", "run", "status", "sources", "outbox-retry")
+        "command",
+        choices=(
+            "login",
+            "login-qr",
+            "smoke",
+            "run",
+            "status",
+            "sources",
+            "outbox-retry",
+        ),
     )
     parser.add_argument(
         "--qr-port", type=int, default=8765, help="Local QR listener port inside Docker"
@@ -145,12 +159,22 @@ def main():
                         "outbox": Outbox(store).summary(),
                         "channel_id": store.get("channel_id"),
                         "recovery_gap": store.get("recovery_gap", False),
+                        "egress": {
+                            "mode": os.environ.get("EGRESS_TELEGRAM_MODE", "direct")
+                            if os.environ.get("EGRESS_TELEGRAM_MODE", "direct")
+                            in {"direct", "http", "socks5", "tunnel"}
+                            else "invalid",
+                            "state": store.get("egress_state", "unknown"),
+                            "last_success": store.get("egress_last_success"),
+                        },
                     }
                 )
             )
         elif args.command == "outbox-retry":
-            if not args.event_id or len(args.event_id) != 64 or any(
-                c not in "0123456789abcdef" for c in args.event_id
+            if (
+                not args.event_id
+                or len(args.event_id) != 64
+                or any(c not in "0123456789abcdef" for c in args.event_id)
             ):
                 raise ValueError("invalid_event_id")
             print(json.dumps({"requeued": Outbox(store).retry_failed(args.event_id)}))

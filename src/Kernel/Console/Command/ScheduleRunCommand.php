@@ -16,7 +16,7 @@ final class ScheduleRunCommand implements Command
 {
     private bool $stop = false;
 
-    public function __construct(private readonly Schedule $schedule, private readonly Clock $clock, private readonly \App\Support\Heartbeat $heartbeat)
+    public function __construct(private readonly Schedule $schedule, private readonly Clock $clock, private readonly \App\Support\Heartbeat $heartbeat, private readonly \App\Kernel\Database\Connection $db)
     {
     }
 
@@ -31,6 +31,23 @@ final class ScheduleRunCommand implements Command
     }
 
     public function run(array $args, Output $out): int
+    {
+        // Connection-scoped lock is released by MySQL even after an unclean process exit.
+        $locked = (int) ($this->db->select("SELECT GET_LOCK('ezposter:scheduler', 0) AS acquired")[0]['acquired'] ?? 0);
+        if ($locked !== 1) {
+            $out->error('Another scheduler already owns the lease.');
+
+            return 1;
+        }
+        try {
+            return $this->loop($args, $out);
+        } finally {
+            $this->db->select("SELECT RELEASE_LOCK('ezposter:scheduler')");
+        }
+    }
+
+    /** @param list<string> $args */
+    private function loop(array $args, Output $out): int
     {
         if (in_array('--once', $args, true)) {
             $this->schedule->runDue($this->clock->now());

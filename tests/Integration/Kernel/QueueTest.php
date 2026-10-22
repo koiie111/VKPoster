@@ -75,6 +75,41 @@ final class QueueTest extends TestCase
         $this->db->execute('DELETE FROM failed_jobs');
     }
 
+    public function testWorkerHeartbeatsDescribeEachServicedQueue(): void
+    {
+        $redis = TestEnv::redis();
+        $redis->del('heartbeat:worker', 'heartbeat:worker:publish', 'heartbeat:worker:default', 'heartbeat:worker:analytics');
+        $heartbeat = new \App\Support\Heartbeat($redis);
+        $this->queue->dispatch(new QueueTestJob('heartbeat'));
+        $worker = new Worker($this->queue, new Container(), new NullLogger());
+        $command = new \App\Kernel\Console\Command\QueueWorkCommand($worker, $heartbeat);
+        self::assertSame(0, $command->run(['--queue=publish,default', '--max-jobs=1'], new \App\Kernel\Console\Output()));
+        self::assertNotNull($heartbeat->at('worker'));
+        self::assertNotNull($heartbeat->at('worker:publish'));
+        self::assertNotNull($heartbeat->at('worker:default'));
+        self::assertNull($heartbeat->at('worker:analytics'));
+    }
+
+    public function testSchedulerHasOneOwnerAndReleasesItsLock(): void
+    {
+        $holder = TestEnv::connection();
+        $holder->select("SELECT GET_LOCK('ezposter:scheduler', 0)");
+        $command = new \App\Kernel\Console\Command\ScheduleRunCommand(
+            new \App\Kernel\Queue\Schedule(new Container(), new NullLogger()),
+            $this->clock,
+            new \App\Support\Heartbeat(TestEnv::redis()),
+            $this->db
+        );
+        try {
+            self::assertSame(1, $command->run(['--once'], new \App\Kernel\Console\Output()));
+        } finally {
+            $holder->select("SELECT RELEASE_LOCK('ezposter:scheduler')");
+        }
+        self::assertSame(0, $command->run(['--once'], new \App\Kernel\Console\Output()));
+        self::assertSame(1, (int) $holder->select("SELECT GET_LOCK('ezposter:scheduler', 0) AS acquired")[0]['acquired']);
+        $holder->select("SELECT RELEASE_LOCK('ezposter:scheduler')");
+    }
+
     public function testDispatchedJobIsReservedOnceAndCompleted(): void
     {
         $id = $this->queue->dispatch(new QueueTestJob('a'));

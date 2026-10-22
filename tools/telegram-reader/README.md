@@ -133,7 +133,7 @@ docker volume rm vkposter-reader-offline-verification
 
 ## Фактически проверено 2026-10-04
 
-- Docker build и CLI help/status, uid 1000, Telethon 1.45.0, Pillow 12.3.0.
+- Docker build и CLI help/status, uid 1000, Telethon 1.45.0, Pillow 13.0.0.
 - 23 offline tests прошли с `--network none`.
 - Три отдельных контейнера: seed = 1 message/1 revision; recover = 41/42;
   replay = 41/42. Повторный запуск не добавил дублей.
@@ -247,3 +247,22 @@ docker compose -f tools/telegram-reader/compose.yaml up -d reader
 Each successful Sources cycle reports only an authenticated heartbeat to VKPoster. HTTP 422 events are quarantined as failed while retaining payload/ID; outages/5xx/auth failures stay pending with bounded backoff. `status` reports outbox counts and failed event hashes, never post content. With reader stopped, `outbox-retry --event-id EVENT_SHA256` explicitly requeues one repaired failed event; no Telegram login is invoked.
 
 `READER_ACK_RETENTION_DAYS=0` disables cleanup by default. Set >=7 to compact ACKed payloads older than that many days, up to 100 per cycle; identities, pending/failed records, legacy ACKs, media cache, session and recovery state remain intact. Operations guide: [content hardening](../../docs/architecture/modules/content-hardening.md).
+
+### Stage 19A runtime and regional routing
+
+The image now uses the validated native Python 3.13 Alpine runtime (ADR 0021).
+Pinned application dependencies, UID 1000, `/state` and the Telethon session format
+are unchanged. Pip/ensurepip are build tools and are absent from the immutable
+runtime: change the hashed requirements and rebuild instead of installing on startup.
+Synthetic session roundtrip, 67 reader tests and both actual PHP HTTP contracts
+passed; the real owner session was not used during this validation.
+
+`EGRESS_TELEGRAM_MODE=direct|http|socks5|tunnel` selects only Telegram transport;
+`EGRESS_TELEGRAM_PROXY_URL` is a private config value, never a log/status field.
+Authenticated plaintext proxies require a private/tunnel endpoint. HTTPS proxy mode
+is supported by the PHP HTTP publisher, not by this Telethon proxy configuration;
+use a common private HTTP/SOCKS5 tunnel endpoint for both transports. The Core
+internal HTTP API explicitly ignores ambient proxy settings and remains direct.
+A safe keyed route identity travels only in authenticated heartbeat; Core rejects
+an observation for an old proxy configuration. No global server VPN is configured.
+Actual EU exit/connectivity/failure validation remains Stage 19.8.

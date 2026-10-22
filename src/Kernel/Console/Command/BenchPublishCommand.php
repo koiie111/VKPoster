@@ -65,11 +65,17 @@ final class BenchPublishCommand implements Command
 
             return 1;
         }
+        $prepare = in_array('--prepare-only', $args, true);
+        if ($prepare && preg_match('/^app_load_[a-z0-9_]+$/D', $this->config->string('database.database')) !== 1) {
+            $out->error('External worker load checks require an isolated app_load_* database.');
+
+            return 1;
+        }
         $count = 200;
         $spread = 30;
         foreach ($args as $arg) {
             if (str_starts_with($arg, '--count=')) {
-                $count = max(1, min(2000, (int) substr($arg, 8)));
+                $count = max(1, min(10000, (int) substr($arg, 8)));
             } elseif (str_starts_with($arg, '--spread=')) {
                 $spread = max(1, min(600, (int) substr($arg, 9)));
             }
@@ -89,10 +95,20 @@ final class BenchPublishCommand implements Command
         $service = $this->container->get(PostService::class);
 
         $out->line(sprintf('Planning %d posts over %d seconds…', $count, $spread));
-        $start = $clock->now()->modify('+3 seconds');
+        $start = $clock->now()->modify($prepare ? '+3600 seconds' : '+3 seconds');
         for ($i = 0; $i < $count; ++$i) {
             $at = $start->modify(sprintf('+%d seconds', intdiv($i * $spread, $count)));
             $service->schedule($context, null, new PostDraft('Bench post ' . $i, [], new PostOptions(), false, [new VariantInput($channel->publicId)]), $at);
+        }
+
+        if ($prepare) {
+            // Planning time is not publication delay: arm the entire burst after all drafts exist.
+            $due = DbTime::format($clock->now()->modify('+10 seconds'));
+            $db->execute('UPDATE publications SET due_at = ?, run_at = ? WHERE workspace_id = ?', [$due, $due, $context->workspaceId]);
+            $db->execute('UPDATE posts SET scheduled_at = ? WHERE workspace_id = ?', [$due, $context->workspaceId]);
+            $out->line(json_encode(['workspace_id' => $context->workspaceId, 'count' => $count, 'due_at' => $due], JSON_THROW_ON_ERROR));
+
+            return 0;
         }
 
         $scheduler = $this->container->get(PublicationScheduler::class);
@@ -164,9 +180,9 @@ final class BenchPublishCommand implements Command
             return;
         }
         foreach ($db->select('SELECT id FROM workspaces WHERE owner_id = ?', [$user->id]) as $row) {
+            $db->execute("DELETE FROM jobs WHERE JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.class')) = ? AND CAST(JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.data.publication_id')) AS UNSIGNED) IN (SELECT id FROM publications WHERE workspace_id = ?)", [PublishJob::class, (int) $row['id']]);
             $db->execute('DELETE FROM workspaces WHERE id = ?', [(int) $row['id']]);
         }
-        $db->execute('DELETE FROM jobs WHERE queue = ?', [PublishJob::QUEUE]);
         $this->container->get(UserRepository::class)->delete($user->id);
     }
 }

@@ -10,5 +10,6 @@
     {{ f.input('code', 'Код из приложения или резервный код', required = true, autocomplete = 'one-time-code', error = errors('code')|first, attrs = {autofocus: '', inputmode: 'text', autocapitalize: 'none', spellcheck: 'false'}) }}
     {{ f.button('Войти', type = 'submit', block = true) }}
 </form>
+{{ f.hardware_keys() }}
 {% endblock %}
 {% block auth_footer %}<a class="font-medium text-primary-text underline underline-offset-2" href="{{ url('login') }}">Вернуться ко входу</a>{% endblock %}

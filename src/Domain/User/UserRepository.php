@@ -152,6 +152,8 @@ final class UserRepository
 
     public function clearTotp(int $id): void
     {
+        $this->db->execute('UPDATE webauthn_challenges SET consumed_at = ? WHERE user_id = ? AND consumed_at IS NULL', [DbTime::format($this->clock->now()), $id]);
+        $this->db->execute('UPDATE webauthn_credentials SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL', [DbTime::format($this->clock->now()), $id]);
         $this->db->table('users')->where('id', '=', $id)->update([
             'totp_secret_enc' => null,
             'totp_enabled_at' => null,

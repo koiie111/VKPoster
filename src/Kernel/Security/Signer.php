@@ -18,12 +18,24 @@ final class Signer
 
     public function sign(string $data): string
     {
-        return $this->base64Url(hash_hmac('sha256', $data, $this->crypto->deriveKey('signer'), true));
+        return $this->crypto->isIsolated() ? 't1_' . $this->base64Url($this->crypto->signature('signer', $data))
+            : $this->base64Url($this->crypto->mac('signer', $data));
     }
 
     public function verify(string $data, string $signature): bool
     {
-        return hash_equals($this->sign($data), $signature);
+        if (!$this->crypto->isIsolated()) {
+            return hash_equals($this->sign($data), $signature);
+        }
+        // Legacy MACs can also start with t1_; native Transit tokens are longer than43 characters.
+        if (preg_match('/^[A-Za-z0-9_-]{43}$/D', $signature) === 1) {
+            return $this->crypto->verifyLegacySignature($data, $signature);
+        }
+        if (preg_match('/^t1_([A-Za-z0-9_-]{16,256})$/D', $signature, $parts) === 1) {
+            $native = base64_decode(strtr($parts[1], '-_', '+/'), true);
+            return is_string($native) && $this->crypto->verifySignature('signer', $data, $native);
+        }
+        return false;
     }
 
     /**

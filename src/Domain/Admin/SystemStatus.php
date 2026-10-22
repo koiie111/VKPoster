@@ -66,7 +66,7 @@ final class SystemStatus
     public function checks(): array
     {
         $checks = [];
-        foreach (['worker' => 'Обработчик задач', 'scheduler' => 'Планировщик'] as $name => $label) {
+        foreach (['worker' => 'Обработчик задач', 'worker:publish' => 'Очередь публикаций', 'worker:default' => 'Общая очередь', 'worker:analytics' => 'Очередь аналитики', 'scheduler' => 'Планировщик'] as $name => $label) {
             $at = $this->heartbeat->at($name);
             $age = $at === null ? null : $this->clock->now()->getTimestamp() - $at->getTimestamp();
             $checks[] = [
@@ -131,11 +131,14 @@ final class SystemStatus
      */
     public function errors(int $limit = 20): array
     {
-        if (!is_file($this->logFile) || !is_readable($this->logFile)) {
+        $rotated = \App\Support\Fs::glob(dirname($this->logFile) . '/app-*.log');
+        rsort($rotated);
+        $logFile = $rotated[0] ?? $this->logFile;
+        if (!is_file($logFile) || !is_readable($logFile)) {
             return [];
         }
-        $size = (int) filesize($this->logFile);
-        $handle = fopen($this->logFile, 'rb');
+        $size = (int) filesize($logFile);
+        $handle = fopen($logFile, 'rb');
         if ($handle === false) {
             return [];
         }

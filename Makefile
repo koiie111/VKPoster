@@ -44,6 +44,7 @@ seed-demo: ## 500 demo people with six months of channels, publications and paym
 	$(EXEC) php bin/console seed:demo
 
 test:
+	$(COMPOSE) up -d redis-production-test
 	$(EXEC) composer test
 
 stan:
@@ -83,3 +84,15 @@ a11y: ## axe-core only (no screenshots): make a11y [STAGE=NN]
 
 ui-behavior: ## browser smoke test of component behavior (dropdown, tabs, dialogs, theme, editor) and CSP errors
 	$(COMPOSE) --profile tools run --rm --entrypoint node ui-snap /opt/ui-snap/behaviors.mjs
+
+.PHONY: security-secrets security-semgrep security-trivy
+security-secrets:
+	python3 scripts/security/gitleaks.py
+security-semgrep:
+	sh scripts/security/scan.sh semgrep
+security-trivy:
+	sh scripts/security/scan.sh trivy $(or $(IMAGE),ezposter-app:stage19)
+
+.PHONY: zap
+zap: ## passive DAST on the dedicated synthetic production stand only
+	sh scripts/security/zap.sh

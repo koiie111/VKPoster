@@ -1,0 +1,10 @@
+[mysqld]
+# Single-primary deployment. Never reuse server-id if a replica is introduced.
+server-id = 1
+log-bin = /var/lib/mysql/binlog
+binlog-format = ROW
+sync-binlog = 1
+innodb-flush-log-at-trx-commit = 1
+binlog-expire-logs-seconds = 604800
+# SQL may contain private content: enable slow logging only for a bounded private incident capture.
+slow-query-log = OFF

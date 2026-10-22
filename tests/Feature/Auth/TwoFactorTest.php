@@ -6,6 +6,7 @@ namespace App\Tests\Feature\Auth;
 
 use App\Domain\Auth\TwoFactorService;
 use App\Tests\Support\AuthTestCase;
+use App\Tests\Support\TestEnv;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
@@ -27,7 +28,7 @@ final class TwoFactorTest extends AuthTestCase
         $confirm = $this->post('/account/2fa/confirm', ['code' => $this->totpCode($userId)]);
         self::assertSame(200, $confirm->status);
         self::assertStringContainsString('Покажем их только один раз', $confirm->body);
-        preg_match_all('/<li class="rounded-ctl[^>]*>([a-z0-9]{5}-[a-z0-9]{5})<\/li>/', $confirm->body, $m);
+        preg_match_all('/<li class="rounded-ctl[^>]*>([a-f0-9]{8}(?:-[a-f0-9]{8}){3})<\/li>/', $confirm->body, $m);
         self::assertCount(10, $m[1]);
 
         return $m[1];
@@ -184,6 +185,38 @@ final class TwoFactorTest extends AuthTestCase
         self::assertSame('/app', $this->post('/login/2fa', ['code' => $codes[1]])->header('Location'));
     }
 
+    public function testLegacyRecoveryVerifiersAreSaltedWithoutLosingSingleUse(): void
+    {
+        $user = $this->createUser();
+        $this->enableTwoFactor($user);
+        $this->db->execute('DELETE FROM recovery_codes WHERE user_id = ?', [$user->id]);
+        $legacy = 'abcde23456';
+        $this->db->execute('INSERT INTO recovery_codes (user_id, code_hash, created_at) VALUES (?, ?, NOW(6))', [$user->id, hash('sha256', $legacy)]);
+        $migration = require TestEnv::basePath() . '/database/migrations/2026_10_20_000045_harden_recovery_codes.php';
+        $migration->up($this->db);
+        $stored = (string) $this->db->select('SELECT code_hash FROM recovery_codes WHERE user_id = ?', [$user->id])[0]['code_hash'];
+        self::assertStringStartsWith('$argon2id$', $stored);
+        self::assertNotSame(hash('sha256', $legacy), $stored);
+        self::assertTrue(password_verify(hash('sha256', $legacy), $stored));
+        $twoFactor = $this->app->container()->get(\App\Domain\Auth\TwoFactorService::class);
+        self::assertTrue($twoFactor->useRecoveryCode($user, $legacy));
+        self::assertFalse($twoFactor->useRecoveryCode($user, $legacy));
+        try {
+            $migration->down($this->db);
+            self::fail('Lossy rollback must not silently restore a weak verifier');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('one-way', $error->getMessage());
+        }
+    }
+
+    public function testNewRecoveryCodesHave128BitsAndSaltedLegacyCodesRemainSeparate(): void
+    {
+        $user = $this->createUser();
+        foreach ($this->enableTwoFactor($user) as $code) {
+            self::assertMatchesRegularExpression('/^[a-f0-9]{8}(?:-[a-f0-9]{8}){3}$/D', $code);
+        }
+    }
+
     public function testRecoveryCodesAreStoredAsHashes(): void
     {
         $user = $this->createUser();
@@ -236,7 +269,7 @@ final class TwoFactorTest extends AuthTestCase
         self::assertStringContainsString('Пароль указан неверно', $this->follow($wrong)->body);
         $ok = $this->post('/account/2fa/recovery-codes', ['codes_password' => self::PASSWORD]);
         self::assertSame(200, $ok->status);
-        preg_match_all('/([a-z0-9]{5}-[a-z0-9]{5})<\/li>/', $ok->body, $m);
+        preg_match_all('/([a-f0-9]{8}(?:-[a-f0-9]{8}){3})<\/li>/', $ok->body, $m);
 
         self::assertCount(10, $m[1]);
         self::assertSame([], array_intersect($old, $m[1]));

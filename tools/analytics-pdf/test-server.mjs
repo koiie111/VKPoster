@@ -10,7 +10,7 @@ const master = 'synthetic-pdf-contract';
 const key = createHmac('sha256', master).update('analytics-pdf-v1').digest('hex');
 function launch(overrides = {}) {
     const child = spawn(process.execPath, ['server.mjs'], {
-        env: { ...process.env, ANALYTICS_PDF_KEY: key, ...overrides },
+        env: { ...process.env, APP_ENV: 'testing', ANALYTICS_PDF_KEY: key, ...overrides },
         stdio: ['ignore', 'ignore', 'pipe'],
     });
     child.stderr.resume(); // Do not log server environment, request HTML or secrets.

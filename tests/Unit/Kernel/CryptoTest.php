@@ -157,4 +157,16 @@ final class CryptoTest extends TestCase
         self::assertFalse($hasher->needsRehash($hash));
         self::assertTrue((new PasswordHasher(2048, 2))->needsRehash($hash));
     }
+    public function testLegacySignaturePrefixCannotBeMisreadAsTransitTransportVersion(): void
+    {
+        $clock = new \App\Tests\Support\FakeClock();
+        $legacy = new \App\Kernel\Security\Signer(new \App\Kernel\Security\Crypto('test', ['test' => \App\Tests\Support\TestEnv::KEY]), $clock);
+        $signature = $legacy->sign('legacy-prefix-253883');
+        self::assertStringStartsWith('t1_', $signature);
+        self::assertSame(43, strlen($signature));
+        $isolated = new \App\Kernel\Security\Signer(new \App\Kernel\Security\Crypto('isolated', [], new \App\Tests\Support\FakeIsolatedCrypto()), $clock);
+        self::assertTrue($isolated->verify('legacy-prefix-253883', $signature));
+        self::assertFalse($isolated->verify('tampered', $signature));
+    }
+
 }

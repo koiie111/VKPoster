@@ -1,0 +1,48 @@
+// Isolated local app_test only. Synthetic recovery fixtures and Chromium virtual authenticator; never owner credentials.
+import { chromium } from 'playwright';
+import AxeBuilder from '@axe-core/playwright';
+const base = process.env.UI_SNAP_BASE_URL ?? 'http://localhost:8080';
+if (base !== 'http://localhost:8080') throw new Error('Isolated localhost fixture only');
+const browser = await chromium.launch();
+try {
+    const context = await browser.newContext({viewport: {width: 375, height: 900}});
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', () => errors.push('pageerror'));
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', {options: {protocol: 'ctap2', transport: 'usb', hasResidentKey: false, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true}});
+    await page.goto(base + '/register', {waitUntil: 'networkidle'});
+    await page.locator('[data-cookie-choice=necessary]').click();
+    const password = page.locator('input[name=password]');
+    await password.fill('Synthetic-long-passphrase-42!');
+    const reveal = page.locator('[data-password-reveal]');
+    await reveal.click();
+    if (await password.getAttribute('type') !== 'text') throw new Error('Reveal failed');
+    await reveal.click();
+    if (await password.getAttribute('type') !== 'password') throw new Error('Hide failed');
+    if (Number(await page.locator('[data-password-strength]').getAttribute('value')) < 3) throw new Error('Strength failed');
+    await page.goto(base + '/dev/login-as/demo%40ezposter.local', {waitUntil: 'networkidle'});
+    await page.goto(base + '/account/security', {waitUntil: 'networkidle'});
+    await page.locator('[name=hardware_password]').fill('demo-password-2026');
+    await page.locator('[name=hardware_code]').fill('c'.repeat(32));
+    await page.locator('[data-hardware-enroll]').click();
+    await page.locator('[data-hardware-revoke]').waitFor({timeout: 15000});
+    const audit = await new AxeBuilder({page}).analyze();
+    if (audit.violations.some(v => ['serious', 'critical'].includes(v.impact))) throw new Error('axe violation');
+    await page.locator('form[action="/logout"]').first().evaluate(form => form.submit());
+    await page.waitForURL('**/login');
+    await page.locator('[name=email]').fill('demo@ezposter.local');
+    await page.locator('[name=password]').fill('demo-password-2026');
+    await page.locator('form[action="/login"] button[type=submit]').click();
+    await page.waitForURL('**/login/2fa');
+    await page.locator('[data-hardware-login]').click();
+    await page.waitForURL(/\/w\/|\/app/, {timeout: 15000});
+    await page.goto(base + '/account/security', {waitUntil: 'networkidle'});
+    await page.locator('[name=hardware_password]').fill('demo-password-2026');
+    await page.locator('[name=hardware_code]').fill('d'.repeat(32));
+    await page.locator('[data-hardware-revoke]').click();
+    await page.locator('[data-hardware-revoke]').waitFor({state: 'detached', timeout: 15000});
+    if (errors.length) throw new Error('Browser runtime error');
+    console.log('PASS: reveal/strength, virtual FIDO enrollment → real password/MFA login → revoke, mobile axe; synthetic fixture only.');
+} finally { await browser.close(); }

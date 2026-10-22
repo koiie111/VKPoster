@@ -54,8 +54,14 @@ final class PdfSecurityTest extends TestCase
             foreach (['APP_KEY','env_file','TELEGRAM','VK_TOKEN','MAX_TOKEN','INSTAGRAM','<<: *app'] as $forbidden) {
                 self::assertStringNotContainsString($forbidden, $renderer);
             }
-            self::assertStringContainsString('analytics-pdf-key:/run/analytics-pdf-key:ro', $renderer);
-            self::assertStringContainsString('service_completed_successfully', $renderer);
+            if ($name === 'compose.prod.yaml') {
+                self::assertStringContainsString('VAULT_PDF_VERIFY_URL', $renderer);
+                self::assertStringContainsString('transit-pdf.token', $renderer);
+                self::assertStringNotContainsString('ANALYTICS_PDF_KEY', $renderer);
+            } else {
+                self::assertStringContainsString('analytics-pdf-key:/run/analytics-pdf-key:ro', $renderer);
+                self::assertStringContainsString('service_completed_successfully', $renderer);
+            }
             self::assertStringContainsString('--queue=analytics', $text);
             self::assertStringContainsString('--queue=publish,default', $text);
         }

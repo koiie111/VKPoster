@@ -80,6 +80,7 @@ return static function (Container $c, string $base): void {
             $base . '/storage/logs',
             $config->string('app.log_level', 'info'),
             !$config->env()->bool('LOG_DISABLE_STDERR'),
+            $config->env()->has('SENTRY_DSN') ? new \App\Kernel\Operations\GlitchTipReporter(new GuzzleHttpClient(new \App\Kernel\HttpClient\SsrfGuard()), $config, $c->get(Clock::class)) : null,
         );
     });
 
@@ -101,6 +102,9 @@ return static function (Container $c, string $base): void {
         $config = $c->get(Config::class);
         $redis = new \Redis();
         $redis->connect($config->string('database.redis.host'), $config->int('database.redis.port', 6379), 2.0);
+        if ($config->string('database.redis.password') !== '') {
+            $redis->auth($config->string('database.redis.password'));
+        }
         $redis->select($config->int('database.redis.db', 0));
 
         return $redis;
@@ -108,20 +112,57 @@ return static function (Container $c, string $base): void {
 
     $c->factory(SessionStore::class, static fn (Container $c): SessionStore => new RedisSessionStore($c->get(\Redis::class)));
 
+    $c->factory(\App\Kernel\Security\IsolatedCrypto::class, static function (Container $c): \App\Kernel\Security\IsolatedCrypto {
+        $env = $c->get(Config::class)->env();
+        return new \App\Kernel\Security\VaultTransit(
+            $c->get(HttpClientInterface::class),
+            $env->required('VAULT_TRANSIT_URL'),
+            $env->string('VAULT_TRANSIT_KEY', 'vkposter'),
+            $env->required('VAULT_TOKEN_FILE'),
+            $env->string('VAULT_CA_FILE'),
+            $env->string('VAULT_LEGACY_TRANSIT_KEY'),
+            $env->string('VAULT_LEGACY_SIGNER_KEY'),
+            $env->int('VAULT_LEGACY_SIGNER_UNTIL'),
+            $c->get(Clock::class)
+        );
+    });
     $c->factory(Crypto::class, static function (Container $c): Crypto {
         $config = $c->get(Config::class);
+        if ($config->env()->string('CRYPTO_BACKEND', 'sodium') === 'vault') {
+            return new Crypto('isolated', [], $c->get(\App\Kernel\Security\IsolatedCrypto::class));
+        }
         $keys = [$config->string('security.key_id') => $config->string('security.key')];
         foreach ($config->array('security.old_keys') as $id => $key) {
             $keys[(string) $id] = is_string($key) ? $key : '';
         }
-
         return new Crypto($config->string('security.key_id'), $keys);
     });
+
+    $c->factory(\App\Domain\Analytics\AnalyticsPdf::class, static fn (Container $c): \App\Domain\Analytics\AnalyticsPdf => new \App\Domain\Analytics\AnalyticsPdf(
+        $c->get(HttpClientInterface::class),
+        $c->get(Config::class),
+        $c->get(Crypto::class)
+    ));
 
     $c->factory(PasswordHasher::class, static function (Container $c): PasswordHasher {
         $config = $c->get(Config::class);
 
-        return new PasswordHasher($config->int('security.argon.memory_kib', 65536), $config->int('security.argon.time_cost', 4));
+        $env = $config->env();
+        $previous = [];
+        foreach ($env->list('PASSWORD_PEPPER_PREVIOUS_FILES') as $entry) {
+            [$id, $file] = array_pad(explode(':', $entry, 2), 2, '');
+            $previous[$id] = \App\Kernel\Security\SecretKeyFile::read($file);
+        }
+        $file = $env->string('PASSWORD_PEPPER_FILE');
+        return new PasswordHasher(
+            $config->int('security.argon.memory_kib', 65536),
+            $config->int('security.argon.time_cost', 4),
+            1,
+            $file === '' ? null : \App\Kernel\Security\SecretKeyFile::read($file),
+            $env->string('PASSWORD_PEPPER_ID', 'p1'),
+            $previous,
+            $env->string('CRYPTO_BACKEND', 'sodium') === 'vault' ? $c->get(\App\Kernel\Security\IsolatedCrypto::class) : null
+        );
     });
 
     $c->factory(Mailer::class, static function (Container $c): Mailer {
@@ -172,6 +213,9 @@ return static function (Container $c, string $base): void {
 
     $c->factory(HelpArticles::class, static fn (Container $c): HelpArticles => new HelpArticles($base . '/resources/help', $c->get(Connection::class)));
 
+    $c->factory(\App\Kernel\HttpClient\EgressRoutes::class, static fn (Container $c): \App\Kernel\HttpClient\EgressRoutes => new \App\Kernel\HttpClient\EgressRoutes($c->get(Config::class)->env()));
+    $c->factory(\App\Kernel\HttpClient\EgressHealth::class, static fn (Container $c): \App\Kernel\HttpClient\EgressHealth => new \App\Kernel\HttpClient\EgressHealth(static fn (): \Redis => $c->get(\Redis::class), $c->get(Config::class)->env(), $c->get(Clock::class)));
+    $c->factory(GuzzleHttpClient::class, static fn (Container $c): GuzzleHttpClient => new GuzzleHttpClient($c->get(\App\Kernel\HttpClient\SsrfGuard::class), $c->get(LoggerInterface::class), null, $c->get(\App\Kernel\HttpClient\EgressRoutes::class), $c->get(\App\Kernel\HttpClient\EgressHealth::class)));
     $c->factory(HttpClientInterface::class, static fn (Container $c): HttpClientInterface => $c->get(GuzzleHttpClient::class));
 
     $c->factory(Translator::class, static fn (): Translator => new Translator($base . '/resources/lang', 'ru'));
@@ -241,6 +285,18 @@ return static function (Container $c, string $base): void {
     $c->factory(MediaStorage::class, static fn (Container $c): MediaStorage => MediaStorageFactory::create($c->get(Config::class), $base));
     $c->factory(MediaLimits::class, static fn (Container $c): MediaLimits => MediaLimits::fromConfig($c->get(Config::class)));
     $c->factory(VideoProbe::class, static fn (): VideoProbe => new FfprobeVideoProbe());
+    $c->factory(\App\Kernel\Security\MalwareScanner::class, static function (Container $c): \App\Kernel\Security\MalwareScanner {
+        $env = $c->get(Config::class)->env();
+        $driver = $env->string('MALWARE_SCANNER', 'fake');
+        if ($driver === 'clamd') {
+            return new \App\Kernel\Security\ClamdScanner($env->string('CLAMD_ENDPOINT', 'tcp://clamav:3310'));
+        }
+        if ($driver !== 'fake' || $env->string('APP_ENV') === 'production') {
+            throw new \App\Kernel\Exception\ConfigException('Production requires the malware scanner.');
+        }
+        return new \App\Kernel\Security\FakeMalwareScanner();
+    });
+
     // A library file that a planned post still needs cannot be deleted.
     $c->factory(MediaUsageChecker::class, static fn (Container $c): MediaUsageChecker => $c->get(PostUsageChecker::class));
     $c->factory(MediaService::class, static fn (Container $c): MediaService => new MediaService(
@@ -255,6 +311,7 @@ return static function (Container $c, string $base): void {
         $c->get(Clock::class),
         $c->get(Entitlements::class),
         $base . '/storage/tmp',
+        $c->get(\App\Kernel\Security\MalwareScanner::class),
     ));
 
     // Social platforms: one adapter class per network. A new network = one more line in the list below (and its flag in PLATFORMS_ENABLED).
@@ -333,7 +390,7 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Domain\Link\UrlGuard::class),
         $c->get(Config::class)->string('app.url'),
         $c->get(Config::class)->string('links.short_domain'),
-        'short-link-clicks|' . $c->get(Config::class)->string('security.key'),
+        $c->get(Crypto::class),
         $c->get(Config::class)->int('links.click_retention_days', 400),
     ));
 
@@ -375,7 +432,18 @@ return static function (Container $c, string $base): void {
         'replicate' => $c->get(\App\Integrations\Images\ReplicateImageEnhancementProvider::class), 'disabled' => new \App\Integrations\Images\DisabledImageEnhancementProvider(), default => new \App\Integrations\Images\FakeImageEnhancementProvider(!$c->get(Config::class)->isProduction())
     });
 
-    $c->factory(HealthCheck::class, static fn (Container $c): HealthCheck => new HealthCheck($c->get(Config::class)->env()->all()));
+    $c->factory(\App\Kernel\ReadinessState::class, static function (Container $c) use ($base): \App\Kernel\ReadinessState {
+        $config = $c->get(Config::class);
+        $expected = count(\App\Support\Fs::glob($base . '/database/migrations/*.php'));
+        $identity = hash('sha256', json_encode([[$config->string('database.host'), $config->string('database.database')], $config->env()->string('VAULT_TRANSIT_URL'), $config->env()->string('VAULT_TRANSIT_KEY'), $config->env()->string('CLAMD_ENDPOINT'), $expected], JSON_THROW_ON_ERROR));
+        return new \App\Kernel\ReadinessState(
+            static fn (): \Redis => $c->get(\Redis::class),
+            $c->get(Clock::class),
+            static fn (): array => $c->get(HealthCheck::class)->ready($expected),
+            $identity
+        );
+    });
+    $c->factory(HealthCheck::class, static fn (Container $c): HealthCheck => new HealthCheck($c->get(Config::class)->env()->all(), $c->get(\App\Kernel\HttpClient\EgressHealth::class), $c->get(Config::class)->env()->string('CRYPTO_BACKEND') === 'vault' ? $c->get(\App\Kernel\Security\IsolatedCrypto::class) : null));
 
     $c->factory(Schedule::class, static function (Container $c) use ($base): Schedule {
         $schedule = new Schedule($c, $c->get(LoggerInterface::class));

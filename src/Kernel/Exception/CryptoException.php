@@ -9,6 +9,6 @@ use RuntimeException;
 /**
  * Raised on malformed keys, unknown key ids, tampered or undecryptable ciphertext.
  */
-final class CryptoException extends RuntimeException
+class CryptoException extends RuntimeException
 {
 }

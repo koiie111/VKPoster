@@ -34,9 +34,19 @@
 {% macro input(name, label, type = 'text', value = '', hint = null, error = null, placeholder = '', required = false, autocomplete = null, id = null, attrs = {}) -%}
 {% import _self as f %}
 {%- set fid = id ?? ('f-' ~ name) -%}
-<div class="flex flex-col">
+<div class="flex flex-col"{% if type == 'password' %} x-data="passwordField"{% endif %}>
     <label class="label" for="{{ fid }}">{{ label }}{% if required %}<span class="text-bad-fg" aria-hidden="true"> *</span>{% endif %}</label>
-    <input class="field{{ error ? ' field-error' : '' }}" id="{{ fid }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if error %} aria-invalid="true"{% endif %}{{ f._describedby(fid, hint, error) }}{% for k, v in attrs %} {{ k }}="{{ v }}"{% endfor %}>
+    {% if type == 'password' %}<div class="flex items-start gap-2">{% endif %}
+    <input {% if type == 'password' %}data-password-input {% endif %}class="{% if type == 'password' %}min-w-0 {% endif %}field{{ error ? ' field-error' : '' }}" id="{{ fid }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if error %} aria-invalid="true"{% endif %}{{ f._describedby(fid, hint, error) }}{% for k, v in attrs %} {{ k }}="{{ v }}"{% endfor %}>
+    {% if type == 'password' %}
+    <button type="button" class="btn btn-secondary shrink-0" data-password-reveal aria-controls="{{ fid }}" aria-pressed="false" aria-label="Показать пароль">Показать</button>
+    </div>
+    {% if autocomplete == 'new-password' and name != 'password_confirmation' %}
+    <label class="hint" for="{{ fid }}-strength">Оценка надёжности</label>
+    <meter id="{{ fid }}-strength" data-password-strength min="0" max="4" value="0" class="w-full"></meter>
+    <p class="hint" data-password-feedback aria-live="polite">Используйте длинную уникальную фразу. Оценка — подсказка, не гарантия.</p>
+    {% endif %}
+    {% endif %}
     {% if hint %}<p class="hint" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}
     {% if error %}<p class="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-bad-fg" id="{{ fid }}-error" role="alert">{{ icon('circle-alert', 'mt-0.5 h-4 w-4') }}<span>{{ error }}</span></p>{% endif %}
 </div>
@@ -126,3 +136,21 @@
     </label>
 </div>
 {%- endmacro %}
+
+{% macro hardware_keys(mode = 'login', keys = [], has_password = true) %}
+{% import _self as f %}
+<section class="mt-6 flex flex-col gap-4" x-data="hardwareKeys" data-hardware-mode="{{ mode }}">
+    <h2 class="text-lg font-semibold">Ключи безопасности</h2>
+    <p class="text-sm text-muted">Используйте аппаратный ключ или защищённый ключ устройства с PIN-кодом.</p>
+    {% if mode == 'manage' %}
+        {% if has_password %}{{ f.input('hardware_password', 'Текущий пароль', type = 'password', autocomplete = 'current-password') }}{% endif %}
+        {{ f.input('hardware_code', 'Код двухфакторной защиты', autocomplete = 'one-time-code') }}
+        {{ f.input('hardware_label', 'Название ключа', value = 'Мой ключ', attrs = {maxlength: 80}) }}
+        <button type="button" class="btn btn-secondary" data-hardware-enroll>Добавить ключ</button>
+        {% for key in keys %}<div class="flex items-center justify-between gap-4"><span>{{ key.label }}</span><button type="button" class="btn btn-danger" data-hardware-revoke="{{ key.id }}">Отозвать ключ</button></div>{% else %}<p class="text-sm text-muted">Ключи пока не добавлены.</p>{% endfor %}
+    {% else %}
+        <button type="button" class="btn btn-secondary" data-hardware-login>Войти с ключом безопасности</button>
+    {% endif %}
+    <p class="text-sm" role="status" aria-live="polite" data-hardware-status></p>
+</section>
+{% endmacro %}

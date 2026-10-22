@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from telethon import TelegramClient
 
 from .auth import authenticate
+from .egress import connect_with_backoff, proxy_config, route_identity
 from .image_delivery import ImageDelivery
 from .service import Reader
 from .transport import TelegramTransport
@@ -42,7 +43,9 @@ class InternalAPI:
             raise ValueError("internal_api_configuration")
         self.base = base.rstrip("/")
         self.secret = secret
-        self.opener = urllib.request.build_opener(NoRedirect())
+        self.opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}), NoRedirect()
+        )
 
     def request(self, path, event=None):
         encoded = (
@@ -63,8 +66,12 @@ class InternalAPI:
                 raise ValueError("internal_response_limit")
             return json.loads(raw)
 
-    async def heartbeat(self):
-        result = await asyncio.to_thread(self.request, "/internal/reader-heartbeat", {})
+    async def heartbeat(self, egress=None):
+        result = await asyncio.to_thread(
+            self.request,
+            "/internal/reader-heartbeat",
+            {} if egress is None else {"egress": egress},
+        )
         if result.get("ack") is not True:
             raise ValueError("invalid_heartbeat_ack")
 
@@ -285,11 +292,19 @@ class SourceStore:
 
     def get(self, key, default=None):
         return self.store.get(
-            key if key == "flood_until" else self.prefix + key, default
+            key
+            if key == "flood_until" or key.startswith("egress_")
+            else self.prefix + key,
+            default,
         )
 
     def set(self, key, value):
-        self.store.set(key if key == "flood_until" else self.prefix + key, value)
+        self.store.set(
+            key
+            if key == "flood_until" or key.startswith("egress_")
+            else self.prefix + key,
+            value,
+        )
 
     def __getattr__(self, name):
         return getattr(self.store, name)
@@ -406,11 +421,15 @@ async def run_sources(args, state, store):
         api_hash,
         sequential_updates=True,
         flood_sleep_threshold=0,
+        proxy=proxy_config(),
     )
     shared_lock = asyncio.Lock()
     try:
         await authenticate(
-            client, os.environ.get("TELEGRAM_PHONE", ""), interactive=False
+            client,
+            os.environ.get("TELEGRAM_PHONE", ""),
+            interactive=False,
+            connect=lambda: connect_with_backoff(client, store),
         )
         me = await client.get_me()
         if me.bot or store.get("account_id", str(me.id)) != str(me.id):
@@ -435,7 +454,6 @@ async def run_sources(args, state, store):
         while True:
             try:
                 count = await worker.tick()
-                await api.heartbeat()
                 worker.outbox.compact(
                     int(os.environ.get("READER_ACK_RETENTION_DAYS", "0"))
                 )
@@ -445,6 +463,16 @@ async def run_sources(args, state, store):
                 )
             except (OSError, ValueError, urllib.error.URLError) as error:
                 print("sources_api_error type=" + type(error).__name__, flush=True)
+            try:
+                await api.heartbeat(
+                    {
+                        "state": store.get("egress_state", "unknown"),
+                        "mode": os.environ.get("EGRESS_TELEGRAM_MODE", "direct"),
+                        "route_id": route_identity(api.secret),
+                    }
+                )
+            except (OSError, ValueError, urllib.error.URLError) as error:
+                print("reader_heartbeat_error type=" + type(error).__name__, flush=True)
             if args.once:
                 if not worker.readers:
                     raise ValueError("no_sources_connected")

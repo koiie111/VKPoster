@@ -104,6 +104,10 @@ final class Application
             ? [SecurityHeaders::class, \App\Http\Middleware\PublicApi::class]
             : self::GLOBAL_MIDDLEWARE;
 
+        if ($request->method === 'GET' && in_array($request->path, ['/healthz', '/readyz'], true)) {
+            $middleware = [SecurityHeaders::class];
+        }
+
         return $pipeline->run($middleware, $request, $core);
     }
 

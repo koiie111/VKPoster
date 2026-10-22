@@ -11,7 +11,7 @@ use Symfony\Component\Uid\Ulid;
 /** Private immutable archives and sanitized previews; never re-encode the archive or expose storage keys to the browser. */
 final class ImageFiles
 {
-    public function __construct(private readonly MediaStorage $storage, private readonly ImageProcessor $images, private readonly ?\App\Domain\Content\Operations\StorageRegistry $registry = null)
+    public function __construct(private readonly MediaStorage $storage, private readonly ImageProcessor $images, private readonly ?\App\Domain\Content\Operations\StorageRegistry $registry = null, private readonly ?\App\Kernel\Security\MalwareScanner $scanner = null)
     {
     }
 
@@ -20,6 +20,7 @@ final class ImageFiles
         if (strlen($bytes) < 1 || strlen($bytes) > 16777216) {
             throw new \InvalidArgumentException('Image limit');
         }
+        $this->scanner?->scanBytes($bytes);
         $path = tempnam(sys_get_temp_dir(), 'source-image-');
         if ($path === false || file_put_contents($path, $bytes) !== strlen($bytes)) {
             throw new \RuntimeException('Image write failed');
@@ -31,6 +32,7 @@ final class ImageFiles
     /** @return array{storage_key:string,preview_key:string,sha256:string} */
     public function save(int $workspaceId, string $path): array
     {
+        $this->scanner?->scanFile($path);
         $key = 'source-images/' . $workspaceId . '/' . (string) new Ulid();
         $preview = tempnam(sys_get_temp_dir(), 'source-preview-');
         if ($preview === false) {

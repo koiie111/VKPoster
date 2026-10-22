@@ -48,6 +48,7 @@ final class VkApi
         }
         try {
             $response = $this->http->request('POST', $this->apiBase . $method, [
+                'egress_provider' => 'vk',
                 'form_params' => $form,
                 'headers' => ['Authorization' => 'Bearer ' . $token],
                 'timeout' => 30,
@@ -99,6 +100,7 @@ final class VkApi
         }
         try {
             $response = $this->http->request('POST', $url, [
+                'egress_provider' => 'vk',
                 'multipart' => [['name' => $field, 'contents' => $handle, 'filename' => $filename]],
                 'timeout' => 600,
                 'connect_timeout' => 10,

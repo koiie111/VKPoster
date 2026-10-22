@@ -1,0 +1,7 @@
+*
+!Dockerfile
+!build/
+build/*
+!build/go.mod
+!build/go.sum
+!build/main.go

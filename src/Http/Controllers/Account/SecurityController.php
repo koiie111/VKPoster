@@ -36,6 +36,7 @@ final class SecurityController
         private readonly TwoFactorService $twoFactor,
         private readonly FormFlash $flash,
         private readonly Config $config,
+        private readonly \App\Domain\Auth\WebAuthnService $hardware,
     ) {
     }
 
@@ -54,6 +55,7 @@ final class SecurityController
 
         return $this->view->response('account/security.twig', [
             'user' => $user,
+            'hardware_keys' => $this->hardware->credentials($user),
             'devices' => $devices,
             'journal' => $journal,
             'recovery_left' => $user->hasTwoFactor() ? $this->twoFactor->remainingRecoveryCodes($user->id) : 0,

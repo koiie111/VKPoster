@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+- Stage19A review remediation: URL-safe versioned/legacy guest signatures, infrastructure-independent
+  application rollback, verified atomic backup publication, consistent direct/proxy transport errors,
+  shared operations TLS policy, scheduler-owned cached readiness, encrypted one-shot OAuth recovery,
+  and build-once digest promotion. Migration47 stores refresh fences/envelopes; production19.8 remains pending.
+
+- Stage 19A preparation (IN_PROGRESS): production runtime/container restrictions,
+  authenticated Redis, queue-specific health and singleton scheduler; bounded/redacted
+  logs and optional Telegram/GlitchTip alerts; encrypted SQL/binlog archives and isolated
+  restore; security/release CI, schema/env inventory, deploy/runbook and ASVS ledger.
+  Native Alpine production runtime preserves glibc build/dev tooling (ADR 0021).
+  No production deployment/version tag or ASVS L2 compliance claim.
+
 - Stage 15 PDF: явные excerpt без обрыва слова, читаемые колонки и переносы страниц; последние доступные снимки подписчиков из существующей модели отчёта.
 
 - Этап 17 (часть «ссылки»): авто-UTM и сокращатель ссылок. Правила UTM на пространство и на канал (подстановки `{platform}`, `{channel}`, `{date}`, `{month}`, существующие метки и якоря не трогаются) применяются при публикации к ссылкам в тексте и на кнопках; короткие ссылки (код из 7 знаков base62, редирект 302, счётчик переходов с отделением роботов, соль-хэш вместо IP) с отдельной ссылкой для каждой соцсети; защита (только http/https, без внутренних адресов, чёрный список доменов с проверкой при создании, публикации и переходе), отключение ссылок из админки (`/admin/links`, право `links.manage`). Страница «Ссылки» в настройках пространства. Миграция 43, ADR 0017, справка `links`, env `SHORT_LINK_*`.
@@ -103,3 +115,36 @@ Recovery of interrupted processing, durable orphan registry with opt-in retentio
 - Existing channels/media/posts/variants/scheduling/publications/analytics exposed through domain services; unavailable statistics remain null.
 - Signed outgoing webhooks, transactional outbox, existing Queue, fenced retries/recovery, SSRF checks on every delivery, management/history/manual retry and staff counters.
 - Self-hosted Redoc + OpenAPI 3.1 route parity/validation, curl/n8n/Make and receiver signature examples; no new external credentials required.
+
+## 2026-10-19 — Stage 19A, partial / IN_PROGRESS
+
+Webhook secret rotation coverage; production proxy validation; queue-specific heartbeats;
+singleton scheduler; separate liveness/readiness; daily redacted logs; production Compose
+hardening draft and Caddy template. Stage 19A stopped on unresolved historical gitleaks
+finding; no release/deploy or completion claim. See security/stage-19a-status.md.
+
+
+### Stage19A owner-decision continuation (uncommitted, IN_PROGRESS)
+
+Individual ASVS remediations:12-character password policy, reveal/strength controls,
+one-use admin activation, salted legacy/128-bit new recovery codes, verifier pepper
+and WebAuthn hardware second factor. Optional isolated Transit crypto adapter remains
+PARTIAL pending the documented remaining local key consumers; no blanket acceptance.
+Private ClamAV upload/download gate, readiness and actual engine protocol fixtures.
+Regional per-platform Guzzle/Telethon egress with safe observations/retry/config binding.
+Patched Redis/Caddy and validated native Python reader runtime; no CVE wildcard ignore.
+MySQL8.4 candidate passed schema/full PHP but failed current MariaDB coordinate dump
+(SHOW MASTER STATUS1064); baseline migration stopped. No production deploy/tag/PR.
+
+### Stage19A remaining blockers remediation — 2026-10-21
+
+- Validated official-derived MySQL8.4.11 with matching Oracle dump/binlog tools;
+  source coordinates, encrypted restricted restore/PITR, cold-copy8.0 upgrade,
+  supported schema rollback/replay and10k existing publishing benchmark.
+- Non-exporting purpose-separated Transit crypto for application/webhook secrets,
+  PDF, signed links, password pepper and click pseudonymization. Production rejects
+  raw master/local pepper config; PDF renderer is verify-only. Offline migration
+  covers legacy keyring, referral details and durable mail, with resumable CAS.
+- Backend availability feeds readiness; pre-dispatch credential outage is Temporary
+  through the existing publishing retry/backoff. Real isolated OpenBao/Chromium tests
+  complement mocked contracts. Actual deployment/custody/recovery stays owner19.8.

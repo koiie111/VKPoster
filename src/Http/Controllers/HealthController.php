@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Kernel\HealthCheck;
+use App\Kernel\ReadinessState;
 use App\Kernel\Http\Response;
 
 /**
@@ -12,14 +12,18 @@ use App\Kernel\Http\Response;
  */
 final class HealthController
 {
-    public function __construct(private readonly HealthCheck $health)
+    public function __construct(private readonly ReadinessState $health)
     {
     }
 
     public function show(): Response
     {
-        $result = $this->health->run();
+        return Response::json(['status' => 'ok']);
+    }
 
-        return Response::json($result, HealthCheck::isHealthy($result) ? 200 : 503);
+    public function ready(): Response
+    {
+        $ready = $this->health->ready();
+        return Response::json(['status' => $ready ? 'ok' : 'unavailable'], $ready ? 200 : 503);
     }
 }

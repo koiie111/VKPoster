@@ -37,12 +37,12 @@ final class HttpKernelTest extends HttpTestCase
         self::assertStringContainsString('text/html', (string) $response->header('Content-Type'));
     }
 
-    public function testHealthEndpointReportsDependencies(): void
+    public function testHealthEndpointReportsLiveness(): void
     {
         $response = $this->get('/healthz');
 
         self::assertSame(200, $response->status);
-        self::assertSame('{"db":"ok","redis":"ok"}', $response->body);
+        self::assertSame('{"status":"ok"}', $response->body);
     }
 
     public function testCspHeaderCarriesNonceUsedByScripts(): void

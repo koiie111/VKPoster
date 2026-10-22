@@ -416,4 +416,29 @@ final class ApprovalTest extends BillingTestCase
         self::assertSame(0, $this->workflow()->unapprovedScheduled($ctx->workspaceId));
     }
 
+    public function testTransitGuestLinkRoutesSupportPreviewApproveCommentsAnalyticsAndLegacy(): void
+    {
+        $crypto = new \App\Kernel\Security\Crypto('isolated', [], new \App\Tests\Support\FakeIsolatedCrypto());
+        $this->app->container()->instance(\App\Kernel\Security\Crypto::class, $crypto);
+        [$ctx, $writer, $post] = $this->fixture();
+        $this->workflow()->submit($writer, $post);
+        $url = $this->links()->create($ctx, [$post->publicId], 24);
+        self::assertMatchesRegularExpression('~^/g/[a-f0-9]{64}\\.t1_[A-Za-z0-9_-]+$~D', $url);
+        self::assertSame(200, $this->get($url)->status);
+        $this->db->execute("UPDATE subscriptions s JOIN plans p ON p.code='agency' SET s.plan_id=p.id WHERE s.workspace_id=?", [$ctx->workspaceId]);
+        self::assertSame(200, $this->get($url . '/analytics')->status);
+        self::assertSame(302, $this->post($url . '/posts/' . $post->publicId . '/comments', ['body' => 'Transit guest comment'])->status);
+        self::assertStringContainsString('Transit guest comment', $this->get($url)->body);
+        self::assertSame(302, $this->post($url . '/posts/' . $post->publicId . '/approve', ['revision' => $this->workflow()->revision($ctx, $post)])->status);
+        self::assertSame(PostStatus::Approved, $this->posts()->find($ctx, $post->publicId)?->status);
+        [$raw] = explode('.', substr($url, 3), 2);
+        $legacy = new \App\Kernel\Security\Signer(new \App\Kernel\Security\Crypto('test', ['test' => \App\Tests\Support\TestEnv::KEY]), $this->clock);
+        $oldUrl = '/g/' . $raw . '.' . $legacy->sign('guest:' . $raw);
+        self::assertSame(200, $this->get($oldUrl)->status);
+        self::assertSame(200, $this->get($oldUrl . '/analytics')->status);
+        foreach (['t2_' . str_repeat('A', 60), 't1_' . str_repeat('A', 60), str_repeat('!', 43)] as $bad) {
+            self::assertSame(404, $this->get('/g/' . $raw . '.' . $bad)->status);
+        }
+    }
+
 }

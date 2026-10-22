@@ -120,6 +120,46 @@ final class Config
         if ($this->bool('app.debug')) {
             throw new ConfigException('APP_DEBUG must be off when APP_ENV=production.');
         }
+        $url = parse_url($this->string('app.url'));
+        if (!is_array($url) || ($url['scheme'] ?? '') !== 'https' || !is_string($url['host'] ?? null) || $url['host'] === '') {
+            throw new ConfigException('APP_URL must be an HTTPS URL in production.');
+        }
+        if (preg_match('/^[A-Za-z0-9+\/=_-]{32,128}$/D', $this->string('database.redis.password')) !== 1) {
+            throw new ConfigException('REDIS_PASSWORD must be a strong 32-128 character secret in production.');
+        }
+        $proxies = $this->array('app.trusted_proxies');
+        if ($proxies === []) {
+            throw new ConfigException('TRUSTED_PROXIES must name the production reverse proxy.');
+        }
+        foreach ($proxies as $proxy) {
+            $parts = is_string($proxy) ? explode('/', $proxy) : [];
+            $ip = $parts[0] ?? '';
+            $max = str_contains($ip, ':') ? 128 : 32;
+            if (filter_var($ip, FILTER_VALIDATE_IP) === false || count($parts) > 2
+                || (isset($parts[1]) && (!ctype_digit($parts[1]) || (int) $parts[1] < 1 || (int) $parts[1] > $max))) {
+                throw new ConfigException('TRUSTED_PROXIES must contain explicit IPs or non-global CIDRs.');
+            }
+        }
+        new \App\Kernel\HttpClient\EgressRoutes($this->env);
+        if ($this->env->string('CRYPTO_BACKEND') !== 'vault') {
+            throw new ConfigException('Production requires isolated CRYPTO_BACKEND=vault; local crypto is forbidden.');
+        }
+        foreach (['APP_KEY', 'APP_KEYS', 'PASSWORD_PEPPER_FILE', 'PASSWORD_PEPPER_PREVIOUS_FILES'] as $raw) {
+            if ($this->env->has($raw)) {
+                throw new ConfigException('Raw cryptographic key configuration is forbidden in production: ' . $raw);
+            }
+        }
+        $this->env->required('VAULT_TRANSIT_URL');
+        $this->env->required('VAULT_TOKEN_FILE');
+        \App\Kernel\Security\VaultTransit::validateConfiguration(
+            $this->env->required('VAULT_TRANSIT_URL'),
+            $this->env->string('VAULT_TRANSIT_KEY', 'vkposter'),
+            $this->env->required('VAULT_TOKEN_FILE'),
+            $this->env->string('VAULT_CA_FILE')
+        );
+        if (strlen($this->env->string('EGRESS_IDENTITY_SALT')) < 32) {
+            throw new ConfigException('Independent EGRESS_IDENTITY_SALT is required in production.');
+        }
         foreach ($this->env->all() as $name => $value) {
             if (str_starts_with($name, 'DEV_') && in_array(strtolower($value), ['1', 'true', 'yes', 'on'], true)) {
                 throw new ConfigException(sprintf('%s must not be enabled when APP_ENV=production.', $name));

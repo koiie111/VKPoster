@@ -51,6 +51,25 @@ final class SecretRedactorTest extends TestCase
         self::assertSame(500, $context['status_code']);
     }
 
+    public function testProductionKeyringAndDeepSecretsAreMasked(): void
+    {
+        $redactor = new SecretRedactor();
+        $data = ['APP_KEYS' => 'private', 'APP_KEY' => 'private', 'dsn' => 'private', 'Authorization' => 'private', 'nested' => ['payment_secret' => 'private']];
+        self::assertStringNotContainsString('private', json_encode($redactor->redact($data), JSON_THROW_ON_ERROR));
+        $record = new LogRecord(new DateTimeImmutable(), 'app', Level::Error, 'Authorization: Bearer synthetic-credential');
+        self::assertStringNotContainsString('synthetic-credential', $redactor($record)->message);
+    }
+
+    public function testExceptionAndPayloadCannotLeakSecrets(): void
+    {
+        $redactor = new SecretRedactor();
+        $data = $redactor->redact(['exception' => new \RuntimeException('private-password'), 'payload' => 'private-body', 'SENTRY_DSN' => 'private-dsn']);
+        self::assertStringNotContainsString('private', json_encode($data, JSON_THROW_ON_ERROR));
+        self::assertIsArray($data['exception']);
+        self::assertSame(\RuntimeException::class, $data['exception']['class']);
+        self::assertCount(50, $redactor->redact(array_fill(0, 200, 'bounded')));
+    }
+
     public function testLoggerWritesJsonWithoutSecrets(): void
     {
         $dir = sys_get_temp_dir() . '/vkposter-log-' . bin2hex(random_bytes(4));
@@ -59,14 +78,37 @@ final class SecretRedactorTest extends TestCase
 
         $logger->info('login {user}', ['user' => 'ann', 'password' => 'hunter2', 'token' => 'abc']);
 
-        $line = (string) file_get_contents($dir . '/app.log');
+        $line = (string) file_get_contents($dir . '/app-' . date('Y-m-d') . '.log');
         $decoded = json_decode($line, true);
         self::assertIsArray($decoded);
         self::assertSame('login ann', $decoded['message']);
         self::assertStringNotContainsString('hunter2', $line);
         self::assertStringNotContainsString('abc', $line);
         self::assertStringContainsString(SecretRedactor::MASK, $line);
-        unlink($dir . '/app.log');
+        unlink($dir . '/app-' . date('Y-m-d') . '.log');
         rmdir($dir);
     }
+
+    public function testCapabilityPathsAndOauthQueriesAreMasked(): void
+    {
+        $redactor = new SecretRedactor();
+        $token = str_repeat('x', 43);
+        foreach (['password/reset', 'email/verify', 'email/change', 'invitations'] as $path) {
+            $data = $redactor->redact(['uri' => '/' . $path . '/' . $token . '?code=private-code&state=visible']);
+            self::assertStringNotContainsString($token, (string) $data['uri']);
+            self::assertStringNotContainsString('private-code', (string) $data['uri']);
+            self::assertStringContainsString('state=visible', (string) $data['uri']);
+        }
+    }
+    public function testLegacyAndVersionedGuestCapabilitiesAreMaskedInPathsAndMessages(): void
+    {
+        $redactor = new SecretRedactor();
+        foreach ([str_repeat('x', 43), 't1_' . str_repeat('A', 90), 'vault:v2:' . str_repeat('a', 64)] as $signature) {
+            $url = '/g/' . str_repeat('a', 64) . '.' . $signature . '/analytics';
+            $data = $redactor->redact(['uri' => $url]);
+            self::assertStringStartsWith('/g/[redacted]', $data['uri']);
+            self::assertStringNotContainsString($signature, $data['uri']);
+        }
+    }
+
 }

@@ -1,0 +1,4 @@
+# Exact historical findings only; rationale: docs/security/gitleaks.md
+91f13fffd182f47ac033319819955f3eab80fae7:modules/auth/auth_callback.php:generic-api-key:6
+99f86c802d5eab6ca4f4cd4290a549441dfd786d:vendor/vkcom/vk-php-sdk/README.md:generic-api-key:287
+99f86c802d5eab6ca4f4cd4290a549441dfd786d:vendor/vkcom/vk-php-sdk/README.md:generic-api-key:305

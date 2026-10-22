@@ -5,6 +5,9 @@ from typing import Protocol
 
 from telethon import TelegramClient, errors, events, functions, types
 
+from .egress import proxy_config
+from python_socks import ProxyError
+
 
 class ReadTransport(Protocol):
     async def latest(self): ...
@@ -30,6 +33,7 @@ class TelegramTransport:
             sequential_updates=True,
             flood_sleep_threshold=0,
             receive_updates=enable_updates,
+            proxy=proxy_config(),
         )
         self.store = store
         self.on_message = on_message
@@ -48,8 +52,25 @@ class TelegramTransport:
                 remaining = self.store.get("flood_until", 0) - self.store.clock()
                 if remaining > 0:
                     await asyncio.sleep(remaining)
+                backoff = self.store.get("egress_retry_after", 0) - self.store.clock()
+                if backoff > 0:
+                    await asyncio.sleep(min(60, backoff))
                 try:
-                    return await factory()
+                    result = await factory()
+                    self.store.set("egress_state", "ok")
+                    self.store.set("egress_last_success", self.store.clock())
+                    self.store.set("egress_failures", 0)
+                    self.store.set("egress_retry_after", 0)
+                    return result
+                except (OSError, ConnectionError, TimeoutError, ProxyError):
+                    failures = min(10, self.store.get("egress_failures", 0) + 1)
+                    self.store.set("egress_state", "fail")
+                    self.store.set("egress_failures", failures)
+                    self.store.set(
+                        "egress_retry_after",
+                        self.store.clock() + min(60, 2 ** (failures - 1)),
+                    )
+                    raise ConnectionError("egress_rpc_unavailable") from None
                 except errors.FloodWaitError as error:
                     self.store.set("flood_until", self.store.clock() + error.seconds)
                     print("FLOOD_WAIT: requests paused", flush=True)

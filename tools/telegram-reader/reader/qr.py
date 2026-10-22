@@ -99,10 +99,18 @@ class QRDisplay:
 
 
 async def authenticate_qr(
-    client, display, duration=600, allow_password=False, prompt=hidden_password
+    client,
+    display,
+    duration=600,
+    allow_password=False,
+    prompt=hidden_password,
+    connect=None,
 ):
     """Reuses authorized sessions; expires/replaces only QR tokens, never the session."""
-    await client.connect()
+    if connect is None:
+        await client.connect()
+    else:
+        await connect()
     if await client.is_user_authorized():
         return
     deadline = time.monotonic() + duration
