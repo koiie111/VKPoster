@@ -82,3 +82,10 @@ the final daemon from the entrypoint's temporary server while retaining the appr
 Unix-socket operations path. A fresh isolated MySQL/Redis/OpenBao coordinate-backup,
 restricted restore and authenticated binlog replay passed locally; strict Semgrep
 also passed with no JSON errors. No production image, TLS mode or assertion was relaxed.
+
+The upgrade fixture had the same socket-only bootstrap race before its first TCP
+migration. It now waits for a non-empty version row only when networking is enabled,
+and checks the preserved8.0 restart likewise. Fresh cold-copy8.0.46→8.4.11 passed
+with all45→48 migration files, existing Cyrillic/emoji, UTC/utf8mb4 and the intact
+original8.0 rollback volume. The report counts migration files rather than confusing
+that count with the highest numbered filename. Strict Semgrep remained clean.

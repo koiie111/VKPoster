@@ -30,8 +30,9 @@ def start(container,image,volume):
          '-v',str(ROOT/'docker/mysql/my.cnf')+':/etc/mysql/conf.d/app.cnf:ro',image])
     containers.append(container)
     for _ in range(120):
-        p=subprocess.run(['docker','exec',container,'mysql','-uroot','-proot','-N','-e','SELECT VERSION();'],capture_output=True)
-        if p.returncode==0:return p.stdout.decode().strip()
+        p=subprocess.run(['docker','exec',container,'mysql','-uroot','-proot','-N','-e','SELECT VERSION() WHERE @@skip_networking = 0;'],capture_output=True)
+        # The entrypoint's socket-only initialization server is not ready for the following TCP migration.
+        if p.returncode==0 and p.stdout.strip():return p.stdout.decode().strip()
         time.sleep(0.5)
     raise RuntimeError('Disposable engine startup/upgrade failed')
 
@@ -58,13 +59,13 @@ try:
         # The rollback route is the untouched cold source volume, not an unsupported dictionary downgrade.
         run(['docker','start',name+'-80'])
         for _ in range(120):
-            check=subprocess.run(['docker','exec',name+'-80','mysql','-uroot','-proot','-N','-e','SELECT 1'],capture_output=True)
-            if check.returncode==0:break
+            check=subprocess.run(['docker','exec',name+'-80','mysql','-uroot','-proot','-N','-e','SELECT 1 WHERE @@skip_networking = 0'],capture_output=True)
+            if check.returncode==0 and check.stdout.strip()==b'1':break
             time.sleep(0.5)
         else:raise RuntimeError('Preserved source did not restart')
         retained=run(['docker','exec',name+'-80','mysql','-uroot','-proot','-N','-e',"SELECT COUNT(*) FROM app_test.users WHERE email='upgrade@example.test';"]).decode().strip()
         if retained!='1':raise RuntimeError('Preserved rollback source lost data')
-        print('PASS cold-copy MySQL engine upgrade:',before,'->',after,'; schema44->46; existing UTF8 preserved;',semantics,'; original8.0 volume retained intact during validation.')
+        print('PASS cold-copy MySQL engine upgrade:',before,'->',after,'; migration files '+str(len(list((baseline/'database/migrations').glob('*.php'))))+'->'+str(len(list((ROOT/'database/migrations').glob('*.php'))))+'; existing UTF8 preserved;',semantics,'; original8.0 volume retained intact during validation.')
 finally:
     for container in containers:subprocess.run(['docker','rm','-f',container],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     for volume in volumes:subprocess.run(['docker','volume','rm',volume],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

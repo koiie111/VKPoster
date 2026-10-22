@@ -242,7 +242,7 @@ separate unencrypted fixture policy; never apply it in production.
 
 
 Migration47 cutover also requires a reviewed rollback target: a pre47 image whose
-readiness demands exactly46 migrations cannot become ready on schema47 merely by
+readiness demands the older migration count cannot become ready after migration47 merely by
 setting the compatibility flag. Keep recovery data/schema forward, and rehearse an
 actually compatible application recovery image before declaring compatibility in19.8.
 The runner never compensates by downgrading MySQL or destroying OAuth recovery state.
