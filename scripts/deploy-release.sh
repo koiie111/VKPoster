@@ -26,7 +26,24 @@ printf 'APP_ENV_FILE=%s\n' "$config" > "$next"
 count=0
 declare -A seen
 while IFS='=' read -r key value; do
-    case "$key" in APP_IMAGE) suffix=app;; WEB_IMAGE) suffix=web;; PDF_IMAGE) suffix=pdf;; OPS_IMAGE) suffix=ops;; *) echo 'Unexpected release image key' >&2; exit 2;; esac
+    case "$key" in
+        APP_IMAGE)
+            suffix=app
+            ;;
+        WEB_IMAGE)
+            suffix=web
+            ;;
+        PDF_IMAGE)
+            suffix=pdf
+            ;;
+        OPS_IMAGE)
+            suffix=ops
+            ;;
+        *)
+            echo 'Unexpected release image key' >&2
+            exit 2
+            ;;
+    esac
     [[ -z ${seen[$key]:-} && "$value" == "$prefix-$suffix@sha256:"* && ${value##*@} =~ ^sha256:[a-f0-9]{64}$ ]] || { echo 'Unverified release image reference' >&2; exit 2; }
     seen[$key]=1
     count=$((count+1))

@@ -56,3 +56,14 @@ See ADR0025 for the envelope/import design and operator custody steps.
 No binlog delivery manifest is implemented in this pass. All production19.8 verification
 items remain pending, including actual custody/cutover, EU egress, production WebAuthn,
 AV signatures and separate-stand restore. No ASVS production/compliance claim is made.
+
+## CI strict-parser follow-up
+
+The first remote source gate found a Semgrep `PartialParsing` warning in the new
+one-line deployment-manifest `case` block. A0-findings summary did not mean strict
+success: JSON diagnostics and the actual exit status exposed the parser failure.
+The block is now conventional multiline Bash with identical whitelist/exit behavior.
+`bash -n`, all12 deploy/promotion contracts, and Semgrep `--strict --error` with
+JSON `errors=[]` and0 findings passed. No rule, strict flag or finding was suppressed.
+This is a small CI compatibility follow-up to the main remediation commit; published
+history remains intact. Remote CI must rerun on the final branch head.
