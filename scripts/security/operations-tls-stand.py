@@ -25,7 +25,11 @@ try:
         "-e", "MYSQL_ROOT_PASSWORD=synthetic-root", "-e", "MYSQL_DATABASE=fixture", "-e", "MYSQL_USER=fixture", "-e", "MYSQL_PASSWORD=synthetic-only",
         "-v", volume + ":/certs:ro", "ezposter-mysql:stage19", "--ssl-ca=/certs/ca.pem", "--ssl-cert=/certs/ca.pem", "--ssl-key=/certs/server.key", "--require-secure-transport=ON", stdout=subprocess.DEVNULL)
     for _ in range(90):
-        probe = subprocess.run(["docker", "exec", name, "mysql", "-uroot", "-psynthetic-root", "-N", "-e", "SELECT 1"], capture_output=True)
+        # The entrypoint's temporary Unix-socket server can answer SELECT before final TCP startup.
+        # Wait for the same verified TCP transport and restricted fixture account used by the contract.
+        probe = subprocess.run(["docker", "exec", name, "mysql", "--host=mysql-valid", "--protocol=TCP",
+            "--user=fixture", "--password=synthetic-only", "--database=fixture", "--ssl-mode=VERIFY_IDENTITY",
+            "--ssl-ca=/certs/ca.pem", "-N", "-e", "SELECT 1"], capture_output=True)
         if probe.returncode == 0:
             break
         time.sleep(1)
@@ -36,11 +40,11 @@ try:
         php = """require 'vendor/autoload.php';
 $c=App\\Tests\\Support\\TestEnv::config(['APP_ENV'=>'production','OPERATIONS_DB_TLS_CA_FILE'=>'/certs/ca.pem']);
 try {$p=new PDO('mysql:host=HOST;dbname=fixture','fixture','synthetic-only',App\\Kernel\\Operations\\OperationsDbPolicy::pdoOptions($c,''));
-App\\Kernel\\Operations\\OperationsDbPolicy::assertTransport($p,$c,''); exit(0);}catch(Throwable){exit(7);}
+App\\Kernel\\Operations\\OperationsDbPolicy::assertTransport($p,$c,''); exit(0);}catch(Throwable $e){fwrite(STDERR,'tls_fixture_failure:'.$e::class.':'.(int)$e->getCode().PHP_EOL);exit(7);}
 """.replace("HOST", host)
         result = subprocess.run(common + ["php", "-r", php], capture_output=True)
         if (result.returncode == 0) != success:
-            raise RuntimeError("PDO TLS identity contract failed for " + host)
+            raise RuntimeError("PDO TLS identity contract failed for " + host + "; " + result.stderr.decode(errors="replace").strip()[:160])
         cli = subprocess.run(common + ["/opt/mysql/mysql", "--host=" + host, "--user=fixture", "--password=synthetic-only", "--ssl-mode=VERIFY_IDENTITY", "--ssl-ca=/certs/ca.pem", "--batch", "-e", "SELECT 1"], capture_output=True)
         if (cli.returncode == 0) != success:
             raise RuntimeError("Oracle TLS identity contract failed for " + host)

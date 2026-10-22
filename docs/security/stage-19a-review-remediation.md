@@ -67,3 +67,11 @@ The block is now conventional multiline Bash with identical whitelist/exit behav
 JSON `errors=[]` and0 findings passed. No rule, strict flag or finding was suppressed.
 This is a small CI compatibility follow-up to the main remediation commit; published
 history remains intact. Remote CI must rerun on the final branch head.
+
+The next CI pass reached the new TLS stand but failed its first positive PDO check.
+The fixture's old socket SELECT readiness could observe the entrypoint's temporary
+initialization server before final TCP startup. It now waits for Oracle's verified
+TCP connection (`VERIFY_IDENTITY`, the fixture CA, and the restricted fixture user)
+before either driver assertion. Local real PDO/Oracle positive and hostname-mismatch
+checks and Ruff passed again. Production TLS enforcement remains unchanged; the
+fixture reports only bounded exception class/code on failure, not token/error bodies.
