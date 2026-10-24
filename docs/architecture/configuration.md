@@ -135,3 +135,248 @@ UTM-метки и включение сокращения задаются в п
 | `SHORT_LINK_DOMAIN` | пусто | хост коротких ссылок (`https://<домен>/<код>`); пусто = `APP_URL/s/<код>` |
 | `SHORT_LINK_MANUAL_PER_DAY` | `100` | ссылок, сделанных вручную, в сутки на пространство |
 | `SHORT_LINK_CLICK_RETENTION_DAYS` | `400` | сколько хранить отдельные переходы (счётчики остаются) |
+
+## Stage 19A: частичная подготовка (IN_PROGRESS)
+
+- Production startup требует HTTPS `APP_URL` и непустой `TRUSTED_PROXIES` со списком
+  IP/CIDR. Некорректные адреса и глобальные `/0` отклоняются. Значения выбираются по
+  фактической proxy chain; корректный синтаксис не доказывает безопасную топологию.
+- `APP_IMAGE` / `WEB_IMAGE` — Compose image references, defaults `ezposter-app:prod` /
+  `ezposter-web:prod`. Не являются включённым CD; workflow ещё не реализован.
+- `/healthz` — process liveness без session/DB/Redis. `/readyz` — DB/Redis и наличие
+  ожидаемого количества миграций (200/503, только ok/fail). Полную сверку схемы не заменяет.
+- Workers сохраняют общий heartbeat `worker` и пишут `worker:publish`, `worker:default`,
+  `worker:analytics` для обслуживаемых очередей. Возраст >180 секунд считается stale.
+- JSON application logs: `storage/logs/app-YYYY-MM-DD.log`, максимум 30 файлов.
+  Полный Stage 19 log/storage limit и внешнее логирование ещё не реализованы.
+
+Текущая точка остановки: [Stage 19A status](../security/stage-19a-status.md).
+
+
+## Oracle backup/restore deadline
+
+`BACKUP_PROCESS_TIMEOUT` is the single per-process deadline (seconds) for Oracle
+`mysqldump` and `mysql` restore: default1800, positive integer1–86400; invalid values
+fail configuration loading, including production startup. Elapsed time is monotonic.
+The daily systemd template allows45min for the whole workflow (30min CLI budget,
+lock wait, encryption/verification and offsite delivery). Raising the CLI deadline
+requires an owner systemd override with additional workflow margin. A timeout is a
+failed operation; an isolated partial restore target must be recreated before retry.
+
+<!-- ENV_INVENTORY_START -->
+
+## Checked environment inventory
+
+Generated from literal Env access and public examples only. No local `.env` is read.
+The source links define defaults, validation and whether a value is required.
+Secrets are provisioned externally; inventory presence never means a credential is configured.
+
+| Variable | Definition / access |
+|---|---|
+| `ADMIN_IP_ALLOWLIST` | [.env.example](../../.env.example), [config/admin.php](../../config/admin.php) |
+| `AI_FAKE` | [.env.example](../../.env.example), [config/ai.php](../../config/ai.php) |
+| `AI_MAX_INPUT_CHARS` | [.env.example](../../.env.example), [config/ai.php](../../config/ai.php) |
+| `AI_MAX_OUTPUT_TOKENS` | [.env.example](../../.env.example), [config/ai.php](../../config/ai.php) |
+| `AI_TIMEOUT_SECONDS` | [.env.example](../../.env.example), [config/ai.php](../../config/ai.php) |
+| `AI_WORKSPACE_PER_MINUTE` | [.env.example](../../.env.example), [config/ai.php](../../config/ai.php) |
+| `ANALYTICS_COLLECTION_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/analytics.php](../../config/analytics.php) |
+| `ANALYTICS_PDF_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/analytics.php](../../config/analytics.php) |
+| `APP_DEBUG` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php) |
+| `APP_DEPLOYED_AT` | [.env.example](../../.env.example), [config/app.php](../../config/app.php) |
+| `APP_ENV` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php), [config/security.php](../../config/security.php), [config/services.php](../../config/services.php), [scripts/analytics-pdf-key.php](../../scripts/analytics-pdf-key.php) |
+| `APP_IMAGE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `APP_KEY` | [.env.example](../../.env.example), [config/security.php](../../config/security.php), [scripts/analytics-pdf-key.php](../../scripts/analytics-pdf-key.php) |
+| `APP_KEYS` | [.env.example](../../.env.example), [config/security.php](../../config/security.php) |
+| `APP_KEY_ID` | [.env.example](../../.env.example), [config/security.php](../../config/security.php) |
+| `APP_NAME` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php), [config/mail.php](../../config/mail.php) |
+| `APP_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php), [config/session.php](../../config/session.php) |
+| `APP_VERSION` | [.env.example](../../.env.example), [config/app.php](../../config/app.php) |
+| `ARGON_MEMORY_KIB` | [config/security.php](../../config/security.php) |
+| `ARGON_TIME_COST` | [config/security.php](../../config/security.php) |
+| `BACKUP_BINLOG_DIRECTORY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_BINLOG_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_BINLOG_ROTATE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_DB_HOST` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_DB_PASSWORD` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_DB_PORT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_DB_SOCKET` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_DB_USERNAME` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_DIRECTORY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `BACKUP_KEY_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_KEY_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `BACKUP_MYSQL_GID` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `BACKUP_PROCESS_TIMEOUT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/operations.php](../../config/operations.php) |
+| `BACKUP_RETENTION_DAYS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php) |
+| `BACKUP_S3_BUCKET` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
+| `BACKUP_S3_ENDPOINT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
+| `BACKUP_S3_KEY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
+| `BACKUP_S3_REGION` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
+| `BACKUP_S3_SECRET` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
+| `BILLING_GATEWAYS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/billing.php](../../config/billing.php) |
+| `BILLING_RECEIPT_FONT` | [config/billing.php](../../config/billing.php) |
+| `BILLING_SELLER_INN` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `BILLING_SELLER_NAME` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `BILLING_TAX_SYSTEM` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `BILLING_VAT` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `CHANNELS_MAX` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `CHANNEL_PREFLIGHT_MINUTES` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `CLAMD_ENDPOINT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php) |
+| `CLOUDPAYMENTS_API_SECRET` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `CLOUDPAYMENTS_PUBLIC_ID` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `CONTENT_` | [config/content_providers.php](../../config/content_providers.php) |
+| `CONTENT_CONCURRENCY` | [.env.example](../../.env.example), [config/content_operations.php](../../config/content_operations.php) |
+| `CONTENT_IMAGE_ENHANCEMENT_PROVIDER` | [.env.example](../../.env.example) |
+| `CONTENT_IMAGE_SEARCH_PROVIDER` | [.env.example](../../.env.example) |
+| `CONTENT_PROVIDER_PER_MINUTE` | [.env.example](../../.env.example), [config/content_operations.php](../../config/content_operations.php) |
+| `CONTENT_RETENTION_DAYS` | [.env.example](../../.env.example), [config/content_operations.php](../../config/content_operations.php) |
+| `CONTENT_RETENTION_ENABLED` | [.env.example](../../.env.example), [config/content_operations.php](../../config/content_operations.php) |
+| `CONTENT_SEMANTIC_PROVIDER` | [.env.example](../../.env.example) |
+| `CONTENT_STUCK_SECONDS` | [.env.example](../../.env.example), [config/content_operations.php](../../config/content_operations.php) |
+| `CONTENT_TEXT_PROVIDER` | [.env.example](../../.env.example) |
+| `CONTENT_VIDEO_PENDING` | [.env.example](../../.env.example), [config/content_operations.php](../../config/content_operations.php) |
+| `CONTENT_VIDEO_PER_HOUR` | [.env.example](../../.env.example), [config/content_operations.php](../../config/content_operations.php) |
+| `CONTENT_VIDEO_PROVIDER` | [.env.example](../../.env.example) |
+| `CONTENT_WORKSPACE_PER_MINUTE` | [.env.example](../../.env.example), [config/content_operations.php](../../config/content_operations.php) |
+| `CRYPTO_API_KEY` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `CRYPTO_BACKEND` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/security.php](../../config/security.php), [config/services.php](../../config/services.php), [src/Domain/Analytics/AnalyticsPdf.php](../../src/Domain/Analytics/AnalyticsPdf.php), [src/Kernel/Config.php](../../src/Kernel/Config.php) |
+| `CRYPTO_MERCHANT_ID` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `DB_DATABASE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/database.php](../../config/database.php) |
+| `DB_HOST` | [.env.example](../../.env.example), [config/database.php](../../config/database.php), [scripts/check-schema.php](../../scripts/check-schema.php) |
+| `DB_PASSWORD` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/database.php](../../config/database.php), [scripts/check-schema.php](../../scripts/check-schema.php) |
+| `DB_PORT` | [.env.example](../../.env.example), [config/database.php](../../config/database.php), [scripts/check-schema.php](../../scripts/check-schema.php) |
+| `DB_ROOT_PASSWORD` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `DB_USERNAME` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/database.php](../../config/database.php), [scripts/check-schema.php](../../scripts/check-schema.php) |
+| `DEV_LOGIN` | [.env.example](../../.env.example), [config/auth.php](../../config/auth.php) |
+| `DEV_OAUTH_FAKE` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
+| `EGRESS_ANTHROPIC_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_ANTHROPIC_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_GLITCHTIP_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_GLITCHTIP_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_IDENTITY_SALT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Config.php](../../src/Kernel/Config.php), [src/Kernel/HttpClient/EgressRoutes.php](../../src/Kernel/HttpClient/EgressRoutes.php) |
+| `EGRESS_MAX_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_MAX_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_OPENAI_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_OPENAI_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_PROBE_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/HttpClient/EgressProbe.php](../../src/Kernel/HttpClient/EgressProbe.php) |
+| `EGRESS_REPLICATE_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_REPLICATE_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_REQUIRED_PROVIDERS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/HttpClient/EgressHealth.php](../../src/Kernel/HttpClient/EgressHealth.php), [src/Kernel/HttpClient/EgressProbe.php](../../src/Kernel/HttpClient/EgressProbe.php), [src/Kernel/HttpClient/EgressRoutes.php](../../src/Kernel/HttpClient/EgressRoutes.php) |
+| `EGRESS_TELEGRAM_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_TELEGRAM_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_TINEYE_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_TINEYE_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_VK_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_VK_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `GOOGLE_CLIENT_ID` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
+| `GOOGLE_CLIENT_SECRET` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
+| `HTTP_PORT` | [.env.production.example](../../.env.production.example) |
+| `INSTAGRAM_API_VERSION` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `INSTAGRAM_APP_ID` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `INSTAGRAM_APP_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `INSTAGRAM_POSTS_PER_DAY` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `INSTAGRAM_SCOPE` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `LOG_DISABLE_STDERR` | [config/services.php](../../config/services.php) |
+| `LOG_LEVEL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php) |
+| `MAIL_DSN` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/mail.php](../../config/mail.php) |
+| `MAIL_FROM` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/mail.php](../../config/mail.php) |
+| `MAIL_FROM_NAME` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/mail.php](../../config/mail.php) |
+| `MAIL_HOST` | [.env.example](../../.env.example), [config/mail.php](../../config/mail.php) |
+| `MAIL_PORT` | [.env.example](../../.env.example), [config/mail.php](../../config/mail.php) |
+| `MALWARE_SCANNER` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php) |
+| `MAX_API_BASE` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `MAX_BOT_TOKEN` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `MAX_BOT_USERNAME` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `MAX_WEBHOOK_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `MEDIA_DISK` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `MEDIA_LOCAL_ROOT` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `MEDIA_MAX_FILE_MB` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `MEDIA_MAX_VIDEO_SECONDS` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `MEDIA_QUOTA_MB` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `MEDIA_SIGNED_URL_TTL` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `MEDIA_URL_TIMEOUT` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `MYSQL_IMAGE` | [.env.production.example](../../.env.production.example) |
+| `OAUTH_ORDER` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
+| `OPENAI_API_KEY` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
+| `OPENAI_CONTENT_MODEL` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
+| `OPERATIONS_DB_TLS_CA_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationsDbPolicy.php](../../src/Kernel/Operations/OperationsDbPolicy.php) |
+| `OPS_IMAGE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `OPS_MONITOR_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationalMonitor.php](../../src/Kernel/Operations/OperationalMonitor.php) |
+| `OPS_TELEGRAM_BOT_TOKEN` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationalMonitor.php](../../src/Kernel/Operations/OperationalMonitor.php) |
+| `OPS_TELEGRAM_CHAT_ID` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationalMonitor.php](../../src/Kernel/Operations/OperationalMonitor.php) |
+| `PADDLE_API_KEY` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `PADDLE_SANDBOX` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `PADDLE_WEBHOOK_SECRET` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `PASSWORD_HIBP` | [.env.example](../../.env.example), [config/auth.php](../../config/auth.php) |
+| `PASSWORD_PEPPER_FILE` | [.env.example](../../.env.example), [config/services.php](../../config/services.php) |
+| `PASSWORD_PEPPER_HOST_PATH` | [.env.example](../../.env.example) |
+| `PASSWORD_PEPPER_ID` | [.env.example](../../.env.example), [config/services.php](../../config/services.php) |
+| `PASSWORD_PEPPER_PREVIOUS_FILES` | [.env.example](../../.env.example), [config/services.php](../../config/services.php) |
+| `PDF_IMAGE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `PLATFORMS_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/platforms.php](../../config/platforms.php) |
+| `REDIS_DB` | [.env.example](../../.env.example), [config/database.php](../../config/database.php) |
+| `REDIS_HOST` | [.env.example](../../.env.example), [config/database.php](../../config/database.php) |
+| `REDIS_IMAGE` | [.env.production.example](../../.env.production.example) |
+| `REDIS_PASSWORD` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/database.php](../../config/database.php) |
+| `REDIS_PORT` | [.env.example](../../.env.example), [config/database.php](../../config/database.php) |
+| `REMEMBER_DAYS` | [.env.example](../../.env.example), [config/auth.php](../../config/auth.php) |
+| `REPLICATE_API_TOKEN` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
+| `RESTORE_DB_HOST` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php) |
+| `RESTORE_DB_PASSWORD` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php) |
+| `RESTORE_DB_PORT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php) |
+| `RESTORE_DB_SOCKET` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php) |
+| `RESTORE_DB_USERNAME` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php) |
+| `S3_BUCKET` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `S3_ENDPOINT` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `S3_KEY` | [.env.example](../../.env.example), [config/media.php](../../config/media.php), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
+| `S3_PATH_STYLE` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `S3_REGION` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
+| `S3_SECRET` | [.env.example](../../.env.example), [config/media.php](../../config/media.php), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
+| `SCHEMA_CHECK_DATABASE` | [scripts/check-schema.php](../../scripts/check-schema.php) |
+| `SENTRY_DSN` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php), [src/Kernel/Operations/GlitchTipReporter.php](../../src/Kernel/Operations/GlitchTipReporter.php) |
+| `SESSION_ABSOLUTE_TTL` | [.env.example](../../.env.example), [config/session.php](../../config/session.php) |
+| `SESSION_IDLE_TTL` | [.env.example](../../.env.example), [config/session.php](../../config/session.php) |
+| `SHORT_LINK_CLICK_RETENTION_DAYS` | [.env.example](../../.env.example), [config/links.php](../../config/links.php) |
+| `SHORT_LINK_DOMAIN` | [.env.example](../../.env.example), [config/links.php](../../config/links.php) |
+| `SHORT_LINK_MANUAL_PER_DAY` | [.env.example](../../.env.example), [config/links.php](../../config/links.php) |
+| `SOURCES_ENABLED` | [.env.example](../../.env.example), [config/permissions.php](../../config/permissions.php), [config/sources.php](../../config/sources.php) |
+| `SOURCES_READER_SECRET` | [.env.example](../../.env.example), [config/sources.php](../../config/sources.php), [src/Kernel/HttpClient/EgressHealth.php](../../src/Kernel/HttpClient/EgressHealth.php) |
+| `STRIPE_SECRET_KEY` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `STRIPE_WEBHOOK_SECRET` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `SUPPORT_EMAIL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/mail.php](../../config/mail.php) |
+| `TBANK_API_BASE` | [config/billing.php](../../config/billing.php) |
+| `TBANK_PASSWORD` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `TBANK_TERMINAL_KEY` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `TELEGRAM_BOT_TOKEN` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TELEGRAM_BOT_USERNAME` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TELEGRAM_LOGIN_BOT_NAME` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
+| `TELEGRAM_LOGIN_BOT_TOKEN` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
+| `TELEGRAM_WEBHOOK_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TINEYE_API_KEY` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
+| `TRUSTED_PROXIES` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php) |
+| `VAULT_APP_TOKEN_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `VAULT_CA_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php), [src/Kernel/Config.php](../../src/Kernel/Config.php) |
+| `VAULT_CA_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `VAULT_LEGACY_SIGNER_KEY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php) |
+| `VAULT_LEGACY_SIGNER_UNTIL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php) |
+| `VAULT_LEGACY_TRANSIT_KEY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php) |
+| `VAULT_PDF_TOKEN_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `VAULT_TOKEN_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php), [src/Kernel/Config.php](../../src/Kernel/Config.php) |
+| `VAULT_TRANSIT_KEY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php), [src/Kernel/Config.php](../../src/Kernel/Config.php) |
+| `VAULT_TRANSIT_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/services.php](../../config/services.php), [src/Kernel/Config.php](../../src/Kernel/Config.php) |
+| `VKID_CLIENT_ID` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php), [config/platforms.php](../../config/platforms.php) |
+| `VKID_CLIENT_SECRET` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php), [config/platforms.php](../../config/platforms.php) |
+| `VK_CLIENT_ID` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `VK_CLIENT_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `VK_POSTS_PER_DAY` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `VK_SCOPE` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `WEBHOOK_FAILURE_LIMIT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/api.php](../../config/api.php) |
+| `WEBHOOK_RETENTION_DAYS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/api.php](../../config/api.php) |
+| `WEB_IMAGE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `YANDEX_CLIENT_ID` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
+| `YANDEX_CLIENT_SECRET` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
+| `YOOKASSA_API_BASE` | [config/billing.php](../../config/billing.php) |
+| `YOOKASSA_SECRET_KEY` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `YOOKASSA_SHOP_ID` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `YOOKASSA_VERIFY_IP` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+
+<!-- ENV_INVENTORY_END -->

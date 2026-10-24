@@ -23,6 +23,21 @@ final class RegistrationTest extends AuthTestCase
         return ['name' => 'Мария', 'email' => $email, 'password' => 'a-long-unusual-passphrase', 'consent' => '1'];
     }
 
+    public function testPasswordSecurityControlsAndTwelveCharacterServerBoundary(): void
+    {
+        $page = $this->get('/register');
+        self::assertStringContainsString('data-password-reveal', $page->body);
+        self::assertStringContainsString('data-password-strength', $page->body);
+        self::assertStringContainsString('minlength="12"', $page->body);
+        $form = $this->form();
+        $form['password'] = 'm7Qz9xT2pL8';
+        $response = $this->post('/register', $form);
+        self::assertSame([], $this->db->select('SELECT id FROM users'));
+        $html = $this->follow($response)->body;
+        self::assertStringContainsString('не меньше 12', $html);
+        self::assertStringNotContainsString('value="m7Qz9xT2pL8"', $html);
+    }
+
     public function testFullFlowRegisterConfirmSignIn(): void
     {
         $response = $this->post('/register', $this->form());

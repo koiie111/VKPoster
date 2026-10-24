@@ -91,16 +91,19 @@ final class VkOAuth
         }
         try {
             $response = $this->http->request('POST', self::TOKEN_URL, ['form_params' => $form, 'timeout' => 20, 'connect_timeout' => 10, 'http_errors' => false]);
-        } catch (GuzzleException) {
+        } catch (GuzzleException $error) {
+            if (($form['grant_type'] ?? '') === 'refresh_token' && !$error instanceof \GuzzleHttp\Exception\ConnectException) {
+                throw new PlatformError(ErrorKind::UnknownOutcome, 'VK ID refresh outcome uncertain.', 'Проверьте подключение канала.');
+            }
             throw new PlatformError(ErrorKind::Temporary, 'VK ID: transport error.', 'Не удалось связаться с ВКонтакте. Попробуйте позже.');
         }
         $status = $response->getStatusCode();
         $data = json_decode((string) $response->getBody(), true);
         if (!is_array($data)) {
-            throw new PlatformError($status >= 500 || $status === 0 ? ErrorKind::Temporary : ErrorKind::Auth, sprintf('VK ID: unreadable answer (HTTP %d).', $status), 'ВКонтакте ответил что-то непонятное. Попробуйте позже.');
+            throw new PlatformError(($form['grant_type'] ?? '') === 'refresh_token' && ($status >= 500 || ($status >= 200 && $status < 300)) ? ErrorKind::UnknownOutcome : ($status >= 500 || $status === 0 ? ErrorKind::Temporary : ErrorKind::Auth), sprintf('VK ID: unreadable answer (HTTP %d).', $status), 'ВКонтакте ответил что-то непонятное. Попробуйте позже.');
         }
         if ($status >= 500) {
-            throw new PlatformError(ErrorKind::Temporary, sprintf('VK ID: HTTP %d.', $status), 'ВКонтакте сейчас недоступен. Попробуйте позже.');
+            throw new PlatformError(($form['grant_type'] ?? '') === 'refresh_token' ? ErrorKind::UnknownOutcome : ErrorKind::Temporary, sprintf('VK ID: HTTP %d.', $status), 'ВКонтакте сейчас недоступен. Попробуйте позже.');
         }
         if (is_string($data['error'] ?? null) || $status >= 400) {
             $error = is_string($data['error'] ?? null) ? $data['error'] : 'http_' . $status;

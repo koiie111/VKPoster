@@ -20,8 +20,13 @@ def normalize_phone(value):
     return compact
 
 
-async def authenticate(client, configured_phone, interactive, prompt=getpass.getpass):
-    await client.connect()
+async def authenticate(
+    client, configured_phone, interactive, prompt=getpass.getpass, connect=None
+):
+    if connect is None:
+        await client.connect()
+    else:
+        await connect()
     if await client.is_user_authorized():
         return
     if not interactive:

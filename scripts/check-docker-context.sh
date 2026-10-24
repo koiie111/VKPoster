@@ -2,11 +2,16 @@
 # Regression: synthetic secrets only. Never sends the application's real credentials to a builder.
 set -eu
 base=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-fixture=$(mktemp -d)
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/vkposter-context.XXXXXX")
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
-mkdir -p "$fixture/context/tools/telegram-reader/deep" "$fixture/context/other/.aws" "$fixture/context/runtime"
-cp "$base/.dockerignore" "$fixture/context/.dockerignore"
-for path in .env tools/telegram-reader/.env tools/telegram-reader/deep/.env.local tools/telegram-reader/deep/account.session tools/telegram-reader/deep/account.session-journal tools/telegram-reader/deep/runtime.sqlite tools/telegram-reader/deep/runtime.sqlite-wal other/.aws/credentials other/private.key runtime/state .DS_Store; do
+for ignore in "$base/.dockerignore" "$base/tools/telegram-reader/.dockerignore" \
+    "$base/docker/mysql/.dockerignore" "$base/docker/openbao/.dockerignore" \
+    "$base/docker/redis/.dockerignore" "$base/docker/caddy/.dockerignore" "$base/docker/clamav/.dockerignore" \
+    "$base/tools/analytics-pdf/.dockerignore"; do
+    mkdir -p "$fixture/context"
+mkdir -p "$fixture/context/tools/telegram-reader/deep" "$fixture/context/other/.aws" "$fixture/context/runtime" "$fixture/context/other/.git" "$fixture/context/other/.docker" "$fixture/context/other/.kube"
+cp "$ignore" "$fixture/context/.dockerignore"
+for path in .env tools/telegram-reader/.env tools/telegram-reader/deep/.env.local tools/telegram-reader/deep/account.session tools/telegram-reader/deep/account.session-journal tools/telegram-reader/deep/runtime.sqlite tools/telegram-reader/deep/runtime.sqlite-wal other/.aws/credentials other/private.key other/.git/config other/.docker/config.json other/.kube/config other/auth.json other/.netrc runtime/state .DS_Store; do
     printf 'synthetic-secret-sentinel\n' > "$fixture/context/$path"
 done
 printf 'safe-example\n' > "$fixture/context/tools/telegram-reader/.env.example"
@@ -16,7 +21,11 @@ if find "$fixture/image" -type f -exec grep -l 'synthetic-secret-sentinel' {} + 
     echo 'FAIL: secret sentinel reached Docker image' >&2
     exit 1
 fi
-test -f "$fixture/image/tools/telegram-reader/.env.example"
+if [ "$ignore" = "$base/.dockerignore" ] || [ "$ignore" = "$base/tools/telegram-reader/.dockerignore" ]; then
+    test -f "$fixture/image/tools/telegram-reader/.env.example"
+fi
+    rm -rf "$fixture/context" "$fixture/image"
+done
 if grep -q '^COPY --chown=app:www-data \. /var/www/html' "$base/docker/php/Dockerfile"; then
     echo 'FAIL: production image must use explicit application inputs' >&2
     exit 1

@@ -31,6 +31,16 @@ final class ChannelCredentials
      */
     public function forChannel(Channel $channel): Credential
     {
+        try {
+            return $this->resolveCredential($channel);
+        } catch (\App\Kernel\Exception\CryptoUnavailableException) {
+            // Credential lookup happens before the publishing adapter is dispatched: safe to retry.
+            throw new PlatformError(ErrorKind::Temporary, 'Credential service unavailable.', 'Сервис временно недоступен. Попробуем ещё раз.', 30);
+        }
+    }
+
+    private function resolveCredential(Channel $channel): Credential
+    {
         if ($channel->platform === Platform::Fake) {
             return new Credential(Platform::Fake, 'fake');
         }

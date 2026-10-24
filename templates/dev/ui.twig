@@ -66,6 +66,7 @@
 {% set _b5 %}
     <div class="grid gap-6 md:grid-cols-2">
         {{ f.input('title', 'Название поста', hint = 'Видно только вам. В соцсеть не попадёт.', placeholder = 'Например, «Осенняя коллекция»') }}
+        {{ f.input('demo-password', 'Пароль', type = 'password', autocomplete = 'new-password', hint = 'Локальный индикатор сложности и показ пароля.') }}
         {{ f.input('email', 'Почта', type = 'email', required = true, value = 'anna@example.com', autocomplete = 'email') }}
         {{ f.input('when', 'Время публикации', value = '25:00', error = 'Такого времени нет. Укажите время от 00:00 до 23:59.') }}
         {{ f.input('locked', 'Недоступное поле', value = 'Только чтение', attrs = {disabled: 'disabled'}) }}
@@ -81,6 +82,7 @@
         <fieldset class="flex flex-col gap-3"><legend class="label">Выбор одного</legend>{{ f.radio('mode', 'Опубликовать сразу', 'now', true) }}{{ f.radio('mode', 'Запланировать на время', 'later') }}{{ f.radio('mode', 'В свободный слот', 'slot', hint = 'Следующее свободное время из расписания.') }}</fieldset>
         <fieldset class="flex flex-col gap-3"><legend class="label">Переключатели</legend>{{ f.switch('tg', 'Публиковать в Telegram', true) }}{{ f.switch('max', 'Публиковать в MAX', false, hint = 'Канал подключён.') }}{{ f.switch('ig', 'Instagram недоступен', false, disabled = true) }}</fieldset>
     </div>
+    {{ f.hardware_keys() }}
 {% endset %}{{ s.section('forms', 'Поля формы', body = _b5) }}
 
 {% set _b6 %}

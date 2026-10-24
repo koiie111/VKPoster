@@ -37,4 +37,29 @@ final class HealthTest extends TestCase
         self::assertSame(['db' => 'fail', 'redis' => 'fail'], $result);
         self::assertFalse(HealthCheck::isHealthy($result));
     }
+    public function testLivenessDoesNotNeedRedisOrDatabase(): void
+    {
+        $app = \App\Tests\Support\TestEnv::app(['DB_HOST' => '127.0.0.1', 'DB_PORT' => '1', 'REDIS_HOST' => '127.0.0.1', 'REDIS_PORT' => '1']);
+        $response = $app->handle(\App\Kernel\Http\Request::create('GET', '/healthz'));
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('ok', $response->body);
+        $ready = $app->handle(\App\Kernel\Http\Request::create('GET', '/readyz'));
+        self::assertSame(503, $ready->status);
+        self::assertStringNotContainsString('SQLSTATE', $ready->body);
+    }
+
+    public function testReadinessFailsWhenPrivateScannerIsUnavailable(): void
+    {
+        $health = new HealthCheck(\App\Tests\Support\TestEnv::env(['MALWARE_SCANNER' => 'clamd', 'CLAMD_ENDPOINT' => 'unix:///missing-stage19-scanner.sock'])->all());
+        self::assertSame('fail', $health->ready(46)['malware_scanner']);
+    }
+
+    public function testReadinessChecksSchemaAndDependencies(): void
+    {
+        $health = new HealthCheck(\App\Tests\Support\TestEnv::env()->all());
+        $expected = count(\App\Support\Fs::glob(dirname(__DIR__, 2) . '/database/migrations/*.php'));
+        self::assertSame(['db' => 'ok', 'redis' => 'ok', 'schema' => 'ok'], $health->ready($expected));
+        self::assertSame('fail', $health->ready($expected + 1)['schema']);
+    }
+
 }

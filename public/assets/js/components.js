@@ -262,7 +262,93 @@
         };
     }
 
+    /** Password reveal and local-only advisory strength; never stores or transmits field values. */
+    function passwordField() {
+        return {
+            init: function () {
+                var root = this.$el;
+                var input = root.querySelector('[data-password-input]');
+                var reveal = root.querySelector('[data-password-reveal]');
+                var meter = root.querySelector('[data-password-strength]');
+                var feedback = root.querySelector('[data-password-feedback]');
+                if (!input || !reveal) { return; }
+                reveal.addEventListener('click', function () {
+                    var visible = input.type === 'password';
+                    input.type = visible ? 'text' : 'password';
+                    reveal.setAttribute('aria-pressed', String(visible));
+                    reveal.textContent = visible ? 'Скрыть' : 'Показать';
+                    reveal.setAttribute('aria-label', visible ? 'Скрыть пароль' : 'Показать пароль');
+                });
+                if (!meter || !feedback) { return; }
+                var update = function () {
+                    var value = input.value.replace(/ {2,}/g, ' ');
+                    var length = Array.from(value).length;
+                    var distinct = new Set(Array.from(value.toLowerCase())).size;
+                    var score = length === 0 ? 0 : (length < 12 || distinct < 4 ? 1 : (length < 16 ? 2 : (length < 24 ? 3 : 4)));
+                    if (/^(password|пароль|123456|qwerty)/i.test(value)) { score = Math.min(score, 1); }
+                    meter.value = score;
+                    var labels = ['Введите уникальную фразу', 'Слабый пароль', 'Умеренная надёжность', 'Хорошая длина и разнообразие', 'Длинная уникальная фраза предпочтительна'];
+                    feedback.textContent = labels[score] + '. Оценка — подсказка, не гарантия.';
+                };
+                input.addEventListener('input', update);
+                update();
+            },
+        };
+    }
+
+    /** Hardware-key controls share the existing CSRF/session boundary; password values stay in this request only. */
+    function hardwareKeys() {
+        return {init: function () {
+            var root = this.$el, status = root.querySelector('[data-hardware-status]');
+            var encode = function (value) { return btoa(String.fromCharCode.apply(null, new Uint8Array(value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+            var decode = function (value) { return Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), function (c) { return c.charCodeAt(0); }); };
+            var proof = function () { return {password: (root.querySelector('[name=hardware_password]') || {}).value || '', code: (root.querySelector('[name=hardware_code]') || {}).value || ''}; };
+            var request = async function (path, body) {
+                var response = await fetch(path, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name=csrf-token]').content}, body: JSON.stringify(body)});
+                if (!response.ok) { throw new Error('request_failed'); }
+                if (response.redirected) { window.location.assign(response.url); return {}; }
+                return response.json();
+            };
+            var run = async function (button, action) {
+                qsa(root, 'button').forEach(function (b) { b.disabled = true; });
+                status.textContent = 'Ожидаем подтверждение ключа…';
+                try {
+                    if (!window.PublicKeyCredential || !navigator.credentials) { throw new Error('unsupported'); }
+                    await action();
+                    status.textContent = 'Ключ подтверждён.';
+                } catch (error) { status.textContent = 'Не удалось подтвердить ключ. Проверьте пароль и код или повторите попытку.'; }
+                finally {
+                    qsa(root, 'input[type=password], input[name=hardware_code]').forEach(function (input) { input.value = ''; });
+                    qsa(root, 'button').forEach(function (b) { b.disabled = false; });
+                }
+            };
+            var prepare = function (options) {
+                options.challenge = decode(options.challenge);
+                if (options.user) { options.user.id = decode(options.user.id); }
+                ['allowCredentials', 'excludeCredentials'].forEach(function (name) { (options[name] || []).forEach(function (item) { item.id = decode(item.id); }); });
+                return options;
+            };
+            qsa(root, '[data-hardware-enroll]').forEach(function (button) { button.addEventListener('click', function () { run(button, async function () {
+                var options = await request('/account/webauthn/begin', proof());
+                var credential = await navigator.credentials.create({publicKey: prepare(options.publicKey)});
+                await request('/account/webauthn/register', {clientDataJSON: encode(credential.response.clientDataJSON), attestationObject: encode(credential.response.attestationObject), label: root.querySelector('[name=hardware_label]').value});
+                window.location.reload();
+            }); }); });
+            qsa(root, '[data-hardware-login]').forEach(function (button) { button.addEventListener('click', function () { run(button, async function () {
+                var options = await request('/login/2fa/webauthn/options', {});
+                var credential = await navigator.credentials.get({publicKey: prepare(options.publicKey)});
+                await request('/login/2fa/webauthn/verify', {rawId: encode(credential.rawId), clientDataJSON: encode(credential.response.clientDataJSON), authenticatorData: encode(credential.response.authenticatorData), signature: encode(credential.response.signature)});
+            }); }); });
+            qsa(root, '[data-hardware-revoke]').forEach(function (button) { button.addEventListener('click', function () { run(button, async function () {
+                var body = proof(); body.id = Number(button.dataset.hardwareRevoke);
+                await request('/account/webauthn/revoke', body); window.location.reload();
+            }); }); });
+        }};
+    }
+
     document.addEventListener('alpine:init', function () {
+        window.Alpine.data('passwordField', passwordField);
+        window.Alpine.data('hardwareKeys', hardwareKeys);
         window.Alpine.data('dropdown', dropdown);
         window.Alpine.data('tabs', tabs);
         window.Alpine.data('counter', counter);

@@ -33,6 +33,8 @@ final class LoginController
         private readonly SocialFlow $social,
         private readonly SocialAuthService $socialAuth,
         private readonly ProviderRegistry $providers,
+        private readonly \App\Domain\Auth\WebAuthnService $hardware,
+        private readonly \App\Kernel\Security\RateLimiter $limiter,
     ) {
     }
 
@@ -109,6 +111,43 @@ final class LoginController
             : 'Код не подошёл. Проверьте код в приложении или введите резервный код.']);
 
         return Response::redirect('/login/2fa');
+    }
+
+    public function webAuthnOptions(): Response
+    {
+        $pending = $this->hardwarePending();
+        return Response::json($this->hardware->options($pending['user'], $this->flash->session()->id(), false));
+    }
+
+    public function webAuthnVerify(Request $request): Response
+    {
+        $pending = $this->hardwarePending();
+        if (strlen($request->rawBody) > 32768) {
+            throw new \App\Kernel\Exception\HttpException(413, 'Ответ ключа слишком большой.');
+        }
+        if (!$this->hardware->verify($pending['user'], $this->flash->session()->id(), $request->json())) {
+            $this->login->journal($pending['user']->id, 'bad_2fa', $request->ip(), $request->header('user-agent') ?? '');
+            throw new \App\Kernel\Exception\HttpException(422, 'Ключ безопасности не прошёл проверку.');
+        }
+        return $this->finish($request, $pending['user'], $pending['remember']);
+    }
+
+    /** @return array{user:User,remember:bool} */
+    private function hardwarePending(): array
+    {
+        $pending = $this->auth->pendingTwoFactor($this->flash->session());
+        if ($pending === null || $pending['user']->isBlocked()) {
+            throw new \App\Kernel\Exception\HttpException(403, 'Сначала введите почту и пароль.');
+        }
+        try {
+            $allowed = $this->limiter->attempt('webauthn-login:' . $pending['user']->id, 20, 600, true)->allowed;
+        } catch (\Throwable) {
+            throw new \App\Kernel\Exception\HttpException(503, 'Проверка безопасности временно недоступна.');
+        }
+        if (!$allowed) {
+            throw new \App\Kernel\Exception\HttpException(429, 'Слишком много попыток.');
+        }
+        return $pending;
     }
 
     public function logout(Request $request): Response

@@ -117,9 +117,10 @@ return static function (Router $router): void {
     $router->get('/', [HomeController::class, 'index'])->name('home')->middleware(TrackVisit::class, OptionalAuthenticate::class);
     $router->get('/api/docs', [\App\Http\Controllers\Api\DocumentationController::class, 'show']);
     $router->get('/healthz', [HealthController::class, 'show'])->name('health');
+    $router->get('/readyz', [HealthController::class, 'ready'])->name('ready');
     $router->get('/internal/source-image-jobs', [\App\Http\Controllers\Sources\ImageReaderController::class, 'jobs'])->middleware([RateLimit::class, ['bucket' => 'source-images-list', 'max' => 120, 'seconds' => 60]]);
     // Stage 14 guest capability routes keep normal session CSRF protection; no registration is needed.
-    $guest = '/g/{token:[a-f0-9]{64}\\.[A-Za-z0-9_-]{43}}';
+    $guest = '/g/{token:[a-f0-9]{64}\\.(?:[A-Za-z0-9_-]{43}|t1_[A-Za-z0-9_-]{16,256})}';
     $gc = \App\Http\Controllers\Approvals\GuestController::class;
     $router->get($guest, [$gc, 'show'])->middleware([RateLimit::class, ['bucket' => 'guest-preview', 'max' => 120, 'seconds' => 60]]);
     $router->get($guest . '/analytics', [\App\Http\Controllers\Analytics\PostAnalyticsController::class, 'guest'])->middleware([RateLimit::class, ['bucket' => 'guest-analytics','max' => 30,'seconds' => 60]]);
@@ -157,6 +158,8 @@ return static function (Router $router): void {
         $r->get('/register/done', [RegisterController::class, 'done'])->name('register.done');
         $r->get('/login', [LoginController::class, 'show'])->name('login')->middleware(TrackVisit::class);
         $r->post('/login', [LoginController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'login', 'max' => 20, 'seconds' => 600]]);
+        $r->post('/login/2fa/webauthn/options', [LoginController::class, 'webAuthnOptions']);
+        $r->post('/login/2fa/webauthn/verify', [LoginController::class, 'webAuthnVerify']);
         $r->get('/login/2fa', [LoginController::class, 'twoFactorShow'])->name('login.2fa');
         $r->post('/login/2fa', [LoginController::class, 'twoFactorStore'])->middleware([RateLimit::class, ['bucket' => 'login-2fa', 'max' => 20, 'seconds' => 600]]);
         $r->get('/password/forgot', [PasswordResetController::class, 'forgotShow'])->name('auth.forgot');
@@ -209,6 +212,9 @@ return static function (Router $router): void {
             $a->post('/announcements/{id:[0-9]{1,12}}/dismiss', [AnnouncementController::class, 'dismiss']);
             $a->post('/account/notifications/telegram/link', [NotificationController::class, 'linkTelegram'])->middleware([RateLimit::class, ['bucket' => 'telegram-link', 'max' => 10, 'seconds' => 3600]]);
             $a->post('/account/notifications/telegram/unlink', [NotificationController::class, 'unlinkTelegram']);
+            $a->post('/account/webauthn/begin', [\App\Http\Controllers\Account\WebAuthnController::class, 'begin']);
+            $a->post('/account/webauthn/register', [\App\Http\Controllers\Account\WebAuthnController::class, 'register']);
+            $a->post('/account/webauthn/revoke', [\App\Http\Controllers\Account\WebAuthnController::class, 'revoke']);
             $a->post('/account/2fa/start', [TwoFactorController::class, 'start']);
             $a->get('/account/2fa/setup', [TwoFactorController::class, 'setup'])->name('account.2fa.setup');
             $a->get('/account/2fa/qr.svg', [TwoFactorController::class, 'qr']);

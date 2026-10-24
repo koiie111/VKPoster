@@ -28,7 +28,7 @@ final class ShortLinks
         private readonly UrlGuard $guard,
         private readonly string $publicBase,
         private readonly string $shortDomain,
-        private readonly string $salt,
+        private readonly string|\App\Kernel\Security\Crypto $salt,
         private readonly int $clickRetentionDays = 400,
     ) {
     }
@@ -135,7 +135,9 @@ final class ShortLinks
     {
         $now = $this->clock->now();
         $bot = $userAgent === '' || preg_match(self::BOTS, $userAgent) === 1;
-        $visitor = substr(hash_hmac('sha256', $now->format('Y-m-d') . '|' . $ip . '|' . $userAgent, $this->salt), 0, 16);
+        $identity = $now->format('Y-m-d') . '|' . $ip . '|' . $userAgent;
+        $visitor = substr($this->salt instanceof \App\Kernel\Security\Crypto
+            ? bin2hex($this->salt->mac('clicks', $identity)) : hash_hmac('sha256', $identity, $this->salt), 0, 16);
         $this->db->execute('INSERT INTO short_link_clicks (link_id, clicked_at, visitor_hash, is_bot) VALUES (?, ?, ?, ?)', [$link['id'], DbTime::format($now), $visitor, $bot ? 1 : 0]);
         $this->db->execute(
             'UPDATE short_links SET clicks = clicks + 1, human_clicks = human_clicks + ?, last_click_at = ? WHERE id = ?',

@@ -25,17 +25,21 @@
 Остальное: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (камера, микрофон, геолокация закрыты), `Cross-Origin-Opener-Policy: same-origin`, HSTS (`max-age=31536000; includeSubDomains`) в production. Заголовки получают и страницы ошибок.
 
 ## Шифрование (`Crypto`)
-- libsodium `crypto_secretbox` (XSalsa20-Poly1305), случайный nonce на каждое сообщение. Формат: `v1:<key_id>:<base64(nonce|cipher)>`.
-- Подмена шифртекста, неверный ключ, неизвестный `key_id`, битый формат дают `CryptoException`.
-- Ключи: `APP_KEY` (текущий, base64 от 32 байт, `bin/console key:generate`), `APP_KEY_ID` (по умолчанию `k1`), `APP_KEYS` (старые ключи `id:base64,…` только для расшифровки).
 
-### Ротация ключа
-1. `bin/console key:generate` → новый ключ.
-2. В `.env`: старый `APP_KEY` переносим в `APP_KEYS=k1:<старый>`, новый ставим в `APP_KEY`, а `APP_KEY_ID=k2`. Деплой. Старые данные читаются, новые пишутся ключом `k2`.
-3. Перешифровываем строки в БД: `Crypto::needsRotation()` находит записи со старым ключом, `Crypto::rotate()` перешифровывает (команда-обёртка появится вместе с таблицами секретов, этап 06).
-4. Когда `needsRotation` ничего не находит, убираем старый ключ из `APP_KEYS`.
+Production использует `CRYPTO_BACKEND=vault`: purpose-isolated Transit, без выдачи
+master encryption/HMAC/pepper keys PHP-процессу. Новый ciphertext:
+`v3:<purpose>:vault:vN:...`. App/webhook/PDF/password/links/clicks имеют отдельные
+non-exportable keys; подмена purpose блокируется. См. [ADR0025](../adr/0025-purpose-isolated-crypto.md).
+Startup отвергает Sodium, APP_KEY/APP_KEYS и локальные pepper files в production.
+Readiness проверяет доступность и безопасную policy каждого purpose. Ошибка сервиса
+не включает local fallback. PDF renderer получает отдельный verify-only token.
 
-Подписи (`Signer`) используют ключ, выведенный через HKDF из текущего `APP_KEY`: после ротации ранее выданные подписанные ссылки перестают проверяться, это ожидаемо (у них и так короткий TTL).
+Для local/testing сохраняется Sodium secretbox: `v1:<key_id>:<nonce|cipher>`;
+APP_KEY/APP_KEYS используются только в этой явно локальной конфигурации. Для
+существующих encrypted values — отдельный offline CLI migration с private old
+keyring file, CAS, dry-run и возобновлением после сбоя; обычный production app старые
+raw keys не получает. Production rotation использует remote rewrap. Backup/recovery
+должны сохранять исходную БД и её key recovery set до проверенного завершения миграции.
 
 ## Подписанные ссылки (`Signer`)
 HMAC-SHA256 по пути и отсортированным параметрам, параметры `expires` и `signature`. Проверка через `hash_equals`; просроченная, изменённая или неподписанная ссылка отклоняется.
@@ -74,7 +78,7 @@ Twig с автоэкранированием `html`; `strict_variables` вклю
 - «Запомнить меня»: `selector:validator`, в БД хэш валидатора, ротация при каждом использовании, 60 секунд льготы для параллельных запросов; повтор старого валидатора = кража: удаляются все remember-токены и все сессии пользователя.
 - 2FA: TOTP (SHA-1, 6 цифр, 30 с, окно ±1 шаг), секрет шифруется, каждый шаг принимается один раз (`totp_last_step`), 5 попыток за 10 минут; 10 резервных кодов хранятся хэшами. Смена пароля, почты и отключение 2FA требуют текущий пароль (5 попыток за 10 минут).
 - После смены или сброса пароля завершаются все остальные сессии и remember-токены, владельцу приходит письмо.
-- Пароли: 10–128 символов, не из локального списка частых паролей (`resources/data/common-passwords.txt`), опционально проверка по HIBP (`PASSWORD_HIBP`).
+- Пароли: 12–128 символов, не из локального списка частых паролей (`resources/data/common-passwords.txt`), опционально проверка по HIBP (`PASSWORD_HIBP`).
 
 ## Что приедет позже
 Роли и политики (этап 04), загрузки файлов (05), подпись вебхуков (06+), hardening и pentest-чек-лист (19).
@@ -94,3 +98,48 @@ Twig с автоэкранированием `html`; `strict_variables` вклю
 - Рассылки только согласившимся, отписка по подписанной ссылке (`Signer`), одноклик RFC 8058 без CSRF-токена (подпись заменяет его); письма сервиса и тексты сайта проходят через экранирующий `Markdown`, значения подстановок вставляются как текст.
 - Цвета сайта проходят проверку формата `#rrggbb` и хранятся как тройки чисел; CSS собирается только из них и отдаётся с `/theme.css` (inline-стили запрещены CSP).
 - Экспорты CSV защищены от формул в таблицах (`Support\Csv`).
+
+
+## Stage 19A authentication / key isolation (in progress)
+
+See [ADR 0023](../adr/0023-authentication-hardening.md) and the
+[12-item ASVS remediation matrix](../security/asvs-remediation-stage19a.md).
+Passwords require 12 characters after repeated spaces are combined for length only.
+The shared password control has local reveal/strength feedback. Admin CLI bootstrap
+prints an existing one-use password-reset activation link (1-hour TTL), not a generated
+long-term password. Treat that capability as secret; never run bootstrap into CI logs.
+
+Production password pepper is a dedicated remote Transit HMAC purpose before
+Argon2id. Hashes store the server key version; verification retains old versions
+through rotation and successful login upgrades them. Raw password pepper never
+enters PHP. Local/testing can still exercise private file-based legacy pepper;
+those files are forbidden in normal production configuration. Inventory/reset any
+experimental local pepper:v1 hashes before cutover; do not silently lock users out.
+
+WebAuthn is an alternative second factor for users who already enrolled MFA: fresh
+password (if present) plus TOTP/recovery proof before enrollment or revocation.
+`webauthn_credentials` holds only public keys, counters and audit/revocation metadata;
+`webauthn_challenges` binds user/session/purpose for 2 minutes and atomically consumes
+once. Exact configured origin, user presence/verification and library signatures are
+required. Reset/disable of MFA revokes hardware keys/challenges. No discoverable-user
+or passwordless-first-factor flow. Classic U2F without user verification is not claimed.
+Virtual-authenticator tests do not replace real hardware at the production RP origin.
+
+`VaultTransit` uses the existing HTTP boundary, private token/CA files, bounded
+responses/timeouts, no redirects and sanitized exceptions. ShortLinks uses remote
+click HMAC; Signer uses versioned remote MAC/verify; AnalyticsPdf uses remote sign
+and a renderer capability restricted to PDF verification. Egress observations use
+an independent non-authority telemetry salt, never APP_KEY. All consumers and
+migration/recovery evidence are inventoried in ADR0025. V1.6.2/V6.4.2 code boundaries
+are implemented; actual production custody/HA/restore is owner19.8, not local conformance.
+
+`MALWARE_SCANNER=clamd` is required by the production service binding; Fake is dev/test
+only. Private INSTREAM scans cover media uploads, Source images and external downloads
+before decode/archive. Bounds: max 50 MiB, total deadline 15 s, 1 KiB response, exact
+clean response; infected=422 and unavailable=503. Readiness checks a bounded empty
+scan. No original bytes/filenames/signature details are logged. Production ClamAV
+uses a separate signature volume, no host port, resource limits and automatic official
+signature updates. Local runtime tests use a clearly synthetic tiny signature database;
+real CVD freshness/update failure and old asset quarantine are owner steps in 19.8.
+Official scanner image currently requires amd64, with emulation for this ARM64 local
+stand. Plan 4 GiB for production signature reload and verify the VDS memory budget.

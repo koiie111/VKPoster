@@ -180,6 +180,7 @@ final class MaxClient
         }
         try {
             $response = $this->http->request('POST', $url, [
+                'egress_provider' => 'max',
                 'timeout' => 300,
                 'connect_timeout' => 10,
                 'http_errors' => false,
@@ -265,7 +266,7 @@ final class MaxClient
         }
 
         try {
-            $response = $this->http->request($method, $this->apiBase . $path, $options);
+            $response = $this->http->request($method, $this->apiBase . $path, ['egress_provider' => 'max'] + $options);
         } catch (GuzzleException $e) {
             throw $this->transportError($method . ' ' . $path, $e, $mutating);
         }

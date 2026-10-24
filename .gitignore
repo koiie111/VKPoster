@@ -16,3 +16,5 @@ storage/ui-review/
 !/public/assets/build/.gitkeep
 
 /tools/openapi/node_modules/
+__pycache__/
+.ruff_cache/

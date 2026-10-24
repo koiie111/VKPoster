@@ -11,7 +11,7 @@ use App\Kernel\Exception\HttpException;
 /** Trusted HTML only; authenticated renderer has no public port and denies all browser network requests. */
 final class AnalyticsPdf
 {
-    public function __construct(private readonly HttpClientInterface $http, private readonly Config $config)
+    public function __construct(private readonly HttpClientInterface $http, private readonly Config $config, private readonly ?\App\Kernel\Security\Crypto $crypto = null)
     {
     }
     public function render(string $html): string
@@ -25,11 +25,13 @@ final class AnalyticsPdf
                 ).'/pdf',
                 ['body' => $html,
                 'headers' => ['Content-Type' => 'text/html; charset=utf-8',
-                'X-Report-Signature' => hash_hmac(
-                    'sha256',
-                    $html,
-                    AnalyticsPdfKey::derive($this->config->string('security.key'))
-                )],
+                'X-Report-Signature' => $this->config->env()->string('CRYPTO_BACKEND') === 'vault'
+                    ? ($this->crypto ?? throw new \RuntimeException('Isolated PDF signer unavailable.'))->signature('pdf', $html)
+                    : hash_hmac(
+                        'sha256',
+                        $html,
+                        AnalyticsPdfKey::derive($this->config->string('security.key'))
+                    )],
                 'timeout' => 40,
                 'connect_timeout' => 5,
                 'http_errors' => false,

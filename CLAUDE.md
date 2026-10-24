@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Instructions for Claude Code (claude.ai/code) in this repository. `AGENTS.md` has the same content for other agents; keep them in sync.
+Instructions for coding agents (Codex, Claude Code, etc.). `CLAUDE.md` has the same content; keep them in sync.
 
 ## Overview
 
@@ -22,11 +22,11 @@ make down      # stop
 make sh        # shell in the app container
 make console CMD="migrate"   # bin/console in the container
 make migrate | seed | seed-demo   # seed-demo: 500 demo people with six months of channels, publications and payments (APP_ENV=local only; replaces the previous demo data)
-make console CMD="user:create-admin you@example.com --name=Имя"   # super-admin (random password printed once); needs 2FA before /admin opens; locally `make seed` adds staff@ezposter.local (owner) plus finance@, support@, content@, analyst@ezposter.local (one per staff role) and /dev/login-as/<email> opens /admin without a code
+make console CMD="user:create-admin you@example.com --name=Имя"   # super-admin (one-use activation link, expires in 1 hour; choose a password in the reset form); needs 2FA before /admin opens; locally `make seed` adds staff@ezposter.local (owner) plus finance@, support@, content@, analyst@ezposter.local (one per staff role) and /dev/login-as/<email> opens /admin without a code
 make console CMD="auth:prune"   # delete expired tokens/sessions/journal rows (also daily via the scheduler)
 make console CMD="telegram:poll"     # dev: receive shared-bot updates by long polling (no public HTTPS needed); `telegram:webhook set|delete|info` for a public host; `max:poll` and `max:webhook set|delete|info` do the same for the shared MAX bot
 make console CMD="billing:renew"      # billing tick now (renewals, trials, payment check); `billing:renew --force SUBSCRIPTION_ID` charges one now; `billing:plans [--sync]` price list; `billing:grant WORKSPACE PLAN [month|year]` gives a plan without payment
-make console CMD="crypto:rotate"     # re-encrypt stored secrets with the current APP_KEY (after rotating the key); `channels:check` queues channel health checks; `bench:publish --fake` measures publication delay (stop worker and scheduler first)
+make console CMD="crypto:rotate"     # rewrap stored secrets with the active Transit key in production; local Sodium/keyring migration is CLI-only (ADR0025); `channels:check` queues channel health checks; `bench:publish --fake` measures publication delay (stop worker and scheduler first)
 make test      # PHPUnit: Unit, Integration, Feature (DB app_test)
 make stan      # PHPStan level 8 + strict-rules
 make cs | cs-fix   # php-cs-fixer (PSR-12 + strict_types)
@@ -54,3 +54,27 @@ Config comes from env vars (see `.env.example`, `docs/architecture/configuration
 ## Git workflow
 
 Each stage lives on its own branch `stage-NN-slug`, then PR → green CI → `gh pr merge --squash --delete-branch` into `main`. Never commit or push to `main` directly, never force-push, never `--no-verify`. If a stage needs the owner's manual check or a decision, write the questions into `docs/plans/PROGRESS.md`, set the stage to `NEEDS_OWNER` and stop without merging.
+
+## Stage 19 operations and verification
+
+Production preparation remains IN_PROGRESS; see `docs/security/stage-19a-status.md`
+and `docs/runbook.md`. `make security-secrets`, `security-semgrep`,
+`security-trivy IMAGE=...` and `zap` run isolated scanner containers. DAST is restricted
+to the dedicated synthetic HTTPS stand, never the owner app.
+`python3 scripts/security/production-stand.py` creates/removes only its random Docker
+project and uses synthetic env; build prod/web images first.
+`python3 scripts/check-env-documentation.py` checks public/literal env inventory
+without reading `.env`; `--write` refreshes the generated catalogue.
+`SCHEMA_CHECK_DATABASE=app_check_NAME php scripts/check-schema.php` runs in the app
+container against a disposable DB only (fresh/rollback/replay; optional --baseline).
+`ops:status` is read-only. `ops:backup` provides encrypted SQL snapshots, closed
+binlog archival and isolated restore; external keys/S3/backup-account configuration
+are required. Never use the application DB as a restore target.
+`docs/architecture/modules/domain-catalog.md` indexes every Domain directory.
+
+Review remediation: `/readyz` reads Redis cached health; the existing scheduler owns
+`readiness-refresh` (no heavy HTTP probes). `scripts/security/operations-tls-stand.py`
+validates real PDO/Oracle TLS against a disposable server. Release deployment takes
+`VERSION REGISTRY_PREFIX VERIFIED_IMAGES_FILE`; owner-controlled infra.env is separate
+and app rollback always uses --no-deps. See ADR0025 for verify-only legacy signatures
+and migration47 encrypted OAuth recovery; never replay a recovery_required refresh.

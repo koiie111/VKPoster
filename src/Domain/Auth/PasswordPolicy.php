@@ -9,14 +9,14 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Rules for new passwords: 10 to 128 characters, not a single repeated character, not the email
+ * Rules for new passwords: 12 to 128 characters, not a single repeated character, not the email
  * address, not in the local list of common passwords, and (optionally) not found in the Have I Been
  * Pwned range API. The HIBP lookup sends only the first 5 characters of the SHA-1 hash and fails
  * open: when the service is down, sign-ups keep working.
  */
 final class PasswordPolicy
 {
-    public const MIN_LENGTH = 10;
+    public const MIN_LENGTH = 12;
     public const MAX_LENGTH = 128;
 
     /** @var array<string, true>|null */
@@ -35,10 +35,7 @@ final class PasswordPolicy
      */
     public function check(string $password, ?string $email = null): ?string
     {
-        $length = mb_strlen($password);
-        if ($length < self::MIN_LENGTH) {
-            return sprintf('Пароль слишком короткий. Нужно не меньше %d символов.', self::MIN_LENGTH);
-        }
+        $length = mb_strlen(preg_replace('/ {2,}/u', ' ', $password) ?? $password);
         if ($length > self::MAX_LENGTH) {
             return sprintf('Пароль длиннее %d символов. Сократите его.', self::MAX_LENGTH);
         }
@@ -51,6 +48,9 @@ final class PasswordPolicy
         }
         if (isset($this->commonPasswords()[$lower])) {
             return 'Этот пароль слишком распространён, его легко подобрать. Придумайте другой.';
+        }
+        if ($length < self::MIN_LENGTH) {
+            return sprintf('Пароль слишком короткий. Нужно не меньше %d символов.', self::MIN_LENGTH);
         }
         if ($this->hibpEnabled && $this->isPwned($password)) {
             return 'Этот пароль уже попадал в утечки данных. Придумайте другой.';

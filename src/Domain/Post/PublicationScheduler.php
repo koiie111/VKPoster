@@ -54,17 +54,25 @@ final class PublicationScheduler
      */
     public function enqueueDue(): int
     {
-        $due = $this->system->dueForEnqueue(self::HORIZON_SECONDS, self::STALE_SECONDS, self::BATCH);
-        $now = (float) $this->clock->now()->format('U.u');
-        $ids = [];
-        foreach ($due as $item) {
-            $delay = (int) max(0, ceil((float) $item['run_at']->format('U.u') - $now));
-            $this->queue->dispatch(new PublishJob($item['id']), $delay, PublishJob::QUEUE);
-            $ids[] = $item['id'];
+        $total = 0;
+        // Drain bounded batches in one minute tick: a fixed 500-job cap made a 10k burst wait 20 minutes.
+        for ($batch = 0; $batch < 20; ++$batch) {
+            $due = $this->system->dueForEnqueue(self::HORIZON_SECONDS, self::STALE_SECONDS, self::BATCH);
+            $now = (float) $this->clock->now()->format('U.u');
+            $ids = [];
+            foreach ($due as $item) {
+                $delay = (int) max(0, ceil((float) $item['run_at']->format('U.u') - $now));
+                $this->queue->dispatch(new PublishJob($item['id']), $delay, PublishJob::QUEUE);
+                $ids[] = $item['id'];
+            }
+            $this->system->markEnqueued($ids);
+            $total += count($ids);
+            if (count($ids) < self::BATCH) {
+                break;
+            }
         }
-        $this->system->markEnqueued($ids);
 
-        return count($ids);
+        return $total;
     }
 
     /**

@@ -44,7 +44,7 @@ final class Webhooks
         }
         $id = (string) new Ulid();
         $secret = bin2hex(random_bytes(32));
-        $this->db->table('webhook_subscriptions')->insert(['public_id' => $id, 'workspace_id' => $ctx->workspaceId, 'created_by' => $ctx->userId, 'url' => $url, 'secret_enc' => $this->crypto->encrypt($secret), 'events_json' => json_encode(array_values(array_unique($events)), JSON_THROW_ON_ERROR), 'created_at' => DbTime::format($this->clock->now())]);
+        $this->db->table('webhook_subscriptions')->insert(['public_id' => $id, 'workspace_id' => $ctx->workspaceId, 'created_by' => $ctx->userId, 'url' => $url, 'secret_enc' => $this->crypto->encrypt($secret, 'webhook'), 'events_json' => json_encode(array_values(array_unique($events)), JSON_THROW_ON_ERROR), 'created_at' => DbTime::format($this->clock->now())]);
         $this->audit->record('api.webhook_created', $ctx->userId, 'webhook', $id, [], $ctx->workspaceId);
         return ['id' => $id, 'secret' => $secret];
     }

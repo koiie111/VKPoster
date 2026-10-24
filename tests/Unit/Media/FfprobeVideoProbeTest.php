@@ -74,7 +74,13 @@ final class FfprobeVideoProbeTest extends TestCase
     {
         $path = $this->makeVideo(320, 180, 1.0, false);
         $rotated = $this->temp('.mp4');
-        exec(sprintf('ffmpeg -v error -y -i %s -c copy -metadata:s:v rotate=90 %s 2>&1', escapeshellarg($path), escapeshellarg($rotated)), $out, $code);
+        // ffmpeg 6+ writes display matrices with display_rotation rather than rotate metadata.
+        // Both branches must create a real 90-degree rotation; expected dimensions stay unchanged.
+        $version = (string) shell_exec('ffmpeg -version');
+        $modern = preg_match('/ffmpeg version (\d+)/', $version, $match) === 1 && (int) $match[1] >= 6;
+        $command = $modern ? 'ffmpeg -v error -y -display_rotation:v:0 90 -i %s -c copy %s 2>&1'
+            : 'ffmpeg -v error -y -i %s -c copy -metadata:s:v rotate=90 %s 2>&1';
+        exec(sprintf($command, escapeshellarg($path), escapeshellarg($rotated)), $out, $code);
         self::assertSame(0, $code, implode("\n", $out));
 
         $info = (new FfprobeVideoProbe())->probe($rotated);

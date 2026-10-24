@@ -41,7 +41,13 @@ final class QueueWorkCommand implements Command
                 $max = max(1, (int) substr($arg, 11));
             }
         }
-        $this->worker->onPulse(fn () => $this->heartbeat->beat('worker'));
+        $queues = array_filter(array_map('trim', explode(',', $queue)), static fn (string $name): bool => $name !== '');
+        $this->worker->onPulse(function () use ($queues): void {
+            $this->heartbeat->beat('worker'); // Keep the existing dashboard contract.
+            foreach ($queues as $name) {
+                $this->heartbeat->beat('worker:' . $name);
+            }
+        });
         $out->line(sprintf('Worker started on queue "%s".', $queue));
         $this->worker->work($queue, $sleep, $max);
         $out->line('Worker stopped.');

@@ -61,6 +61,55 @@ final class ConfigTest extends TestCase
         self::assertTrue($config->isProduction());
     }
 
+    public function testProductionRejectsMissingTrustedProxies(): void
+    {
+        $this->expectException(ConfigException::class);
+        TestEnv::config(['APP_ENV' => 'production', 'TRUSTED_PROXIES' => '']);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function unsafeProxies(): iterable
+    {
+        foreach (['*', '0.0.0.0/0', '::/0', '127.0.0.1/99', 'not-an-ip', '10.0.0.1/abc'] as $value) {
+            yield $value => [$value];
+        }
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('unsafeProxies')]
+    public function testProductionRejectsInvalidOrGlobalProxies(string $proxy): void
+    {
+        $this->expectException(ConfigException::class);
+        TestEnv::config(['APP_ENV' => 'production', 'TRUSTED_PROXIES' => $proxy]);
+    }
+
+    public function testProductionRejectsHttp(): void
+    {
+        $this->expectException(ConfigException::class);
+        TestEnv::config(['APP_ENV' => 'production', 'APP_URL' => 'http://example.com']);
+    }
+
+    public function testProductionForbidsLocalCryptoAndRawMasterKey(): void
+    {
+        foreach (['sodium', ''] as $backend) {
+            try {
+                TestEnv::config(['APP_ENV' => 'production', 'CRYPTO_BACKEND' => $backend]);
+                self::fail('Local backend accepted in production.');
+            } catch (ConfigException $e) {
+                self::assertStringContainsString('CRYPTO_BACKEND', $e->getMessage());
+            }
+        }
+        $this->expectException(ConfigException::class);
+        $this->expectExceptionMessage('Raw cryptographic key configuration');
+        TestEnv::config(['APP_ENV' => 'production', 'APP_KEY' => TestEnv::KEY]);
+    }
+
+    public function testInvalidCryptoBackendCannotSilentlyFallBackToLocal(): void
+    {
+        $this->expectException(ConfigException::class);
+        $this->expectExceptionMessage('CRYPTO_BACKEND');
+        TestEnv::config(['CRYPTO_BACKEND' => 'misspelled-backend']);
+    }
+
     public function testUnknownEnvironmentIsRejected(): void
     {
         $this->expectException(ConfigException::class);

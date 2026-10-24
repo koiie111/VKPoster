@@ -19,13 +19,12 @@ use OTPHP\TOTP;
  * - The secret is stored encrypted (`Crypto`); it is "pending" until the user proves they can produce a code.
  * - A code is accepted within one step before or after the current one, and each step only once
  *   (`UserRepository::claimTotpStep`), so an intercepted code cannot be replayed.
- * - Recovery codes (10, `xxxxx-xxxxx`) are shown once and stored as SHA-256 hashes; each works once.
+ * - Recovery codes (10, 128-bit hex grouped for readability) are shown once and stored as SHA-256 hashes; each works once.
  */
 final class TwoFactorService
 {
     public const STEP = 30;
     public const RECOVERY_COUNT = 10;
-    private const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 
     public function __construct(
         private readonly UserRepository $users,
@@ -105,10 +104,20 @@ final class TwoFactorService
             return false;
         }
 
-        return $this->db->execute(
-            'UPDATE recovery_codes SET used_at = ? WHERE user_id = ? AND code_hash = ? AND used_at IS NULL',
-            [DbTime::format($this->clock->now()), $user->id, hash('sha256', $normalized)],
-        ) === 1;
+        $digest = hash('sha256', $normalized);
+        $now = DbTime::format($this->clock->now());
+        if ($this->db->execute('UPDATE recovery_codes SET used_at = ? WHERE user_id = ? AND code_hash = ? AND used_at IS NULL', [$now, $user->id, $digest]) === 1) {
+            return true;
+        }
+        // Migration 45 salted existing short-code digests. At most ten old codes per user.
+        $old = $this->db->select("SELECT id, code_hash FROM recovery_codes WHERE user_id = ? AND used_at IS NULL AND code_hash LIKE '\$argon2id\$%' LIMIT 10", [$user->id]);
+        foreach ($old as $row) {
+            if (password_verify($digest, (string) $row['code_hash'])) {
+                return $this->db->execute('UPDATE recovery_codes SET used_at = ? WHERE id = ? AND used_at IS NULL', [$now, (int) $row['id']]) === 1;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -188,19 +197,13 @@ final class TwoFactorService
 
     private function randomCode(): string
     {
-        $chars = '';
-        $max = strlen(self::ALPHABET) - 1;
-        for ($i = 0; $i < 10; ++$i) {
-            $chars .= self::ALPHABET[random_int(0, $max)];
-        }
-
-        return substr($chars, 0, 5) . '-' . substr($chars, 5);
+        return implode('-', str_split(bin2hex(random_bytes(16)), 8));
     }
 
     private function normalizeRecovery(string $code): ?string
     {
         $normalized = strtolower(str_replace(['-', ' '], '', trim($code)));
-
-        return preg_match('/^[' . self::ALPHABET . ']{10}$/', $normalized) === 1 ? $normalized : null;
+        // New 128-bit codes or legacy codes whose stored verifier migration 45 has strengthened.
+        return preg_match('/^(?:[a-f0-9]{32}|[abcdefghjkmnpqrstuvwxyz23456789]{10})$/D', $normalized) === 1 ? $normalized : null;
     }
 }

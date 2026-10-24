@@ -1,0 +1,16 @@
+[Unit]
+Description=Encrypted off-site ezposter backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ezposter
+Group=docker
+WorkingDirectory=/opt/ezposter
+UMask=0077
+NoNewPrivileges=yes
+# Whole workflow budget: 30min Oracle CLI + lock wait/archive/offsite overhead.
+# Override this with margin when increasing BACKUP_PROCESS_TIMEOUT.
+TimeoutStartSec=45min
+ExecStart=/usr/bin/flock -w 300 /opt/ezposter/.operations.lock /usr/bin/docker compose -f compose.prod.yaml --env-file /etc/ezposter/app.env --env-file /opt/ezposter/.release.env --env-file /etc/ezposter/infra.env --profile ops run --rm --no-deps backup

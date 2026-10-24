@@ -13,6 +13,7 @@
         "ext-sodium": "*",
         "bacon/bacon-qr-code": "*",
         "guzzlehttp/guzzle": "^8.2",
+        "lbuchs/webauthn": "^2.2",
         "league/flysystem": "^3",
         "league/flysystem-aws-s3-v3": "^3",
         "league/flysystem-local": "^3",

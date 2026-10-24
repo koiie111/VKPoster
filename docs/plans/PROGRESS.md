@@ -6,10 +6,10 @@
 
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
-- **Текущий этап:** 18 (Публичный API и исходящие вебхуки)
-- **Статус:** DONE
-- **Ветка / PR:** `stage-18-public-api`
-- **Последнее обновление:** 2026-10-19 (этап 18 завершён; PR без автоматического merge)
+- **Текущий этап:** 19 (Hardening и production), часть A
+- **Статус:** IN_PROGRESS
+- **Ветка / PR:** `stage-19-hardening-prod` / [#32](https://github.com/koiie111/VKPoster/pull/32)
+- **Последнее обновление:** 2026-10-24 (19A final review fixes published as c55129b; PHP2589/44166, targeted68/268 and local gates passed. ClamAV fix a0b2224 passed its fresh CI scan. Owner-approved same CVE-2026-111497 fix in app/ops: builds/runtime smoke PASS; fresh Trivy DB2026-10-24 ClamAV/app/ops each0 HIGH/0 CRITICAL, secrets/context gates PASS. Follow-up PR CI pending. Stage19 IN_PROGRESS; production19.8 pending. Details: docs/security/stage-19a-review-remediation.md.)
 
 ## Этапы
 
@@ -36,7 +36,7 @@
 | 16 | Остальные платёжки, рефералка, промокоды | DONE | [#27](https://github.com/koiie111/VKPoster/pull/27) | 2026-10-18 | Реализовано всё из плана, настройка в админке (решение владельца 2026-10-18), ADR 0015. Нужна живая проверка провайдеров с ключами заказчика; провайдеры без ключей не показываются покупателям. Для 17+: пакеты `ai_credits` кладут кредиты в кошелёк `wallet:CRD:<пространство>` (`Ledger::wallet`), этап 17 их тратит |
 | 17 | AI-ассистент, UTM, сокращатель | DONE | [#28](https://github.com/koiie111/VKPoster/pull/28), [#29](https://github.com/koiie111/VKPoster/pull/29) | 2026-10-18 | AI-часть (ADR 0016): провайдеры из коробки и любой OpenAI-совместимый адрес, `/admin/ai`. Ссылки (ADR 0017): авто-UTM на пространство и канал, сокращатель с кликами, защита и отключение из `/admin/links`. Живая проверка AI с ключом отложена владельцем. Для 18: короткие ссылки и UTM можно отдавать через API; техдолг ниже |
 | 18 | Публичный API и вебхуки | DONE | `stage-18-public-api` | 2026-10-19 | Stateless Bearer API, scoped tokens, transactional idempotency, OpenAPI 3.1 + self-hosted Redoc; signed SSRF-safe outgoing webhooks through existing Queue. Owner verification не требуется; merge не выполнялся |
-| 19 | Hardening и production | TODO | | | |
+| 19 | Hardening и production | IN_PROGRESS | `stage-19-hardening-prod` | | Часть A: локальный hardening/CI; production owner verification и v1.0.0 остаются на 19.8 |
 | 22 | Короткие видео: TikTok, YouTube Shorts, Reels, VK Клипы | TODO | | | Будущая функция, добавлена владельцем 2026-10-13. Перед стартом нужны решения владельца по сетям (см. файл этапа) |
 | 23 | Источники контента, Радар, обработка материалов | TODO | [#18](https://github.com/koiie111/VKPoster/pull/18), [#20](https://github.com/koiie111/VKPoster/pull/20) | | Добавлен по решению владельца 2026-10-12; код от внешнего разработчика (PR #18), доработан и влит через PR #20. Ответы владельца получены 2026-10-14 (ADR 0012): остаётся реализация (аккаунты reader в админке и свой аккаунт пользователя, OpenAI-совместимые провайдеры, тарифы) и живая проверка. Функция **выключена** (`SOURCES_ENABLED=false`) до их завершения |
 
