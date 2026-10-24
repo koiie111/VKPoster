@@ -31,6 +31,8 @@ final class MaxClient
         #[SensitiveParameter]
         private readonly string $token,
         private readonly string $apiBase = self::API_BASE,
+        /** PEM trust anchor for the API address only (the Russian Trusted Root CA); empty means the system trust store. */
+        private readonly string $caFile = '',
     ) {
     }
 
@@ -263,6 +265,9 @@ final class MaxClient
         }
         if ($json !== null) {
             $options['json'] = $json;
+        }
+        if ($this->caFile !== '') {
+            $options['verify'] = $this->caFile;
         }
 
         try {

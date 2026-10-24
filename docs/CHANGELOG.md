@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- MAX API certificate: `platform-api2.max.ru` is signed by the Russian Trusted CA, absent from the image's system trust store, so
+  every MAX call failed with a TLS error. The Russian Trusted Root CA is shipped in `resources/certs/` and passed as the per-request
+  `verify` option of `MaxClient` only (`MAX_CA_FILE`; empty = system store). It is not added to the global trust store. The temporary
+  `MAX_API_BASE=https://platform-api.max.ru` workaround is no longer needed.
+
 - PHP runtime updated to 8.3.36 (CVE-2026-109618, CVE-2026-109619): `docker/php/Dockerfile` pins
   `php:8.3.36-fpm-trixie` (build/dev) and `php:8.3.36-fpm-alpine3.24` (prod/web/ops) by digest instead of
   the floating `8.3-fpm-*` tags.

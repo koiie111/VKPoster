@@ -13,12 +13,12 @@ use SensitiveParameter;
  */
 final class MaxClientFactory
 {
-    public function __construct(private readonly HttpClientInterface $http, private readonly string $apiBase = MaxClient::API_BASE)
+    public function __construct(private readonly HttpClientInterface $http, private readonly string $apiBase = MaxClient::API_BASE, private readonly string $caFile = '')
     {
     }
 
     public function make(#[SensitiveParameter] string $token): MaxClient
     {
-        return new MaxClient($this->http, $token, $this->apiBase);
+        return new MaxClient($this->http, $token, $this->apiBase, $this->caFile);
     }
 }
