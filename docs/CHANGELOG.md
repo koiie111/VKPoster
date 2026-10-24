@@ -148,3 +148,10 @@ MySQL8.4 candidate passed schema/full PHP but failed current MariaDB coordinate 
 - Backend availability feeds readiness; pre-dispatch credential outage is Temporary
   through the existing publishing retry/backoff. Real isolated OpenBao/Chromium tests
   complement mocked contracts. Actual deployment/custody/recovery stays owner19.8.
+
+
+### Stage19A final review remediation (2026-10-24)
+- OAuth refresh lease-expiry race: bounded90s dispatch window, retryable observers,
+  attempt-owned channel error recovery and migration48 with upgrade regression.
+- Configurable Oracle dump/restore deadline `BACKUP_PROCESS_TIMEOUT` (default1800s),
+  monotonic process kill/reap, explicit partial-restore failure and45min systemd workflow budget.

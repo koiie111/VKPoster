@@ -14,6 +14,9 @@ use App\Support\DbTime;
 /** Durable dispatch fence plus per-attempt envelope. Transit wraps only a random ephemeral DEK before dispatch. */
 final class OAuthRefreshRecovery
 {
+    /** Both OAuth adapters have a 20s total HTTP timeout; allow ample Transit/DB scheduling margin after lease expiry. */
+    public const DISPATCH_WINDOW_SECONDS = 90;
+
     public function __construct(private readonly Connection $db, private readonly Crypto $crypto, private readonly Clock $clock)
     {
     }
@@ -33,6 +36,13 @@ final class OAuthRefreshRecovery
         if ($attempt['state'] === 'prepared') {
             $changed = $this->db->execute("UPDATE oauth_refresh_attempts SET state='abandoned_before_dispatch', active_credential_id=NULL, updated_at=? WHERE id=? AND state='prepared'", [DbTime::format($this->clock->now()), (int) $attempt['id']]);
             return $changed === 1 ? null : $this->resume($credential);
+        }
+        if ($attempt['state'] === 'dispatched') {
+            $started = DbTime::parse($attempt['dispatch_started_at'] ?? null);
+            if ($started !== null && $started->modify('+' . self::DISPATCH_WINDOW_SECONDS . ' seconds') > $this->clock->now()) {
+                // Redis is an optimization, not the one-shot fence. Its lease can expire while the owner still runs.
+                throw new PlatformError(ErrorKind::Temporary, 'OAuth refresh dispatch still in progress.', 'Обновление доступа ещё выполняется. Повторим позже.');
+            }
         }
         if ($attempt['state'] !== 'response_saved') {
             $this->uncertain((int) $attempt['id'], (int) $credential['id']);
@@ -54,6 +64,10 @@ final class OAuthRefreshRecovery
         $refresh = $tokens['refresh'] === '' ? null : $this->crypto->encrypt($tokens['refresh']);
         $now = DbTime::format($this->clock->now());
         $this->db->transaction(function () use ($attempt, $credential, $tokens, $access, $refresh, $now): void {
+            $current = $this->db->select('SELECT state FROM oauth_refresh_attempts WHERE id=? FOR UPDATE', [(int) $attempt['id']])[0] ?? null;
+            if (($current['state'] ?? null) !== 'response_saved') {
+                throw new PlatformError(ErrorKind::Temporary, 'OAuth receipt already consumed.', 'Обновление доступа уже сохранено. Повторим проверку.');
+            }
             $row = $this->db->select('SELECT * FROM platform_credentials WHERE id = ? FOR UPDATE', [(int) $credential['id']])[0] ?? null;
             if ($row === null || !hash_equals($this->fingerprint($row), (string) $attempt['input_fingerprint'])) {
                 $this->finish((int) $attempt['id'], 'superseded');
@@ -62,6 +76,11 @@ final class OAuthRefreshRecovery
             $this->db->execute(
                 'UPDATE platform_credentials SET secret_enc=?, refresh_enc=?, expires_at=?, updated_at=? WHERE id=?',
                 [$access, $refresh, DbTime::format(new \DateTimeImmutable('@' . $tokens['expires'])), $now, (int) $credential['id']]
+            );
+            // Only this attempt's marked error is ours to clear. Preserve paused/revoked or newer/unrelated errors.
+            $this->db->execute(
+                "UPDATE channels SET status='active', last_error=NULL, updated_at=? WHERE credential_id=? AND status='error' AND last_error=?",
+                [$now, (int) $credential['id'], $this->recoveryMessage((int) $attempt['id'])]
             );
             $this->finish((int) $attempt['id'], 'completed');
         });
@@ -92,7 +111,8 @@ final class OAuthRefreshRecovery
 
     public function dispatch(int $id): void
     {
-        if ($this->db->execute("UPDATE oauth_refresh_attempts SET state='dispatched', updated_at=? WHERE id=? AND state='prepared'", [DbTime::format($this->clock->now()), $id]) !== 1) {
+        $now = DbTime::format($this->clock->now());
+        if ($this->db->execute("UPDATE oauth_refresh_attempts SET state='dispatched', dispatch_started_at=?, updated_at=? WHERE id=? AND state='prepared'", [$now, $now, $id]) !== 1) {
             throw new PlatformError(ErrorKind::Temporary, 'OAuth refresh fence unavailable.', 'Обновление доступа уже выполняется.');
         }
     }
@@ -115,15 +135,28 @@ final class OAuthRefreshRecovery
 
     public function uncertain(int $id, int $credentialId): never
     {
-        $changed = $this->db->execute("UPDATE oauth_refresh_attempts SET state='recovery_required', updated_at=? WHERE id=? AND state IN ('dispatched','recovery_required')", [DbTime::format($this->clock->now()), $id]);
-        $state = $changed === 1 ? 'recovery_required' : ($this->db->select('SELECT state FROM oauth_refresh_attempts WHERE id=?', [$id])[0]['state'] ?? null);
-        if ($state !== 'recovery_required') {
-            // A late observer must not destroy a receipt/completed result saved by the dispatch owner.
+        $message = $this->recoveryMessage($id);
+        $required = $this->db->transaction(function () use ($id, $credentialId, $message): bool {
+            $attempt = $this->db->select('SELECT state, active_credential_id FROM oauth_refresh_attempts WHERE id=? FOR UPDATE', [$id])[0] ?? null;
+            if ($attempt === null || (int) $attempt['active_credential_id'] !== $credentialId || !in_array($attempt['state'], ['dispatched', 'recovery_required'], true)) {
+                return false;
+            }
+            $now = DbTime::format($this->clock->now());
+            $this->db->execute("UPDATE oauth_refresh_attempts SET state='recovery_required', updated_at=? WHERE id=?", [$now, $id]);
+            $this->db->execute("UPDATE channels SET status='error', last_error=?, updated_at=? WHERE credential_id=? AND (status='active' OR (status='error' AND last_error=?))", [$message, $now, $credentialId, $message]);
+            return true;
+        });
+        if (!$required) {
+            // Serializes against completion; an observer cannot re-install an error after a receipt was saved.
             throw new PlatformError(ErrorKind::Temporary, 'OAuth recovery state changed.', 'Обновление доступа сохранено. Повторите проверку.');
         }
-        $message = 'Обновление доступа прервалось. Переподключите канал; старый refresh token повторно не используется.';
-        $this->db->execute("UPDATE channels SET status='error', last_error=?, updated_at=? WHERE credential_id=?", [$message, DbTime::format($this->clock->now()), $credentialId]);
         throw new PlatformError(ErrorKind::Auth, 'OAuth refresh recovery required.', $message);
+    }
+
+    private function recoveryMessage(int $id): string
+    {
+        // Attempt-scoped marker permits a late genuine response to clear its own error, never another flow's error.
+        return 'Обновление доступа прервалось. Переподключите канал; старый refresh token повторно не используется. [OAuth recovery ' . $id . ']';
     }
 
     /** @param array<string,mixed> $credential */

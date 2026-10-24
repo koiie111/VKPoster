@@ -4386,6 +4386,14 @@
         },
         {
             "TABLE_NAME": "oauth_refresh_attempts",
+            "COLUMN_NAME": "dispatch_started_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "oauth_refresh_attempts",
             "COLUMN_NAME": "created_at",
             "COLUMN_TYPE": "datetime(6)",
             "IS_NULLABLE": "NO",

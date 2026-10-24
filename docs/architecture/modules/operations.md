@@ -51,3 +51,15 @@ ADR0025 selects purpose-isolated Transit. crypto:rotate covers all encrypted col
 referral details and queued/dead mail with CAS and retry-safe offline migration.
 Production readiness includes key policies; PDF authentication has no shared raw key.
 Actual key custody/backend HA, offsite recovery, RPO/RTO and engine cutover remain19.8.
+
+
+### Oracle process timeout (Stage19A final review)
+
+`BACKUP_PROCESS_TIMEOUT=1800` governs both dump and restore CLI children; valid range
+1–86400 seconds, checked at config load. `BackupProcess` uses a monotonic deadline,
+kills/reaps the child on expiry and returns an explicit failure. The systemd backup
+template has a45min **whole workflow** budget (default30min CLI + lock/archive/offsite
+margin). If raised, coordinate both budgets; very large backups may need more margin.
+Timeout/nonzero exit never means a successful restore: the isolated target can contain
+partial data. Stop and have the owner recreate **only that isolated target** before retry;
+the command refuses nonempty targets and never drops/creates a production database.

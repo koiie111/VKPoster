@@ -69,4 +69,43 @@ final class BackupTest extends TestCase
             rmdir($root);
         }
     }
+    public function testTimedOutRestoreIsExplicitFailureAndLeavesTargetReprovisionToOwner(): void
+    {
+        $root = sys_get_temp_dir() . '/restore-timeout-' . bin2hex(random_bytes(8));
+        mkdir($root, 0700);
+        $key = random_bytes(32);
+        file_put_contents($root . '/key', base64_encode($key));
+        chmod($root . '/key', 0600);
+        $sql = 'CREATE TABLE timeout_probe (id INT PRIMARY KEY); INSERT INTO timeout_probe VALUES (1); DO SLEEP(5); INSERT INTO timeout_probe VALUES (2);';
+        file_put_contents($root . '/database.sql', $sql);
+        file_put_contents($root . '/manifest.json', json_encode(['format' => 1, 'sha256' => hash('sha256', $sql)], JSON_THROW_ON_ERROR));
+        $tar = new \PharData($root . '/snapshot.tar');
+        $tar->addFile($root . '/database.sql', 'database.sql');
+        $tar->addFile($root . '/manifest.json', 'manifest.json');
+        unset($tar);
+        (new BackupArchive())->transform($root . '/snapshot.tar', $root . '/backup.ezb', $key);
+        $config = TestEnv::config(['BACKUP_KEY_FILE' => $root . '/key', 'BACKUP_PROCESS_TIMEOUT' => '1', 'RESTORE_DB_USERNAME' => 'stage19_restore', 'RESTORE_DB_PASSWORD' => 'isolated-fixture-only']);
+        $target = new Connection($config->string('database.host'), $config->int('database.port'), 'app_restore_stage19', 'stage19_restore', 'isolated-fixture-only');
+        try {
+            (new BackupService($config, new FakeClock(), new BackupArchive()))->restore($root . '/backup.ezb', 'app_restore_stage19', true);
+            self::fail('Partial restore must not report success.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('timed out', $error->getMessage());
+            self::assertStringContainsString('recreate the isolated restore target', $error->getMessage());
+            self::assertSame(1, (int) $target->select('SELECT COUNT(*) AS n FROM timeout_probe')[0]['n']);
+            try {
+                (new BackupService($config, new FakeClock(), new BackupArchive()))->restore($root . '/backup.ezb', 'app_restore_stage19', true);
+                self::fail('Retry into a partially populated target must be refused.');
+            } catch (\RuntimeException $retry) {
+                self::assertSame('Restore target must be empty.', $retry->getMessage());
+            }
+        } finally {
+            $target->execute('DROP TABLE IF EXISTS timeout_probe');
+            foreach (\App\Support\Fs::glob($root . '/*') as $file) {
+                unlink($file);
+            }
+            rmdir($root);
+        }
+    }
+
 }

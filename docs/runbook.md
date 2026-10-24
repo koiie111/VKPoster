@@ -203,3 +203,15 @@ Record actual RTO from a production-sized isolated drill in19.8.
   Verify all pulled digest references against the promotion manifest before migration.
 - Backlog (not implemented in this pass): configurable readiness HTTP_PORT in host runner;
   binlog S3 delivery manifest/retention to avoid repeated versioned uploads.
+
+
+### Oracle process timeout (Stage19A final review)
+
+`BACKUP_PROCESS_TIMEOUT=1800` governs both dump and restore CLI children; valid range
+1–86400 seconds, checked at config load. `BackupProcess` uses a monotonic deadline,
+kills/reaps the child on expiry and returns an explicit failure. The systemd backup
+template has a45min **whole workflow** budget (default30min CLI + lock/archive/offsite
+margin). If raised, coordinate both budgets; very large backups may need more margin.
+Timeout/nonzero exit never means a successful restore: the isolated target can contain
+partial data. Stop and have the owner recreate **only that isolated target** before retry;
+the command refuses nonempty targets and never drops/creates a production database.

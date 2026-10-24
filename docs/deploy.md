@@ -246,3 +246,15 @@ readiness demands the older migration count cannot become ready after migration4
 setting the compatibility flag. Keep recovery data/schema forward, and rehearse an
 actually compatible application recovery image before declaring compatibility in19.8.
 The runner never compensates by downgrading MySQL or destroying OAuth recovery state.
+
+
+### Oracle process timeout (Stage19A final review)
+
+`BACKUP_PROCESS_TIMEOUT=1800` governs both dump and restore CLI children; valid range
+1–86400 seconds, checked at config load. `BackupProcess` uses a monotonic deadline,
+kills/reaps the child on expiry and returns an explicit failure. The systemd backup
+template has a45min **whole workflow** budget (default30min CLI + lock/archive/offsite
+margin). If raised, coordinate both budgets; very large backups may need more margin.
+Timeout/nonzero exit never means a successful restore: the isolated target can contain
+partial data. Stop and have the owner recreate **only that isolated target** before retry;
+the command refuses nonempty targets and never drops/creates a production database.

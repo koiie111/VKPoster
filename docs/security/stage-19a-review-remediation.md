@@ -96,3 +96,64 @@ to start with `t1_`. Length-based legacy verification now precedes the versioned
 transport decoder; genuine Transit tokens are longer. Old valid capabilities are
 not accidentally decoded as the new format. Tampering remains rejected. Updated
 full PHP2575/44103 and targeted66/1010 passed; no token value is hardcoded in the test.
+
+
+## Final review remediation — 2026-10-24
+
+Baseline `c5cb5a1e1880a03046d4cae60e6416e1ddf5508a`; only the two should-fix items
+are implemented. Stage19 remains **IN_PROGRESS**, owner production19.8 pending.
+
+1. **OAuth refresh lock expiry race — FIXED.** Migration48 adds explicit
+   `dispatch_started_at`; a matching dispatched attempt remains Temporary for90s
+   (20s total HTTP timeout in both adapters plus Transit/database scheduling margin).
+   Redis lease expiry alone does not declare uncertainty, break the channel or call
+   a rotating refresh token twice. After the bounded window, an absent receipt still
+   requires reconnect; explicit ambiguous provider errors fail closed immediately.
+   Attempt-row locking serializes completion vs uncertain observers. Late genuine
+   responses restore tokens and clear only that attempt's marked recovery error;
+   paused/revoked or newer unrelated errors survive. Exact legacy recovery messages
+   on active attempts are adopted during migration, never arbitrary channel errors.
+   OAuthRefresherTest covers the interleaved A/B dispatch, one provider call, boundary,
+   bookkeeping timestamp independence, late completion, unrelated error and upgrade.
+   The previously accepted unsaved-response crash limitation remains in force.
+
+2. **Oracle backup/restore timeout — FIXED.** Single `BACKUP_PROCESS_TIMEOUT`
+   configuration (default1800s, integer1–86400, validated on config load) drives both
+   CLI operations. `BackupProcess` uses monotonic elapsed time, kills/reaps a timed-out
+   child and throws an explicit failure. Real isolated restore timeout proves partial
+   data is not reported successful and a nonempty target is refused on retry. No
+   automatic database drop/recreation is introduced. The systemd template gives the
+   whole workflow45min; operators must increase it with margin when raising the CLI
+   budget. A fake monotonic clock tests301s elapsed without waiting five minutes.
+
+Minor backlog from the repeat independent review (not implemented in this pass):
+- stale plaintext `work-*` after SIGKILL/OOM;
+- global Content-Disposition on JSON responses;
+- TRUSTED_PROXIES validation/message mismatch.
+
+The earlier HTTP_PORT and binlog S3 manifest/retention backlog remains unchanged.
+No production deploy, release tag, merge, Stage20, secret rotation or new external
+provider call. Main, old branches and stash are preserved.
+
+
+Final-pass validation (2026-10-24, current source):
+- Targeted OAuth/backup/config regression: **68 tests /268 assertions**, PASS.
+- Full PHP suite: **2589 tests /44166 assertions**, PASS; one existing opt-in
+  real Transit test skipped in the default suite (no new skip added).
+- Fresh schema + baseline c5cb5a1 upgrade + rollback/replay: PASS in disposable
+  app_check database; migration regression also preserves/adopts existing recovery data.
+- Actual production-mode Oracle8.4 encrypted backup, restricted isolated restore,
+  authenticated binlog decrypt/PITR replay with isolated OpenBao: PASS.
+- PHPStan strict, code style, Composer audit, env inventory and diff check: PASS.
+- Gitleaks full history/worktree and negative exception vectors: PASS, no new exclusions.
+- Semgrep1.181.0, pinned rule hashes/strict mode:266 rules,830 targets,0 findings,
+  JSON errors=[] and exit0; new config/BackupProcess and OAuth code included. Because
+  the Docker registry transfer stalled, the same pinned scanner ran from a private
+  temporary venv with identical local rules (no repository dependency/config change).
+- Existing deploy/promotion mocked contracts:12 tests PASS in Linux; /healthz200.
+- UI unchanged; no new k6/Trivy/ZAP run was needed for these two fixes. Mandatory
+  PR32 CI still must complete on the published final commit before any merge.
+
+An overlapping invocation against the same test DB was discarded; the reported PHP
+results are from a clean **sequential** targeted-then-full run. A missing DB_PASSWORD
+in an earlier shell invocation was corrected in the harness, not in application/tests.

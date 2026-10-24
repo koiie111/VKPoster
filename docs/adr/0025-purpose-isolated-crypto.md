@@ -157,3 +157,16 @@ reconnection, and never automatically reuse the old refresh token. Saved respons
 recover automatically; an unsaved response requires reconnect. No plaintext fallback.
 Migration47 refuses rollback while unresolved attempts exist. App image rollback is
 separate from schema rollback and must retain this forward-compatible recovery state.
+
+
+### Final review: expired refresh lease
+
+Redis refresh lease30s is not the durable authority. A matching `dispatched` attempt
+has a90s bounded window from immutable `dispatch_started_at` (both OAuth adapters
+limit HTTP to20s; remaining budget covers Transit/database scheduling). Observers
+receive Temporary during the window without provider redispatch or channel error.
+After it expires, missing receipt still fails closed as agreed with the owner.
+Explicit confirmed ambiguous provider outcomes require recovery immediately.
+Late genuine responses may still be saved. Completion conditionally clears only this
+attempt's marked recovery error; unrelated/paused/revoked channel states are retained.
+Migration48 adopts exact legacy recovery errors on active attempts for compatibility.

@@ -153,6 +153,16 @@ UTM-метки и включение сокращения задаются в п
 Текущая точка остановки: [Stage 19A status](../security/stage-19a-status.md).
 
 
+## Oracle backup/restore deadline
+
+`BACKUP_PROCESS_TIMEOUT` is the single per-process deadline (seconds) for Oracle
+`mysqldump` and `mysql` restore: default1800, positive integer1–86400; invalid values
+fail configuration loading, including production startup. Elapsed time is monotonic.
+The daily systemd template allows45min for the whole workflow (30min CLI budget,
+lock wait, encryption/verification and offsite delivery). Raising the CLI deadline
+requires an owner systemd override with additional workflow margin. A timeout is a
+failed operation; an isolated partial restore target must be recreated before retry.
+
 <!-- ENV_INVENTORY_START -->
 
 ## Checked environment inventory
@@ -195,6 +205,7 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `BACKUP_KEY_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
 | `BACKUP_KEY_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `BACKUP_MYSQL_GID` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `BACKUP_PROCESS_TIMEOUT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/operations.php](../../config/operations.php) |
 | `BACKUP_RETENTION_DAYS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php) |
 | `BACKUP_S3_BUCKET` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
 | `BACKUP_S3_ENDPOINT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |

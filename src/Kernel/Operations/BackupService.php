@@ -192,29 +192,7 @@ final class BackupService
         $options .= OperationsDbPolicy::cliOptions($this->config, $socket);
         file_put_contents($file, $options);
         try {
-            $process = proc_open(
-                [$binary, '--defaults-file=' . $file, ...$args],
-                [0 => ['file', $input ?? '/dev/null', 'r'], 1 => ['file', $output, 'w'], 2 => ['file', '/dev/null', 'w']],
-                $pipes
-            );
-            if (!is_resource($process)) {
-                throw new RuntimeException('Backup database client unavailable.');
-            }
-            $deadline = hrtime(true) + 300_000_000_000;
-            do {
-                $status = proc_get_status($process);
-                if (!$status['running']) {
-                    break;
-                }
-                usleep(100000);
-            } while (hrtime(true) < $deadline);
-            if ($status['running']) {
-                proc_terminate($process, 9);
-            }
-            $exit = proc_close($process);
-            if ($status['running'] || ($status['exitcode'] !== 0 && $exit !== 0)) {
-                throw new RuntimeException('Backup database operation failed or timed out.');
-            }
+            (new BackupProcess())->run([$binary, '--defaults-file=' . $file, ...$args], $input, $output, $this->config->int('operations.backup_process_timeout', 1800));
         } finally {
             unlink($file);
         }
