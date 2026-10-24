@@ -56,6 +56,19 @@ final class MaxClientTest extends TestCase
         self::assertSame('ezposter_bot', $client->getMe()['username']);
     }
 
+    public function testTheTrustAnchorIsPassedForTheApiOnly(): void
+    {
+        $client = (new MaxClientFactory($this->http, 'https://max.test', '/etc/ca/root.pem'))->make('t');
+        $this->http->expect('GET', 'https://max.test/me', 200, MaxFixtures::raw('me'));
+        $this->http->expect('GET', MaxFixtures::API . '/me', 200, MaxFixtures::raw('me'));
+
+        $client->getMe();
+        $this->client->getMe();
+
+        self::assertSame('/etc/ca/root.pem', $this->http->requests[0]['options']['verify']);
+        self::assertArrayNotHasKey('verify', $this->http->requests[1]['options'], 'no override without a configured file');
+    }
+
     public function testReadingMethodsHitTheirPaths(): void
     {
         $this->http->expect('GET', MaxFixtures::API . '/chats/-72000000000001', 200, MaxFixtures::raw('chat_channel'));

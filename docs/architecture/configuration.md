@@ -50,6 +50,7 @@
 | `MAX_BOT_USERNAME` | — | Имя бота MAX без `@` для страницы подключения (иначе спрашивается у MAX и кэшируется) |
 | `MAX_WEBHOOK_SECRET` | — | 16–128 символов `A-Za-z0-9_-`: часть адреса вебхука `/webhooks/max/{secret}`; из него выводится секретный заголовок. Задать, затем `max:webhook set https://публичный-хост` |
 | `MAX_API_BASE` | `https://platform-api2.max.ru` | Адрес MAX API (менять не нужно) |
+| `MAX_CA_FILE` | `resources/certs/russian-trusted-root-ca.pem` | Корневой сертификат Минцифры, которому доверяет только клиент MAX API (сертификат `platform-api2.max.ru` выпущен российским УЦ). Пусто: системный список |
 | `TELEGRAM_BOT_TOKEN` | — | Общий бот сервиса (создаётся в @BotFather); без него подключение «через бота сервиса» недоступно, «свой бот» работает |
 | `TELEGRAM_BOT_USERNAME` | — | Имя бота без `@` для подсказки на странице подключения; если пусто, спрашивается у Telegram и кэшируется на час |
 | `TELEGRAM_WEBHOOK_SECRET` | — | 16–128 символов `A-Za-z0-9_-`: секретная часть адреса вебхука; из него же выводится значение заголовка `X-Telegram-Bot-Api-Secret-Token`. Без него вебхук отвечает 404 |
@@ -286,6 +287,7 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `MAX_API_BASE` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
 | `MAX_BOT_TOKEN` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
 | `MAX_BOT_USERNAME` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `MAX_CA_FILE` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
 | `MAX_WEBHOOK_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
 | `MEDIA_DISK` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
 | `MEDIA_LOCAL_ROOT` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |

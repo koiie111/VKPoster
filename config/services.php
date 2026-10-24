@@ -319,6 +319,9 @@ return static function (Container $c, string $base): void {
     $c->factory(MaxClientFactory::class, static fn (Container $c): MaxClientFactory => new MaxClientFactory(
         $c->get(HttpClientInterface::class),
         $c->get(Config::class)->string('platforms.max.api_base', 'https://platform-api2.max.ru'),
+        (static function (string $file) use ($base): string {
+            return $file === '' || str_starts_with($file, '/') ? $file : $base . '/' . $file;
+        })($c->get(Config::class)->string('platforms.max.ca_file')),
     ));
     $c->factory(MaxAdapter::class, static fn (Container $c): MaxAdapter => new MaxAdapter(
         $c->get(MaxClientFactory::class),
