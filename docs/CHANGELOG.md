@@ -6,7 +6,8 @@
 
 - Stage19A CI remediation: ClamAV retains its digest-pinned1.5.4 upstream runtime
   with Alpine brotli-libs1.2.1-r0 or later (CVE-2026-111497); production Compose and
-  security CI use the patched image, without vulnerability exclusions.
+  security CI use the patched image, without vulnerability exclusions. The same
+  minimum is explicit in the production PHP runtime and inherited operational image.
 
 - Stage19A review remediation: URL-safe versioned/legacy guest signatures, infrastructure-independent
   application rollback, verified atomic backup publication, consistent direct/proxy transport errors,

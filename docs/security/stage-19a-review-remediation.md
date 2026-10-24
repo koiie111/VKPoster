@@ -177,6 +177,19 @@ network disabled, read-only rootfs, no capabilities. Docker context secret regre
 Compose/release-artifact contracts (5 tests), env inventory and Gitleaks history/
 worktree/negative vectors PASS. Fresh Trivy database download and new PR CI are
 pending at commit time; no successful fresh-scan claim is made in advance.
-The separate production-app Trivy failure is still under diagnosis; its local
-image also contains brotli-libs1.2.0-r1. Owner approval for changing that second
-artifact is requested separately; this commit does not modify the PHP runtime.
+The separate production-app failure was subsequently confirmed by the CI log as
+the same sole HIGH CVE-2026-111497 in brotli-libs1.2.0-r1. After a0b2224 had
+already been published, the owner explicitly approved the same package fix in the
+app image too. A follow-up commit adds `brotli-libs>=1.2.1-r0` to the existing
+production runtime package step; ops inherits it. No history rewrite/amend is used.
+No application/worker business logic, provider or production data is changed.
+
+Follow-up local validation: production app and ops image builds PASS; brotli-libs
+installed1.2.1-r0. PHP extension and PNG/JPEG/WebP/GIF smoke PASS. Fresh Trivy0.76.0
+database UpdatedAt2026-10-24T13:07:23Z: **ClamAV0 HIGH/0 CRITICAL, app0/0, ops0/0**.
+The official GHCR DB layer was downloaded with range recovery after a truncated
+transfer, verified against its OCI SHA-256 before extraction, then scanned offline
+without suppressions. An incomplete/mismatched download was never used. Context/
+image secret regression and Gitleaks history/worktree/negative vectors PASS again.
+CI on a0b2224 completed9/10: only app's already-confirmed brotli finding failed;
+the final follow-up HEAD must complete a new full PR CI before any merge.

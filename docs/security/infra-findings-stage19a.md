@@ -337,12 +337,16 @@ and [official PyPI metadata](https://pypi.org/pypi/pillow/13.0.0/json).
 | Finding | Severity | Affected artifact/package | Fix | Classification |
 |---|---|---|---|---|
 | CVE-2026-111497 | HIGH | clamav/clamav1.5.4_base, brotli-libs1.2.0-r1 |1.2.1-r0 | A — applicable library, upgraded in docker/clamav/Dockerfile; no exception |
+| CVE-2026-111497 | HIGH | ezposter-app:stage19, brotli-libs1.2.0-r1 |1.2.1-r0 | A — same confirmed CI finding; owner-approved explicit minimum in production PHP package step; ops inherits fix |
 
 The exact vendor digest remains the base; engine1.5.4, entrypoint, healthcheck,
 ports and volume contracts remain unchanged. The authenticated Alpine v3.24/main
 package update supplies the fix. Production Compose and CI scan/use the derived
 image rather than scanning an unpatched vendor tag. Synthetic clean/infected
 INSTREAM checks run with no external network and an isolated signature database.
+Fresh DB2026-10-24T13:07:23Z: derived ClamAV, app and ops each0 HIGH/0 CRITICAL;
+no vulnerability exception. Engine/codec/runtime smoke PASS. Final PR CI remains
+mandatory independently of these local results.
 
 Source: [official Alpine v3.24 package](https://pkgs.alpinelinux.org/package/v3.24/main/x86_64/brotli-libs)
 and its signed `https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz`.

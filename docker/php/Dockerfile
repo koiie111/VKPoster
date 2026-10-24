@@ -122,6 +122,8 @@ RUN apk add --no-cache imagemagick \
     && mkdir -p /usr/share/fonts/truetype \
     && ln -s /usr/share/fonts/dejavu /usr/share/fonts/truetype/dejavu \
     && test -f /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+# Keep the decoder fix explicit even when an earlier runtime layer is cached.
+RUN apk add --no-cache 'brotli-libs>=1.2.1-r0'
 COPY --from=app-build --chown=app:www-data /var/www/html /var/www/html
 COPY docker/php/fpm-pool.conf /usr/local/etc/php-fpm.d/zz-app.conf
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/50-app.ini
