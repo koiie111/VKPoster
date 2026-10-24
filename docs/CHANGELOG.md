@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+- Stage19A review follow-ups: backups serialise on `backup.lock` and remove stale plaintext `work-*`
+  directories left by a killed run (runbook sizing note: about4x dump size); `Content-Disposition:
+  attachment` now only on public API responses, not on `/healthz`, editor or WebAuthn JSON; production
+  `TRUSTED_PROXIES` must lie inside loopback/private/CGNAT/link-local networks (`0.0.0.0/1` is rejected).
+
 - Stage19A CI remediation: ClamAV retains its digest-pinned1.5.4 upstream runtime
   with Alpine brotli-libs1.2.1-r0 or later (CVE-2026-111497); production Compose and
   security CI use the patched image, without vulnerability exclusions. The same

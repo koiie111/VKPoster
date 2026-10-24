@@ -87,7 +87,8 @@ final class PublicApi implements MiddlewareInterface
         foreach ($headers as $name => $value) {
             $response = $response->withHeader($name, $value);
         }
-        return $response;
+        // Only the public API is a download-style endpoint (ZAP remediation); pages and in-app JSON stay inline.
+        return $response->withHeader('Content-Disposition', 'attachment; filename="api.json"');
     }
 
     private function error(int $status, string $code, string $message): Response

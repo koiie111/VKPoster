@@ -51,6 +51,7 @@ final class PublicApiTest extends BillingTestCase
         $r = $this->request('GET', '/api/v1/channels');
         self::assertSame(401, $r->status);
         self::assertSame([], $r->cookies);
+        self::assertSame('attachment; filename="api.json"', $r->header('Content-Disposition'));
         self::assertSame(['code', 'message', 'details'], array_keys($this->data($r)['error']));
         $limited = $this->tokens()->create($ctx, 'Read posts', ['posts:read'])['secret'];
         self::assertSame(403, $this->api($limited, 'GET', '/channels')->status);
@@ -58,6 +59,7 @@ final class PublicApiTest extends BillingTestCase
         self::assertSame(200, $ok->status);
         self::assertSame([], $ok->cookies);
         self::assertNotNull($ok->header('X-RateLimit-Limit'));
+        self::assertSame('attachment; filename="api.json"', $ok->header('Content-Disposition'));
         self::assertStringNotContainsString($token, $ok->body);
     }
 

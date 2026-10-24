@@ -60,7 +60,7 @@ final class Response
         return new self(
             $status,
             json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            ['Content-Type' => 'application/json', 'Cache-Control' => 'no-store', 'Content-Disposition' => 'attachment; filename="api.json"'],
+            ['Content-Type' => 'application/json', 'Cache-Control' => 'no-store'],
         );
     }
 
