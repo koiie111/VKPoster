@@ -32,7 +32,7 @@ Warm/validate the stand before timing; 302/502 results are failures, not fast pa
 ## Local results, 2026-10-20
 
 Docker Desktop arm64, host 16 CPU/8GB. Dedicated MySQL 8.0.46 and Redis. Actual
-PHP 8.3.35 native Alpine prod artifact, existing Fake adapters; no dev bind filesystem.
+PHP 8.3.36 native Alpine prod artifact, existing Fake adapters; no dev bind filesystem.
 Publication workers share 4 CPU total; each has a 384MB upper limit (memory totals
 therefore differ with worker count). Database/code/dataset construction are the same.
 
