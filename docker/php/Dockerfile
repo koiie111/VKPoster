@@ -29,7 +29,7 @@ RUN set -eux; mkdir -p /opt/mysql/bin /opt/mysql/lib; \
       /opt/mysql/lib/ld-linux*.so.* --library-path /opt/mysql/lib /opt/mysql/bin/$binary --version; \
     done
 
-FROM php:8.3-fpm-trixie@sha256:ed67b5fcd7600614dd651621a04214fbe16d373262cb31eb50bc224c18cf0e88 AS base
+FROM php:8.3.36-fpm-trixie@sha256:56e2cf0558ddfbe36e90030f763b72be2f763bcd9075890e9c68420e0dfa827e AS base
 
 ARG TAILWIND_VERSION=3.4.17
 ARG TAILWIND_SHA256_AMD64=7d24f7fa191d2193b78cd5f5a42a6093e14409521908529f42d80b11fde1f1d4
@@ -105,7 +105,7 @@ RUN sh scripts/build-css.sh \
 USER app
 
 # ---- minimal serving runtime: no Tailwind/build toolchain (ADR 0021) ----
-FROM php:8.3-fpm-alpine3.24@sha256:454b11c8907e32878ce92e87b13c14e1bbe6e1b10f4f96d4a19c9b62ec675d41 AS prod
+FROM php:8.3.36-fpm-alpine3.24@sha256:aaf1ad25fc6484613be770743d1038e98e3e7e07409d78b97410eccdf3628f75 AS prod
 COPY docker/php/install-pecl.sh /usr/local/bin/install-pecl
 RUN apk add --no-cache ca-certificates ffmpeg font-dejavu \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS pax-utils icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev imagemagick-dev libsodium-dev \

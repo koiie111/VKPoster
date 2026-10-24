@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- PHP runtime updated to 8.3.36 (CVE-2026-109618, CVE-2026-109619): `docker/php/Dockerfile` pins
+  `php:8.3.36-fpm-trixie` (build/dev) and `php:8.3.36-fpm-alpine3.24` (prod/web/ops) by digest instead of
+  the floating `8.3-fpm-*` tags.
+
 - Stage19A review follow-ups: backups serialise on `backup.lock` and remove stale plaintext `work-*`
   directories left by a killed run (runbook sizing note: about4x dump size); `Content-Disposition:
   attachment` now only on public API responses, not on `/healthz`, editor or WebAuthn JSON; production
