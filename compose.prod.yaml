@@ -216,7 +216,9 @@ services:
 
   # No host port. A separate scanner process owns signatures; application never mounts its database.
   clamav:
-    image: clamav/clamav:1.5.4_base@sha256:751df8dc649cc977696f107c80db4960b6317a7cb511aebc8066f3b91db6b631
+    build:
+      context: docker/clamav
+    image: ezposter-clamav:stage19
     platform: linux/amd64
     restart: unless-stopped
     mem_limit: 4g

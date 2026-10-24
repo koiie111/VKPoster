@@ -71,6 +71,7 @@ jobs:
       - run: docker build -t ezposter-caddy:stage19 docker/caddy
       - run: docker build --target server -t ezposter-mysql:stage19 docker/mysql
       - run: docker build -t ezposter-openbao:stage19 docker/openbao
+      - run: docker build --platform linux/amd64 -t ezposter-clamav:stage19 docker/clamav
       - run: sh scripts/security/scan.sh trivy ezposter-openbao:stage19
       - run: python3 scripts/security/mysql84-upgrade.py
       - run: sh scripts/security/mysql84-pitr-stand.sh
@@ -91,7 +92,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: ['ezposter-mysql:stage19', 'ezposter-redis:stage19', 'ezposter-caddy:stage19', 'ezposter-openbao:stage19', 'clamav/clamav:1.5.4_base']
+        image: ['ezposter-mysql:stage19', 'ezposter-redis:stage19', 'ezposter-caddy:stage19', 'ezposter-openbao:stage19', 'ezposter-clamav:stage19']
     steps:
       - uses: actions/checkout@v4
       - if: matrix.image == 'ezposter-openbao:stage19'
@@ -102,4 +103,6 @@ jobs:
         run: docker build -t ezposter-caddy:stage19 docker/caddy
       - if: matrix.image == 'ezposter-redis:stage19'
         run: docker build -t ezposter-redis:stage19 docker/redis
+      - if: matrix.image == 'ezposter-clamav:stage19'
+        run: docker build --platform linux/amd64 -t ezposter-clamav:stage19 docker/clamav
       - run: sh scripts/security/scan.sh trivy '${{ matrix.image }}'

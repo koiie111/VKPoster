@@ -88,6 +88,8 @@ jobs:
         run: python3 scripts/release-artifacts.py runtime image-manifests
       - name: Prepare test harness (not a release image)
         run: |
+          docker build --platform linux/amd64 -t ezposter-clamav:stage19 docker/clamav
+          sh scripts/security/scan.sh trivy ezposter-clamav:stage19
           docker build --target dev -t ezposter-crypto-test:stage19 -f docker/php/Dockerfile .
           docker run --rm --user "$(id -u):$(id -g)" -e COMPOSER_CACHE_DIR=/tmp/composer -v "$PWD:/var/www/html" ezposter-crypto-test:stage19 composer install --no-scripts --no-interaction --prefer-dist
           mkdir -p storage/logs storage/tmp storage/cache/twig

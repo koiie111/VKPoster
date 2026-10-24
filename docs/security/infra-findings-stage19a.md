@@ -331,3 +331,18 @@ Pinned13.0.0 wheel/sdist hashes are taken from official PyPI release metadata; P
 
 Primary sources: [Pillow13.0.0 release notes](https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html)
 and [official PyPI metadata](https://pypi.org/pypi/pillow/13.0.0/json).
+
+## Fresh CI: ClamAV brotli runtime (2026-10-24)
+
+| Finding | Severity | Affected artifact/package | Fix | Classification |
+|---|---|---|---|---|
+| CVE-2026-111497 | HIGH | clamav/clamav1.5.4_base, brotli-libs1.2.0-r1 |1.2.1-r0 | A — applicable library, upgraded in docker/clamav/Dockerfile; no exception |
+
+The exact vendor digest remains the base; engine1.5.4, entrypoint, healthcheck,
+ports and volume contracts remain unchanged. The authenticated Alpine v3.24/main
+package update supplies the fix. Production Compose and CI scan/use the derived
+image rather than scanning an unpatched vendor tag. Synthetic clean/infected
+INSTREAM checks run with no external network and an isolated signature database.
+
+Source: [official Alpine v3.24 package](https://pkgs.alpinelinux.org/package/v3.24/main/x86_64/brotli-libs)
+and its signed `https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz`.

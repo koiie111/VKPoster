@@ -157,3 +157,26 @@ Final-pass validation (2026-10-24, current source):
 An overlapping invocation against the same test DB was discarded; the reported PHP
 results are from a clean **sequential** targeted-then-full run. A missing DB_PASSWORD
 in an earlier shell invocation was corrected in the harness, not in application/tests.
+
+## Owner-authorized ClamAV CI remediation (2026-10-24)
+
+CI on c55129b exposed HIGH CVE-2026-111497 in Alpine `brotli-libs1.2.0-r1`
+inside the pinned `clamav/clamav:1.5.4_base` artifact. The owner explicitly authorized
+a separate image-fix commit. Alpine's signed v3.24/main index provides1.2.1-r0.
+`docker/clamav/Dockerfile` keeps the identical vendor digest/ClamAV engine/entrypoint
+and upgrades only this package, with a minimum-version build assertion. Production
+Compose, the isolated production stand and the infra scan matrix use the derived
+`ezposter-clamav:stage19` image. Its Docker context admits only the Dockerfile;
+the existing synthetic-secret context regression covers the new context too.
+No CVE/rule/severity exception is added; app/CD infrastructure boundaries are unchanged.
+
+Local validation: image build PASS; installed1.2.1-r0, engine1.5.4; full package
+inventory differs only in brotli-libs. Vendor entrypoint/command/user/healthcheck/
+volumes/ports are identical. Real isolated INSTREAM clean/infected checks PASS,
+network disabled, read-only rootfs, no capabilities. Docker context secret regression,
+Compose/release-artifact contracts (5 tests), env inventory and Gitleaks history/
+worktree/negative vectors PASS. Fresh Trivy database download and new PR CI are
+pending at commit time; no successful fresh-scan claim is made in advance.
+The separate production-app Trivy failure is still under diagnosis; its local
+image also contains brotli-libs1.2.0-r1. Owner approval for changing that second
+artifact is requested separately; this commit does not modify the PHP runtime.

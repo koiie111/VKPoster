@@ -203,8 +203,13 @@ mismatch fail closed. The separate dev harness is not a published release artifa
 
 Owner-controlled `/etc/ezposter/infra.env` (regular0600) owns all infrastructure image
 pins/settings (MYSQL_IMAGE and REDIS_IMAGE in the base Compose). Caddy/OpenBao
-remain separately owner-provisioned infra; ClamAV stays explicitly pinned in the
-reviewed Compose. Their upgrade files/profiles are outside app CD. The
+remain separately owner-provisioned infra. ClamAV uses `docker/clamav/Dockerfile`:
+the same digest-pinned1.5.4 vendor scanner plus Alpine `brotli-libs>=1.2.1-r0`
+(CVE-2026-111497), without scanner exclusions or entrypoint changes. Build it with
+`docker build --platform linux/amd64 -t ezposter-clamav:stage19 docker/clamav`,
+then run `sh scripts/security/scan.sh trivy ezposter-clamav:stage19` before separately
+provisioning it. CI scans this derived image and the isolated production stand uses
+the same image. Their upgrade files/profiles are outside app CD. The
 application release manifest contains only APP_IMAGE, WEB_IMAGE, PDF_IMAGE, OPS_IMAGE.
 The infra env is applied last, including during rollback of old app release files that
 may contain obsolete infrastructure settings. Do not upload/replace infra config from

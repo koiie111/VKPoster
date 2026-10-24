@@ -9,7 +9,7 @@
 - **Текущий этап:** 19 (Hardening и production), часть A
 - **Статус:** IN_PROGRESS
 - **Ветка / PR:** `stage-19-hardening-prod` / [#32](https://github.com/koiie111/VKPoster/pull/32)
-- **Последнее обновление:** 2026-10-24 (19A final review remediation: OAuth dispatch-window/owned-error race fix and configurable Oracle backup/restore timeout; PHP2589/44166, targeted68/268, upgrade/rollback, PITR, static/security/contracts passed; PR CI pending. Stage19 IN_PROGRESS; production19.8 pending. Details: docs/security/stage-19a-review-remediation.md.)
+- **Последнее обновление:** 2026-10-24 (19A final review fixes published as c55129b; PHP2589/44166, targeted68/268 and local gates passed. CI8/10: fresh Trivy findings block image gates. Owner-authorized separate ClamAV brotli-libs1.2.1-r0 remediation; scanner contract/context checks passed, fresh scan/PR CI pending. Stage19 IN_PROGRESS; production19.8 pending. Details: docs/security/stage-19a-review-remediation.md.)
 
 ## Этапы
 

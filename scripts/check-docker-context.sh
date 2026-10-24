@@ -2,11 +2,11 @@
 # Regression: synthetic secrets only. Never sends the application's real credentials to a builder.
 set -eu
 base=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-fixture=$(mktemp -d)
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/vkposter-context.XXXXXX")
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 for ignore in "$base/.dockerignore" "$base/tools/telegram-reader/.dockerignore" \
     "$base/docker/mysql/.dockerignore" "$base/docker/openbao/.dockerignore" \
-    "$base/docker/redis/.dockerignore" "$base/docker/caddy/.dockerignore" \
+    "$base/docker/redis/.dockerignore" "$base/docker/caddy/.dockerignore" "$base/docker/clamav/.dockerignore" \
     "$base/tools/analytics-pdf/.dockerignore"; do
     mkdir -p "$fixture/context"
 mkdir -p "$fixture/context/tools/telegram-reader/deep" "$fixture/context/other/.aws" "$fixture/context/runtime" "$fixture/context/other/.git" "$fixture/context/other/.docker" "$fixture/context/other/.kube"
