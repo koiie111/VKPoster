@@ -137,7 +137,10 @@ final class Config
             $max = str_contains($ip, ':') ? 128 : 32;
             if (filter_var($ip, FILTER_VALIDATE_IP) === false || count($parts) > 2
                 || (isset($parts[1]) && (!ctype_digit($parts[1]) || (int) $parts[1] < 1 || (int) $parts[1] > $max))) {
-                throw new ConfigException('TRUSTED_PROXIES must contain explicit IPs or non-global CIDRs.');
+                throw new ConfigException('TRUSTED_PROXIES must contain explicit IPs or CIDRs.');
+            }
+            if (!self::privateNetwork($ip, isset($parts[1]) ? (int) $parts[1] : $max)) {
+                throw new ConfigException('TRUSTED_PROXIES must stay inside loopback, private or link-local networks.');
             }
         }
         new \App\Kernel\HttpClient\EgressRoutes($this->env);
@@ -165,5 +168,34 @@ final class Config
                 throw new ConfigException(sprintf('%s must not be enabled when APP_ENV=production.', $name));
             }
         }
+    }
+
+    /** True when ip/prefix lies wholly inside a loopback, private, CGNAT or link-local network. */
+    private static function privateNetwork(string $ip, int $prefix): bool
+    {
+        $packed = inet_pton($ip);
+        if ($packed === false) {
+            return false;
+        }
+        $networks = strlen($packed) === 4
+            ? [['10.0.0.0', 8], ['172.16.0.0', 12], ['192.168.0.0', 16], ['127.0.0.0', 8], ['169.254.0.0', 16], ['100.64.0.0', 10]]
+            : [['::1', 128], ['fc00::', 7], ['fe80::', 10]];
+        foreach ($networks as [$base, $length]) {
+            $baseBytes = (string) inet_pton($base);
+            if ($prefix < $length) {
+                continue;
+            }
+            $bytes = intdiv($length, 8);
+            $bits = $length % 8;
+            if (substr($packed, 0, $bytes) !== substr($baseBytes, 0, $bytes)) {
+                continue;
+            }
+            $mask = (0xFF << (8 - $bits)) & 0xFF;
+            if ($bits === 0 || (ord($packed[$bytes]) & $mask) === (ord($baseBytes[$bytes]) & $mask)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

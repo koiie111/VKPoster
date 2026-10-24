@@ -41,6 +41,7 @@ final class HealthTest extends TestCase
     {
         $app = \App\Tests\Support\TestEnv::app(['DB_HOST' => '127.0.0.1', 'DB_PORT' => '1', 'REDIS_HOST' => '127.0.0.1', 'REDIS_PORT' => '1']);
         $response = $app->handle(\App\Kernel\Http\Request::create('GET', '/healthz'));
+        self::assertNull($response->header('Content-Disposition'));
         self::assertSame(200, $response->status);
         self::assertStringContainsString('ok', $response->body);
         $ready = $app->handle(\App\Kernel\Http\Request::create('GET', '/readyz'));

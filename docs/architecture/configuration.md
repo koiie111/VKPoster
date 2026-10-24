@@ -11,7 +11,7 @@
 | `APP_KEY` | — | **Обязательна.** Ключ libsodium `secretbox` в base64 (32 байта). Шифрует токены соцсетей и TOTP, из него выводится ключ `Signer` |
 | `APP_KEY_ID` | `k1` | Идентификатор текущего ключа в шифртексте (`v1:<id>:…`) |
 | `APP_KEYS` | — | Старые ключи для расшифровки после ротации: `id:base64,id:base64` (см. `security.md`) |
-| `TRUSTED_PROXIES` | — | IP и CIDR обратных прокси через запятую; только от них принимаются `X-Forwarded-For/Proto`. `*` не поддерживается намеренно |
+| `TRUSTED_PROXIES` | — | IP и CIDR обратных прокси через запятую (в production только loopback/частные сети); только от них принимаются `X-Forwarded-For/Proto`. `*` не поддерживается намеренно |
 | `LOG_LEVEL` | `info` | `debug` · `info` · `notice` · `warning` · `error` · `critical` |
 | `LOG_DISABLE_STDERR` | — | `1` отключает дублирование логов в stderr (нужно только тестам) |
 | `SESSION_IDLE_TTL` | `7200` | Секунд бездействия до конца сессии |

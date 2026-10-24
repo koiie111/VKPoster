@@ -112,6 +112,14 @@ free space, S3 connectivity/versioning and credentials. An encrypted local file 
 not proof of offsite success. Keep it for investigation; do not prune older offsite
 versions or change the key to make a failed verification pass.
 
+Sizing: a backup run holds about four times the dump size at its peak
+(`database.sql`, `snapshot.tar`, the `.partial` ciphertext and its `.partial.verify`
+decryption) inside the backup directory, plus the final `.ezb`. `verify` and `restore`
+decrypt into `sys_get_temp_dir()` (often a small tmpfs): size it for one full dump.
+Runs are serialised by `backup.lock`; if a run was killed (SIGKILL, OOM, systemd
+timeout) its `work-*` directory with plaintext `database.sql` is removed by the next run,
+so keep the directory 0700 and rerun promptly after a kill.
+
 ## 12. Isolated restore drill
 
 Provision an empty `app_restore_*` database and separate account granted only that

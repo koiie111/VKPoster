@@ -126,7 +126,7 @@ are implemented. Stage19 remains **IN_PROGRESS**, owner production19.8 pending.
    whole workflow45min; operators must increase it with margin when raising the CLI
    budget. A fake monotonic clock tests301s elapsed without waiting five minutes.
 
-Minor backlog from the repeat independent review (not implemented in this pass):
+Minor backlog from the repeat independent review (fixed in the follow-up PR after merge):
 - stale plaintext `work-*` after SIGKILL/OOM;
 - global Content-Disposition on JSON responses;
 - TRUSTED_PROXIES validation/message mismatch.

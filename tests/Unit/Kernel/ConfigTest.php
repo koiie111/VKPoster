@@ -70,7 +70,7 @@ final class ConfigTest extends TestCase
     /** @return iterable<string, array{string}> */
     public static function unsafeProxies(): iterable
     {
-        foreach (['*', '0.0.0.0/0', '::/0', '127.0.0.1/99', 'not-an-ip', '10.0.0.1/abc'] as $value) {
+        foreach (['*', '0.0.0.0/0', '0.0.0.0/1', '8.8.8.8', '172.15.0.0/12', '172.0.0.0/8', '11.0.0.0/8', '2001:db8::/32', '::/0', '127.0.0.1/99', 'not-an-ip', '10.0.0.1/abc'] as $value) {
             yield $value => [$value];
         }
     }
@@ -80,6 +80,12 @@ final class ConfigTest extends TestCase
     {
         $this->expectException(ConfigException::class);
         TestEnv::config(['APP_ENV' => 'production', 'TRUSTED_PROXIES' => $proxy]);
+    }
+
+    public function testProductionAcceptsLoopbackAndPrivateProxyNetworks(): void
+    {
+        $config = TestEnv::config(['APP_ENV' => 'production', 'TRUSTED_PROXIES' => '172.16.0.0/12,127.0.0.1,10.1.2.3/32,192.168.0.0/16,::1,fd00::/8']);
+        self::assertTrue($config->isProduction());
     }
 
     public function testProductionRejectsHttp(): void

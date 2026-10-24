@@ -20,6 +20,48 @@ final class BackupService
     {
         $key = $this->key();
         $this->directory($directory);
+        $lock = $this->lockDirectory($directory);
+        try {
+            return $this->run($directory, $offsite, $key);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    /** Serialise runs per directory; the lock dies with the process, so a killed run never blocks the next one. */
+    /** @return resource */
+    private function lockDirectory(string $directory)
+    {
+        if (is_link($directory . '/backup.lock')) {
+            throw new RuntimeException('Invalid backup lock.');
+        }
+        $lock = fopen($directory . '/backup.lock', 'c');
+        if ($lock === false) {
+            throw new RuntimeException('Backup lock unavailable.');
+        }
+        chmod($directory . '/backup.lock', 0600);
+        if (!flock($lock, LOCK_EX | LOCK_NB)) {
+            fclose($lock);
+            throw new RuntimeException('Backup already running.');
+        }
+
+        return $lock;
+    }
+
+    private function run(string $directory, bool $offsite, string $key): string
+    {
+        // The lock is held, so any work-* directory is left by a killed run (plaintext dump): remove it.
+        foreach (\App\Support\Fs::glob($directory . '/work-*') as $stale) {
+            if (is_dir($stale) && !is_link($stale)) {
+                foreach (\App\Support\Fs::glob($stale . '/*') as $leftover) {
+                    if (is_file($leftover) && !is_link($leftover)) {
+                        unlink($leftover);
+                    }
+                }
+                rmdir($stale);
+            }
+        }
         $work = $directory . '/work-' . bin2hex(random_bytes(8));
         mkdir($work, 0700);
         $file = $directory . '/backup-' . $this->clock->now()->format('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.ezb';

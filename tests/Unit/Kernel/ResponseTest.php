@@ -16,10 +16,10 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Response::class)]
 final class ResponseTest extends TestCase
 {
-    public function testJsonIsNonCacheableAndDownloadsWithAFixedSafeFilename(): void
+    public function testJsonIsNonCacheableAndStaysInline(): void
     {
         $response = Response::json(['text' => 'данные']);
-        self::assertSame('attachment; filename="api.json"', $response->header('Content-Disposition'));
+        self::assertNull($response->header('Content-Disposition'), 'only the public API forces a download name');
         self::assertSame('no-store', $response->header('Cache-Control'));
         self::assertSame(['text' => 'данные'], json_decode($response->body, true, flags: JSON_THROW_ON_ERROR));
     }
