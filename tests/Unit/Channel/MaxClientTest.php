@@ -69,6 +69,29 @@ final class MaxClientTest extends TestCase
         self::assertArrayNotHasKey('verify', $this->http->requests[1]['options'], 'no override without a configured file');
     }
 
+    public function testTheShippedTrustAnchorIsACertificateThatDockerKeeps(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $file = $root . '/resources/certs/russian-trusted-root-ca.crt';
+
+        self::assertFileExists($file);
+        self::assertNotFalse(openssl_x509_parse((string) file_get_contents($file)), 'the file is a parsable certificate');
+        $relative = 'resources/certs/russian-trusted-root-ca.crt';
+        $lines = file($root . '/.dockerignore', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        self::assertIsArray($lines);
+        foreach ($lines as $pattern) {
+            $pattern = trim($pattern);
+            if ($pattern === '' || $pattern[0] === '#' || $pattern[0] === '!') {
+                continue;
+            }
+            $pattern = preg_replace('#^\*\*/#', '', rtrim($pattern, '/')) ?? $pattern;
+            self::assertFalse(
+                fnmatch($pattern, $relative) || fnmatch($pattern, basename($relative)) || str_starts_with($relative, $pattern . '/'),
+                'the build context must keep the trust anchor, but .dockerignore matches: ' . $pattern,
+            );
+        }
+    }
+
     public function testReadingMethodsHitTheirPaths(): void
     {
         $this->http->expect('GET', MaxFixtures::API . '/chats/-72000000000001', 200, MaxFixtures::raw('chat_channel'));

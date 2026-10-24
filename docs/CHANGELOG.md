@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- MAX trust anchor is now `resources/certs/russian-trusted-root-ca.crt`: the `.pem` name was excluded from every Docker image by
+  `.dockerignore` (`**/*.pem`), so v0.1.2 shipped without it. A unit test now requires the file to be a certificate and not ignored.
+
 - MAX API certificate: `platform-api2.max.ru` is signed by the Russian Trusted CA, absent from the image's system trust store, so
   every MAX call failed with a TLS error. The Russian Trusted Root CA is shipped in `resources/certs/` and passed as the per-request
   `verify` option of `MaxClient` only (`MAX_CA_FILE`; empty = system store). It is not added to the global trust store. The temporary

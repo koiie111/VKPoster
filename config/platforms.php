@@ -34,7 +34,7 @@ return static fn (Env $env): array => [
         'webhook_secret' => $env->string('MAX_WEBHOOK_SECRET'),
         'api_base' => rtrim($env->string('MAX_API_BASE', 'https://platform-api2.max.ru'), '/'),
         // platform-api2.max.ru is signed by the Russian Trusted CA, which the system store lacks: trusted for this client only. Empty disables it.
-        'ca_file' => $env->string('MAX_CA_FILE', 'resources/certs/russian-trusted-root-ca.pem'),
+        'ca_file' => $env->string('MAX_CA_FILE', 'resources/certs/russian-trusted-root-ca.crt'),
     ],
     'instagram' => [
         // The Meta application with the product "Instagram API with Instagram Login" (ADR 0010). Off by default: see PLATFORMS_ENABLED.
