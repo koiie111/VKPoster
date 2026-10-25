@@ -45,8 +45,8 @@ final class TelegramPollCommand implements Command
 
             return 1;
         }
-        if ($this->config->isProduction()) {
-            $out->error('Polling is a development tool; production uses the webhook.');
+        if ($this->config->isProduction() && !in_array('--allow-production', $args, true)) {
+            $out->error('Polling is a development tool; production uses the webhook (pass --allow-production when Telegram cannot reach the webhook).');
 
             return 1;
         }
