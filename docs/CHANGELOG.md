@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- Runbook: production backup drill record of 2026-10-25 (daily timer on, offsite upload, isolated DB and media restore verified).
+
 - Legal texts: removed the owner-facing «Это шаблон…» note from the top of the offer, privacy, cookies and requisites pages; it was
   visible to visitors after the placeholders were filled.
 
