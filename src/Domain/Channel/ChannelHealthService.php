@@ -32,6 +32,7 @@ final class ChannelHealthService
         private readonly Clock $clock,
         private readonly Config $config,
         private readonly LoggerInterface $logger,
+        private readonly OAuthRefreshRecovery $recovery,
     ) {
     }
 
@@ -60,9 +61,11 @@ final class ChannelHealthService
         if (!$this->registry->isEnabled($channel->platform)) {
             return $channel;
         }
+        $failure = null;
         try {
             $status = $this->registry->adapter($channel->platform)->healthCheck($channel->externalId, $this->credentials->forChannel($channel));
         } catch (PlatformError $e) {
+            $failure = $e;
             $status = $e->concernsChannel() ? HealthStatus::broken($e->forUser()) : HealthStatus::unknown($e->forUser());
         }
 
@@ -72,7 +75,7 @@ final class ChannelHealthService
             $this->logger->info('Channel health check inconclusive', ['channel' => $channel->publicId]);
             $this->channels->recordAttempt($channel);
         } else {
-            $this->markBroken($channel, $status->revoked ? ChannelStatus::Revoked : ChannelStatus::Error, $status->message);
+            $this->markBroken($channel, $status->revoked ? ChannelStatus::Revoked : ChannelStatus::Error, $status->message, $failure);
         }
 
         return $this->channels->find($channel->id) ?? $channel;
@@ -82,9 +85,18 @@ final class ChannelHealthService
      * Record that a channel is broken and, if it just stopped working, tell the people in charge. A paused channel keeps its
      * status (the owner chose it) but the reason is stored.
      */
-    public function markBroken(Channel $channel, ChannelStatus $status, string $reason): void
+    public function markBroken(Channel $channel, ChannelStatus $status, string $reason, ?PlatformError $cause = null): void
     {
-        $this->channels->recordBroken($channel, $channel->status === ChannelStatus::Paused ? ChannelStatus::Paused : $status, $reason);
+        if ($cause?->oauthRecoveryAttemptId !== null) {
+            $recorded = $this->recovery->guardRecoveryError($channel, $cause->oauthRecoveryAttemptId, function (Channel $current) use ($status, $reason): void {
+                $this->channels->recordBroken($current, $status, $reason);
+            });
+            if (!$recorded) {
+                return;
+            }
+        } else {
+            $this->channels->recordBroken($channel, $channel->status === ChannelStatus::Paused ? ChannelStatus::Paused : $status, $reason);
+        }
         if ($channel->status !== ChannelStatus::Active) {
             return;
         }

@@ -8,8 +8,8 @@
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
 - **Текущий этап:** 19 (Hardening и production), часть A
 - **Статус:** IN_PROGRESS
-- **Ветка / PR:** `stage-19-hardening-prod` / [#32](https://github.com/koiie111/VKPoster/pull/32)
-- **Последнее обновление:** 2026-10-24 (19A final review fixes published as c55129b; PHP2589/44166, targeted68/268 and local gates passed. ClamAV fix a0b2224 passed its fresh CI scan. Owner-approved same CVE-2026-111497 fix in app/ops: builds/runtime smoke PASS; fresh Trivy DB2026-10-24 ClamAV/app/ops each0 HIGH/0 CRITICAL, secrets/context gates PASS. Follow-up PR CI pending. Stage19 IN_PROGRESS; production19.8 pending. Details: docs/security/stage-19a-review-remediation.md.)
+- **Ветка / PR:** `fix/stage-19-oauth-stale-auth` / отдельный bugfix PR после merged [#32](https://github.com/koiie111/VKPoster/pull/32)
+- **Последнее обновление:** 2026-10-25 (По подтверждению владельца final OAuth stale-Auth fix перенесён из b0776d5 в отдельную bugfix-ветку от upstream/main8591706. Guard и regression tests сохранены; код из merged follow-ups #33–#40 не меняется. На обновлённой основе: PHP2618/44425, targeted86/683, PHPStan/style/Gitleaks/Semgrep PASS; новый PR CI pending. Stage19 IN_PROGRESS; production19.8 pending. Details: docs/security/stage-19a-review-remediation.md.)
 
 ## Этапы
 
