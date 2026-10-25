@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
+
 - Legal texts: removed the owner-facing «Это шаблон…» note from the top of the offer, privacy, cookies and requisites pages; it was
   visible to visitors after the placeholders were filled.
 
