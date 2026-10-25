@@ -1,4 +1,4 @@
-{#- Admin: AI assistant providers. Variables: cards (code, label, kind, region, note, custom, enabled, default, usable, key_set, base_url, base_url_default, model, model_default, auth), auth_schemes, default, totals. -#}
+{#- Admin: AI assistant providers. Variables: cards (code, label, kind, region, note, custom, enabled, default, usable, key_set, base_url, base_url_default, model, model_default, auth), auth_schemes, default, totals, steps (id, position, provider, model, label, daily_requests, reset_offset_minutes, cooldown_seconds, charge_credits, actions, enabled, used, cooling, ready), providers (code => label), actions (value => label). -#}
 {% extends 'layouts/admin.twig' %}
 {% import 'components/display.twig' as d %}
 {% import 'components/forms.twig' as f %}
@@ -7,7 +7,58 @@
 {% block title %}ИИ-провайдеры · Админка{% endblock %}
 {% block content %}
 {{ d.page_header('ИИ-ассистент: провайдеры', 'Выберите, какая модель отвечает пользователям в редакторе. Готовые провайдеры работают по одному ключу; любой сервис с OpenAI-совместимым API добавляется ниже. Ключи хранятся зашифрованными и больше не показываются; пустое поле ключа оставляет сохранённый.') }}
-{% if default is null %}{{ d.alert('info', 'Ни один провайдер не готов', 'Пока тут пусто, ассистент работает только в тестовом режиме локально, а на сайте скажет, что не подключён. Включите провайдера и впишите ключ.') }}{% endif %}
+<section class="card mt-4 flex flex-col gap-4" id="chain" aria-labelledby="h-chain">
+    <h2 class="text-lg font-semibold" id="h-chain">Цепочка моделей</h2>
+    <p class="text-sm text-muted">Ассистент пробует шаги по порядку (меньшее число первым). Шаг пропускается, если его суточный суточный лимит запросов израсходован, провайдер без ключа или он недавно отвечал ошибкой (пауза после ошибки настраивается у шага). Так бесплатные модели идут первыми, а платная подхватывает запросы, когда они закончились. Если цепочка пуста, отвечает провайдер «по умолчанию». Лимиты считаются в запросах: токены считает сам провайдер. Ключи вводятся у провайдеров ниже.</p>
+    {% for st in steps %}
+    <form class="grid gap-3 border-t border-line pt-4 sm:grid-cols-2 lg:grid-cols-6" method="post" action="/admin/ai-chain/{{ st.id }}" autocomplete="off">
+        {{ csrf_field() }}
+        {{ f.input('position', 'Порядок', value = st.position, id = 'st-pos-' ~ st.id) }}
+        {{ f.select('provider', 'Провайдер', providers, value = st.provider, id = 'st-prov-' ~ st.id) }}
+        {{ f.input('model', 'Модель', value = st.model, id = 'st-model-' ~ st.id, hint = 'Пусто = модель провайдера.') }}
+        {{ f.input('label', 'Название', value = st.label, id = 'st-label-' ~ st.id) }}
+        {{ f.input('daily_requests', 'Запросов в сутки', value = st.daily_requests, id = 'st-lim-' ~ st.id, hint = '0 = без лимита.') }}
+        {{ f.input('reset_offset_minutes', 'Начало суток, сдвиг от UTC (мин)', value = st.reset_offset_minutes, id = 'st-off-' ~ st.id, hint = 'Москва = 180. Когда у шлюза обновляется суточный запас.') }}
+        {{ f.input('cooldown_seconds', 'Пауза после ошибки (сек)', value = st.cooldown_seconds, id = 'st-cd-' ~ st.id, hint = '0 = по причине: 1 мин для сбоя, 15 мин для «слишком много запросов».') }}
+        {{ f.switch('charge_credits', 'Списывать кредиты пользователя', st.charge_credits, id = 'st-chg-' ~ st.id) }}
+        <fieldset class="flex flex-col gap-1 sm:col-span-2 lg:col-span-3"><legend class="label">Какие действия обслуживает (ничего не отмечено = все)</legend>
+            <div class="flex flex-wrap gap-x-4 gap-y-1">{% for value, name in actions %}{{ f.checkbox('actions[]', name, value in st.actions, value = value, id = 'st-act-' ~ st.id ~ '-' ~ value) }}{% endfor %}</div>
+        </fieldset>
+        <div class="flex flex-col gap-2">
+            {{ f.switch('enabled', 'Включён', st.enabled, id = 'st-on-' ~ st.id) }}
+            <div class="flex flex-wrap gap-2 text-sm">
+                {% if not st.ready %}{{ d.badge('Нет ключа', 'warning') }}{% elseif st.cooling %}{{ d.badge('Отдыхает после ошибки', 'warning') }}{% endif %}
+                {{ d.badge('Сегодня: ' ~ st.used ~ (st.daily_requests > 0 ? ' из ' ~ st.daily_requests : ''), 'neutral') }}
+            </div>
+        </div>
+        <div class="max-w-xs sm:col-span-2 lg:col-span-3">{{ a.step_up('st-code-' ~ st.id) }}</div>
+        <div class="flex flex-wrap items-end gap-3 sm:col-span-2 lg:col-span-3">
+            {{ f.button('Сохранить шаг', type = 'submit', icon = 'save') }}
+            {{ f.button('Удалить', type = 'submit', variant = 'danger', attrs = {formaction: '/admin/ai-chain/' ~ st.id ~ '/delete'}) }}
+        </div>
+    </form>
+    {% else %}
+    <p class="text-sm text-muted">Шагов пока нет: отвечает провайдер «по умолчанию».</p>
+    {% endfor %}
+    <form class="grid gap-3 border-t border-line pt-4 sm:grid-cols-2 lg:grid-cols-6" method="post" action="/admin/ai-chain" autocomplete="off">
+        {{ csrf_field() }}
+        {{ f.input('position', 'Порядок', id = 'st-new-pos', hint = 'Пусто = в конец.') }}
+        {{ f.select('provider', 'Провайдер', providers, id = 'st-new-prov') }}
+        {{ f.input('model', 'Модель', id = 'st-new-model', placeholder = 'free-glm-5.3-flash') }}
+        {{ f.input('label', 'Название', id = 'st-new-label') }}
+        {{ f.input('daily_requests', 'Запросов в сутки', value = 0, id = 'st-new-lim') }}
+        {{ f.input('reset_offset_minutes', 'Начало суток, сдвиг от UTC (мин)', value = 0, id = 'st-new-off', hint = 'Москва = 180.') }}
+        {{ f.input('cooldown_seconds', 'Пауза после ошибки (сек)', value = 0, id = 'st-new-cd', hint = '0 = по причине ошибки.') }}
+        {{ f.switch('charge_credits', 'Списывать кредиты пользователя', true, id = 'st-new-chg') }}
+        <fieldset class="flex flex-col gap-1 sm:col-span-2 lg:col-span-3"><legend class="label">Какие действия обслуживает (ничего не отмечено = все)</legend>
+            <div class="flex flex-wrap gap-x-4 gap-y-1">{% for value, name in actions %}{{ f.checkbox('actions[]', name, false, value = value, id = 'st-new-act-' ~ value) }}{% endfor %}</div>
+        </fieldset>
+        {{ f.switch('enabled', 'Включить сразу', true, id = 'st-new-on') }}
+        <div class="max-w-xs sm:col-span-2 lg:col-span-3">{{ a.step_up('st-new-code') }}</div>
+        <div class="flex items-end sm:col-span-2 lg:col-span-3">{{ f.button('Добавить шаг', type = 'submit', icon = 'plus') }}</div>
+    </form>
+</section>
+{% if default is null and steps is empty %}{{ d.alert('info', 'Ни один провайдер не готов', 'Пока тут пусто, ассистент работает только в тестовом режиме локально, а на сайте скажет, что не подключён. Включите провайдера и впишите ключ.') }}{% endif %}
 <div class="mt-4 grid gap-4 lg:grid-cols-2">
     {% for p in cards %}
     <section class="card flex flex-col gap-4" id="{{ p.code }}" aria-labelledby="h-{{ p.code }}">
@@ -20,7 +71,7 @@
         <form class="flex flex-col gap-4" method="post" action="/admin/ai/{{ p.code }}" autocomplete="off">
             {{ csrf_field() }}
             {{ f.switch('enabled', 'Включить провайдера', p.enabled, id = 'enabled-' ~ p.code) }}
-            {{ f.switch('default', 'Отвечать по умолчанию', p.default, id = 'default-' ~ p.code, hint = 'Остальные включённые остаются запасными для ручного выбора в будущем; сейчас отвечает один.') }}
+            {{ f.switch('default', 'Отвечать по умолчанию', p.default, id = 'default-' ~ p.code, hint = 'Отвечает, пока цепочка выше пуста.') }}
             {{ f.input('base_url', 'Адрес API', value = p.base_url, id = p.code ~ '-url', placeholder = p.base_url_default, hint = 'https-адрес до /v1 (без /chat/completions).' ~ (p.base_url_default ? ' Пусто = ' ~ p.base_url_default ~ '.' : '')) }}
             {{ f.input('model', 'Модель', value = p.model, id = p.code ~ '-model', placeholder = p.model_default, hint = p.model_default ? 'Пусто = ' ~ p.model_default ~ '.' : 'Точное название модели у провайдера.') }}
             {{ f.input('api_key', 'Ключ API', type = 'password', id = p.code ~ '-key', placeholder = p.key_set ? '••••••••' : '', hint = p.key_set ? 'Ключ сохранён; оставьте поле пустым, чтобы не менять.' : 'Ключ выдаёт сам провайдер.') }}

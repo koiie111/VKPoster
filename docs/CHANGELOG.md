@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- AI assistant: a chain of models (`/admin/ai`, table `ai_chain_steps`, ADR 0026). Steps are tried in order, each with an optional model
+  and a daily request cap (day start offset from UTC, Redis), a failure pause, a «charge credits» flag and a list of served actions, all set in the admin area; a spent, failing or unconfigured step is skipped and the next one answers, so free models of a
+  gateway go first and a paid one last. New `tokenator` provider preset (`https://api.tokenator.cloud/v1`). An empty chain keeps the
+  single default provider. Run `make migrate`.
 - `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
 
 - Stage19A: OAuth recovery Auth теперь содержит identity attempt; health-check и
