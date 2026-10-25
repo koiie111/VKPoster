@@ -193,3 +193,62 @@ without suppressions. An incomplete/mismatched download was never used. Context/
 image secret regression and Gitleaks history/worktree/negative vectors PASS again.
 CI on a0b2224 completed9/10: only app's already-confirmed brotli finding failed;
 the final follow-up HEAD must complete a new full PR CI before any merge.
+
+
+## Final OAuth stale-Auth remediation — 2026-10-24
+
+Проверяемая основа: `96f16de4d53e565b7477ad3349f663e73f41ea73`. Исправлен только
+оставшийся Important: поздний обработчик Auth больше не возвращает восстановленный
+канал в `error` после успешного завершения OAuth attempt.
+
+- `PlatformError` переносит отдельный `oauthRecoveryAttemptId`; текст сообщения не
+  используется для определения типа ошибки или разбора identity.
+- `OAuthRefreshRecovery::guardRecoveryError()` в одной транзакции берёт `FOR UPDATE`
+  в порядке attempt → credential → channel и держит блокировки до фактической записи
+  через callback. Проверяет `recovery_required`, active/own credential ID, fingerprint,
+  workspace/platform и текущую account-привязку. Completed/superseded attempt, reconnect
+  с новым ID, замена credentials на месте, paused/revoked channel не разрешают запись.
+- И исходная запись в `uncertain()`, и отложенные записи из `ChannelHealthService`
+  и `Publisher` используют этот domain guard. Обычный Auth без OAuth recovery context
+  продолжает помечать канал ошибочным. Проверка не вынесена в PHP if перед отдельной
+  транзакцией; sleep, продление timeout и новый Redis lock не добавлены.
+- `OAuthStaleErrorTest`: 12 сценариев через настоящий health-check/Publisher handler:
+  late completed, still current, reconnect, superseded, same-ID replacement, ordinary
+  Auth. Mock adapter только задерживает доставку уже полученного Auth; recovery,
+  credentials, транзакции, channel writes и publishing error path настоящие, без сети.
+  Отдельный negative control: без guard оба completed-сценария воспроизводят
+  `active → error`; с guard — PASS. Ответ provider и токены не выводятся в лог.
+- Accepted fail-closed для действительно неопределённого несохранённого ответа
+  остаётся неизменным. Stage19 **IN_PROGRESS**, production19.8 pending; merge/deploy
+  и новый release tag не выполнялись.
+
+Проверки final OAuth pass:
+- Targeted OAuth/health/publishing: **86 tests /683 assertions**, PASS.
+- Full PHP suite в изолированном dev runner с Oracle bundle, MySQL8.4 test fixture:
+  **2601 tests /44334 assertions**, PASS; один прежний opt-in live Transit skip.
+  Первая попытка в обычном dev app выявила отсутствие bundle/занятый scheduler lock;
+  перенос runner в test infrastructure устранил эти ошибки без изменения runtime.
+  У нового regression fixture добавлена очистка только собственного attempt перед
+  последующими migration rollback tests.
+- PHPStan/style и Gitleaks history/worktree с negative controls: PASS.
+- Semgrep: 266 rules /0 findings, PASS, без новых исключений.
+- Новый CI проверяется после push; предыдущий HEAD96f16de имел10/10 PASS.
+  Тяжёлые k6/backup/Trivy/ZAP локально повторно не запускались; image/runtime и
+  настройки этих подсистем в этом pass не менялись.
+
+
+### Перенос после merge PR32 — 2026-10-25
+
+Владелец подтвердил отдельную ветку `fix/stage-19-oauth-stale-auth` от актуального
+`upstream/main` (`8591706f919c91331f6f4317d07f00105a9aa243`). Готовое исправление
+`b0776d54dcbea68cccee87616a3ace73186b4758` не вошло в PR32: тот уже был merged с
+HEAD96f16de. При переносе изменён только конфликтующий Changelog (сохранены обе
+записи) и актуализирована документация PR; functional fix/tests не переписывались.
+Merged follow-ups #33–#40 остаются нетронутыми, main/stash/старые ветки сохранены.
+Новый bugfix PR не разрешён к автоматическому merge; Stage19 IN_PROGRESS.
+
+Повторная проверка на upstream/main8591706: targeted **86 tests /683 assertions**,
+full PHP **2618 tests /44425 assertions**, один прежний opt-in skip; PHPStan/style,
+Gitleaks history/worktree +negative controls и Semgrep266 rules/0 findings — PASS.
+Локальный изолированный dev runner PHP8.3.35; актуальная закреплённая PHP8.3.36
+production/dev сборка дополнительно проверяется существующим CI нового PR.

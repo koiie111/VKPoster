@@ -18,6 +18,8 @@ final class PlatformError extends RuntimeException
         public readonly string $userMessage = '',
         public readonly ?int $retryAfter = null,
         public readonly ?int $platformCode = null,
+        // Recovery-only identity: persist channel errors through the OAuth recovery guard, never an unqualified write.
+        public readonly ?int $oauthRecoveryAttemptId = null,
     ) {
         parent::__construct($message);
     }
