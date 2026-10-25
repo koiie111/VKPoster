@@ -245,7 +245,7 @@ final class AiAssistantTest extends BillingTestCase
     {
         [$owner, $workspace] = $this->workspaceWithCredits(10);
         $factory = new \App\Integrations\Ai\Llm\LlmFactory($this->app->container()->get(LlmSettings::class), new \App\Integrations\Ai\Llm\LlmTransport($this->llm), false);
-        $assistant = new AiAssistant($factory, $this->app->container()->get(AiWorkspaceSettings::class), $this->app->container()->get(AiCredits::class), $this->app->container()->get(AiUsageLog::class), $this->app->container()->get(\App\Domain\Analytics\Analytics::class), $this->app->container()->get(\App\Kernel\Config::class), $this->clock, $this->app->container()->get(\Redis::class));
+        $assistant = new AiAssistant($factory, $this->app->container()->get(AiWorkspaceSettings::class), $this->app->container()->get(AiCredits::class), $this->app->container()->get(AiUsageLog::class), $this->app->container()->get(\App\Domain\Analytics\Analytics::class), $this->app->container()->get(\App\Kernel\Config::class), $this->clock, $this->app->container()->get(\Redis::class), $this->app->container()->get(\App\Integrations\Ai\Llm\LlmChain::class));
         $context = $this->contextFor($workspace, $owner);
 
         self::assertFalse($assistant->available($context));

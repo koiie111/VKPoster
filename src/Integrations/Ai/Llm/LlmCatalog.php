@@ -30,6 +30,7 @@ final class LlmCatalog
             'deepseek' => ['label' => 'DeepSeek', 'kind' => 'openai', 'base_url' => 'https://api.deepseek.com/v1', 'model' => 'deepseek-chat', 'auth' => 'bearer', 'region' => 'world', 'note' => 'Ключ: platform.deepseek.com.'],
             'groq' => ['label' => 'Groq', 'kind' => 'openai', 'base_url' => 'https://api.groq.com/openai/v1', 'model' => 'llama-3.3-70b-versatile', 'auth' => 'bearer', 'region' => 'world', 'note' => 'Быстрые открытые модели. Ключ: console.groq.com.'],
             'mistral' => ['label' => 'Mistral', 'kind' => 'openai', 'base_url' => 'https://api.mistral.ai/v1', 'model' => 'mistral-small-latest', 'auth' => 'bearer', 'region' => 'world', 'note' => 'Ключ: console.mistral.ai.'],
+            'tokenator' => ['label' => 'Tokenator', 'kind' => 'openai', 'base_url' => 'https://api.tokenator.cloud/v1', 'model' => 'free-glm-5.3-flash', 'auth' => 'bearer', 'region' => 'world', 'note' => 'Шлюз к моделям разных разработчиков по одному ключу (sk-…, личный кабинет tokenator.cloud). Модели free-… не тратят токены пакета, но имеют суточный лимит запросов: задайте их первыми шагами цепочки ниже, платную модель последней.'],
             'together' => ['label' => 'Together AI', 'kind' => 'openai', 'base_url' => 'https://api.together.xyz/v1', 'model' => 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'auth' => 'bearer', 'region' => 'world', 'note' => 'Открытые модели. Ключ: api.together.ai.'],
         ];
     }
