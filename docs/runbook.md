@@ -122,6 +122,10 @@ so keep the directory 0700 and rerun promptly after a kill.
 
 ## 12. Isolated restore drill
 
+Media: `ops --profile ops run --rm --no-deps backup php bin/console ops:backup media-restore /backup /backup/media-restore-drill`
+restores the latest offsite copy of every media file into a new empty directory under the private backup
+directory; compare file count and a few checksums with the live library, then remove the directory.
+
 Provision an empty `app_restore_*` database and separate account granted only that
 database; restore refuses the current DB and broad grants. Supply `RESTORE_DB_*`
 through a temporary private env, with the original backup key mounted read-only.

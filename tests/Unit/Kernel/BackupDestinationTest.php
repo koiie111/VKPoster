@@ -57,6 +57,27 @@ final class BackupDestinationTest extends TestCase
         $this->withArchive(fn (string $file) => $this->destination($handler)->upload($file));
     }
 
+    public function testRetentionDropsOldVersionsButKeepsTheNewestSnapshots(): void
+    {
+        $day = 86400;
+        $deleted = [];
+        $versions = [];
+        foreach ([5, 10, 40, 41, 50] as $age) {
+            $versions[] = ['Key' => 'backups/b' . $age . '.ezb', 'VersionId' => 'v' . $age, 'IsLatest' => true, 'LastModified' => new \DateTimeImmutable('-' . $age . ' days')];
+        }
+        $handler = new MockHandler([
+            new Result(['Versions' => $versions]),
+            static function (CommandInterface $command) use (&$deleted): Result {
+                $deleted = array_column($command['Delete']['Objects'], 'VersionId');
+
+                return new Result([]);
+            },
+        ]);
+
+        self::assertSame(2, $this->destination($handler)->pruneBackups(time() - 30 * $day));
+        self::assertEqualsCanonicalizing(['v41', 'v50'], $deleted);
+    }
+
     public function testPlainSqlIsNeverUploaded(): void
     {
         $file = tempnam(sys_get_temp_dir(), 'plain-backup-');
