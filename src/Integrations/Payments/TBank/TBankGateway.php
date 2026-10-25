@@ -40,6 +40,7 @@ final class TBankGateway implements PaymentGateway
         private readonly string $taxSystem,
         private readonly string $vat,
         private readonly string $itemName,
+        private readonly string $caFile = '',
     ) {
     }
 
@@ -215,7 +216,7 @@ final class TBankGateway implements PaymentGateway
         $params = ['TerminalKey' => $this->terminalKey] + $params;
         $params['Token'] = TBankSigner::token($params, $this->password);
         try {
-            $response = $this->http->request('POST', $this->apiBase . '/' . $method, ['json' => $params, 'timeout' => 20, 'connect_timeout' => 10, 'http_errors' => false]);
+            $response = $this->http->request('POST', $this->apiBase . '/' . $method, ['json' => $params, 'timeout' => 20, 'connect_timeout' => 10, 'http_errors' => false] + ($this->caFile !== '' ? ['verify' => $this->caFile] : []));
         } catch (GuzzleException) {
             throw new GatewayException('T-Bank: transport error.', retryable: true);
         }

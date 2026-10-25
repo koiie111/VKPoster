@@ -62,6 +62,7 @@ final class GatewayFactory
                 $this->config->string('billing.tbank.api_base', 'https://securepay.tinkoff.ru/v2'),
                 $base . '/webhooks/billing/tbank',
                 ...$tax,
+                caFile: $this->config->string('billing.tbank.ca_file'),
             ),
             new CloudPaymentsGateway($this->http, $s->value('cloudpayments', 'public_id'), $s->value('cloudpayments', 'api_secret'), self::currencies($s->value('cloudpayments', 'currencies'), ['RUB'])),
             new StripeGateway($this->http, $s->value('stripe', 'secret_key'), $s->value('stripe', 'webhook_secret'), $this->clock, self::currencies($s->value('stripe', 'currencies'), ['USD', 'EUR'])),
