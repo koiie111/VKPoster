@@ -119,7 +119,14 @@ services:
       dockerfile: docker/php/Dockerfile
       target: ops
     image: ${OPS_IMAGE:-ezposter-ops:prod}
-    command: ["sh", "-ec", "php bin/console ops:backup backup /backup; php bin/console ops:backup binlogs /backup; php bin/console ops:backup check-media"]
+    # Binlog archival only when enabled; media are copied (encrypted, incrementally) when local, or their S3 bucket is checked.
+    command:
+      - sh
+      - -ec
+      - |
+        php bin/console ops:backup backup /backup
+        case "$$BACKUP_BINLOG_ENABLED" in 1|true) php bin/console ops:backup binlogs /backup;; esac
+        if [ "$$MEDIA_DISK" = s3 ]; then php bin/console ops:backup check-media; else php bin/console ops:backup media /backup; fi
     group_add: ["${BACKUP_MYSQL_GID:-999}"]
     environment:
       APP_ENV: production
