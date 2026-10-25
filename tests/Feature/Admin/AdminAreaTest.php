@@ -88,8 +88,8 @@ final class AdminAreaTest extends AdminTestCase
         $overview = $this->get('/admin');
         self::assertSame(200, $overview->status);
         self::assertStringContainsString('Обзор', $overview->body);
-        // The legal templates still have blanks, which the overview points out.
-        self::assertStringContainsString('Юридические документы ещё не заполнены', $overview->body);
+        // The legal texts have no blanks left, so the overview shows no warning about them.
+        self::assertStringNotContainsString('Юридические документы ещё не заполнены', $overview->body);
         foreach (['/admin/users', '/admin/workspaces', '/admin/subscriptions', '/admin/payments', '/admin/plans', '/admin/promo', '/admin/queues', '/admin/channels', '/admin/platforms', '/admin/workspaces/' . $workspace->publicId] as $path) {
             self::assertSame(200, $this->get($path)->status, $path);
         }

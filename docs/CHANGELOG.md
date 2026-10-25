@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- Legal texts (`resources/legal`): the operator's requisites (sole proprietor, tax regime NPD), support address, domain, mail service,
+  refund terms, payment providers, own-server hosting and the 30-day retention of backups and logs replace the template placeholders,
+  so the pages no longer show the «Шаблон» badge.
+
 - MAX trust anchor is now `resources/certs/russian-trusted-root-ca.crt`: the `.pem` name was excluded from every Docker image by
   `.dockerignore` (`**/*.pem`), so v0.1.2 shipped without it. A unit test now requires the file to be a certificate and not ignored.
 
