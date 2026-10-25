@@ -143,14 +143,53 @@ final class OAuthRefreshRecovery
             }
             $now = DbTime::format($this->clock->now());
             $this->db->execute("UPDATE oauth_refresh_attempts SET state='recovery_required', updated_at=? WHERE id=?", [$now, $id]);
-            $this->db->execute("UPDATE channels SET status='error', last_error=?, updated_at=? WHERE credential_id=? AND (status='active' OR (status='error' AND last_error=?))", [$message, $now, $credentialId, $message]);
+            foreach ($this->db->select('SELECT * FROM channels WHERE credential_id=?', [$credentialId]) as $row) {
+                $this->guardRecoveryError(ChannelRepository::hydrate($row), $id, function (Channel $current) use ($message, $now): void {
+                    $this->db->execute("UPDATE channels SET status='error', last_error=?, updated_at=? WHERE id=? AND (status='active' OR (status='error' AND last_error=?))", [$message, $now, $current->id, $message]);
+                });
+            }
             return true;
         });
         if (!$required) {
             // Serializes against completion; an observer cannot re-install an error after a receipt was saved.
             throw new PlatformError(ErrorKind::Temporary, 'OAuth recovery state changed.', 'Обновление доступа сохранено. Повторите проверку.');
         }
-        throw new PlatformError(ErrorKind::Auth, 'OAuth refresh recovery required.', $message);
+        throw new PlatformError(ErrorKind::Auth, 'OAuth refresh recovery required.', $message, oauthRecoveryAttemptId: $id);
+    }
+
+    /**
+     * Serialize the final error write with receipt completion/reconnect. The callback must only persist the
+     * channel verdict on this connection; notifications/network work belongs outside this transaction.
+     *
+     * @param \Closure(Channel): void $writeError Receives the locked, current channel (not the caller's stale snapshot).
+     * @return bool false when the delayed failure no longer describes this binding
+     */
+    public function guardRecoveryError(Channel $channel, int $attemptId, \Closure $writeError): bool
+    {
+        return $this->db->transaction(function () use ($channel, $attemptId, $writeError): bool {
+            // Same lock order as resume(): attempt -> credential -> channel. Keep locks through the actual write.
+            $attempt = $this->db->select('SELECT * FROM oauth_refresh_attempts WHERE id=? FOR UPDATE', [$attemptId])[0] ?? null;
+            if ($attempt === null || $attempt['state'] !== 'recovery_required'
+                || $channel->credentialId === null || (int) $attempt['active_credential_id'] !== $channel->credentialId
+                || (int) $attempt['credential_id'] !== $channel->credentialId) {
+                return false;
+            }
+            $credential = $this->db->select('SELECT * FROM platform_credentials WHERE id=? FOR UPDATE', [$channel->credentialId])[0] ?? null;
+            if ($credential === null || (int) $credential['workspace_id'] !== $channel->workspaceId
+                || $credential['platform'] !== $channel->platform->value
+                || !hash_equals((string) $attempt['input_fingerprint'], $this->fingerprint($credential))) {
+                return false;
+            }
+            $row = $this->db->select('SELECT * FROM channels WHERE id=? FOR UPDATE', [$channel->id])[0] ?? null;
+            if ($row === null || (int) $row['workspace_id'] !== $channel->workspaceId
+                || (int) $row['credential_id'] !== $channel->credentialId || $row['platform'] !== $channel->platform->value
+                || $row['mode'] !== ChannelMode::Account->value
+                || in_array($row['status'], [ChannelStatus::Paused->value, ChannelStatus::Revoked->value], true)) {
+                return false;
+            }
+            $writeError(ChannelRepository::hydrate($row));
+            return true;
+        });
     }
 
     private function recoveryMessage(int $id): string

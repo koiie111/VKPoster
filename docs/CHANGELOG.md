@@ -9,6 +9,10 @@
   gateway go first and a paid one last. New `tokenator` provider preset (`https://api.tokenator.cloud/v1`). An empty chain keeps the
   single default provider. Run `make migrate`.
 
+- Stage19A: OAuth recovery Auth теперь содержит identity attempt; health-check и
+  Publisher записывают ошибку только под общим транзакционным guard актуальной
+  recovery/binding. Поздний Auth не портит completed refresh или manual reconnect.
+
 - Legal texts: removed the owner-facing «Это шаблон…» note from the top of the offer, privacy, cookies and requisites pages; it was
   visible to visitors after the placeholders were filled.
 
