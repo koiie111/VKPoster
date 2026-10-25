@@ -6,6 +6,8 @@
 
 - Runbook: production backup drill record of 2026-10-25 (daily timer on, offsite upload, isolated DB and media restore verified).
 
+- `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
+
 - Stage19A: OAuth recovery Auth теперь содержит identity attempt; health-check и
   Publisher записывают ошибку только под общим транзакционным guard актуальной
   recovery/binding. Поздний Auth не портит completed refresh или manual reconnect.
