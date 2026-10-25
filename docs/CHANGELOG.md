@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- Legal texts: removed the owner-facing «Это шаблон…» note from the top of the offer, privacy, cookies and requisites pages; it was
+  visible to visitors after the placeholders were filled.
+
 - Channel connect page: the `/connect` example shows the same code as the box above it (with the dash), the waiting widget polls every 1.5 s,
   the handler logs how long a connect took, and `compose.prod.yaml` gets an opt-in `telegram-poll` service (`--profile polling`) for hosts
   Telegram cannot reach with a webhook.
