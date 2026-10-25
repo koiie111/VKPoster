@@ -309,7 +309,7 @@ final class Publisher
                 return;
             case ErrorKind::Auth:
                 $this->system->markFailed($publication, 'auth', $error->forUser(), $detail);
-                $this->health->markBroken($channel, ChannelStatus::Error, $error->forUser());
+                $this->health->markBroken($channel, ChannelStatus::Error, $error->forUser(), $error);
                 $this->afterFailure($post, $variant, $error->forUser(), false);
 
                 return;
