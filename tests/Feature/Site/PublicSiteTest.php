@@ -42,7 +42,7 @@ final class PublicSiteTest extends AuthTestCase
         self::assertStringContainsString('Открыть сервис', $this->get('/')->body);
     }
 
-    public function testLegalPagesAreServedAndTemplatesAreMarked(): void
+    public function testLegalPagesAreServedWithoutTemplateMarks(): void
     {
         foreach (['offer', 'privacy', 'cookies', 'requisites'] as $slug) {
             $response = $this->get('/legal/' . $slug);
@@ -50,8 +50,11 @@ final class PublicSiteTest extends AuthTestCase
             self::assertStringContainsString('class="doc', $response->body);
         }
         $offer = $this->get('/legal/offer')->body;
-        self::assertStringContainsString('Шаблон', $offer);
+        // The texts carry the operator's data, so no template mark and no owner-facing note reaches visitors.
+        self::assertStringNotContainsString('Шаблон', $offer);
+        self::assertStringNotContainsString('[[', $offer);
         self::assertStringContainsString('Публичная оферта', $offer);
+        self::assertStringContainsString('641001616170', $offer);
         self::assertSame(404, $this->get('/legal/unknown')->status);
     }
 

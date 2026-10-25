@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- Legal texts: removed the owner-facing «Это шаблон…» note from the top of the offer, privacy, cookies and requisites pages; it was
+  visible to visitors after the placeholders were filled.
+
 - Offsite backup of local media: `ops:backup media DIRECTORY` encrypts new or changed files of `storage/media` (same key and format as
   SQL snapshots) and uploads them incrementally under `media/` in the versioned backup bucket, so the bucket holds one copy of the
   library, not one per day. `ops:backup media-restore DIRECTORY TARGET` decrypts the latest copy into a new empty private directory
