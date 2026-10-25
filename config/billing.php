@@ -30,6 +30,8 @@ return static function (Env $env): array {
             'terminal_key' => $env->string('TBANK_TERMINAL_KEY'),
             'password' => $env->string('TBANK_PASSWORD'),
             'api_base' => rtrim($env->string('TBANK_API_BASE', 'https://securepay.tinkoff.ru/v2'), '/'),
+            // The API certificate is issued by the Russian Trusted CA; this file is the trust anchor for T-Bank requests only (empty = system store).
+            'ca_file' => (static fn (string $file): string => $file === '' || str_starts_with($file, '/') ? $file : dirname(__DIR__) . '/' . $file)($env->string('TBANK_CA_FILE', 'resources/certs/russian-trusted-root-ca.crt')),
         ],
         // Keys of the added providers. The admin area ("Платёжные провайдеры") is the place to enter them; these variables only seed a fresh
         // install or a headless deployment, and a value saved in the admin area wins.

@@ -4,8 +4,8 @@
 
 ## [Unreleased]
 
-- Runbook: production backup drill record of 2026-10-25 (daily timer on, offsite upload, isolated DB and media restore verified).
 
+- T-Bank API requests trust `resources/certs/russian-trusted-root-ca.crt` (`TBANK_CA_FILE`): its certificate is issued by the Russian Trusted CA, so payments failed with a transport error in production.
 - `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
 
 - Stage19A: OAuth recovery Auth теперь содержит identity attempt; health-check и
@@ -205,3 +205,6 @@ MySQL8.4 candidate passed schema/full PHP but failed current MariaDB coordinate 
   attempt-owned channel error recovery and migration48 with upgrade regression.
 - Configurable Oracle dump/restore deadline `BACKUP_PROCESS_TIMEOUT` (default1800s),
   monotonic process kill/reap, explicit partial-restore failure and45min systemd workflow budget.
+
+- Runbook: production backup drill record of 2026-10-25 (daily timer on, offsite upload, isolated DB and media restore verified).
+
