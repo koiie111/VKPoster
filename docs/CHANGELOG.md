@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- Channel connect page: the `/connect` example shows the same code as the box above it (with the dash), the waiting widget polls every 1.5 s,
+  the handler logs how long a connect took, and `compose.prod.yaml` gets an opt-in `telegram-poll` service (`--profile polling`) for hosts
+  Telegram cannot reach with a webhook.
+
 - Offsite backup of local media: `ops:backup media DIRECTORY` encrypts new or changed files of `storage/media` (same key and format as
   SQL snapshots) and uploads them incrementally under `media/` in the versioned backup bucket, so the bucket holds one copy of the
   library, not one per day. `ops:backup media-restore DIRECTORY TARGET` decrypts the latest copy into a new empty private directory

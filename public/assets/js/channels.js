@@ -1,5 +1,5 @@
 // "Waiting for the channel" widget of the Telegram connect page (CSP-safe: no inline scripts, no innerHTML).
-// It asks the status URL every few seconds; the server answers JSON {state, message, channel}.
+// It asks the status URL every second and a half; the server answers JSON {state, message, channel}.
 // Markup contract: docs/architecture/channels.md.
 (function () {
     'use strict';
@@ -49,7 +49,7 @@
                             } else {
                                 show('Ждём сообщение в канале…', 'wait');
                             }
-                            timer = window.setTimeout(poll, 3000);
+                            timer = window.setTimeout(poll, 1500);
                         })
                         .catch(function () {
                             show('Не получается проверить подключение. Попробуйте обновить страницу.', 'warn');
@@ -57,7 +57,7 @@
                         });
                 }
 
-                timer = window.setTimeout(poll, 2000);
+                timer = window.setTimeout(poll, 800);
             },
         };
     }

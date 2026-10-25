@@ -87,7 +87,7 @@ final class MaxConnectTest extends ChannelTestCase
             self::fail('the page shows no connect code');
         }
         self::assertStringContainsString($m[1], $second);
-        self::assertStringContainsString('/connect ' . str_replace('-', '', $m[1]), $first);
+        self::assertStringContainsString('/connect ' . $m[1], $first);
         self::assertSame('max', $this->db->select('SELECT platform FROM channel_connect_codes')[0]['platform']);
         self::assertSame(64, strlen((string) $this->db->select('SELECT code_hash FROM channel_connect_codes')[0]['code_hash']), 'only the hash is stored');
     }
