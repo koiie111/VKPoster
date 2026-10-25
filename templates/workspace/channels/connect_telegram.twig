@@ -41,7 +41,7 @@
             <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary-softfg" aria-hidden="true">3</span>
             <div class="min-w-0 flex-1">
                 <p class="font-semibold">Напишите код в канале</p>
-                <p class="mt-1 text-sm text-muted">Отправьте в канал сообщение{% if code %} <code class="rounded bg-sunken px-1.5 py-0.5 font-mono text-fg">/connect {{ code.plain }}</code>{% else %} вида <code class="rounded bg-sunken px-1.5 py-0.5 font-mono text-fg">/connect КОД</code>{% endif %}. Бот подключит канал и сам удалит это сообщение.</p>
+                <p class="mt-1 text-sm text-muted">Отправьте в канал сообщение{% if code %} <code class="rounded bg-sunken px-1.5 py-0.5 font-mono text-fg">/connect {{ code.text }}</code>{% else %} вида <code class="rounded bg-sunken px-1.5 py-0.5 font-mono text-fg">/connect КОД</code>{% endif %}. Бот подключит канал и сам удалит это сообщение.</p>
                 {% if code %}
                 <div class="mt-4 flex items-center gap-3 rounded-ctl border border-line p-4" x-data="channelWait" data-status-url="{{ status_url }}" data-done-url="{{ base }}" role="status" aria-live="polite">
                     <span data-wait-spinner class="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true"></span>
