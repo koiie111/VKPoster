@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+- Channel connect page: the `/connect` example shows the same code as the box above it (with the dash), the waiting widget polls every 1.5 s,
+  the handler logs how long a connect took, and `compose.prod.yaml` gets an opt-in `telegram-poll` service (`--profile polling`) for hosts
+  Telegram cannot reach with a webhook.
+
 - Legal texts (`resources/legal`): the operator's requisites (sole proprietor, tax regime NPD), support address, domain, mail service,
   refund terms, payment providers, own-server hosting and the 30-day retention of backups and logs replace the template placeholders,
   so the pages no longer show the «Шаблон» badge.

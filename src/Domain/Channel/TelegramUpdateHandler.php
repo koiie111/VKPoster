@@ -170,6 +170,7 @@ final class TelegramUpdateHandler
             }
         };
 
+        $startedAt = hrtime(true);
         // Per chat, and overall: guessing a code means writing /connect in some chat, so both bounds keep it hopeless.
         if (!$this->limiter->attempt('tg-connect:' . $chatId, 10, 600)->allowed || !$this->limiter->attempt('tg-connect:all', 600, 600)->allowed) {
             return;
@@ -221,6 +222,7 @@ final class TelegramUpdateHandler
         $this->codes->attachChannel($code['id'], $result['channel']->id);
         $this->service->afterConnect($context, $result['channel'], $info, $client);
         $cleanup();
+        $this->logger->info('Telegram connect: channel connected', ['chat' => $chatId, 'ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000)]);
     }
 
     /**

@@ -211,7 +211,7 @@ final class ChannelPagesTest extends ChannelTestCase
 
         $a = $this->shownCode($first);
         self::assertSame($a, $this->shownCode($second));
-        self::assertStringContainsString('/connect ' . str_replace('-', '', $a), $first);
+        self::assertStringContainsString('/connect ' . $a, $first);
         self::assertStringContainsString('data-status-url=', $first);
         self::assertSame(64, strlen((string) $this->db->select('SELECT code_hash FROM channel_connect_codes')[0]['code_hash']), 'only the hash is stored');
         self::assertStringNotContainsString(str_replace('-', '', $a), (string) json_encode($this->db->select('SELECT * FROM channel_connect_codes')));

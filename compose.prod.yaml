@@ -100,6 +100,14 @@ services:
       start_period: 90s
       retries: 3
 
+  # Opt-in (`--profile polling`): receive shared-bot updates by long polling instead of the webhook, for a host Telegram
+  # cannot reach (the Bot API is only called outbound, through the egress proxy). It removes the webhook on start.
+  telegram-poll:
+    <<: *app
+    profiles: ["polling"]
+    command: ["php", "bin/console", "telegram:poll"]
+    restart: unless-stopped
+
   analytics-worker:
     <<: *app
     command: ["php", "bin/console", "queue:work", "--queue=analytics"]
