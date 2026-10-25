@@ -4,6 +4,7 @@
 
 ## [Unreleased]
 
+- T-Bank API requests trust `resources/certs/russian-trusted-root-ca.crt` (`TBANK_CA_FILE`): its certificate is issued by the Russian Trusted CA, so payments failed with a transport error in production.
 - `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
 
 - Stage19A: OAuth recovery Auth теперь содержит identity attempt; health-check и
