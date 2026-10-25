@@ -283,6 +283,17 @@ return static function (Container $c, string $base): void {
         $base . '/storage',
     ));
     $c->factory(MediaStorage::class, static fn (Container $c): MediaStorage => MediaStorageFactory::create($c->get(Config::class), $base));
+    $c->factory(\App\Kernel\Operations\MediaBackup::class, static function (Container $c) use ($base): \App\Kernel\Operations\MediaBackup {
+        $config = $c->get(Config::class);
+        $root = $config->string('media.local_root', 'storage/media');
+
+        return new \App\Kernel\Operations\MediaBackup(
+            $config,
+            $c->get(Clock::class),
+            $c->get(\App\Kernel\Operations\BackupArchive::class),
+            str_starts_with($root, '/') ? $root : $base . '/' . $root,
+        );
+    });
     $c->factory(MediaLimits::class, static fn (Container $c): MediaLimits => MediaLimits::fromConfig($c->get(Config::class)));
     $c->factory(VideoProbe::class, static fn (): VideoProbe => new FfprobeVideoProbe());
     $c->factory(\App\Kernel\Security\MalwareScanner::class, static function (Container $c): \App\Kernel\Security\MalwareScanner {

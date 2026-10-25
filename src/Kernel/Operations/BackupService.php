@@ -83,11 +83,13 @@ final class BackupService
             unset($tar);
             $this->archive->transform($work . '/snapshot.tar', $file, $key);
             $this->verify($file);
+            $days = max(7, $this->config->env()->int('BACKUP_RETENTION_DAYS', 30));
             if ($offsite) {
-                (new BackupDestination($this->config))->upload($file);
+                $destination = new BackupDestination($this->config);
+                $destination->upload($file);
+                $destination->pruneBackups($this->clock->now()->modify('-' . $days . ' days')->getTimestamp());
             }
             // Delete only our encrypted snapshots, never the key, raw data, media or arbitrary files.
-            $days = max(7, $this->config->env()->int('BACKUP_RETENTION_DAYS', 30));
             foreach (\App\Support\Fs::glob($directory . '/backup-*.ezb') as $old) {
                 if (!is_link($old) && filemtime($old) < $this->clock->now()->modify('-' . $days . ' days')->getTimestamp()) {
                     unlink($old);

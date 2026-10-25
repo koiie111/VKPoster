@@ -22,6 +22,13 @@ so retention never follows a failed offsite upload. Restore requires an empty
 `app_restore_*` database and an account granted only that target. The application
 DB cannot be the target; there is no automatic DROP DATABASE or production rollback.
 Local encrypted SQL + closed-binlog PITR replay has passed on an isolated MySQL target.
+`MediaBackup` copies the local media library offsite: each file becomes `media/<relative path>.ezb` (same
+`BackupArchive` encryption), uploaded only when missing or older than the local file, so the daily run costs
+one copy of the library. Retention (`BACKUP_RETENTION_DAYS`) is applied by the application, not by a bucket TTL:
+`BackupDestination::pruneBackups` after a successful SQL upload (newest three snapshots always kept) and
+`MediaBackup` for superseded versions and files that no longer exist locally; an empty or unmounted library
+never prunes. `media-restore` writes only into a new empty private directory that does not overlap the live
+library; files are checked against their stored sha256 before decryption.
 Actual S3 object-version/offsite restore remains owner-only 19.8 evidence, not
 a claim from mocked bucket-versioning/upload contracts. See the current status ledger.
 

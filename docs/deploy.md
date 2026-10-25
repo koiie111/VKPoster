@@ -112,7 +112,9 @@ Offsite bucket lifecycle must preserve the base-snapshot/binlog recovery chain.
 Monitor timer failure, archive age, free disk and offsite reachability; a missed timer
 must alert, not silently rely on a future daily backup. Check timers after reboot.
 
-S3 archive and media buckets require versioning enabled. `ops:backup check-media`
+Local media (`MEDIA_DISK=local`) are copied offsite by `ops:backup media` into the same bucket under `media/`
+(incremental, encrypted); the backup bucket must not have a bucket-wide TTL because retention is applied by
+the application (`BACKUP_RETENTION_DAYS`). S3 archive and media buckets require versioning enabled. `ops:backup check-media`
 rejects local media as an offsite/versioned backup. Actual offsite object-version
 restore is owner 19.8; contracts alone are not proof of cloud recovery. SQL restore
 requires an empty `app_restore_*` DB and a separate account granted **only that exact

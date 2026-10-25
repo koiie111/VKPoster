@@ -8,6 +8,15 @@
   the handler logs how long a connect took, and `compose.prod.yaml` gets an opt-in `telegram-poll` service (`--profile polling`) for hosts
   Telegram cannot reach with a webhook.
 
+- Offsite backup of local media: `ops:backup media DIRECTORY` encrypts new or changed files of `storage/media` (same key and format as
+  SQL snapshots) and uploads them incrementally under `media/` in the versioned backup bucket, so the bucket holds one copy of the
+  library, not one per day. `ops:backup media-restore DIRECTORY TARGET` decrypts the latest copy into a new empty private directory
+  (never the live library). Offsite retention now follows `BACKUP_RETENTION_DAYS` (default 30, minimum 7): after a successful upload
+  SQL snapshot versions older than that are deleted (the newest three are always kept), and media versions superseded or whose file is
+  gone are deleted too; an empty library never prunes. The production `backup` Compose service runs the SQL backup, binlog archival
+  only when `BACKUP_BINLOG_ENABLED` is set, and either `media` (local disk) or `check-media` (`MEDIA_DISK=s3`), so a daily run no longer
+  fails on a disabled binlog step. Do not set a bucket-wide TTL on the backup bucket: it would also expire media copies.
+
 - Legal texts (`resources/legal`): the operator's requisites (sole proprietor, tax regime NPD), support address, domain, mail service,
   refund terms, payment providers, own-server hosting and the 30-day retention of backups and logs replace the template placeholders,
   so the pages no longer show the «Шаблон» badge.
