@@ -49,6 +49,7 @@ Config comes from env vars (see `.env.example`, `docs/architecture/configuration
 
 - Every PHP file has `declare(strict_types=1);`; no frameworks; dependencies only from the whitelist in ENGINEERING_RULES §2 (others need an ADR in `docs/adr/`). `vendor/` is not committed, `composer.lock` is.
 - Prepared statements only; state-changing routes need CSRF; never commit secrets or `.env`; never call real social/payment APIs from tests.
+- A PR contains only finished, locally verified and self-reviewed work: before `gh pr create` and before every push to an open PR run everything CI runs (`make check`, `make css-check`, `python3 scripts/check-env-documentation.py`, the schema check when migrations change, UI checks for UI stages) in Docker, review your own diff and fix the findings. CI confirms, it is not where bugs are found (ENGINEERING_RULES §5.4).
 - Docs are part of every feature (ENGINEERING_RULES §7): update `docs/architecture/`, `docs/CHANGELOG.md`, `.env.example`, README/CLAUDE/AGENTS when commands or env change.
 
 ## Git workflow

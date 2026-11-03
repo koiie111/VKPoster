@@ -1,9 +1,12 @@
 # Production preparation and deployment
 
-Stage 19 is **IN_PROGRESS**. This is a reviewed preparation/runbook, not evidence
-that a production server exists. Owner-only activation is 19.8: VDS/domain/DNS,
-SSH host keys and protected GitHub environment, real credentials, TLS, offsite
-restore and registration → payment → publication. No v1.0.0 is created in 19A.
+Stage 19 is **IN_PROGRESS**. The owner confirmed on 2026-11-03 that
+[ezposter.ru](https://ezposter.ru/) is live; a public HTTPS check on that date
+returned HTTP 200 and `{"status":"ok"}` from `/healthz` and `/readyz`.
+This does not verify the private production controls in 19.8: VDS/SSH/firewall,
+protected release credentials, TLS renewal, key recovery, offsite restore,
+regional egress and registration → payment → publication. No v1.0.0 tag has
+been created for Stage 19.
 See [current evidence](security/stage-19a-status.md), [runbook](runbook.md),
 [configuration](architecture/configuration.md), [ASVS findings](security/asvs-l2.md).
 
@@ -45,7 +48,7 @@ backup keys in CI logs. Key rotation: [runbook](runbook.md); preserve old keys u
 ciphertext migration and recovery validation complete. Reader session/env remain
 separate private runtime state; production reader provisioning is not implied here.
 
-## Release layout and first activation (owner 19.8)
+## Release layout and activation review (owner 19.8)
 
 Provision `/opt/ezposter` with `compose.prod.yaml`, `docker/mysql/my.cnf`,
 `docker/mysql/production.cnf`, `scripts/deploy-release.sh` and the directories needed
@@ -84,7 +87,7 @@ A failed migration stops rollout while preserving running images. Failed readine
 rolls back **images only**, and only when the declared schema is backwards-compatible.
 No automatic DDL reversal, reset, queue truncation or volume deletion. For incompatible
 DDL, stop and use the separately reviewed backup/migration recovery procedure.
-First deploy has no previous release to restore. Compose `up` is not a zero-downtime
+An initial deploy has no previous release to restore. Compose `up` is not a zero-downtime
 rolling orchestrator; allow a maintenance window and check in-flight worker shutdown.
 
 ## Encrypted backup and recovery
@@ -147,7 +150,7 @@ sanitize and remove it. See the runbook's 16 incident procedures.
 - SMTP and opt-in alert delivery, external uptime, backup timers and offsite age checked.
 - S3 versioning, source/media recovery and application keys independently recoverable.
 - Owner registration → payment → publication and restore on a separate stand.
-- Only then decide production readiness/version tag; Stage 19A does not do this.
+- Record the remaining production verification before closing Stage 19 or creating its v1.0.0 tag.
 
 
 ### Stage 19A gates added on 2026-10-20

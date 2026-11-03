@@ -6,10 +6,11 @@
 
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
-- **Текущий этап:** 19 (Hardening и production), часть A
-- **Статус:** IN_PROGRESS
-- **Ветка / PR:** `fix/stage-19-oauth-stale-auth` / отдельный bugfix PR после merged [#32](https://github.com/koiie111/VKPoster/pull/32)
-- **Последнее обновление:** 2026-10-25 (По подтверждению владельца final OAuth stale-Auth fix перенесён из b0776d5 в отдельную bugfix-ветку от upstream/main8591706. Guard и regression tests сохранены; код из merged follow-ups #33–#40 не меняется. На обновлённой основе: PHP2618/44425, targeted86/683, PHPStan/style/Gitleaks/Semgrep PASS; новый PR CI pending. Stage19 IN_PROGRESS; production19.8 pending. Details: docs/security/stage-19a-review-remediation.md.)
+- **Текущий этап:** 19 (Hardening и production), проверка 19.8
+- **Статус:** NEEDS_OWNER
+- **Публичный сервис:** [ezposter.ru](https://ezposter.ru/) — владелец подтвердил 2026-11-03, что релиз уже состоялся. Статус этапа 19 описывает оставшиеся работы по hardening и проверке production-процедур; он не означает, что сервис ещё не запущен.
+- **Ветка / PR:** `stage-19-hardening-prod` / PR ожидается; локальная часть в [#32](https://github.com/koiie111/VKPoster/pull/32), OAuth fix в [#44](https://github.com/koiie111/VKPoster/pull/44)
+- **Последнее обновление:** 2026-11-03 (Владелец подтвердил действующий сервис. Публичные HTTPS `/healthz` и `/readyz` ответили 200 и `status=ok`. Обновлён `symfony/mime` для CVE-2026-45070. Production 19.8 остаётся на проверке владельца; ожидаются результаты частично выполненных действий. [#41](https://github.com/koiie111/VKPoster/pull/41) и [#42](https://github.com/koiie111/VKPoster/pull/42) содержат отдельные записи о мониторинге и backup drill, оба PR пока открыты.)
 
 ## Этапы
 
@@ -36,12 +37,28 @@
 | 16 | Остальные платёжки, рефералка, промокоды | DONE | [#27](https://github.com/koiie111/VKPoster/pull/27) | 2026-10-18 | Реализовано всё из плана, настройка в админке (решение владельца 2026-10-18), ADR 0015. Нужна живая проверка провайдеров с ключами заказчика; провайдеры без ключей не показываются покупателям. Для 17+: пакеты `ai_credits` кладут кредиты в кошелёк `wallet:CRD:<пространство>` (`Ledger::wallet`), этап 17 их тратит |
 | 17 | AI-ассистент, UTM, сокращатель | DONE | [#28](https://github.com/koiie111/VKPoster/pull/28), [#29](https://github.com/koiie111/VKPoster/pull/29) | 2026-10-18 | AI-часть (ADR 0016): провайдеры из коробки и любой OpenAI-совместимый адрес, `/admin/ai`. Ссылки (ADR 0017): авто-UTM на пространство и канал, сокращатель с кликами, защита и отключение из `/admin/links`. Живая проверка AI с ключом отложена владельцем. Для 18: короткие ссылки и UTM можно отдавать через API; техдолг ниже |
 | 18 | Публичный API и вебхуки | DONE | `stage-18-public-api` | 2026-10-19 | Stateless Bearer API, scoped tokens, transactional idempotency, OpenAPI 3.1 + self-hosted Redoc; signed SSRF-safe outgoing webhooks through existing Queue. Owner verification не требуется; merge не выполнялся |
-| 19 | Hardening и production | IN_PROGRESS | `stage-19-hardening-prod` | | Часть A: локальный hardening/CI; production owner verification и v1.0.0 остаются на 19.8 |
+| 19 | Hardening и production | NEEDS_OWNER | [#32](https://github.com/koiie111/VKPoster/pull/32) + production follow-up | | Сервис работает; production 19.8, восстановление ключей/старых версий, полный пользовательский сценарий и v1.0.0 требуют подтверждения владельца |
 | 22 | Короткие видео: TikTok, YouTube Shorts, Reels, VK Клипы | TODO | | | Будущая функция, добавлена владельцем 2026-10-13. Перед стартом нужны решения владельца по сетям (см. файл этапа) |
 | 23 | Источники контента, Радар, обработка материалов | TODO | [#18](https://github.com/koiie111/VKPoster/pull/18), [#20](https://github.com/koiie111/VKPoster/pull/20) | | Добавлен по решению владельца 2026-10-12; код от внешнего разработчика (PR #18), доработан и влит через PR #20. Ответы владельца получены 2026-10-14 (ADR 0012): остаётся реализация (аккаунты reader в админке и свой аккаунт пользователя, OpenAI-совместимые провайдеры, тарифы) и живая проверка. Функция **выключена** (`SOURCES_ENABLED=false`) до их завершения |
 | 24 | Discord | TODO | | | Будущая функция, добавлена владельцем 2026-10-25. Зависит от 19 (egress: Discord заблокирован в РФ). Перед стартом нужны решения владельца (см. файл этапа) |
 
 ## Вопросы владельцу
+
+### Этап 19 — Production verification 19.8 (запрошено 2026-11-03)
+**Что сделано:** локальный hardening и изолированные проверки в [PR #32](https://github.com/koiie111/VKPoster/pull/32); владелец подтвердил работу [ezposter.ru](https://ezposter.ru/). Публичные `https://ezposter.ru/healthz` и `https://ezposter.ru/readyz` 2026-11-03 ответили HTTP 200, `{"status":"ok"}`. Открытые [PR #41](https://github.com/koiie111/VKPoster/pull/41) и [#42](https://github.com/koiie111/VKPoster/pull/42) описывают внешний мониторинг и проверку бэкапа, но сами по себе не закрывают оставшиеся пункты 19.8.
+**Как проверить руками:**
+1. Откройте `https://ezposter.ru/healthz` и `https://ezposter.ru/readyz`: оба должны вернуть `{"status":"ok"}`. Проверьте в панели Selectel, что внешний монитор `https://ezposter.ru/readyz` запущен и уведомления доходят до вашего адреса; настройка описана в PR #41.
+2. По `docs/runbook.md` §12 проверьте свежий production-бэкап: из `/opt/ezposter` выполните `ops --profile ops run --rm --no-deps backup php bin/console ops:backup verify /backup/ARCHIVE.ezb` и `ops --profile ops run --rm --no-deps backup php bin/console ops:backup restore /backup/ARCHIVE.ezb app_restore_drill --confirm-isolated` (подставьте фактическое имя архива; заранее создайте пустую отдельную `app_restore_drill` БД и ограниченную учётную запись). Для медиа: `ops --profile ops run --rm --no-deps backup php bin/console ops:backup media-restore /backup /backup/media-restore-drill` в новый каталог. Сверьте данные. В PR #42 уже записан drill от 2026-10-25; отдельно проверьте восстановление **старой версии** объекта из versioned bucket и судьбу отключённых binlog/PITR. Не указывайте живую БД как цель восстановления.
+3. В защищённом хранилище вне сервера убедитесь в наличии копий `backup.key`, OpenBao recovery/unseal и старых ключей, затем по `docs/deploy.md` и `docs/runbook.md` проверьте восстановление OpenBao/Raft, обновление TLS, состояние firewall/SSH и региональный egress. Значения ключей, токенов и IP в ответ не вставляйте.
+4. На боевом домене с собственными тестовыми данными пройдите `регистрация → оплата → публикация` и проверьте ожидаемые статусы в интерфейсе и у провайдера. Живые платежи и публикации агент не запускает.
+**Вопросы:**
+1. Какие из шагов 1–4 выполнены, когда, с каким результатом и что осталось? Отдельно подтвердите доставку внешнего алерта, старую версию объекта, off-host key custody, OpenBao recovery и полный пользовательский сценарий.
+   - Ответ владельца:
+2. Отключённые binlog/PITR и оставшееся окно потери данных принимаете как production-политику? Если да, какой RPO установлен?
+   - Ответ владельца:
+3. После закрытия проверок разрешаете тег `v1.0.0` по DoD этапа 19?
+   - Ответ владельца:
+**Итог проверки (ок / есть замечания):**
 
 ### Этап 16 — Остальные платёжки, рефералка, промокоды, пакеты (запрошено 2026-10-18)
 **Что сделано:** в [PR #27](https://github.com/koiie111/VKPoster/pull/27) реализованы все провайдеры плана (CloudPayments, Stripe, Paddle, крипта через Heleket, Telegram Stars), оплата в ₽, $, €, ★, промокоды, рефералка, пакеты, **настройка всего этого в админке** (по вашему указанию в чате 2026-10-18). `make check` зелёный (2334 теста). Автоматически проверено без реальных API; живые вызовы нужны с вашими ключами (список непроверенного: ADR 0015). Этап 15 не повторялся: он в [PR #26](https://github.com/koiie111/VKPoster/pull/26).
@@ -80,6 +97,7 @@
 
 ## Журнал запусков
 <!-- одна строка на запуск агента, новые сверху: дата · агент · этап · что сделано · итоговый статус -->
+- 2026-11-03 · Codex · этап 19 · подтверждён живой сервис, публичные health/readiness 200; исправлена advisory для symfony/mime; документация и вопросы 19.8 обновлены, ожидается ответ владельца · NEEDS_OWNER
 - 2026-10-18 · Codex · этап 15 · OWNER CHECK завершён: @sansillusions, subscribers 9/9, pipeline/dashboard/PDF verified; unavailable reach/ER корректны; только документация в fix/stage-15-pdf-layout, PR #30 без merge · DONE
 - 2026-10-18 · Claude Sonnet 5.5 · этап 17 (ссылки) · владелец: «да» на UTM и сокращатель, живую проверку AI пропустить; авто-UTM, сокращатель, защита, страницы настроек и админки, миграция 43, ADR 0017, справка, тесты, снимки · STAGE_DONE
 - 2026-10-18 · Claude Sonnet 5.5 · этап 17 (AI-часть) · LlmProvider, OpenAI-совместимый и Anthropic адаптеры, пресеты и админка `/admin/ai`, своя модель пространства, кредиты, голос бренда, редактор, ADR 0016, 2412 теста · NEEDS_OWNER

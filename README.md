@@ -2,6 +2,8 @@
 
 Сервис отложенного постинга в VK, MAX, Telegram и Instagram. Чистый PHP 8.3 (без фреймворков), MySQL 8, Redis, всё запускается в Docker. Интерфейс на русском.
 
+Публичный сервис: [ezposter.ru](https://ezposter.ru/). Владелец подтвердил, что сервис уже запущен. Статус этапа 19 относится к работам по усилению безопасности и проверке production-процедур в этом репозитории, а не к факту доступности сервиса.
+
 > Репозиторий переписывается с нуля по плану из [docs/plans/](docs/plans/). Старый код доступен в теге `legacy-v0`.
 
 ## Быстрый старт
@@ -76,7 +78,7 @@ Visual tests can use `tools/ui-snap/seed-api.php` against a **disposable app_tes
 
 ### Production preparation (Stage 19A)
 
-Not a production release. Current validation and blockers: [Stage 19A ledger](docs/security/stage-19a-status.md).
+The service is live at [ezposter.ru](https://ezposter.ru/). Stage 19A validation and remaining production procedure checks are tracked separately in the [Stage 19A ledger](docs/security/stage-19a-status.md).
 Deployment preparation: [deploy](docs/deploy.md), [16-incident runbook](docs/runbook.md),
 [operations boundary](docs/architecture/modules/operations.md). No server/DNS changes
 or v1.0.0 tag are performed by the local verification tools.
