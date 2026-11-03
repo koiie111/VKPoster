@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+- `symfony/mime` обновлён до 7.4.22, закрывающей CVE-2026-45070; `symfony/polyfill-mbstring` обновлён до 1.43.3 как зависимость.
+- В README, руководстве по деплою, runbook и журнале прогресса уточнён статус: публичный сервис уже работает на ezposter.ru; для этапа 19 перечислены оставшиеся production-проверки владельца.
+
 - T-Bank API requests trust `resources/certs/russian-trusted-root-ca.crt` (`TBANK_CA_FILE`): its certificate is issued by the Russian Trusted CA, so payments failed with a transport error in production.
 - `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
 
