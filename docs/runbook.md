@@ -153,6 +153,21 @@ on the app DB; RELOAD/REPLICATION CLIENT/SHOW_ROUTINE as required by the server)
 Do not give these privileges to the web app. Daily SQL and hourly logs share the
 host operations lock with deployment, preventing schema changes during a dump.
 
+### Drill record, production koiie, 2026-10-25 (release v0.1.5)
+
+Daily `ezposter-backup.timer` (03:00 UTC) enabled. The unit on the host uses `User=deploy`, `Group=deploy`
+(the repository template says `ezposter`/`docker`; `deploy` is a member of `docker`, and `Group=docker` hid
+`/etc/ezposter`). Offsite bucket `ezposter-backup` (Selectel `ru-7`), versioning on, no bucket TTL.
+
+- Full run via the unit: encrypted SQL snapshot uploaded to `backups/`, `media uploaded=2` under `media/`.
+- Isolated restore of that snapshot into an empty `app_restore_drill` with a one-off account granted only that
+  database: 5 s including `verify`; 133 of 133 tables; row counts equal (users 1/1, workspaces 1/1, posts 2/2).
+- `media-restore` into a new directory: 2 s; file count 2/2 and a combined sha256 of all files equal to the live library.
+- The drill database, account and restore directory were removed afterwards.
+- Not covered: PITR (binlogs are disabled by decision), restore of an older object version, and copies of
+  `backup.key` and `openbao/init.json` kept outside the server (owner action, without them archives cannot be opened).
+- Retention is applied by the application (`BACKUP_RETENTION_DAYS=30`); the bucket must not get a TTL.
+
 ## 13. Disk full or logs growing
 
 Use `df -h`, `docker system df` and bounded directory size checks. App JSON logs
@@ -185,6 +200,17 @@ external transport; transport mocks do not prove delivery. Validate a deliberate
 non-sensitive event only with owner permission. Redact any ticket attachment,
 contain a logging leak, rotate exposed credentials, and remove unnecessary payload
 logging. Do not globally disable audit or secret scanning to reduce alert noise.
+
+### External uptime check (Selectel)
+
+Configured by the owner in the Selectel panel (Проверка доступности), 2026-10-25:
+HTTP GET `https://ezposter.ru/readyz`, port 443, every minute, timeout 5-10 s,
+expected status 200 plus substring `"status":"ok"` (the endpoint returns JSON, so
+do not use the element/ID search mode). Not shown in the public report. Alerts go
+to the owner's email. If it alerts, start with section 1 (readiness fails) and
+section 2 (application is not live); a false alarm from one check point alone
+usually means a network path issue, not an outage. Keep this probe external: an
+in-app scheduler cannot alert when the host itself is down.
 
 MySQL8.4 snapshot coordinates are SOURCE_LOG_FILE/SOURCE_LOG_POS from
 `mysqldump --source-data=2`; the old MariaDB SHOW MASTER STATUS path is unsupported.

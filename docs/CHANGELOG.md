@@ -8,6 +8,7 @@
   and a daily request cap (day start offset from UTC, Redis), a failure pause, a «charge credits» flag and a list of served actions, all set in the admin area; a spent, failing or unconfigured step is skipped and the next one answers, so free models of a
   gateway go first and a paid one last. New `tokenator` provider preset (`https://api.tokenator.cloud/v1`). An empty chain keeps the
   single default provider. Run `make migrate`.
+- T-Bank API requests trust `resources/certs/russian-trusted-root-ca.crt` (`TBANK_CA_FILE`): its certificate is issued by the Russian Trusted CA, so payments failed with a transport error in production.
 - `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
 
 - Stage19A: OAuth recovery Auth теперь содержит identity attempt; health-check и
@@ -207,3 +208,5 @@ MySQL8.4 candidate passed schema/full PHP but failed current MariaDB coordinate 
   attempt-owned channel error recovery and migration48 with upgrade regression.
 - Configurable Oracle dump/restore deadline `BACKUP_PROCESS_TIMEOUT` (default1800s),
   monotonic process kill/reap, explicit partial-restore failure and45min systemd workflow budget.
+
+- Runbook: production backup drill record of 2026-10-25 (daily timer on, offsite upload, isolated DB and media restore verified).
