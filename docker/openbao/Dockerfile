@@ -10,6 +10,9 @@ RUN mkdir /build && tar -xzf /tmp/source.tar.gz --strip-components=1 -C /build
 WORKDIR /build
 # x/net security update and its required Go module versions; readonly build freezes all transitive choices.
 COPY go.mod go.sum ./
+COPY go-jose-v3 ./go-jose-v3
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    cd go-jose-v3 && go test ./...
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=bind,from=module-cache,target=/module-cache \
     go build -p 1 -mod=readonly -trimpath -tags=openbao \

@@ -38,6 +38,7 @@ as a retry workaround. See ADR0025 for owner-accepted unsaved-response limitatio
 
 - `addon_packages`: `id`, `code`, `name`, `kind`, `quantity`, `days`, `prices_json`, `active`, `sort`, `created_at`
 - `admin_notes`: `id`, `user_id`, `author_id`, `body`, `created_at`
+- `ai_chain_steps`: `id`, `position`, `provider_code`, `model`, `label`, `daily_requests`, `reset_offset_minutes`, `cooldown_seconds`, `charge_credits`, `actions`, `enabled`, `updated_by`, `updated_at`
 - `ai_channel_styles`: `channel_id`, `workspace_id`, `style_json`, `updated_at`
 - `ai_providers`: `code`, `kind`, `label`, `enabled`, `is_default`, `config_enc`, `updated_by`, `updated_at`
 - `ai_usage`: `id`, `workspace_id`, `user_id`, `action`, `provider`, `model`, `byok`, `status`, `credits`, `tokens_in`, `tokens_out`, `duration_ms`, `created_at`

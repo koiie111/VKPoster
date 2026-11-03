@@ -9,7 +9,9 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 FROM mysql:8.4.11@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364 AS server
 # mysqlsh is not the mysql CLI, server, dump or binlog tool. It is unused here.
-RUN microdnf remove -y mysql-shell && microdnf clean all
+RUN microdnf update -y libbrotli \
+    && microdnf remove -y mysql-shell \
+    && microdnf clean all
 COPY --from=gosu /gosu /usr/local/bin/gosu
 RUN gosu mysql id && mysqld --version && mysqldump --version
 

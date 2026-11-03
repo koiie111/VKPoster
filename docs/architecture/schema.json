@@ -121,6 +121,110 @@
             "EXTRA": ""
         },
         {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": "auto_increment"
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "position",
+            "COLUMN_TYPE": "smallint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "provider_code",
+            "COLUMN_TYPE": "varchar(40)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "model",
+            "COLUMN_TYPE": "varchar(120)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "label",
+            "COLUMN_TYPE": "varchar(80)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "daily_requests",
+            "COLUMN_TYPE": "int unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "0",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "reset_offset_minutes",
+            "COLUMN_TYPE": "smallint",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "0",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "cooldown_seconds",
+            "COLUMN_TYPE": "int unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "0",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "charge_credits",
+            "COLUMN_TYPE": "tinyint(1)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "1",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "actions",
+            "COLUMN_TYPE": "varchar(120)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "enabled",
+            "COLUMN_TYPE": "tinyint(1)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "1",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "updated_by",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "COLUMN_NAME": "updated_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
             "TABLE_NAME": "ai_channel_styles",
             "COLUMN_NAME": "channel_id",
             "COLUMN_TYPE": "bigint unsigned",
@@ -10327,6 +10431,27 @@
         },
         {
             "TABLE_NAME": "admin_notes",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "id"
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "INDEX_NAME": "ix_ai_chain_steps_position",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "position"
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
+            "INDEX_NAME": "ix_ai_chain_steps_position",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "id"
+        },
+        {
+            "TABLE_NAME": "ai_chain_steps",
             "INDEX_NAME": "PRIMARY",
             "NON_UNIQUE": 0,
             "SEQ_IN_INDEX": 1,

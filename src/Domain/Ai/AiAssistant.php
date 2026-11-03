@@ -8,12 +8,14 @@ use App\Domain\Analytics\Analytics;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Ai\Llm\FakeLlmProvider;
 use App\Integrations\Ai\Llm\LlmException;
+use App\Integrations\Ai\Llm\LlmChain;
 use App\Integrations\Ai\Llm\LlmFactory;
 use App\Kernel\Config;
 use App\Support\Clock;
 
 /**
- * The editor's assistant: picks the model (the workspace's own key first, else the provider the owner made default), checks input,
+ * The editor's assistant: picks the model (the workspace's own key first, else the owner's chain of models in order with their daily
+ * caps and a fall-through on failure, else the provider made default), checks input,
  * rate and credits, asks the model with the brand voice and the user text as delimited data, and takes credits only after an answer.
  *
  * The answer is returned as text. It is never executed, never put into a template unescaped and never stored here; the usage log keeps
@@ -30,13 +32,14 @@ final class AiAssistant
         private readonly Config $config,
         private readonly Clock $clock,
         private readonly \Redis $redis,
+        private readonly LlmChain $chain,
     ) {
     }
 
     /** Whether the assistant has something to answer with (a provider, the workspace's own model, or the offline fake). */
     public function available(WorkspaceContext $context): bool
     {
-        return $this->settings->own($context->workspaceId) !== null || $this->factory->default() !== null;
+        return $this->settings->own($context->workspaceId) !== null || $this->chain->usable() !== [] || $this->factory->default() !== null;
     }
 
     /**
@@ -62,12 +65,14 @@ final class AiAssistant
         $limit = $limit >= 20 && $limit <= 20000 ? $limit : 0;
 
         $own = $this->settings->own($context->workspaceId);
-        $provider = $own !== null ? $this->factory->own($own['base_url'], $own['model'], $own['api_key'], $own['auth']) : $this->factory->default();
-        if ($provider === null) {
+        $steps = $own === null ? $this->chain->usable($action->value) : [];
+        $provider = $own !== null ? $this->factory->own($own['base_url'], $own['model'], $own['api_key'], $own['auth']) : ($steps === [] ? $this->factory->default() : null);
+        if ($provider === null && $steps === []) {
             throw new AiException('not_connected', 'ИИ-ассистент ещё не подключён. Владелец сервиса подключает модель в админке; вы можете указать свою в настройках пространства.');
         }
         $free = $own !== null || $provider instanceof FakeLlmProvider;
-        $cost = $free ? 0 : $action->cost();
+        // With a chain the price depends on the step that answers; the check before the call is needed unless no step charges.
+        $cost = $free || ($steps !== [] && array_filter($steps, static fn (array $s): bool => $s['charge_credits']) === []) ? 0 : $action->cost();
 
         $this->burst($context->workspaceId);
         if ($cost > 0 && !$this->credits->canAfford($context->workspaceId, $context->workspacePublicId, $cost)) {
@@ -76,12 +81,41 @@ final class AiAssistant
 
         [$voice, $style] = $this->settings->effectiveVoice($context->workspaceId, $channelId);
         $request = (new PromptBuilder($this->config->int('ai.max_output_tokens', 1024)))->build($action, $voice, $text, $brief, $platform, $limit);
+        $result = null;
+        $failure = null;
         $started = microtime(true);
-        try {
-            $result = $provider->complete($request);
-        } catch (LlmException $e) {
-            $this->log->record($context->workspaceId, $context->userId, $action, $provider->name(), '', $own !== null, $e->reason, 0, 0, 0, $this->elapsed($started));
-            throw $this->failure($e, $own !== null);
+        $answered = null;
+        foreach ($provider !== null ? [null] : $steps as $step) {
+            if ($step !== null && !$this->chain->acquire($step)) {
+                continue;
+            }
+            $candidate = $step === null ? $provider : $this->factory->forStep($step['provider'], $step['model']);
+            if ($candidate === null) {
+                if ($step !== null) {
+                    $this->chain->failed($step, 'not_configured');
+                }
+                continue;
+            }
+            $started = microtime(true);
+            try {
+                $result = $candidate->complete($request);
+                $provider = $candidate;
+                $answered = $step;
+                break;
+            } catch (LlmException $e) {
+                $this->log->record($context->workspaceId, $context->userId, $action, $candidate->name(), $step['model'] ?? '', $own !== null, $e->reason, 0, 0, 0, $this->elapsed($started));
+                $failure = $e;
+                if ($step === null || $e->reason === 'refused') {
+                    break;
+                }
+                $this->chain->failed($step, $e->reason);
+            }
+        }
+        if ($result === null || $provider === null) {
+            throw $failure !== null ? $this->failure($failure, $own !== null) : new AiException('provider', 'Все модели сейчас заняты или исчерпали суточный лимит. Попробуйте позже; кредиты не списаны.');
+        }
+        if ($answered !== null && !$answered['charge_credits']) {
+            $cost = 0;
         }
         $answer = self::clean($result->text);
         if ($answer === '') {

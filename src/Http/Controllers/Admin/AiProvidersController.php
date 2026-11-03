@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domain\Ai\AiAction;
 use App\Domain\Ai\AiUsageLog;
 use App\Domain\Audit\AuditLog;
 use App\Http\Admin\StepUp;
 use App\Http\FormFlash;
 use App\Http\WorkspaceRequest;
 use App\Integrations\Ai\Llm\LlmCatalog;
+use App\Integrations\Ai\Llm\LlmChain;
 use App\Integrations\Ai\Llm\LlmSettings;
 use App\Kernel\Exception\HttpException;
 use App\Kernel\Http\Request;
@@ -27,6 +29,7 @@ final class AiProvidersController
     public function __construct(
         private readonly View $view,
         private readonly LlmSettings $settings,
+        private readonly LlmChain $chain,
         private readonly AiUsageLog $usage,
         private readonly AuditLog $audit,
         private readonly FormFlash $flash,
@@ -48,7 +51,16 @@ final class AiProvidersController
             }
         }
 
+        $steps = array_map(fn (array $s): array => $s + ['used' => $this->chain->usedToday($s['id']), 'cooling' => $this->chain->cooling($s['id']), 'ready' => isset($usable[$s['provider']])], $this->chain->all());
+        $providers = [];
+        foreach ($cards as $card) {
+            $providers[$card['code']] = $card['label'];
+        }
+
         return $this->view->response('admin/ai.twig', [
+            'steps' => $steps,
+            'actions' => array_column(array_map(static fn (AiAction $a): array => [$a->value, $a->label()], AiAction::cases()), 1, 0),
+            'providers' => $providers,
             'cards' => $cards,
             'auth_schemes' => LlmCatalog::AUTH_SCHEMES,
             'default' => $this->settings->defaultCode(),
@@ -116,6 +128,50 @@ final class AiProvidersController
         $this->settings->delete($code);
         $this->audit->record('admin.ai_provider_deleted', $staff->id, 'ai_provider', $code);
         $this->flash->toast('Провайдер удалён.');
+
+        return Response::redirect('/admin/ai');
+    }
+
+    /** Add a step to the chain of models (tried in order; the first with free daily requests answers). */
+    public function chainAdd(Request $request): Response
+    {
+        return $this->chainSave($request, null);
+    }
+
+    public function chainUpdate(Request $request, string $id): Response
+    {
+        return $this->chainSave($request, (int) $id);
+    }
+
+    public function chainDelete(Request $request, string $id): Response
+    {
+        $staff = WorkspaceRequest::user($request);
+        if (($denied = $this->stepUp->guard($request, $staff, '/admin/ai')) !== null) {
+            return $denied;
+        }
+        $this->chain->delete((int) $id);
+        $this->audit->record('admin.ai_chain_updated', $staff->id, 'ai_chain_step', $id, ['deleted' => '1']);
+        $this->flash->toast('Шаг удалён.');
+
+        return Response::redirect('/admin/ai');
+    }
+
+    private function chainSave(Request $request, ?int $id): Response
+    {
+        $staff = WorkspaceRequest::user($request);
+        if (($denied = $this->stepUp->guard($request, $staff, '/admin/ai')) !== null) {
+            return $denied;
+        }
+        $input = $this->input($request);
+        $actions = $request->all()['actions'] ?? [];
+        $errors = $this->chain->save($id, $input + ['actions' => is_array($actions) ? $actions : []], $staff->id);
+        if ($errors !== []) {
+            $this->flash->toast(implode(' ', $errors), 'error');
+
+            return Response::redirect('/admin/ai');
+        }
+        $this->audit->record('admin.ai_chain_updated', $staff->id, 'ai_chain_step', $id === null ? 'new' : (string) $id, ['provider' => mb_substr($input['provider'] ?? '', 0, 40), 'enabled' => ($input['enabled'] ?? '') === '1' ? '1' : '0']);
+        $this->flash->toast('Цепочка сохранена.');
 
         return Response::redirect('/admin/ai');
     }

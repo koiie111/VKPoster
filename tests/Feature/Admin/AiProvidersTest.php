@@ -34,7 +34,7 @@ final class AiProvidersTest extends AdminTestCase
         $this->staff();
         $page = $this->get('/admin/ai');
         self::assertSame(200, $page->status);
-        foreach (['OpenAI', 'Anthropic (Claude)', 'Google Gemini', 'OpenRouter', 'YandexGPT', 'DeepSeek', 'Groq', 'Mistral', 'Together AI', 'Добавить свой OpenAI-совместимый'] as $label) {
+        foreach (['OpenAI', 'Anthropic (Claude)', 'Google Gemini', 'OpenRouter', 'YandexGPT', 'DeepSeek', 'Groq', 'Mistral', 'Together AI', 'Tokenator', 'Цепочка моделей', 'Добавить свой OpenAI-совместимый'] as $label) {
             self::assertStringContainsString($label, $page->body);
         }
         self::assertStringContainsString('Данные остаются в РФ', $page->body);
@@ -122,5 +122,30 @@ final class AiProvidersTest extends AdminTestCase
         self::assertSame(404, $this->post('/admin/ai/custom-nothing/delete', $this->confirm())->status);
         self::assertSame(404, $this->post('/admin/ai/unknown-provider', $this->confirm())->status);
         self::assertFalse(LlmCatalog::isCustom('custom-'), 'an empty slug is not a code');
+    }
+
+    public function testTheChainIsManagedWithACodeAndAudited(): void
+    {
+        $this->staff(StaffRole::Finance);
+        self::assertSame(403, $this->post('/admin/ai-chain', [])->status);
+        $this->staff();
+        $form = ['provider' => 'tokenator', 'model' => 'free-glm-5.3-flash', 'label' => 'GLM бесплатный', 'daily_requests' => '60', 'enabled' => '1'];
+
+        $this->post('/admin/ai-chain', $form);
+        self::assertSame(0, (int) $this->db->select('SELECT COUNT(*) AS n FROM ai_chain_steps')[0]['n'], 'no code, nothing saved');
+
+        $this->post('/admin/ai-chain', $this->confirm($form));
+        $id = (int) $this->db->select('SELECT id FROM ai_chain_steps')[0]['id'];
+        self::assertStringContainsString('GLM бесплатный', $this->get('/admin/ai')->body);
+
+        $this->post('/admin/ai-chain/' . $id, $this->confirm(['provider' => 'tokenator', 'model' => 'free-minimax-m3.1-flash', 'daily_requests' => '50', 'enabled' => '1']));
+        self::assertSame(['free-minimax-m3.1-flash', 50], [$this->db->select('SELECT model FROM ai_chain_steps')[0]['model'], (int) $this->db->select('SELECT daily_requests FROM ai_chain_steps')[0]['daily_requests']]);
+
+        $this->post('/admin/ai-chain', $this->confirm(['provider' => 'tokenator', 'model' => '<bad>', 'daily_requests' => '1']));
+        self::assertSame(1, (int) $this->db->select('SELECT COUNT(*) AS n FROM ai_chain_steps')[0]['n'], 'an invalid step is refused');
+
+        $this->post('/admin/ai-chain/' . $id . '/delete', $this->confirm());
+        self::assertSame(0, (int) $this->db->select('SELECT COUNT(*) AS n FROM ai_chain_steps')[0]['n']);
+        self::assertSame(3, (int) $this->db->select("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'admin.ai_chain_updated'")[0]['n']);
     }
 }

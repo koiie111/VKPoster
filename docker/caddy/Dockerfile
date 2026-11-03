@@ -3,6 +3,9 @@ FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local GOMAXPROCS=2
 WORKDIR /build
 COPY build/go.mod build/go.sum ./
+COPY build/go-jose-v3 ./go-jose-v3
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
+    cd go-jose-v3 && go test ./...
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY build/main.go ./
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \

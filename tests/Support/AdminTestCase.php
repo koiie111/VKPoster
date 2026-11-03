@@ -36,6 +36,7 @@ abstract class AdminTestCase extends BillingTestCase
         $this->db->execute('DELETE FROM app_settings');
         $this->db->execute('DELETE FROM payment_providers');
         $this->db->execute('DELETE FROM ai_providers');
+        $this->db->execute('DELETE FROM ai_chain_steps');
         $this->restorePriceList();
         parent::tearDown();
     }
