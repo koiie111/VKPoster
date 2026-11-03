@@ -6,6 +6,7 @@ namespace App\Tests\Feature\Source;
 
 use App\Domain\Source\SourceRepository;
 use App\Domain\Source\SourceService;
+use App\Domain\Billing\PlanLimitException;
 use App\Domain\Source\SourceStatus;
 use App\Domain\Workspace\Role;
 use App\Http\Controllers\Sources\SourceController;
@@ -15,6 +16,33 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(SourceController::class)]
 final class SourceActionsTest extends WorkspaceTestCase
 {
+    public function testPlanBlocksFreeAndLimitsStartWithoutWritingExtraSource(): void
+    {
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $context = $this->contextFor($workspace, $owner);
+        $service = $this->app->container()->get(SourceService::class);
+        $this->db->execute("UPDATE subscriptions s JOIN plans p ON p.code='free' SET s.plan_id=p.id WHERE s.workspace_id=?", [$workspace->id]);
+        try {
+            $service->create($context, 'Blocked', 'telegram', '@blocked_channel');
+            self::fail('Free plan should reject source creation.');
+        } catch (PlanLimitException $e) {
+            self::assertSame('feature:sources', $e->limit);
+        }
+        self::assertSame(0, $this->db->table('sources')->where('workspace_id', '=', $workspace->id)->count());
+
+        $this->db->execute("UPDATE subscriptions s JOIN plans p ON p.code='start' SET s.plan_id=p.id WHERE s.workspace_id=?", [$workspace->id]);
+        for ($i = 0; $i < 3; ++$i) {
+            $service->create($context, 'Allowed ' . $i, 'telegram', '@allowed_channel_' . $i);
+        }
+        try {
+            $service->create($context, 'Fourth', 'telegram', '@fourth_channel');
+            self::fail('Start plan should reject the fourth source.');
+        } catch (PlanLimitException $e) {
+            self::assertSame('sources', $e->limit);
+        }
+        self::assertSame(3, $this->db->table('sources')->where('workspace_id', '=', $workspace->id)->count());
+    }
+
     public function testOwnerCreatesAndAdminEditsConfigurationButCannotSetStatus(): void
     {
         [$owner, $workspace] = $this->ownerWithWorkspace();

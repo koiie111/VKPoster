@@ -75,6 +75,15 @@ final class SystemStatus
                 'text' => $age === null ? 'Не отзывается: процесс не запущен или давно остановился.' : ($age <= self::STALE_SECONDS ? 'Работает, последний отклик ' . $age . ' с назад.' : 'Молчит уже ' . intdiv($age, 60) . ' мин.'),
             ];
         }
+        if ($this->config->bool('sources.enabled')) {
+            $at = $this->heartbeat->at('telegram-reader');
+            $age = $at === null ? null : max(0, $this->clock->now()->getTimestamp() - $at->getTimestamp());
+            $checks[] = [
+                'name' => 'Чтение источников Telegram',
+                'state' => $age !== null && $age <= self::STALE_SECONDS ? 'ok' : 'bad',
+                'text' => $age === null ? 'Reader ещё не подтвердил работу.' : ($age <= self::STALE_SECONDS ? 'Последний успешный цикл ' . $age . ' с назад.' : 'Reader не подтверждал работу ' . intdiv($age, 60) . ' мин.'),
+            ];
+        }
         try {
             $version = (string) ($this->db->select('SELECT VERSION() AS v')[0]['v'] ?? '');
             $checks[] = ['name' => 'MySQL', 'state' => 'ok', 'text' => 'Отвечает, версия ' . $version . '.'];

@@ -9,6 +9,7 @@ use App\Domain\Source\SourceException;
 use App\Domain\Source\SourceRepository;
 use App\Domain\Source\SourceItemRepository;
 use App\Domain\Source\SourceService;
+use App\Domain\Billing\PlanLimitException;
 use App\Http\FormFlash;
 use App\Http\WorkspaceRequest;
 use App\Kernel\Exception\HttpException;
@@ -108,8 +109,9 @@ final class SourceController
             $saved = $source === null
                 ? $this->service->create($context, $input['name'], $input['type'], $input['reference'], $input['enabled'] === '1')
                 : $this->service->update($context, $source, $input['name'], $input['type'], $input['reference'], $input['enabled'] === '1');
-        } catch (SourceException $e) {
-            $this->flash->invalid($input, [$e->field => [$e->getMessage()]]);
+        } catch (SourceException|PlanLimitException $e) {
+            $field = $e instanceof SourceException ? $e->field : 'form';
+            $this->flash->invalid($input, [$field => [$e->getMessage()]]);
 
             return Response::redirect($base . ($source === null ? '/new' : '/' . $source->publicId . '/edit'));
         }

@@ -129,18 +129,22 @@ final class OperationalStatsTest extends AdminTestCase
         $status = $this->app->container()->get(SystemStatus::class);
         $byName = static fn (array $checks): array => array_column($checks, 'state', 'name');
         self::assertSame('bad', $byName($status->checks())['Обработчик задач'], 'nothing has reported yet');
+        self::assertSame('bad', $byName($status->checks())['Чтение источников Telegram']);
 
         $beat = $this->app->container()->get(Heartbeat::class);
         $beat->beat('worker');
         $beat->beat('scheduler');
+        $beat->beat('telegram-reader');
         $states = $byName($status->checks());
         self::assertSame('ok', $states['Обработчик задач']);
         self::assertSame('ok', $states['Планировщик']);
+        self::assertSame('ok', $states['Чтение источников Telegram']);
         self::assertSame('ok', $states['MySQL']);
         self::assertSame('ok', $states['Redis']);
 
         $this->clock->advance(SystemStatus::STALE_SECONDS + 60);
         self::assertSame('bad', $byName($status->checks())['Планировщик'], 'a process that fell silent is a problem');
+        self::assertSame('bad', $byName($status->checks())['Чтение источников Telegram']);
 
         self::assertNull($status->queue()['oldest_seconds']);
         $past = DbTime::format($this->clock->now()->modify('-10 minutes'));

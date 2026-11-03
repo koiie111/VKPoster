@@ -26,6 +26,7 @@ final class PlanEditor
         'members' => 'Люди в команде',
         'storage_bytes' => 'Медиатека, МБ',
         'crosspost_rules' => 'Правил кросспостинга',
+        'sources' => 'Источников Telegram',
         'analytics_days' => 'Аналитика, дней',
         'ai_credits' => 'ИИ-кредитов в месяц',
     ];
@@ -35,6 +36,9 @@ final class PlanEditor
         'slots' => 'Слоты, повторы, триггеры',
         'short_video' => 'Короткие видео',
         'crosspost' => 'Кросспостинг и RSS',
+        'sources' => 'Источники Telegram',
+        'radar' => 'Радар трендов',
+        'source_automation' => 'Автоматизация источников',
         'approvals' => 'Согласование',
         'guest_links' => 'Гостевые ссылки',
         'api' => 'API и вебхуки',
