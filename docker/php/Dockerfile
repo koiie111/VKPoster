@@ -106,6 +106,7 @@ USER app
 
 # ---- minimal serving runtime: no Tailwind/build toolchain (ADR 0021) ----
 FROM php:8.3.36-fpm-alpine3.24@sha256:aaf1ad25fc6484613be770743d1038e98e3e7e07409d78b97410eccdf3628f75 AS prod
+RUN apk upgrade --no-cache
 COPY docker/php/install-pecl.sh /usr/local/bin/install-pecl
 RUN apk add --no-cache ca-certificates ffmpeg font-dejavu \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS pax-utils icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev imagemagick-dev libsodium-dev \
