@@ -11,6 +11,7 @@ Values are never logged. No history rewrite or external credential validation.
 | 8ee5dc1… / tests/Support/TestEnv.php:17; current same fixture | **C: synthetic fixture** | Same deterministic bytes 0..31; helper explicitly never reads developer .env and is dev-autoloaded. Path AND exact value exception; different keys in this file remain detectable. |
 | 99f86c8… / vendor/vkcom/vk-php-sdk/README.md:287 | **D: documentation example** | Fenced Long Poll example in original VKCOM SDK README, source ref 0b01a07b167549d08a3d910201cec9e8a202a0ee from legacy composer.lock. No usage outside vendor documentation in that revision. Exact historical fingerprint; vendor directory is NOT excluded. |
 | 99f86c8… / vendor/vkcom/vk-php-sdk/README.md:305 | **D: documentation example** | Repetition of preceding SDK example in an explicitly labelled Example block; same source/provenance, no application usage. Separate exact fingerprint. |
+| 19e8fae… / docker/caddy/build/go-jose-v3/*_test.go (30 findings) | **C: upstream test fixtures** | The v3.0.5 source copy initially included upstream sample keys, JWTs and private-key fixtures. Those test files were removed in the next commit; the production copy retains only source, license and a generated-input security regression. Each old finding has its own commit/path/rule/line fingerprint in `.gitleaksignore`; current files and future keys remain scanned. |
 
 Regression must detect a newly generated synthetic API key both in another file and in
 TestEnv.php (different from the allowed fixture). Reports always use `--redact=100`.

@@ -8,7 +8,9 @@ unpatched module with this copy when building the Caddy binary.
 v4.1.6 fix for [GHSA-mgcc-cww5-fp2q](https://github.com/go-jose/go-jose/security/advisories/GHSA-mgcc-cww5-fp2q).
 The advisory has no patched v3 release. `jwk_security_test.go` rejects a crafted
 oversized private JWK before the expensive RSA validation. The upstream v3 test
-suite and this regression test run with `go test ./...` in this directory.
+suite passed locally during preparation. The production copy omits upstream test
+fixtures containing sample private keys; its focused regression test runs during
+every Caddy image build with `go test ./...`.
 
 Remove the local replacement when the upstream dependency chain migrates to a
 patched go-jose release and the production image scan remains clean.
