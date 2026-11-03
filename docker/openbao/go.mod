@@ -23,6 +23,8 @@ replace github.com/openbao/openbao/sdk/v2 => ./sdk
 
 replace github.com/boltdb/bolt => ./internal/helper/stubbolt
 
+replace github.com/go-jose/go-jose/v3 => ./go-jose-v3
+
 require (
 	cel.dev/cel-go v0.32.0
 	cloud.google.com/go/monitoring v1.30.0
@@ -35,7 +37,7 @@ require (
 	github.com/duosecurity/duo_api_golang v0.2.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
-	github.com/go-jose/go-jose/v4 v4.1.4
+	github.com/go-jose/go-jose/v4 v4.1.7
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/go-test/deep v1.1.1
 	github.com/go-viper/mapstructure/v2 v2.5.0
