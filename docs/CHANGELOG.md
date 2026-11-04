@@ -4,8 +4,9 @@
 
 ## [Unreleased]
 
+- `symfony/mime` обновлён до 7.4.22, закрывающей CVE-2026-45070; `symfony/polyfill-mbstring` обновлён до 1.43.3 как зависимость.
+- В README, руководстве по деплою, runbook и журнале прогресса уточнён статус: публичный сервис уже работает на ezposter.ru; для этапа 19 перечислены оставшиеся production-проверки владельца.
 - Production images refresh Alpine `curl`/`libcurl`, Oracle Linux `libbrotli`, Ubuntu `libbrotli1` in the PDF runtime, and Telegram Reader `pyasn1` 0.6.5; Caddy and OpenBao build with an in-tree security backport for `go-jose/v3` and `go-jose/v4` 4.1.7.
-- `symfony/mime` updated to 7.4.22 to address CVE-2026-45070; `symfony/polyfill-mbstring` updated to 1.43.3 as a dependency.
 - AI assistant: a chain of models (`/admin/ai`, table `ai_chain_steps`, ADR 0026). Steps are tried in order, each with an optional model
   and a daily request cap (day start offset from UTC, Redis), a failure pause, a «charge credits» flag and a list of served actions, all set in the admin area; a spent, failing or unconfigured step is skipped and the next one answers, so free models of a
   gateway go first and a paid one last. New `tokenator` provider preset (`https://api.tokenator.cloud/v1`). An empty chain keeps the

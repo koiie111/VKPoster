@@ -1,5 +1,10 @@
 # Stage 19A — local preparation evidence, 2026-10-21
 
+Historical local-validation ledger. The owner confirmed on 2026-11-03 that
+ezposter.ru is live. Statements below about no deployment or PR32 pending
+describe the 2026-10-21 snapshot, not the current production state. Stage 19
+remains open for the production checks in `docs/plans/stages/19-hardening-prod.md`.
+
 Stage19 remains **IN_PROGRESS**. Branch `stage-19-hardening-prod`, baseline
 `8f01fbe31f7b52c8be0bafd9ca8f4e9f668a33b5`. Production19.8 is not executed.
 No production deploy, v1.0.0, history rewrite, old branch deletion or stash change.

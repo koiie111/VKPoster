@@ -1,8 +1,9 @@
 # Operational runbook — Stage 19A preparation
 
-Status: IN_PROGRESS. This document is for the approved production layout, not a
-statement that production has been deployed. Domain/IP, SSH, TLS, offsite retention
-and restore evidence must be completed with the owner in 19.8.
+Status: IN_PROGRESS. The owner confirmed on 2026-11-03 that ezposter.ru is live.
+The runbook describes the reviewed production layout; live deployment does not
+by itself verify its private controls. Host access, TLS renewal, key recovery,
+offsite retention and restore evidence remain part of owner review in 19.8.
 
 Run from `/opt/ezposter` as the designated operator. In the commands below:
 

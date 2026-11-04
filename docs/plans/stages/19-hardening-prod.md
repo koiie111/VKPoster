@@ -5,8 +5,10 @@
 ## Граница части A и production19.8
 
 Локальная реализация/изолированная проверка19A описана в
-`docs/security/stage-19a-status.md`. Stage19 остаётся IN_PROGRESS: production DoD
-и проверка владельца ниже ещё не выполнены. Отметка local не означает production sign-off.
+`docs/security/stage-19a-status.md`. Владелец подтвердил 2026-11-03, что
+ezposter.ru уже работает; публичные `/healthz` и `/readyz` тогда ответили 200.
+Stage19 ожидает ответа владельца: перечисленные ниже production DoD и проверки
+не подтверждены полностью. Отметка local не означает production sign-off.
 Секреты: ADR0025 заменяет raw APP_KEYS в обычном production-процессе на
 purpose-isolated Transit API; старый keyring доступен только offline migration роли.
 
