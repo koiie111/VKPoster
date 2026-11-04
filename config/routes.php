@@ -558,6 +558,9 @@ return static function (Router $router): void {
             $s->post('/ai', [\App\Http\Controllers\Admin\AiProvidersController::class, 'create'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
             $s->post('/ai/{code:[a-z0-9-]{3,40}}', [\App\Http\Controllers\Admin\AiProvidersController::class, 'save'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
             $s->post('/ai/{code:[a-z0-9-]{3,40}}/delete', [\App\Http\Controllers\Admin\AiProvidersController::class, 'delete'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
+            $s->post('/ai-chain', [\App\Http\Controllers\Admin\AiProvidersController::class, 'chainAdd'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
+            $s->post('/ai-chain/{id:[0-9]+}', [\App\Http\Controllers\Admin\AiProvidersController::class, 'chainUpdate'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
+            $s->post('/ai-chain/{id:[0-9]+}/delete', [\App\Http\Controllers\Admin\AiProvidersController::class, 'chainDelete'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
             $s->get('/addons', [AddonsAdminController::class, 'index'])->name('admin.addons')->middleware($can('finance.view'));
             $s->post('/addons', [AddonsAdminController::class, 'save'])->middleware($can('plans.manage'));
             $s->get('/referrals', [ReferralAdminController::class, 'index'])->name('admin.referrals')->middleware($can('finance.view'));

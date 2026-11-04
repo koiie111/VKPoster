@@ -29,14 +29,20 @@ final class LlmFactory
         return $this->fakeAllowed ? new FakeLlmProvider() : null;
     }
 
-    public function forCode(string $code): ?LlmProvider
+    /** A chain step: the provider's key and address, with the step's own model when it names one. */
+    public function forStep(string $code, string $model): ?LlmProvider
+    {
+        return $this->forCode($code, $model);
+    }
+
+    public function forCode(string $code, string $model = ''): ?LlmProvider
     {
         $provider = $this->settings->usable()[$code] ?? null;
         if ($provider === null) {
             return null;
         }
 
-        return $this->build($code, $provider['kind'], $this->settings->baseUrl($code, $provider), $this->settings->model($provider, $code), $provider['values']['api_key'] ?? '', $provider['values']['auth'] ?? (LlmCatalog::presets()[$code]['auth'] ?? 'bearer'));
+        return $this->build($code, $provider['kind'], $this->settings->baseUrl($code, $provider), ($model !== '' ? $model : $this->settings->model($provider, $code)), $provider['values']['api_key'] ?? '', $provider['values']['auth'] ?? (LlmCatalog::presets()[$code]['auth'] ?? 'bearer'));
     }
 
     /** A workspace's own OpenAI-compatible endpoint (bring your own key). */

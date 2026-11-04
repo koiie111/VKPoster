@@ -5,3 +5,5 @@ build/*
 !build/go.mod
 !build/go.sum
 !build/main.go
+!build/go-jose-v3/
+!build/go-jose-v3/**

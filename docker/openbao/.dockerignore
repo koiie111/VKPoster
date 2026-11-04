@@ -3,3 +3,5 @@
 !.dockerignore
 !go.mod
 !go.sum
+!go-jose-v3/
+!go-jose-v3/**
