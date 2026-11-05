@@ -10,6 +10,7 @@ use App\Domain\Billing\PlanLimitException;
 use App\Domain\Channel\Channel;
 use App\Domain\Channel\ChannelCredentials;
 use App\Domain\Channel\ChannelRepository;
+use App\Domain\Settings\ShortVideoLimits;
 use App\Domain\Workspace\ChannelAccessRepository;
 use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
@@ -56,6 +57,7 @@ final class PostService
         private readonly Entitlements $entitlements,
         private readonly \App\Domain\Content\Publishing\ContentOriginGuard $origin,
         private readonly \App\Domain\Approval\ApprovalWorkflow $approvals,
+        private readonly ShortVideoLimits $shortVideoLimits,
     ) {
     }
 
@@ -708,8 +710,8 @@ final class PostService
                     throw new PostException('Для всех сетей короткого видео используйте один исходный видеофайл.');
                 }
                 $video = $byId[$selection[0]];
-                if ($video->size > 1_073_741_824 || $video->durationMs === null || $video->durationMs > 180_000) {
-                    throw new PostException('Короткое видео должно быть не больше 1 ГиБ и не длиннее 3 минут.');
+                if ($video->size > $this->shortVideoLimits->maxFileBytes() || $video->durationMs === null || $video->durationMs > $this->shortVideoLimits->maxDurationMs()) {
+                    throw new PostException(sprintf('Короткое видео должно быть не больше %d МиБ и не длиннее %d секунд.', $this->shortVideoLimits->maxFileMiB(), $this->shortVideoLimits->maxDurationSeconds()));
                 }
             }
         }
@@ -786,6 +788,10 @@ final class PostService
         }
         $problems = [];
         foreach ($channels as $channel) {
+            if ($draft->kind === PostKind::ShortVideo) {
+                $problems[$channel->publicId] = ['Публикация коротких видео пока недоступна для этой соцсети.'];
+                continue;
+            }
             $input = $inputs[strtoupper($channel->publicId)] ?? null;
             $custom = $draft->perNetwork && $input !== null;
             $variant = new PostVariant(0, 0, $channel->id, $channel->platform, $channel->displayName(), $custom ? $input->text : null, $custom ? $input->mediaIds : null, $custom ? $input->options : null);

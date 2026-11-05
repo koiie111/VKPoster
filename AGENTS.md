@@ -40,6 +40,7 @@ make check     # cs + stan + test + audit + docs; must be green before a PR
 ```
 
 Config comes from env vars (see `.env.example`, `docs/architecture/configuration.md`). The repo is bind-mounted into the `app` container, so edits are live. Compose profiles: `s3` (MinIO), `tunnel` (cloudflared).
+Short-video file size and duration start at 1024 MiB / 180 s and are editable at `/admin/settings`; tariff and platform limits may be lower. In production, enabled Instagram, TikTok or YouTube requires a configured per-provider egress proxy/tunnel (`EGRESS_<PROVIDER>_MODE` and `_PROXY_URL`); verify the actual German exit separately (ADR 0022/0027).
 
 ## Layout (current)
 

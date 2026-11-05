@@ -31,6 +31,15 @@
     </section>
 </form>
 
+<section class="card mt-6" aria-labelledby="short-video-h"><h2 class="text-lg font-semibold" id="short-video-h">Короткие видео</h2>
+    <p class="mt-1 text-sm text-muted">Общий предел загрузки. Тариф и соцсеть могут разрешать меньше. Для YouTube видео дольше трёх минут может перестать считаться Shorts.</p>
+    <form class="mt-4 grid gap-4 sm:grid-cols-2" method="post" action="/admin/settings/short-video">{{ csrf_field() }}
+        {{ f.input('short_video_file_mib', 'Размер файла, МиБ', type = 'number', value = short_video_file_mib, id = 'short-video-file', hint = 'От 1 до 10 240 МиБ. Начальное значение — 1024 МиБ.') }}
+        {{ f.input('short_video_duration_seconds', 'Длительность, секунд', type = 'number', value = short_video_duration_seconds, id = 'short-video-duration', hint = 'От 1 до 3600 секунд. Начальное значение — 180 секунд.') }}
+        <div class="sm:col-span-2">{{ f.button('Сохранить пределы видео', type = 'submit', variant = 'secondary', icon = 'save') }}</div>
+    </form>
+</section>
+
 <section class="card mt-6" aria-labelledby="rep-h"><h2 class="text-lg font-semibold" id="rep-h">Ежедневный отчёт владельцу</h2>
     <p class="mt-1 text-sm text-muted">Выручка, регистрации, оплаты, ошибки публикаций и длина очереди за вчера. Приходит владельцам по почте и в личный Telegram (если подключён в уведомлениях).</p>
     <form class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" method="post" action="/admin/settings/report">{{ csrf_field() }}

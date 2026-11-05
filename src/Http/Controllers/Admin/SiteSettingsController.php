@@ -8,6 +8,7 @@ use App\Domain\Admin\DailyReport;
 use App\Domain\Auth\RegistrationGate;
 use App\Domain\Audit\AuditLog;
 use App\Domain\Settings\SiteSettings;
+use App\Domain\Settings\ShortVideoLimits;
 use App\Http\Admin\AdminInput;
 use App\Http\Admin\StepUp;
 use App\Http\FormFlash;
@@ -35,6 +36,7 @@ final class SiteSettingsController
         private readonly StepUp $stepUp,
         private readonly Clock $clock,
         private readonly DailyReport $report,
+        private readonly ShortVideoLimits $shortVideoLimits,
     ) {
     }
 
@@ -49,6 +51,8 @@ final class SiteSettingsController
             'support_telegram' => $this->site->supportTelegram(),
             'requisites' => $this->site->requisites(),
             'max_workspaces' => $this->site->maxWorkspacesPerUser(),
+            'short_video_file_mib' => $this->shortVideoLimits->maxFileMiB(),
+            'short_video_duration_seconds' => $this->shortVideoLimits->maxDurationSeconds(),
             'codes' => $this->gate->codes(),
             'report' => $this->report->config(),
             'zones' => self::ZONES,
@@ -104,6 +108,27 @@ final class SiteSettingsController
         }
         $this->audit->record('admin.settings_changed', $staff->id, 'setting', 'report', ['after' => json_encode($this->report->config())]);
         $this->flash->toast('Настройки отчёта сохранены.');
+
+        return Response::redirect('/admin/settings');
+    }
+
+    public function saveShortVideo(Request $request): Response
+    {
+        $staff = WorkspaceRequest::user($request);
+        $before = ['file_mib' => $this->shortVideoLimits->maxFileMiB(), 'duration_seconds' => $this->shortVideoLimits->maxDurationSeconds()];
+        $errors = $this->shortVideoLimits->save(
+            AdminInput::text($request, 'short_video_file_mib', 6),
+            AdminInput::text($request, 'short_video_duration_seconds', 5),
+            $staff->id,
+        );
+        if ($errors !== []) {
+            $this->flash->toast(implode(' ', $errors), 'error');
+
+            return Response::redirect('/admin/settings');
+        }
+        $after = ['file_mib' => $this->shortVideoLimits->maxFileMiB(), 'duration_seconds' => $this->shortVideoLimits->maxDurationSeconds()];
+        $this->audit->record('admin.settings_changed', $staff->id, 'setting', 'short_video', ['before' => json_encode($before), 'after' => json_encode($after)]);
+        $this->flash->toast('Ограничения коротких видео сохранены.');
 
         return Response::redirect('/admin/settings');
     }

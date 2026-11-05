@@ -10,7 +10,7 @@ use App\Kernel\Exception\ConfigException;
 /** Provider-scoped transport policy. A tunnel is an operator-managed local proxy, never a global VPN. */
 final class EgressRoutes
 {
-    public const PROVIDERS = ['telegram', 'vk', 'max', 'openai', 'tineye', 'replicate', 'anthropic', 'glitchtip'];
+    public const PROVIDERS = ['telegram', 'vk', 'max', 'instagram', 'tiktok', 'youtube', 'openai', 'tineye', 'replicate', 'anthropic', 'glitchtip'];
     private readonly string $identityKey;
     /** @var array<string, array{mode: string, proxy: string}> */
     private array $routes = [];
@@ -64,6 +64,13 @@ final class EgressRoutes
                 throw new ConfigException('Unknown required egress provider.');
             }
         }
+        if ($env->string('APP_ENV') === 'production') {
+            foreach (['instagram', 'tiktok', 'youtube'] as $platform) {
+                if (in_array($platform, $env->list('PLATFORMS_ENABLED'), true) && $this->routes[$platform]['mode'] === 'direct') {
+                    throw new ConfigException('Regional egress must be configured before enabling ' . $platform . ' in production.');
+                }
+            }
+        }
     }
 
     /** Secret-config fingerprint is keyed and never returned by diagnostics. */
@@ -86,6 +93,10 @@ final class EgressRoutes
             'api.telegram.org' => 'telegram',
             'api.vk.com', 'oauth.vk.com' => 'vk',
             'platform-api.max.ru' => 'max',
+            'graph.instagram.com' => 'instagram',
+            'open.tiktokapis.com', 'api.tiktok.com' => 'tiktok',
+            'youtube.googleapis.com', 'upload.youtube.com' => 'youtube',
+            'www.googleapis.com' => str_starts_with((string) parse_url($url, PHP_URL_PATH), '/youtube/') || str_starts_with((string) parse_url($url, PHP_URL_PATH), '/upload/youtube/') ? 'youtube' : '',
             'api.openai.com' => 'openai',
             'api.tineye.com' => 'tineye',
             'api.replicate.com' => 'replicate',

@@ -222,6 +222,7 @@ final class PostEditorView
             'delete_after_unit' => $unit,
             'first_comment' => $options->firstComment,
             'format' => $options->format,
+            'short_video' => $options->shortVideo?->toArray(),
         ];
     }
 }

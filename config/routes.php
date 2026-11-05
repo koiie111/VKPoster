@@ -585,6 +585,7 @@ return static function (Router $router): void {
             $s->post('/design/reset', [DesignController::class, 'reset'])->middleware($can('design.manage'));
             $s->get('/settings', [SiteSettingsController::class, 'show'])->name('admin.settings')->middleware($can('settings.manage'));
             $s->post('/settings', [SiteSettingsController::class, 'save'])->middleware($can('settings.manage'));
+            $s->post('/settings/short-video', [SiteSettingsController::class, 'saveShortVideo'])->middleware($can('settings.manage'));
             $s->post('/settings/report', [SiteSettingsController::class, 'saveReport'])->middleware($can('settings.manage'));
             $s->post('/settings/report/test', [SiteSettingsController::class, 'testReport'])->middleware($can('settings.manage'), [RateLimit::class, ['bucket' => 'admin-report-test', 'max' => 10, 'seconds' => 3600]]);
             $s->post('/settings/invites', [SiteSettingsController::class, 'createCode'])->middleware($can('settings.manage'));

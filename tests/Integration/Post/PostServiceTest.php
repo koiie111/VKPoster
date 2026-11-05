@@ -32,15 +32,34 @@ final class PostServiceTest extends PostTestCase
     {
         [$owner, $workspace] = $this->ownerWithWorkspace();
         $context = $this->contextFor($workspace, $owner);
+        $channel = $this->fakeChannel($workspace, $owner);
         $bytes = file_get_contents(__DIR__ . '/../../Fixtures/short-video.mp4');
         self::assertNotFalse($bytes);
         $video = $this->app->container()->get(MediaService::class)->upload($context, $this->tempFile($bytes), 'short-video.mp4')->media;
-        $valid = new PostDraft('Короткое видео', [$video->publicId], new PostOptions(), false, [], PostKind::ShortVideo);
+        $valid = new PostDraft('Короткое видео', [$video->publicId], new PostOptions(), false, [new VariantInput($channel->publicId)], PostKind::ShortVideo);
         $post = $this->service()->saveDraft($context, null, $valid);
 
         self::assertSame(PostKind::ShortVideo, $post->kind);
         self::assertSame(PostKind::ShortVideo, $this->service()->draftOf($context, $post)->kind);
         self::assertSame(PostKind::ShortVideo, PostTemplateRepository::fromPayload(PostTemplateRepository::toPayload($valid))->kind);
+        $settings = $this->app->container()->get(\App\Domain\Settings\Settings::class);
+        $this->db->execute('UPDATE media SET duration_ms = 2000 WHERE id = ?', [$video->id]);
+        $settings->set('limits.short_video_duration_seconds', 1, null);
+        try {
+            $this->service()->saveDraft($context, $post, $valid);
+            self::fail('The admin limit must be used when validating a video.');
+        } catch (PostException $e) {
+            self::assertStringContainsString('1 секунд', $e->getMessage());
+        } finally {
+            $settings->forget('limits.short_video_duration_seconds');
+            $this->db->execute('UPDATE media SET duration_ms = ? WHERE id = ?', [$video->durationMs, $video->id]);
+        }
+        try {
+            $this->service()->schedule($context, $post, $valid, $this->in('+1 hour'));
+            self::fail('The incomplete video pipeline must not publish a normal post instead.');
+        } catch (PostException $e) {
+            self::assertStringContainsString('пока недоступна', $e->getMessage());
+        }
 
         $picture = $this->libraryPicture($context);
         $invalid = new PostDraft('Короткое видео', [$picture->publicId], new PostOptions(), false, [], PostKind::ShortVideo);

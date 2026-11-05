@@ -19,6 +19,22 @@
 {% macro options(prefix, o, uid) -%}
 {% import _self as k %}
 <div class="flex flex-col gap-5" data-options>
+    {% if o.short_video %}
+        {% set sv = o.short_video %}
+        {% set sv_name = k.fname(prefix, 'short_video') %}
+        <input type="hidden" name="{{ sv_name }}[title]" value="{{ sv.title }}">
+        <input type="hidden" name="{{ sv_name }}[privacy]" value="{{ sv.privacy }}">
+        {% if sv.made_for_kids is not null %}<input type="hidden" name="{{ sv_name }}[made_for_kids]" value="{{ sv.made_for_kids ? '1' : '0' }}">{% endif %}
+        {% if sv.allow_comments is not null %}<input type="hidden" name="{{ sv_name }}[allow_comments]" value="{{ sv.allow_comments ? '1' : '0' }}">{% endif %}
+        {% if sv.allow_duet is not null %}<input type="hidden" name="{{ sv_name }}[allow_duet]" value="{{ sv.allow_duet ? '1' : '0' }}">{% endif %}
+        {% if sv.allow_stitch is not null %}<input type="hidden" name="{{ sv_name }}[allow_stitch]" value="{{ sv.allow_stitch ? '1' : '0' }}">{% endif %}
+        {% if sv.share_to_feed is not null %}<input type="hidden" name="{{ sv_name }}[share_to_feed]" value="{{ sv.share_to_feed ? '1' : '0' }}">{% endif %}
+        <input type="hidden" name="{{ sv_name }}[commercial_content]" value="{{ sv.commercial_content ? '1' : '0' }}">
+        <input type="hidden" name="{{ sv_name }}[music_rights_accepted]" value="{{ sv.music_rights_accepted ? '1' : '0' }}">
+        {% if sv.category_id %}<input type="hidden" name="{{ sv_name }}[category_id]" value="{{ sv.category_id }}">{% endif %}
+        {% for tag in sv.tags %}<input type="hidden" name="{{ sv_name }}[tags][]" value="{{ tag }}">{% endfor %}
+        {% if sv.cover_media_id %}<input type="hidden" name="{{ sv_name }}[cover_media_id]" value="{{ sv.cover_media_id }}">{% endif %}
+    {% endif %}
     <div data-cap="post_format">
         <label class="label" for="{{ uid }}-format">Что опубликовать</label>
         <select class="field" id="{{ uid }}-format" name="{{ k.fname(prefix, 'format') }}" data-opt="format">

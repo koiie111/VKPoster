@@ -95,6 +95,8 @@ final class TestEnv
         // The fake provider is refused in production, so tests that boot a production app get it switched off.
         if (($overrides['APP_ENV'] ?? '') === 'production') {
             $vars['DEV_OAUTH_FAKE'] = '0';
+            $vars['EGRESS_INSTAGRAM_MODE'] = 'tunnel';
+            $vars['EGRESS_INSTAGRAM_PROXY_URL'] = 'socks5h://127.0.0.1:1080';
             $vars['MALWARE_SCANNER'] = 'clamd';
             $vars['APP_URL'] = 'https://example.com';
             $vars['TRUSTED_PROXIES'] = '127.0.0.1';

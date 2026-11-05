@@ -55,6 +55,12 @@ EU exit IP, Telegram connection, proxy authentication/firewall/TLS/tunnel lifecy
 DNS, failure/recovery and observed metrics must be verified by the owner in 19.8.
 Local tests are not a claim that a real EU egress is available.
 
+Stage 22 adds provider routes for Instagram, TikTok and YouTube. An enabled platform
+in production requires a non-direct `EGRESS_<PROVIDER>_MODE` and a configured
+endpoint; the app fails to start otherwise. This validates routing policy, not the
+proxy's German exit IP. Upload-session URLs returned by these APIs must carry the
+explicit provider key because their hosts can differ from the public API host.
+
 Official references:
 - https://docs.telethon.dev/en/stable/basic/signing-in.html#signing-in-behind-a-proxy
 - https://github.com/romis2012/python-socks

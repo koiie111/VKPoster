@@ -1,0 +1,7 @@
+[
+  {
+    "name": "short-video-settings",
+    "url": "/admin/settings",
+    "login_as": "staff@ezposter.local"
+  }
+]

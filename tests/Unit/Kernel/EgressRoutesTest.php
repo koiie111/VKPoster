@@ -47,6 +47,43 @@ final class EgressRoutesTest extends TestCase
         self::assertSame('direct', $this->routes()->route('max')['mode']);
     }
 
+    public function testShortVideoNetworksUseTheirOwnEgressRoutes(): void
+    {
+        $vars = [];
+        foreach (['instagram', 'tiktok', 'youtube'] as $provider) {
+            $vars['EGRESS_' . strtoupper($provider) . '_MODE'] = 'tunnel';
+            $vars['EGRESS_' . strtoupper($provider) . '_PROXY_URL'] = 'socks5h://127.0.0.1:1080';
+        }
+        $routes = new EgressRoutes(new Env($vars));
+        self::assertSame('instagram', $routes->providerFor('https://graph.instagram.com/v21.0/me'));
+        self::assertSame('tiktok', $routes->providerFor('https://open.tiktokapis.com/v2/post/publish/video/init/'));
+        self::assertSame('youtube', $routes->providerFor('https://www.googleapis.com/upload/youtube/v3/videos'));
+        self::assertSame('', $routes->providerFor('https://www.googleapis.com/calendar/v3/calendars'));
+        $history = [];
+        $handler = HandlerStack::create(new MockHandler([new Response(200), new Response(200), new Response(200)]));
+        $handler->push(Middleware::history($history));
+        $http = new GuzzleHttpClient(new SsrfGuard(), null, new Client(['handler' => $handler]), $routes);
+        foreach (['https://graph.instagram.com/', 'https://open.tiktokapis.com/', 'https://youtube.googleapis.com/'] as $url) {
+            $http->request('GET', $url);
+        }
+        self::assertIsArray($history);
+        foreach ($history as $request) {
+            self::assertSame('socks5h://127.0.0.1:1080', $request['options']['proxy']);
+        }
+    }
+
+    public function testProductionRefusesDirectEgressForEnabledShortVideoNetworks(): void
+    {
+        foreach (['instagram', 'tiktok', 'youtube'] as $provider) {
+            try {
+                new EgressRoutes(new Env(['APP_ENV' => 'production', 'PLATFORMS_ENABLED' => $provider]));
+                self::fail('Direct egress must be rejected for ' . $provider);
+            } catch (ConfigException $e) {
+                self::assertStringContainsString($provider, $e->getMessage());
+            }
+        }
+    }
+
     public function testUserDownloadCannotUseProxyRemoteDnsToBypassSsrfPinning(): void
     {
         $transport = new GuzzleHttpClient(new SsrfGuard(), null, new Client(['handler' => new MockHandler([])]), $this->routes());
