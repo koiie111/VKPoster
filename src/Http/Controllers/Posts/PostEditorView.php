@@ -88,6 +88,7 @@ final class PostEditorView
             'workspace' => $context,
             'channels' => $cards,
             'text' => $draft->text,
+            'kind' => $draft->kind->value,
             'media' => $tiles($draft->mediaIds),
             'options' => self::optionsView($draft->options),
             'per_network' => $draft->perNetwork,

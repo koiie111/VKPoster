@@ -5410,6 +5410,14 @@
         },
         {
             "TABLE_NAME": "posts",
+            "COLUMN_NAME": "kind",
+            "COLUMN_TYPE": "varchar(16)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "regular",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "posts",
             "COLUMN_NAME": "base_text",
             "COLUMN_TYPE": "mediumtext",
             "IS_NULLABLE": "NO",
@@ -12793,6 +12801,27 @@
             "INDEX_NAME": "idx_posts_calendar",
             "NON_UNIQUE": 1,
             "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "scheduled_at"
+        },
+        {
+            "TABLE_NAME": "posts",
+            "INDEX_NAME": "idx_posts_kind",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "workspace_id"
+        },
+        {
+            "TABLE_NAME": "posts",
+            "INDEX_NAME": "idx_posts_kind",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "kind"
+        },
+        {
+            "TABLE_NAME": "posts",
+            "INDEX_NAME": "idx_posts_kind",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 3,
             "COLUMN_NAME": "scheduled_at"
         },
         {

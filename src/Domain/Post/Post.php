@@ -30,6 +30,7 @@ final class Post
         public readonly ?DateTimeImmutable $publishedAt,
         public readonly DateTimeImmutable $createdAt,
         public readonly DateTimeImmutable $updatedAt,
+        public readonly PostKind $kind = PostKind::Regular,
     ) {
     }
 
@@ -47,6 +48,6 @@ final class Post
             }
         }
 
-        return $this->mediaIds !== [] ? 'Пост без текста' : 'Пустой пост';
+        return $this->mediaIds !== [] ? ($this->kind === PostKind::ShortVideo ? 'Короткое видео' : 'Пост без текста') : 'Пустой пост';
     }
 }

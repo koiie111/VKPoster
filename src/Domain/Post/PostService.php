@@ -282,7 +282,7 @@ final class PostService
         }
         $this->origin->assertCurrent($post);
         $copy = $this->db->transaction(function () use ($context, $post, $variants): Post {
-            $copy = $this->saveDraft($context, null, new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants));
+            $copy = $this->saveDraft($context, null, new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants, $post->kind));
             $this->origin->copy($post, $copy);
             return $copy;
         });
@@ -326,7 +326,7 @@ final class PostService
             }
         }
 
-        return new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants);
+        return new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants, $post->kind);
     }
 
     /**
@@ -530,7 +530,7 @@ final class PostService
         $before = null;
         $beforeStatus = PostStatus::Draft;
         if ($existing === null) {
-            $post = $this->posts->create($context, $context->userId, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork, $status, $at, $context->timezone);
+            $post = $this->posts->create($context, $context->userId, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork, $status, $at, $context->timezone, $draft->kind);
         } else {
             $post = $this->posts->lock($context, $existing) ?? throw new PostException('Пост не найден.');
             $this->assertEditable($context, $post);
@@ -543,7 +543,7 @@ final class PostService
             }
             $before = $this->approvals->revision($context, $post);
             $beforeStatus = $post->status;
-            $this->posts->updateContent($context, $post, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork);
+            $this->posts->updateContent($context, $post, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork, $draft->kind);
             $this->posts->setSchedule($context, $post, $status, $at, $context->timezone);
         }
         $this->syncVariants($context, $post, $draft, $channels);
@@ -690,7 +690,29 @@ final class PostService
         if (count($draft->mediaIds) > self::MAX_MEDIA) {
             throw new PostException('К посту можно прикрепить не больше ' . self::MAX_MEDIA . ' файлов.');
         }
-        $this->builder->mediaFor($context, array_values(array_unique($ids)));
+        $media = $this->builder->mediaFor($context, array_values(array_unique($ids)));
+        if ($draft->kind === PostKind::ShortVideo) {
+            $byId = [];
+            foreach ($media as $item) {
+                $byId[$item->publicId] = $item;
+            }
+            $selections = [$draft->mediaIds];
+            foreach ($draft->variants as $variant) {
+                $selections[] = $variant->mediaIds ?? $draft->mediaIds;
+            }
+            foreach ($selections as $selection) {
+                if (count($selection) !== 1 || ($byId[$selection[0]]->kind ?? null) !== \App\Domain\Media\MediaKind::Video) {
+                    throw new PostException('Для короткого видео выберите ровно один видеофайл.');
+                }
+                if ($selection !== $draft->mediaIds) {
+                    throw new PostException('Для всех сетей короткого видео используйте один исходный видеофайл.');
+                }
+                $video = $byId[$selection[0]];
+                if ($video->size > 1_073_741_824 || $video->durationMs === null || $video->durationMs > 180_000) {
+                    throw new PostException('Короткое видео должно быть не больше 1 ГиБ и не длиннее 3 минут.');
+                }
+            }
+        }
     }
 
     /**

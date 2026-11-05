@@ -111,7 +111,7 @@ as a retry workaround. See ADR0025 for owner-accepted unsaved-response limitatio
 - `post_templates`: `id`, `public_id`, `workspace_id`, `name`, `payload_json`, `created_by`, `created_at`
 - `post_variants`: `id`, `post_id`, `workspace_id`, `channel_id`, `platform`, `channel_name`, `text`, `media_ids_json`, `options_json`
 - `post_versions`: `id`, `workspace_id`, `post_id`, `revision_hash`, `snapshot_json`, `actor_id`, `created_at`
-- `posts`: `id`, `public_id`, `workspace_id`, `author_id`, `status`, `base_text`, `media_ids_json`, `options_json`, `per_network`, `scheduled_at`, `timezone`, `published_at`, `created_at`, `updated_at`
+- `posts`: `id`, `public_id`, `workspace_id`, `author_id`, `status`, `kind`, `base_text`, `media_ids_json`, `options_json`, `per_network`, `scheduled_at`, `timezone`, `published_at`, `created_at`, `updated_at`
 - `promo_codes`: `id`, `code`, `kind`, `value`, `currency`, `plan_codes_json`, `first_payment_only`, `max_redemptions`, `valid_from`, `valid_until`, `active`, `note`, `created_by`, `created_at`
 - `promo_redemptions`: `id`, `promo_id`, `workspace_id`, `user_id`, `invoice_id`, `discount`, `created_at`
 - `publication_attempts`: `id`, `publication_id`, `workspace_id`, `attempt`, `outcome`, `error_kind`, `message`, `detail`, `started_at`, `finished_at`
