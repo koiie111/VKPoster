@@ -54,7 +54,7 @@ final class PublicationRepository extends WorkspaceScopedRepository
     public function countForChannelBetween(WorkspaceContext $context, int $channelId, DateTimeImmutable $from, DateTimeImmutable $to, ?int $exceptPostId = null): int
     {
         $rows = $this->db->select(
-            'SELECT COUNT(*) AS c FROM publications WHERE workspace_id = ? AND channel_id = ? AND status IN (\'queued\', \'sending\', \'sent\', \'unknown\') AND due_at >= ? AND due_at < ? AND post_id <> ?',
+            'SELECT COUNT(*) AS c FROM publications WHERE workspace_id = ? AND channel_id = ? AND status IN (\'queued\', \'sending\', \'processing\', \'sent\', \'unknown\') AND due_at >= ? AND due_at < ? AND post_id <> ?',
             [$context->workspaceId, $channelId, DbTime::format($from), DbTime::format($to), $exceptPostId ?? 0],
         );
 

@@ -4,7 +4,7 @@
 {% import 'components/forms.twig' as f %}
 {% import 'components/admin.twig' as a %}
 {% set nav_current = 'stats' %}
-{% set names = {telegram: 'Telegram', vk: 'ВКонтакте', max: 'MAX', instagram: 'Instagram', fake: 'Тестовая сеть'} %}
+{% set names = {telegram: 'Telegram', vk: 'ВКонтакте', max: 'MAX', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube Shorts', fake: 'Тестовая сеть'} %}
 {% block title %}Публикации и сети · Админка{% endblock %}
 {% block head %}{% if error_chart %}<script src="{{ asset('vendor/chart.umd.min.js') }}" nonce="{{ csp_nonce() }}" defer></script><script src="{{ asset('js/admin-charts.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endif %}{% endblock %}
 {% block content %}
@@ -34,6 +34,18 @@
     {{ d.table([{label: 'Сеть'}, {label: 'Всего'}, {label: 'Вышло'}, {label: 'Не вышло'}, {label: 'Успешность'}, {label: 'Задержка p50'}, {label: 'Задержка p95'}], empty = publications.platforms is empty, empty_title = 'Публикаций за период не было', empty_text = 'Выберите другой период.', caption = 'Публикации по сетям', body = rows) }}
     </div>
     {% if publications.latency.all is defined %}<p class="mt-2 text-sm text-muted">Задержка — разница между запланированным временем и фактической отправкой. Всего по сервису: p50 {{ publications.latency.all.p50|number_format(1, ',', ' ') }} с, p95 {{ publications.latency.all.p95|number_format(1, ',', ' ') }} с (по {{ publications.latency.all.count }} публикациям).</p>{% endif %}
+</section>
+
+<section class="mt-8" aria-labelledby="video-h"><h2 class="mb-3 text-lg font-semibold" id="video-h">Короткие видео</h2>
+    <div class="grid gap-4 sm:grid-cols-3">
+        {{ a.kpi('Очередь видео', video_queue) }}
+        {{ a.kpi('Квота YouTube', youtube_quota.remaining ~ ' из ' ~ youtube_quota.limit, hint = 'Остаток на текущий день по тихоокеанскому времени; включает запланированные загрузки') }}
+        {{ a.kpi('Обработка сетью p50 / p95', short_video.processing.count ? short_video.processing.p50 ~ ' / ' ~ short_video.processing.p95 ~ ' с' : '—', hint = 'По ' ~ short_video.processing.count ~ ' завершённым роликам') }}
+    </div>
+    <div class="card !p-0 mt-4 overflow-hidden">
+    {% set video_rows %}{% for platform, states in short_video.platforms %}<tr><td>{{ names[platform] ?? platform }}</td><td class="tabular-nums">{{ states.sent ?? 0 }}</td><td class="tabular-nums">{{ states.processing ?? 0 }}</td><td class="tabular-nums">{{ states.failed ?? 0 }}</td><td class="tabular-nums">{{ states.unknown ?? 0 }}</td></tr>{% endfor %}{% endset %}
+    {{ d.table([{label: 'Сеть'}, {label: 'Вышло'}, {label: 'Обрабатывается'}, {label: 'Ошибка'}, {label: 'Исход неизвестен'}], empty = short_video.platforms is empty, empty_title = 'Коротких видео пока нет', caption = 'Видео по сетям', body = video_rows) }}
+    </div>
 </section>
 
 {% if error_chart %}<section class="mt-8">{{ a.chart('chart-errors', error_chart.title, error_chart) }}<p class="mt-2 text-sm text-muted">Если линия сети резко пошла вверх, у неё, скорее всего, сбой. Показаны попытки отправки за последние 48 часов.</p></section>{% endif %}

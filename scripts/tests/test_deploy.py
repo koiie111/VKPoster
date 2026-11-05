@@ -114,7 +114,7 @@ class DeployTest(unittest.TestCase):
             if "up -d" in invocation:
                 self.assertIn("--no-deps", invocation)
                 targets = invocation.split("--no-deps", 1)[1].split()
-                self.assertTrue(set(targets).issubset({"app", "nginx", "worker", "scheduler", "analytics-worker", "analytics-pdf"}))
+                self.assertTrue(set(targets).issubset({"app", "nginx", "worker", "video-worker", "scheduler", "analytics-worker", "analytics-pdf"}))
 
     def test_migration_failure_preserves_running_release(self):
         code, trace, current = self.run_release("migration-fail")

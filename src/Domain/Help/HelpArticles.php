@@ -13,7 +13,7 @@ use App\Kernel\Database\Connection;
 final class HelpArticles
 {
     /** Articles listed first, in this order; the others follow alphabetically. */
-    private const ORDER = ['getting-started', 'connect-telegram', 'connect-vk', 'connect-max', 'schedule-post', 'automation', 'billing', 'troubleshooting'];
+    private const ORDER = ['getting-started', 'connect-telegram', 'connect-vk', 'connect-max', 'connect-tiktok', 'connect-youtube', 'schedule-post', 'schedule-short-video', 'automation', 'billing', 'troubleshooting'];
 
     /** @var array<string, HelpArticle>|null */
     private ?array $articles = null;

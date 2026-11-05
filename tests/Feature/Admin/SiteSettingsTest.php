@@ -11,6 +11,7 @@ use App\Integrations\OAuth\SocialProfile;
 use App\Domain\Auth\Social\SocialStatus;
 use App\Domain\Settings\Settings;
 use App\Domain\Settings\SiteSettings;
+use App\Domain\Settings\ShortVideoLimits;
 use App\Domain\Workspace\WorkspaceService;
 use App\Http\Controllers\Admin\SiteSettingsController;
 use App\Http\Middleware\Maintenance;
@@ -23,6 +24,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * register (open, by invitation code, closed), the lower limit of workspaces, contacts, and the shared cache of the settings.
  */
 #[CoversClass(SiteSettings::class)]
+#[CoversClass(ShortVideoLimits::class)]
 #[CoversClass(SiteSettingsController::class)]
 #[CoversClass(Maintenance::class)]
 #[CoversClass(RegistrationGate::class)]
@@ -41,6 +43,21 @@ final class SiteSettingsTest extends AdminTestCase
         self::assertSame(403, $this->post('/admin/settings', [])->status);
         $this->staff();
         self::assertSame(200, $this->get('/admin/settings')->status);
+    }
+
+    public function testOwnerCanChangeShortVideoLimitsAndInvalidInputChangesNothing(): void
+    {
+        $limits = $this->app->container()->get(ShortVideoLimits::class);
+        self::assertSame([1024, 180], [$limits->maxFileMiB(), $limits->maxDurationSeconds()]);
+        $this->staff(StaffRole::Support);
+        self::assertSame(403, $this->post('/admin/settings/short-video', ['short_video_file_mib' => '512', 'short_video_duration_seconds' => '120'])->status);
+        $this->staff();
+        self::assertSame(302, $this->post('/admin/settings/short-video', ['short_video_file_mib' => '512', 'short_video_duration_seconds' => '120'])->status);
+        self::assertSame([512, 120], [$limits->maxFileMiB(), $limits->maxDurationSeconds()]);
+        $this->post('/admin/settings/short-video', ['short_video_file_mib' => '0', 'short_video_duration_seconds' => '99999']);
+        self::assertSame('512', $this->db->select("SELECT value_json FROM app_settings WHERE name = 'limits.short_video_file_mib'")[0]['value_json']);
+        self::assertStringContainsString('512', $this->get('/admin/settings')->body);
+        self::assertNotSame([], $this->db->select("SELECT id FROM audit_log WHERE action = 'admin.settings_changed' AND subject_id = 'short_video'"));
     }
 
     public function testRiskySwitchesNeedACodeAndAreAudited(): void

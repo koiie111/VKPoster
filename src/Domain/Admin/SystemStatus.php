@@ -66,7 +66,7 @@ final class SystemStatus
     public function checks(): array
     {
         $checks = [];
-        foreach (['worker' => 'Обработчик задач', 'worker:publish' => 'Очередь публикаций', 'worker:default' => 'Общая очередь', 'worker:analytics' => 'Очередь аналитики', 'scheduler' => 'Планировщик'] as $name => $label) {
+        foreach (['worker' => 'Обработчик задач', 'worker:publish' => 'Очередь публикаций', 'worker:video' => 'Очередь видео', 'worker:default' => 'Общая очередь', 'worker:analytics' => 'Очередь аналитики', 'scheduler' => 'Планировщик'] as $name => $label) {
             $at = $this->heartbeat->at($name);
             $age = $at === null ? null : $this->clock->now()->getTimestamp() - $at->getTimestamp();
             $checks[] = [

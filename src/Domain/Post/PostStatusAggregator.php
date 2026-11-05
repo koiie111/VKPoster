@@ -27,7 +27,7 @@ final class PostStatusAggregator
         $busy = false;
         $started = false;
         foreach ($live as $publication) {
-            if ($publication->status === PublicationStatus::Sending) {
+            if (in_array($publication->status, [PublicationStatus::Sending, PublicationStatus::Processing], true)) {
                 $busy = true;
             }
             if ($publication->status === PublicationStatus::Sent) {

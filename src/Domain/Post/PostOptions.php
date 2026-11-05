@@ -27,6 +27,7 @@ final class PostOptions
         public readonly string $firstComment = '',
         /** Kind of post on networks that have several (Instagram: `feed`, `reel`, `story`); empty = chosen from the files. */
         public readonly string $format = '',
+        public readonly ?ShortVideoOptions $shortVideo = null,
     ) {
     }
 
@@ -60,6 +61,7 @@ final class PostOptions
             $minutes !== null && $minutes > 0 ? min($minutes, self::MAX_DELETE_MINUTES) : null,
             mb_substr($comment, 0, 4000),
             is_string($data['format'] ?? null) && in_array($data['format'], self::FORMATS, true) ? $data['format'] : '',
+            is_array($data['short_video'] ?? null) ? ShortVideoOptions::fromArray($data['short_video']) : null,
         );
     }
 
@@ -68,7 +70,7 @@ final class PostOptions
      */
     public function toArray(): array
     {
-        return [
+        $result = [
             'buttons' => $this->buttons,
             'silent' => $this->silent,
             'disable_preview' => $this->disablePreview,
@@ -77,6 +79,11 @@ final class PostOptions
             'first_comment' => $this->firstComment,
             'format' => $this->format,
         ];
+        if ($this->shortVideo !== null) {
+            $result['short_video'] = $this->shortVideo->toArray();
+        }
+
+        return $result;
     }
 
     /**

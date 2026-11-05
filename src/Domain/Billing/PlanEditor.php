@@ -20,6 +20,8 @@ final class PlanEditor
     public const LIMITS = [
         'channels' => 'Каналы',
         'posts_per_month' => 'Постов в месяц',
+        'short_videos_per_month' => 'Коротких видео в месяц',
+        'short_video_file_mib' => 'Размер короткого видео, МиБ',
         'workspaces' => 'Пространства',
         'members' => 'Люди в команде',
         'storage_bytes' => 'Медиатека, МБ',
@@ -31,6 +33,7 @@ final class PlanEditor
     /** Features a plan can switch on. */
     public const FEATURES = [
         'slots' => 'Слоты, повторы, триггеры',
+        'short_video' => 'Короткие видео',
         'crosspost' => 'Кросспостинг и RSS',
         'approvals' => 'Согласование',
         'guest_links' => 'Гостевые ссылки',

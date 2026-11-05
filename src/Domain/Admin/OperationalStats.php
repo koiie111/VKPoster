@@ -21,6 +21,41 @@ final class OperationalStats
     {
     }
 
+    /** @return array{platforms: array<string, array<string, int>>, processing: array{p50: ?float, p95: ?float, count: int}} */
+    public function shortVideo(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $platforms = [];
+        foreach ($this->db->select(
+            "SELECT v.platform,p.status,COUNT(*) AS c FROM publications p
+            JOIN posts post ON post.id=p.post_id AND post.workspace_id=p.workspace_id
+            JOIN post_variants v ON v.id=p.variant_id AND v.workspace_id=p.workspace_id
+            WHERE post.kind='short_video' AND p.due_at>=? AND p.due_at<? GROUP BY v.platform,p.status",
+            [DbTime::format($from), DbTime::format($to)]
+        ) as $row) {
+            $platforms[(string) $row['platform']][(string) $row['status']] = (int) $row['c'];
+        }
+        $durations = [];
+        foreach ($this->db->select(
+            "SELECT TIMESTAMPDIFF(MICROSECOND,MIN(a.finished_at),p.sent_at)/1000000 AS seconds
+            FROM publication_attempts a JOIN publications p ON p.id=a.publication_id
+            JOIN posts post ON post.id=p.post_id AND post.workspace_id=p.workspace_id
+            WHERE post.kind='short_video' AND a.outcome='processing' AND p.status='sent'
+            AND p.sent_at>=? AND p.sent_at<? GROUP BY p.id,p.sent_at ORDER BY p.sent_at DESC LIMIT 20000",
+            [DbTime::format($from), DbTime::format($to)]
+        ) as $row) {
+            if (is_numeric($row['seconds'] ?? null)) {
+                $durations[] = (float) $row['seconds'];
+            }
+        }
+        sort($durations);
+        $count = count($durations);
+        return ['platforms' => $platforms, 'processing' => [
+            'p50' => $count > 0 ? round($durations[(int) floor(($count - 1) * 0.5)], 1) : null,
+            'p95' => $count > 0 ? round($durations[(int) floor(($count - 1) * 0.95)], 1) : null,
+            'count' => $count,
+        ]];
+    }
+
     /**
      * @param DateTimeImmutable $to exclusive end
      * @return array{

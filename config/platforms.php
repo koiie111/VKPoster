@@ -45,6 +45,16 @@ return static fn (Env $env): array => [
         // Instagram lets an account publish about this many posts a day through the API; the editor warns before it is exceeded.
         'posts_per_day' => $env->int('INSTAGRAM_POSTS_PER_DAY', 100),
     ],
+    'tiktok' => [
+        'client_key' => $env->string('TIKTOK_CLIENT_KEY'),
+        'client_secret' => $env->string('TIKTOK_CLIENT_SECRET'),
+        'verified_url_prefix' => $env->string('TIKTOK_VERIFIED_URL_PREFIX'),
+    ],
+    'youtube' => [
+        'client_id' => $env->string('YOUTUBE_CLIENT_ID'),
+        'client_secret' => $env->string('YOUTUBE_CLIENT_SECRET'),
+        'daily_upload_limit' => $env->int('YOUTUBE_DAILY_UPLOAD_LIMIT', 100),
+    ],
     'channels' => [
         // A global ceiling on all channels of a workspace (paused ones included); the plan's own limit counts active channels only.
         'max_per_workspace' => $env->int('CHANNELS_MAX', 1000),

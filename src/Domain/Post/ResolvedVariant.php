@@ -17,6 +17,7 @@ final class ResolvedVariant
         public readonly string $text,
         public readonly array $mediaIds,
         public readonly PostOptions $options,
+        public readonly PostKind $kind = PostKind::Regular,
     ) {
     }
 }

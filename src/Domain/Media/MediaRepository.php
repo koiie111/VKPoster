@@ -26,7 +26,7 @@ final class MediaRepository extends WorkspaceScopedRepository
     }
 
     /**
-     * @param array{uploader_id: ?int, folder_id: ?int, kind: MediaKind, original_name: string, storage_key: string, thumb_key: ?string, mime: string, size: int, width: ?int, height: ?int, duration_ms: ?int, codec: ?string, animated: bool, sha256: string} $data
+     * @param array{uploader_id: ?int, folder_id: ?int, kind: MediaKind, original_name: string, storage_key: string, thumb_key: ?string, mime: string, size: int, width: ?int, height: ?int, duration_ms: ?int, codec: ?string, audio_codec?: ?string, frame_rate?: ?float, animated: bool, sha256: string} $data
      */
     public function insert(WorkspaceContext $context, array $data, string $publicId): Media
     {
@@ -45,6 +45,8 @@ final class MediaRepository extends WorkspaceScopedRepository
             'height' => $data['height'],
             'duration_ms' => $data['duration_ms'],
             'codec' => $data['codec'],
+            'audio_codec' => $data['audio_codec'] ?? null,
+            'frame_rate' => $data['frame_rate'] ?? null,
             'animated' => $data['animated'] ? 1 : 0,
             'sha256' => $data['sha256'],
             'created_at' => DbTime::format($this->clock->now()),
@@ -220,6 +222,8 @@ final class MediaRepository extends WorkspaceScopedRepository
             (string) $row['sha256'],
             $variants,
             DbTime::parse($row['created_at']) ?? new DateTimeImmutable('@0'),
+            is_string($row['audio_codec'] ?? null) ? $row['audio_codec'] : null,
+            is_numeric($row['frame_rate'] ?? null) ? (float) $row['frame_rate'] : null,
         );
     }
 }

@@ -62,6 +62,11 @@ services:
     command: ["php", "bin/console", "queue:work", "--queue=publish,default"]
     restart: unless-stopped
 
+  video-worker:
+    <<: *app
+    command: ["php", "bin/console", "queue:work", "--queue=video"]
+    restart: unless-stopped
+
   scheduler:
     <<: *app
     command: ["php", "bin/console", "schedule:run"]

@@ -15,7 +15,7 @@ final class MediaPresenter
     }
 
     /**
-     * @return array{id: string, name: string, kind: string, kind_label: string, thumb: ?string, url: string, size: string, dimensions: ?string, duration: ?string, animated: bool, mime: string}
+     * @return array{id: string, name: string, kind: string, kind_label: string, thumb: ?string, url: string, size: string, dimensions: ?string, duration: ?string, duration_ms: ?int, animated: bool, mime: string}
      */
     public function present(Media $media): array
     {
@@ -29,6 +29,7 @@ final class MediaPresenter
             'size' => self::size($media->size),
             'dimensions' => $media->width !== null && $media->height !== null ? $media->width . '×' . $media->height : null,
             'duration' => $media->durationMs === null ? null : self::duration($media->durationMs),
+            'duration_ms' => $media->durationMs,
             'animated' => $media->animated,
             'mime' => $media->mime,
         ];

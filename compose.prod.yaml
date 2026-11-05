@@ -88,6 +88,16 @@ services:
       start_period: 30s
       retries: 3
 
+  video-worker:
+    <<: *app
+    command: ["php", "bin/console", "queue:work", "--queue=video"]
+    healthcheck:
+      test: ["CMD", "php", "scripts/runtime-health.php", "worker:video"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
   # Exactly one scheduler: it starts publications, health checks, renewals and clean-ups.
   scheduler:
     <<: *app

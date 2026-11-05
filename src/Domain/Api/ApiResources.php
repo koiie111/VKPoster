@@ -191,7 +191,14 @@ final class ApiResources
             }
             $custom = true;
         }
-        $post = $this->service->saveDraft($who->context, $existing, new PostDraft($text, $media, $options, $custom, $variants));
+        $kind = $base->kind;
+        if (array_key_exists('kind', $body)) {
+            $kind = is_string($body['kind']) ? \App\Domain\Post\PostKind::tryFrom($body['kind']) : null;
+            if ($kind === null) {
+                throw new ApiException(422, 'validation_error', 'Неизвестный тип поста.');
+            }
+        }
+        $post = $this->service->saveDraft($who->context, $existing, new PostDraft($text, $media, $options, $custom, $variants, $kind));
         return $this->present($who, $post);
     }
 
@@ -309,7 +316,7 @@ final class ApiResources
         foreach ($variants as $v) {
             $rows[] = ['channel_id' => $v->channelId === null ? null : ($channels[$v->channelId] ?? null), 'platform' => $v->platform->value, 'text' => $v->text, 'media_ids' => $v->mediaIds, 'options' => $v->options?->toArray()];
         }
-        return ['id' => $post->publicId, 'status' => $post->status->value, 'text' => $post->baseText, 'media_ids' => $post->mediaIds, 'options' => $post->options->toArray(), 'variants' => $rows, 'scheduled_at' => $post->scheduledAt?->format(DATE_ATOM), 'created_at' => $post->createdAt->format(DATE_ATOM), 'updated_at' => $post->updatedAt->format(DATE_ATOM), 'publications' => array_map(static fn (Publication $p): array => ['id' => $p->publicId, 'status' => $p->status->value], $publications)];
+        return ['id' => $post->publicId, 'kind' => $post->kind->value, 'status' => $post->status->value, 'text' => $post->baseText, 'media_ids' => $post->mediaIds, 'options' => $post->options->toArray(), 'variants' => $rows, 'scheduled_at' => $post->scheduledAt?->format(DATE_ATOM), 'created_at' => $post->createdAt->format(DATE_ATOM), 'updated_at' => $post->updatedAt->format(DATE_ATOM), 'publications' => array_map(static fn (Publication $p): array => ['id' => $p->publicId, 'status' => $p->status->value], $publications)];
     }
 
     private function ability(ApiIdentity $who, string $scope, string $permission): void

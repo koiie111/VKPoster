@@ -60,7 +60,7 @@ final class Queue
                 'SELECT id, queue, payload_json, attempts, max_attempts FROM jobs
                  WHERE queue = ? AND available_at <= ? AND (reserved_at IS NULL OR reserved_at < ?)
                  ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED',
-                [$queue, $now->format(self::FORMAT), $now->modify(sprintf('-%d seconds', $this->visibilityTimeout))->format(self::FORMAT)],
+                [$queue, $now->format(self::FORMAT), $now->modify(sprintf('-%d seconds', $queue === 'video' ? 7200 : $this->visibilityTimeout))->format(self::FORMAT)],
             );
             if ($rows === []) {
                 return null;

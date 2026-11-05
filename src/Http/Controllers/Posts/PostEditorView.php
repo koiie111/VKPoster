@@ -88,6 +88,7 @@ final class PostEditorView
             'workspace' => $context,
             'channels' => $cards,
             'text' => $draft->text,
+            'kind' => $draft->kind->value,
             'media' => $tiles($draft->mediaIds),
             'options' => self::optionsView($draft->options),
             'per_network' => $draft->perNetwork,
@@ -175,6 +176,8 @@ final class PostEditorView
                     'disable_preview' => $caps->disablePreview,
                     'format' => $caps->textFormat,
                     'post_format' => $caps->postFormats,
+                    'short_video' => $caps->shortVideo,
+                    'short_video_fields' => $caps->shortVideoFields,
                 ],
                 'selected' => false,
                 'variant' => [],
@@ -221,6 +224,7 @@ final class PostEditorView
             'delete_after_unit' => $unit,
             'first_comment' => $options->firstComment,
             'format' => $options->format,
+            'short_video' => $options->shortVideo?->toArray(),
         ];
     }
 }

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Media;
 
+use App\Domain\Analytics\Analytics;
 use App\Domain\Media\FolderRepository;
+use App\Domain\Media\ChunkedVideoUploads;
+use App\Domain\Media\VideoCovers;
 use App\Domain\Media\MediaException;
 use App\Domain\Media\MediaFetcher;
 use App\Domain\Media\MediaKind;
@@ -13,6 +16,7 @@ use App\Domain\Media\MediaPresenter;
 use App\Domain\Media\MediaRepository;
 use App\Domain\Media\MediaService;
 use App\Domain\Media\PlatformRequirements;
+use App\Domain\Settings\ShortVideoLimits;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Http\FormFlash;
 use App\Http\WorkspaceRequest;
@@ -28,7 +32,7 @@ use App\Kernel\View\View;
  */
 final class MediaController
 {
-    private const PLATFORMS = ['telegram' => 'Telegram', 'vk' => 'ВКонтакте', 'max' => 'MAX', 'instagram' => 'Instagram'];
+    private const PLATFORMS = ['telegram' => 'Telegram', 'vk' => 'ВКонтакте', 'max' => 'MAX', 'instagram' => 'Instagram', 'tiktok' => 'TikTok', 'youtube' => 'YouTube Shorts'];
 
     public function __construct(
         private readonly View $view,
@@ -40,6 +44,10 @@ final class MediaController
         private readonly MediaPresenter $presenter,
         private readonly MediaLimits $limits,
         private readonly PlatformRequirements $requirements,
+        private readonly ChunkedVideoUploads $videoUploads,
+        private readonly ShortVideoLimits $videoLimits,
+        private readonly VideoCovers $videoCovers,
+        private readonly Analytics $analytics,
     ) {
     }
 
@@ -78,6 +86,8 @@ final class MediaController
             ],
             'max_file' => $this->limits->maxFileBytes,
             'max_file_text' => MediaPresenter::size($this->limits->maxFileBytes),
+            'max_video_file' => $this->videoLimits->maxFileBytes(),
+            'max_video_file_text' => MediaPresenter::size($this->videoLimits->maxFileBytes()),
         ]);
     }
 
@@ -161,6 +171,78 @@ final class MediaController
         }
 
         return $this->outcome($request, $context, $items, $errors);
+    }
+
+    public function startVideoUpload(Request $request): Response
+    {
+        $size = WorkspaceRequest::text($request->input('size'));
+        if (!ctype_digit($size) || strlen($size) > 12) {
+            return Response::json(['ok' => false, 'errors' => ['Укажите размер видео.']], 422);
+        }
+        try {
+            $result = $this->videoUploads->start(
+                WorkspaceRequest::context($request),
+                WorkspaceRequest::text($request->input('name')),
+                (int) $size,
+                WorkspaceRequest::text($request->input('sha256')),
+            );
+            return Response::json(['ok' => true] + $result);
+        } catch (MediaException $e) {
+            return Response::json(['ok' => false, 'errors' => [$e->getMessage()]], 422);
+        }
+    }
+
+    public function videoUploadStatus(Request $request): Response
+    {
+        try {
+            return Response::json(['ok' => true] + $this->videoUploads->status(WorkspaceRequest::context($request), $this->param($request, 'uploadId')));
+        } catch (MediaException $e) {
+            return Response::json(['ok' => false, 'errors' => [$e->getMessage()]], 404);
+        }
+    }
+
+    public function appendVideoChunk(Request $request): Response
+    {
+        $offset = WorkspaceRequest::text($request->input('offset'));
+        $file = $request->file('chunk');
+        if (!ctype_digit($offset) || strlen($offset) > 12 || $file === null) {
+            return Response::json(['ok' => false, 'errors' => ['Часть видео не найдена. Повторите отправку.']], 422);
+        }
+        try {
+            return Response::json(['ok' => true] + $this->videoUploads->append(WorkspaceRequest::context($request), $this->param($request, 'uploadId'), (int) $offset, $file));
+        } catch (MediaException $e) {
+            return Response::json(['ok' => false, 'errors' => [$e->getMessage()]], 422);
+        }
+    }
+
+    public function finishVideoUpload(Request $request): Response
+    {
+        $context = WorkspaceRequest::context($request);
+        try {
+            $result = $this->videoUploads->finish($context, $this->param($request, 'uploadId'), WorkspaceRequest::text($request->input('folder')));
+            if (!$result->duplicate) {
+                $this->analytics->track('short_video_uploaded', $context->userId, $context->workspaceId, ['bytes' => $result->media->size], 'short_video_uploaded:' . $result->media->publicId);
+            }
+            return Response::json(['ok' => true, 'items' => [$this->item($result->media, $result->duplicate)], 'errors' => []]);
+        } catch (MediaException $e) {
+            return Response::json(['ok' => false, 'errors' => [$e->getMessage()]], 422);
+        }
+    }
+
+    public function captureVideoCover(Request $request): Response
+    {
+        $context = WorkspaceRequest::context($request);
+        $video = $this->media->find($context, $this->param($request, 'mediaId')) ?? throw new HttpException(404, 'Not found');
+        $raw = WorkspaceRequest::text($request->input('millisecond'));
+        if (!ctype_digit($raw) || strlen($raw) > 9) {
+            return Response::json(['ok' => false, 'errors' => ['Выберите время кадра.']], 422);
+        }
+        try {
+            $result = $this->videoCovers->capture($context, $video, (int) $raw);
+            return Response::json(['ok' => true, 'item' => $this->item($result->media, $result->duplicate)]);
+        } catch (MediaException $error) {
+            return Response::json(['ok' => false, 'errors' => [$error->getMessage()]], 422);
+        }
     }
 
     public function rename(Request $request): Response

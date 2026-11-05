@@ -9,6 +9,7 @@ use App\Domain\Media\MediaService;
 use App\Domain\Post\CalendarRepository;
 use App\Domain\Post\PostDraft;
 use App\Domain\Post\PostException;
+use App\Domain\Post\PostKind;
 use App\Domain\Post\PostOptions;
 use App\Domain\Post\PostService;
 use App\Domain\Post\PostStatus;
@@ -27,6 +28,46 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(PostTemplateRepository::class)]
 final class PostServiceTest extends PostTestCase
 {
+    public function testShortVideoKindPersistsAndRequiresExactlyOneVideo(): void
+    {
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $context = $this->contextFor($workspace, $owner);
+        $channel = $this->fakeChannel($workspace, $owner);
+        $bytes = file_get_contents(__DIR__ . '/../../Fixtures/short-video.mp4');
+        self::assertNotFalse($bytes);
+        $video = $this->app->container()->get(MediaService::class)->upload($context, $this->tempFile($bytes), 'short-video.mp4')->media;
+        $valid = new PostDraft('Короткое видео', [$video->publicId], new PostOptions(), false, [new VariantInput($channel->publicId)], PostKind::ShortVideo);
+        $post = $this->service()->saveDraft($context, null, $valid);
+
+        self::assertSame(PostKind::ShortVideo, $post->kind);
+        self::assertSame(PostKind::ShortVideo, $this->service()->draftOf($context, $post)->kind);
+        self::assertSame(PostKind::ShortVideo, PostTemplateRepository::fromPayload(PostTemplateRepository::toPayload($valid))->kind);
+        $settings = $this->app->container()->get(\App\Domain\Settings\Settings::class);
+        $this->db->execute('UPDATE media SET duration_ms = 2000 WHERE id = ?', [$video->id]);
+        $settings->set('limits.short_video_duration_seconds', 1, null);
+        try {
+            $this->service()->saveDraft($context, $post, $valid);
+            self::fail('The admin limit must be used when validating a video.');
+        } catch (PostException $e) {
+            self::assertStringContainsString('1 секунд', $e->getMessage());
+        } finally {
+            $settings->forget('limits.short_video_duration_seconds');
+            $this->db->execute('UPDATE media SET duration_ms = ? WHERE id = ?', [$video->durationMs, $video->id]);
+        }
+        $planned = $this->service()->schedule($context, $post, $valid, $this->clock->now(), true);
+        self::assertSame(PostStatus::Scheduled, $planned->status);
+        self::assertSame('video', $this->db->select('SELECT queue FROM jobs WHERE payload_json LIKE ?', ['%PublishJob%'])[0]['queue'] ?? null);
+        $this->probe->info = new \App\Domain\Media\VideoInfo(1080, 1920, 3000, 'h264', false);
+        self::assertTrue($this->app->container()->get(\App\Kernel\Queue\Worker::class)->runNext('video', 'test-video'));
+        self::assertSame(PostKind::ShortVideo, $this->fake->requests[0]->kind);
+
+        $picture = $this->libraryPicture($context);
+        $invalid = new PostDraft('Короткое видео', [$picture->publicId], new PostOptions(), false, [], PostKind::ShortVideo);
+        $this->expectException(PostException::class);
+        $this->expectExceptionMessage('ровно один видеофайл');
+        $this->service()->saveDraft($context, $post, $invalid);
+    }
+
     public function testAnAuthorSavesDraftsButCannotPlanOrPublish(): void
     {
         [$owner, $workspace] = $this->ownerWithWorkspace();

@@ -174,6 +174,11 @@ not key material. Verify renewal/revocation and server recovery in19.8.
 egress. Keep Core/internal API direct; VK/MAX may remain direct while Telegram
 reader/publisher use a configured EU proxy/private tunnel. No global server VPN.
 Live exit-IP/connectivity/failure validation is 19.8; no EU VPS has been provisioned.
+For enabled Instagram, TikTok or YouTube publishing, set each
+`EGRESS_<PROVIDER>_MODE=tunnel` and `_PROXY_URL` to the operator-managed private
+endpoint reaching the German exit node. Production startup refuses a direct route
+for any of these enabled platforms. Verify the exit IP and API reachability on the
+synthetic stand before enabling a platform; the repository does not provision the EU node.
 
 ## Stage19A final MySQL / crypto baseline
 
@@ -223,7 +228,7 @@ the app release workflow. Provision its reviewed pins/production.cnf independent
 Application invocation:
 `MIGRATIONS_BACKWARD_COMPATIBLE=true bash scripts/deploy-release.sh VERSION REGISTRY_PREFIX /opt/ezposter/release-images.env`
 requires healthy pre-existing MySQL, Redis and ClamAV. It pulls pinned app artifacts,
-runs forward migration, then starts only app/nginx/worker/scheduler/analytics-worker
+runs forward migration, then starts only app/nginx/worker/video-worker/scheduler/analytics-worker
 (and optional analytics-pdf) with `--no-deps --no-build`. Failed readiness restores
 only previous application images. **Application rollback is not database rollback.**
 

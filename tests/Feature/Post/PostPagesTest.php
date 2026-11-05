@@ -79,6 +79,18 @@ final class PostPagesTest extends PostTestCase
         self::assertSame(200, $this->get($this->base($workspace) . '/calendar')->status, 'a viewer may look at the calendar');
     }
 
+    public function testShortVideoEditorStartsWithOneVideoWorkflowAndNoPrivacyChoice(): void
+    {
+        [, $workspace] = $this->ownerWithChannel();
+        $page = $this->get($this->postsUrl($workspace, '/new?kind=short_video'));
+
+        self::assertSame(200, $page->status, $page->body);
+        self::assertStringContainsString('name="kind" value="short_video"', $page->body);
+        self::assertStringContainsString('name="short_video[privacy]"', $page->body);
+        self::assertStringContainsString('<option value="">Выберите видимость</option>', $page->body);
+        self::assertStringContainsString('data-cap="sv_privacy"', $page->body);
+    }
+
     public function testTheEditorWithoutChannelsPointsToConnectingOne(): void
     {
         [, $workspace] = $this->ownerSession();
@@ -394,9 +406,10 @@ final class PostPagesTest extends PostTestCase
     public function testFormParsingKeepsOnlyWhatIsValid(): void
     {
         $request = \App\Kernel\Http\Request::create('POST', '/x', body: [
-            'text' => "  Привет\r\nмир  ", 'intent' => 'weird', 'per_network' => '1',
+            'text' => "  Привет\r\nмир  ", 'intent' => 'weird', 'per_network' => '1', 'kind' => 'short_video',
             'channels' => ['01ARZ3NDEKTSV4RRFFQ69G5FAV', 'bad id', ['nested']], 'media' => ['01ARZ3NDEKTSV4RRFFQ69G5FAW', '01ARZ3NDEKTSV4RRFFQ69G5FAW', '<script>'],
             'delete_after' => '2', 'delete_after_unit' => 'days', 'silent' => '1',
+            'short_video' => ['title' => 'Заголовок', 'privacy' => 'private', 'made_for_kids' => '0'],
             'v' => ['01ARZ3NDEKTSV4RRFFQ69G5FAV' => ['text_custom' => '1', 'text' => 'свой', 'media_custom' => '0', 'media' => ['01ARZ3NDEKTSV4RRFFQ69G5FAW']]],
         ]);
 
@@ -407,6 +420,9 @@ final class PostPagesTest extends PostTestCase
         self::assertSame(['01ARZ3NDEKTSV4RRFFQ69G5FAW'], $form->draft->mediaIds);
         self::assertSame(2880, $form->draft->options->deleteAfterMinutes);
         self::assertTrue($form->draft->options->silent);
+        self::assertSame(\App\Domain\Post\PostKind::ShortVideo, $form->draft->kind);
+        self::assertNotNull($form->draft->options->shortVideo);
+        self::assertSame('Заголовок', $form->draft->options->shortVideo->title);
         self::assertCount(1, $form->draft->variants);
         self::assertSame('свой', $form->draft->variants[0]->text);
         self::assertNull($form->draft->variants[0]->mediaIds, 'a variant without the switch follows the post');

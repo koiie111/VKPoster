@@ -22,6 +22,7 @@ final class CalendarItem
         public readonly string $title,
         public readonly ?string $authorName,
         public readonly PostStatus $postStatus,
+        public readonly PostKind $kind = PostKind::Regular,
     ) {
     }
 }

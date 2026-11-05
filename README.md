@@ -1,6 +1,6 @@
 # VKPoster
 
-Сервис отложенного постинга в VK, MAX, Telegram и Instagram. Чистый PHP 8.3 (без фреймворков), MySQL 8, Redis, всё запускается в Docker. Интерфейс на русском.
+Сервис отложенного постинга в VK, MAX, Telegram и Instagram, а также коротких видео в TikTok и YouTube Shorts. Чистый PHP 8.3 (без фреймворков), MySQL 8, Redis, всё запускается в Docker. Интерфейс на русском.
 
 Публичный сервис: [ezposter.ru](https://ezposter.ru/). Владелец подтвердил, что сервис уже запущен. Статус этапа 19 относится к работам по усилению безопасности и проверке production-процедур в этом репозитории, а не к факту доступности сервиса.
 
@@ -52,6 +52,10 @@ make check  # cs + stan + test + audit + docs
 - [docs/CHANGELOG.md](docs/CHANGELOG.md)
 
 Разработка ведётся этапами: ветка `stage-NN-slug` → PR → зелёный CI → squash-merge в `main`. В `main` напрямую не коммитим.
+
+### Короткие видео (этап 22)
+
+TikTok, YouTube Shorts и Instagram Reels включаются отдельно через `PLATFORMS_ENABLED`. VK Клипы ждут официального API. Для долгих загрузок работает отдельный `video-worker`; настройки S3, OAuth, egress и квот описаны в [руководстве](docs/architecture/modules/short-video.md) и [инструкции развёртывания](docs/deploy.md). Ключи и живую публикацию проверяет владелец после CI.
 
 ### Real content providers
 

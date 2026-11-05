@@ -4177,6 +4177,22 @@
             "EXTRA": ""
         },
         {
+            "TABLE_NAME": "media",
+            "COLUMN_NAME": "audio_codec",
+            "COLUMN_TYPE": "varchar(40)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "media",
+            "COLUMN_NAME": "frame_rate",
+            "COLUMN_TYPE": "decimal(8,3)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
             "TABLE_NAME": "media_folders",
             "COLUMN_NAME": "id",
             "COLUMN_TYPE": "bigint unsigned",
@@ -5406,6 +5422,14 @@
             "COLUMN_TYPE": "varchar(20)",
             "IS_NULLABLE": "NO",
             "COLUMN_DEFAULT": "draft",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "posts",
+            "COLUMN_NAME": "kind",
+            "COLUMN_TYPE": "varchar(16)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "regular",
             "EXTRA": ""
         },
         {
@@ -9585,6 +9609,150 @@
             "EXTRA": ""
         },
         {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "publication_id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "workspace_id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "platform",
+            "COLUMN_TYPE": "varchar(16)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "remote_id",
+            "COLUMN_TYPE": "varchar(255)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "upload_url_enc",
+            "COLUMN_TYPE": "text",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "confirmed_bytes",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "0",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "phase",
+            "COLUMN_TYPE": "varchar(24)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "poll_after",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "deadline_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "created_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "COLUMN_NAME": "updated_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_days",
+            "COLUMN_NAME": "platform",
+            "COLUMN_TYPE": "varchar(16)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_days",
+            "COLUMN_NAME": "quota_day",
+            "COLUMN_TYPE": "date",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_days",
+            "COLUMN_NAME": "used",
+            "COLUMN_TYPE": "int unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "0",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_reservations",
+            "COLUMN_NAME": "publication_id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_reservations",
+            "COLUMN_NAME": "platform",
+            "COLUMN_TYPE": "varchar(16)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_reservations",
+            "COLUMN_NAME": "quota_day",
+            "COLUMN_TYPE": "date",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_reservations",
+            "COLUMN_NAME": "created_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
             "TABLE_NAME": "watermarks",
             "COLUMN_NAME": "id",
             "COLUMN_TYPE": "bigint unsigned",
@@ -12797,6 +12965,27 @@
         },
         {
             "TABLE_NAME": "posts",
+            "INDEX_NAME": "idx_posts_kind",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "workspace_id"
+        },
+        {
+            "TABLE_NAME": "posts",
+            "INDEX_NAME": "idx_posts_kind",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "kind"
+        },
+        {
+            "TABLE_NAME": "posts",
+            "INDEX_NAME": "idx_posts_kind",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 3,
+            "COLUMN_NAME": "scheduled_at"
+        },
+        {
+            "TABLE_NAME": "posts",
             "INDEX_NAME": "idx_posts_status",
             "NON_UNIQUE": 1,
             "SEQ_IN_INDEX": 1,
@@ -14509,6 +14698,69 @@
             "NON_UNIQUE": 0,
             "SEQ_IN_INDEX": 1,
             "COLUMN_NAME": "email"
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "INDEX_NAME": "fk_video_session_workspace",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "workspace_id"
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "INDEX_NAME": "idx_video_sessions_poll",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "phase"
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "INDEX_NAME": "idx_video_sessions_poll",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "poll_after"
+        },
+        {
+            "TABLE_NAME": "video_provider_sessions",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "publication_id"
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_days",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "platform"
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_days",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "quota_day"
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_reservations",
+            "INDEX_NAME": "idx_video_quota_day",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "platform"
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_reservations",
+            "INDEX_NAME": "idx_video_quota_day",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "quota_day"
+        },
+        {
+            "TABLE_NAME": "video_upload_quota_reservations",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "publication_id"
         },
         {
             "TABLE_NAME": "watermarks",

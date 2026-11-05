@@ -20,6 +20,7 @@ final class PostDraft
         public readonly PostOptions $options,
         public readonly bool $perNetwork,
         public readonly array $variants,
+        public readonly PostKind $kind = PostKind::Regular,
     ) {
     }
 }

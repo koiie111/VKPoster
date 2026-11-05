@@ -16,6 +16,7 @@ use App\Integrations\Social\Contracts\PlatformAdapter;
 use App\Integrations\Social\Contracts\PlatformError;
 use App\Integrations\Social\Contracts\PublishRequest;
 use App\Integrations\Social\Contracts\PublishResult;
+use App\Integrations\Social\Contracts\VideoProcessingAdapter;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -23,7 +24,7 @@ use Psr\Log\LoggerInterface;
  * and tests without any real account. Failures can be scripted with `failNext()`; a channel id that starts with `broken-`
  * fails its health check.
  */
-final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingAdapter, OutcomeVerifier
+final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingAdapter, OutcomeVerifier, VideoProcessingAdapter
 {
     /** @var list<array{channel: string, text: string, media: int, id: string}> */
     public array $published = [];
@@ -52,6 +53,10 @@ final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingA
     /** Posts per channel and day the network "allows" (0 = unlimited); tests of the daily limit set it. */
     public int $dailyLimit = 0;
 
+    /** Test-only simulation of an asynchronous network video processor. */
+    public bool $processingNext = false;
+    public bool $processingDone = false;
+
     private ?PlatformError $nextFailure = null;
 
     private int $counter = 0;
@@ -67,7 +72,24 @@ final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingA
 
     public function capabilities(): Capabilities
     {
-        return new Capabilities(4096, 1024, 10, true, true, true, true, true, true, true, 50 * 1024 * 1024, true, 'html', $this->dailyLimit);
+        return new Capabilities(
+            4096,
+            1024,
+            10,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            50 * 1024 * 1024,
+            true,
+            'html',
+            $this->dailyLimit,
+            shortVideo: true,
+            shortVideoFields: ['title', 'privacy', 'made_for_kids', 'cover_media_id', 'share_to_feed', 'commercial_content', 'music_rights_accepted', 'allow_comments', 'allow_duet', 'allow_stitch']
+        );
     }
 
     public function validate(PublishRequest $request): array
@@ -94,7 +116,14 @@ final class FakeAdapter implements PlatformAdapter, EditableAdapter, CommentingA
             ($this->afterSend)($id);
         }
 
-        return new PublishResult($id, 'https://fake.invalid/' . $externalChannelId . '/' . $id, [$id]);
+        $processing = $this->processingNext;
+        $this->processingNext = false;
+        return new PublishResult($id, 'https://fake.invalid/' . $externalChannelId . '/' . $id, [$id], $processing);
+    }
+
+    public function pollVideo(string $remoteId, string $externalChannelId, Credential $credential): ?PublishResult
+    {
+        return $this->processingDone ? new PublishResult($remoteId, 'https://fake.invalid/' . $externalChannelId . '/' . $remoteId) : null;
     }
 
     public function delete(PublishResult $published, string $externalChannelId, Credential $credential): void

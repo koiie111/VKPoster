@@ -136,6 +136,33 @@ final class Entitlements
         return (int) ($rows[0]['c'] ?? 0);
     }
 
+    /** Planned or published short videos in the workspace's local month. */
+    public function shortVideosInMonth(int $workspaceId, DateTimeImmutable $at): int
+    {
+        [$from, $to] = $this->monthBounds($workspaceId, $at);
+        $marks = implode(',', array_fill(0, count(self::COUNTED_POST_STATUSES), '?'));
+        $rows = $this->db->select(
+            'SELECT COUNT(*) AS c FROM posts WHERE workspace_id=? AND kind=? AND status IN (' . $marks . ') AND scheduled_at>=? AND scheduled_at<?',
+            [$workspaceId, 'short_video', ...self::COUNTED_POST_STATUSES, DbTime::format($from), DbTime::format($to)],
+        );
+
+        return (int) ($rows[0]['c'] ?? 0);
+    }
+
+    /** @throws PlanLimitException when the plan does not allow another short video in this month */
+    public function assertCanPlanShortVideo(int $workspaceId, DateTimeImmutable $at, ?DateTimeImmutable $alreadyPlannedAt = null): void
+    {
+        $this->assertFeature($workspaceId, 'short_video', 'Короткие видео');
+        $limit = $this->limit($workspaceId, 'short_videos_per_month');
+        if ($limit === null || $this->shortVideosInMonth($workspaceId, $at) < $limit) {
+            return;
+        }
+        if ($alreadyPlannedAt !== null && $this->monthKey($workspaceId, $alreadyPlannedAt) === $this->monthKey($workspaceId, $at)) {
+            return;
+        }
+        throw new PlanLimitException('short_videos', 'Лимит коротких видео на этот месяц исчерпан. Выберите другой месяц или тариф с большим лимитом.');
+    }
+
     /**
      * Posts that may still be planned for the month of `$at` (null = unlimited).
      */

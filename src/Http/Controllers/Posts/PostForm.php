@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Posts;
 
 use App\Domain\Post\PostDraft;
+use App\Domain\Post\PostKind;
 use App\Domain\Post\PostOptions;
 use App\Domain\Post\VariantInput;
 use App\Kernel\Http\Request;
@@ -54,7 +55,7 @@ final class PostForm
         $intent = self::string($all['intent'] ?? null);
 
         return new self(
-            new PostDraft(trim(self::string($all['text'] ?? null)), self::ids($all['media'] ?? null), self::options($all), $perNetwork, $variants),
+            new PostDraft(trim(self::string($all['text'] ?? null)), self::ids($all['media'] ?? null), self::options($all), $perNetwork, $variants, PostKind::tryFrom(self::string($all['kind'] ?? null)) ?? PostKind::Regular),
             in_array($intent, ['draft', 'schedule', 'now', 'queue'], true) ? $intent : 'draft',
             self::string($all['publish_date'] ?? null),
             self::string($all['publish_time'] ?? null),
@@ -84,6 +85,7 @@ final class PostForm
             'delete_after_minutes' => $value !== '' && ctype_digit($value) && strlen($value) <= 6 ? (int) $value * $unit : null,
             'first_comment' => self::string($source['first_comment'] ?? null),
             'format' => self::string($source['format'] ?? null),
+            'short_video' => is_array($source['short_video'] ?? null) ? $source['short_video'] : null,
         ]);
     }
 

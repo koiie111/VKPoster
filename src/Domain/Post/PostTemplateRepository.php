@@ -78,6 +78,7 @@ final class PostTemplateRepository extends WorkspaceScopedRepository
     {
         return [
             'text' => $draft->text,
+            'kind' => $draft->kind->value,
             'media' => $draft->mediaIds,
             'options' => $draft->options->toArray(),
             'per_network' => $draft->perNetwork,
@@ -114,6 +115,7 @@ final class PostTemplateRepository extends WorkspaceScopedRepository
             PostOptions::fromArray(is_array($payload['options'] ?? null) ? $payload['options'] : []),
             ($payload['per_network'] ?? false) === true,
             $variants,
+            PostKind::tryFrom(is_string($payload['kind'] ?? null) ? $payload['kind'] : '') ?? PostKind::Regular,
         );
     }
 }

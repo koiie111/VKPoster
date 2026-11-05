@@ -12,6 +12,7 @@ use App\Domain\Media\MediaPresenter;
 use App\Domain\Media\MediaUrls;
 use App\Domain\Media\PlatformRequirements;
 use App\Domain\Media\VariantSpec;
+use App\Domain\Post\PostKind;
 use App\Kernel\Security\Crypto;
 use App\Kernel\Security\Signer;
 use App\Tests\Support\FakeClock;
@@ -77,6 +78,16 @@ final class MediaValueObjectsTest extends TestCase
         $problems = $this->requirements()->problems($odd, 'instagram');
         self::assertCount(1, $problems);
         self::assertStringContainsString('prores', $problems[0]);
+    }
+
+    public function testShortVideoUsesItsOwnDurationSizeAndShapeRules(): void
+    {
+        $vertical = $this->media(MediaKind::Video, 200 * 1024 * 1024, 1080, 1920, 120_000, 'h264');
+        self::assertSame([], $this->requirements()->problems($vertical, 'instagram', false, PostKind::ShortVideo));
+        $horizontal = $this->media(MediaKind::Video, 200 * 1024 * 1024, 1920, 1080, 120_000, 'h264');
+        self::assertStringContainsString('вертикальным', $this->requirements()->problems($horizontal, 'instagram', false, PostKind::ShortVideo)[0]);
+        $long = $this->media(MediaKind::Video, 200 * 1024 * 1024, 1080, 1920, 181_000, 'h264');
+        self::assertSame(['Instagram: видео длиннее 180 секунд.'], $this->requirements()->problems($long, 'instagram', false, PostKind::ShortVideo));
     }
 
     public function testDocumentRules(): void

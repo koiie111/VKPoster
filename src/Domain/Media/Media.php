@@ -35,6 +35,8 @@ final class Media
         public readonly string $sha256,
         public readonly array $variants,
         public readonly DateTimeImmutable $createdAt,
+        public readonly ?string $audioCodec = null,
+        public readonly ?float $frameRate = null,
     ) {
     }
 

@@ -38,7 +38,11 @@
 | `TELEGRAM_LOGIN_BOT_TOKEN` `TELEGRAM_LOGIN_BOT_NAME` | — | Бот для Telegram Login Widget (имя без `@`); нужны оба значения. В BotFather выполните `/setdomain` с публичным доменом |
 | `OAUTH_ORDER` | `vkid,yandex,telegram,google` | Порядок кнопок входа; не перечисленные в списке провайдеры идут в конце |
 | `DEV_OAUTH_FAKE` | `0` | `1` включает встроенного тестового провайдера `/dev/oauth/fake`. Префикс `DEV_`: при `APP_ENV=production` приложение не запустится |
-| `PLATFORMS_ENABLED` | `telegram` | Флаги платформ через запятую (`telegram`, `vk`, `max`, `instagram`); выключенная платформа не видна в интерфейсе. `fake` (тестовая сеть) работает только вне production |
+| `PLATFORMS_ENABLED` | `telegram` | Флаги платформ через запятую (`telegram`, `vk`, `max`, `instagram`, `tiktok`, `youtube`); выключенная платформа не видна в интерфейсе. `fake` (тестовая сеть) работает только вне production |
+| `TIKTOK_CLIENT_KEY` `TIKTOK_CLIENT_SECRET` | — | TikTok Login Kit; адрес возврата `<APP_URL>/channels/connect/tiktok/callback`. Нужны права `user.info.basic`, `video.publish`, `video.list` |
+| `TIKTOK_VERIFIED_URL_PREFIX` | — | Подтверждённый в TikTok публичный HTTPS префикс ссылки на видео; для PULL_FROM_URL требуется `MEDIA_DISK=s3` |
+| `YOUTUBE_CLIENT_ID` `YOUTUBE_CLIENT_SECRET` | — | Отдельный Google OAuth клиент для подключения YouTube; адрес возврата `<APP_URL>/channels/connect/youtube/callback` |
+| `YOUTUBE_DAILY_UPLOAD_LIMIT` | `100` | Лимит загрузок `videos.insert` в проекте за сутки по тихоокеанскому времени; установить по квоте проекта в Google Cloud |
 | `VK_CLIENT_ID` `VK_CLIENT_SECRET` | `VKID_*` | Приложение VK ID для публикации в сообщества (права на стену); адрес возврата `<APP_URL>/channels/connect/vk/callback`. Включается флагом `vk` в `PLATFORMS_ENABLED`. См. [modules/vk.md](modules/vk.md) |
 | `VK_SCOPE` | `wall photos video docs groups` | Права, которые просит подключение VK |
 | `VK_POSTS_PER_DAY` | `50` | Суточный лимит постов одного сообщества для предупреждения при планировании |
@@ -185,7 +189,7 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `ANALYTICS_PDF_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/analytics.php](../../config/analytics.php) |
 | `APP_DEBUG` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php) |
 | `APP_DEPLOYED_AT` | [.env.example](../../.env.example), [config/app.php](../../config/app.php) |
-| `APP_ENV` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php), [config/security.php](../../config/security.php), [config/services.php](../../config/services.php), [scripts/analytics-pdf-key.php](../../scripts/analytics-pdf-key.php) |
+| `APP_ENV` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php), [config/security.php](../../config/security.php), [config/services.php](../../config/services.php), [scripts/analytics-pdf-key.php](../../scripts/analytics-pdf-key.php), [src/Kernel/HttpClient/EgressRoutes.php](../../src/Kernel/HttpClient/EgressRoutes.php) |
 | `APP_IMAGE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `APP_KEY` | [.env.example](../../.env.example), [config/security.php](../../config/security.php), [scripts/analytics-pdf-key.php](../../scripts/analytics-pdf-key.php) |
 | `APP_KEYS` | [.env.example](../../.env.example), [config/security.php](../../config/security.php) |
@@ -204,11 +208,11 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `BACKUP_DB_SOCKET` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
 | `BACKUP_DB_USERNAME` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
 | `BACKUP_DIRECTORY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
-| `BACKUP_KEY_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php) |
+| `BACKUP_KEY_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/BinlogBackup.php](../../src/Kernel/Operations/BinlogBackup.php), [src/Kernel/Operations/MediaBackup.php](../../src/Kernel/Operations/MediaBackup.php) |
 | `BACKUP_KEY_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `BACKUP_MYSQL_GID` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `BACKUP_PROCESS_TIMEOUT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/operations.php](../../config/operations.php) |
-| `BACKUP_RETENTION_DAYS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php) |
+| `BACKUP_RETENTION_DAYS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupService.php](../../src/Kernel/Operations/BackupService.php), [src/Kernel/Operations/MediaBackup.php](../../src/Kernel/Operations/MediaBackup.php) |
 | `BACKUP_S3_BUCKET` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
 | `BACKUP_S3_ENDPOINT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
 | `BACKUP_S3_KEY` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/BackupDestination.php](../../src/Kernel/Operations/BackupDestination.php) |
@@ -255,6 +259,8 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `EGRESS_GLITCHTIP_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_GLITCHTIP_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_IDENTITY_SALT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Config.php](../../src/Kernel/Config.php), [src/Kernel/HttpClient/EgressRoutes.php](../../src/Kernel/HttpClient/EgressRoutes.php) |
+| `EGRESS_INSTAGRAM_MODE` | [.env.example](../../.env.example) |
+| `EGRESS_INSTAGRAM_PROXY_URL` | [.env.example](../../.env.example) |
 | `EGRESS_MAX_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_MAX_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_OPENAI_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
@@ -265,10 +271,14 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `EGRESS_REQUIRED_PROVIDERS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/HttpClient/EgressHealth.php](../../src/Kernel/HttpClient/EgressHealth.php), [src/Kernel/HttpClient/EgressProbe.php](../../src/Kernel/HttpClient/EgressProbe.php), [src/Kernel/HttpClient/EgressRoutes.php](../../src/Kernel/HttpClient/EgressRoutes.php) |
 | `EGRESS_TELEGRAM_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_TELEGRAM_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_TIKTOK_MODE` | [.env.example](../../.env.example) |
+| `EGRESS_TIKTOK_PROXY_URL` | [.env.example](../../.env.example) |
 | `EGRESS_TINEYE_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_TINEYE_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_VK_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_VK_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_YOUTUBE_MODE` | [.env.example](../../.env.example) |
+| `EGRESS_YOUTUBE_PROXY_URL` | [.env.example](../../.env.example) |
 | `GOOGLE_CLIENT_ID` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `GOOGLE_CLIENT_SECRET` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `HTTP_PORT` | [.env.production.example](../../.env.production.example) |
@@ -315,7 +325,7 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `PASSWORD_PEPPER_ID` | [.env.example](../../.env.example), [config/services.php](../../config/services.php) |
 | `PASSWORD_PEPPER_PREVIOUS_FILES` | [.env.example](../../.env.example), [config/services.php](../../config/services.php) |
 | `PDF_IMAGE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
-| `PLATFORMS_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/platforms.php](../../config/platforms.php) |
+| `PLATFORMS_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/platforms.php](../../config/platforms.php), [src/Kernel/HttpClient/EgressRoutes.php](../../src/Kernel/HttpClient/EgressRoutes.php) |
 | `REDIS_DB` | [.env.example](../../.env.example), [config/database.php](../../config/database.php) |
 | `REDIS_HOST` | [.env.example](../../.env.example), [config/database.php](../../config/database.php) |
 | `REDIS_IMAGE` | [.env.production.example](../../.env.production.example) |
@@ -347,7 +357,7 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `STRIPE_WEBHOOK_SECRET` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
 | `SUPPORT_EMAIL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/mail.php](../../config/mail.php) |
 | `TBANK_API_BASE` | [config/billing.php](../../config/billing.php) |
-| `TBANK_CA_FILE` | [config/billing.php](../../config/billing.php) |
+| `TBANK_CA_FILE` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
 | `TBANK_PASSWORD` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
 | `TBANK_TERMINAL_KEY` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
 | `TELEGRAM_BOT_TOKEN` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
@@ -355,6 +365,9 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `TELEGRAM_LOGIN_BOT_NAME` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `TELEGRAM_LOGIN_BOT_TOKEN` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `TELEGRAM_WEBHOOK_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TIKTOK_CLIENT_KEY` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TIKTOK_CLIENT_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TIKTOK_VERIFIED_URL_PREFIX` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
 | `TINEYE_API_KEY` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
 | `TRUSTED_PROXIES` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php) |
 | `VAULT_APP_TOKEN_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
@@ -382,5 +395,8 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `YOOKASSA_SECRET_KEY` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
 | `YOOKASSA_SHOP_ID` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
 | `YOOKASSA_VERIFY_IP` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `YOUTUBE_CLIENT_ID` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `YOUTUBE_CLIENT_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `YOUTUBE_DAILY_UPLOAD_LIMIT` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
 
 <!-- ENV_INVENTORY_END -->

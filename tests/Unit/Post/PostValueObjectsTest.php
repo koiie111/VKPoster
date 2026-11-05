@@ -12,6 +12,7 @@ use App\Domain\Post\PostStatusAggregator;
 use App\Domain\Post\Publication;
 use App\Domain\Post\PublicationStatus;
 use App\Domain\Post\ScheduleTime;
+use App\Domain\Post\ShortVideoOptions;
 use App\Domain\Post\TextFormatter;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -22,12 +23,32 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(PublicationStatus::class)]
 #[CoversClass(PostStatusAggregator::class)]
 #[CoversClass(PostOptions::class)]
+#[CoversClass(ShortVideoOptions::class)]
 #[CoversClass(ScheduleTime::class)]
 #[CoversClass(TextFormatter::class)]
 #[CoversClass(Post::class)]
 #[CoversClass(PostStatus::class)]
 final class PostValueObjectsTest extends TestCase
 {
+    public function testShortVideoChoicesRoundTripWithoutInventingPrivacyOrKidsSetting(): void
+    {
+        $options = PostOptions::fromArray(['short_video' => [
+            'title' => '  Мой ролик  ',
+            'privacy' => 'public',
+            'made_for_kids' => '0',
+            'tags' => ['новости', ' новости ', 'видео'],
+            'cover_media_id' => '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        ]]);
+
+        self::assertNotNull($options->shortVideo);
+        self::assertSame('Мой ролик', $options->shortVideo->title);
+        self::assertSame(false, $options->shortVideo->madeForKids);
+        self::assertSame(['новости', 'видео'], $options->shortVideo->tags);
+        self::assertSame($options->toArray(), PostOptions::fromArray($options->toArray())->toArray());
+        self::assertSame('', ShortVideoOptions::fromArray([])->privacy);
+        self::assertNull(ShortVideoOptions::fromArray([])->madeForKids);
+    }
+
     /**
      * The whole state machine, written out: anything not listed here must be refused.
      */
@@ -35,7 +56,8 @@ final class PostValueObjectsTest extends TestCase
     {
         $allowed = [
             'queued' => ['sending', 'cancelled'],
-            'sending' => ['sent', 'queued', 'failed', 'unknown'],
+            'sending' => ['processing', 'sent', 'queued', 'failed', 'unknown'],
+            'processing' => ['sent', 'failed', 'unknown'],
             'failed' => ['queued'],
             'unknown' => ['queued', 'sent', 'cancelled'],
             'sent' => [],

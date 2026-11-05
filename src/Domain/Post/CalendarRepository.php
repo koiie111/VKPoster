@@ -18,7 +18,7 @@ final class CalendarRepository extends WorkspaceScopedRepository
 {
     /** Calendar filter groups => the publication states they stand for. */
     public const STATE_GROUPS = [
-        'scheduled' => [PublicationStatus::Queued, PublicationStatus::Sending],
+        'scheduled' => [PublicationStatus::Queued, PublicationStatus::Sending, PublicationStatus::Processing],
         'published' => [PublicationStatus::Sent],
         'failed' => [PublicationStatus::Failed, PublicationStatus::Unknown],
     ];
@@ -34,7 +34,7 @@ final class CalendarRepository extends WorkspaceScopedRepository
             return [];
         }
         $sql = 'SELECT p.public_id AS pub_id, p.status AS pub_status, p.due_at, v.channel_name, v.platform, v.text AS variant_text,
-                       po.public_id AS post_id, po.base_text, po.media_ids_json, po.status AS post_status, u.name AS author_name
+                       po.public_id AS post_id, po.base_text, po.media_ids_json, po.status AS post_status, po.kind, u.name AS author_name
                 FROM publications p
                 JOIN posts po ON po.id = p.post_id
                 JOIN post_variants v ON v.id = p.variant_id
@@ -107,6 +107,7 @@ final class CalendarRepository extends WorkspaceScopedRepository
             $title,
             is_string($row['author_name'] ?? null) ? $row['author_name'] : null,
             PostStatus::from((string) $row['post_status']),
+            PostKind::from((string) $row['kind']),
         );
     }
 }

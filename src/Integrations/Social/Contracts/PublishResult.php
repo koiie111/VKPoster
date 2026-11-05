@@ -17,6 +17,8 @@ final class PublishResult
         public readonly string $externalId,
         public readonly ?string $url,
         public readonly array $allIds = [],
+        /** The network accepted the upload but has not completed processing or moderation. */
+        public readonly bool $processing = false,
     ) {
     }
 }

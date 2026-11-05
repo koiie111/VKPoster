@@ -41,7 +41,7 @@ final class PostRepository extends WorkspaceScopedRepository
     /**
      * @param list<string> $mediaIds
      */
-    public function create(WorkspaceContext $context, ?int $authorId, string $text, array $mediaIds, PostOptions $options, bool $perNetwork, PostStatus $status, ?DateTimeImmutable $scheduledAt, string $timezone): Post
+    public function create(WorkspaceContext $context, ?int $authorId, string $text, array $mediaIds, PostOptions $options, bool $perNetwork, PostStatus $status, ?DateTimeImmutable $scheduledAt, string $timezone, PostKind $kind = PostKind::Regular): Post
     {
         $now = DbTime::format($this->clock->now());
         $publicId = (string) new Ulid();
@@ -50,6 +50,7 @@ final class PostRepository extends WorkspaceScopedRepository
             'workspace_id' => $context->workspaceId,
             'author_id' => $authorId,
             'status' => $status->value,
+            'kind' => $kind->value,
             'base_text' => $text,
             'media_ids_json' => json_encode($mediaIds, JSON_THROW_ON_ERROR),
             'options_json' => json_encode($options->toArray(), JSON_THROW_ON_ERROR),
@@ -68,13 +69,14 @@ final class PostRepository extends WorkspaceScopedRepository
      *
      * @param list<string> $mediaIds
      */
-    public function updateContent(WorkspaceContext $context, Post $post, string $text, array $mediaIds, PostOptions $options, bool $perNetwork): void
+    public function updateContent(WorkspaceContext $context, Post $post, string $text, array $mediaIds, PostOptions $options, bool $perNetwork, ?PostKind $kind = null): void
     {
         $this->scoped($context, 'posts')->where('id', '=', $post->id)->update([
             'base_text' => $text,
             'media_ids_json' => json_encode($mediaIds, JSON_THROW_ON_ERROR),
             'options_json' => json_encode($options->toArray(), JSON_THROW_ON_ERROR),
             'per_network' => $perNetwork ? 1 : 0,
+            'kind' => ($kind ?? $post->kind)->value,
             'updated_at' => DbTime::format($this->clock->now()),
         ]);
     }
@@ -237,6 +239,7 @@ final class PostRepository extends WorkspaceScopedRepository
             DbTime::parse($row['published_at'] ?? null),
             DbTime::parse($row['created_at']) ?? new DateTimeImmutable('@0'),
             DbTime::parse($row['updated_at']) ?? new DateTimeImmutable('@0'),
+            PostKind::tryFrom((string) ($row['kind'] ?? 'regular')) ?? PostKind::Regular,
         );
     }
 

@@ -14,6 +14,8 @@ use App\Domain\Channel\ConnectCodes;
 use App\Integrations\Social\Fake\FakeAdapter;
 use App\Integrations\Social\PlatformRegistry;
 use App\Integrations\Social\Instagram\InstagramAdapter;
+use App\Integrations\Social\TikTok\TikTokAdapter;
+use App\Integrations\Social\YouTube\YouTubeAdapter;
 use App\Integrations\Social\Instagram\InstagramApi;
 use App\Integrations\Social\Instagram\InstagramOAuth;
 use App\Integrations\Social\Max\MaxAdapter;
@@ -323,6 +325,7 @@ return static function (Container $c, string $base): void {
         $c->get(Entitlements::class),
         $base . '/storage/tmp',
         $c->get(\App\Kernel\Security\MalwareScanner::class),
+        $c->get(\App\Domain\Settings\ShortVideoLimits::class),
     ));
 
     // Social platforms: one adapter class per network. A new network = one more line in the list below (and its flag in PLATFORMS_ENABLED).
@@ -368,12 +371,34 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Integrations\Social\Instagram\InstagramAccounts::class),
         $c->get(Config::class)->int('platforms.instagram.posts_per_day', 100),
     ));
+    $c->factory(TikTokAdapter::class, static fn (Container $c): TikTokAdapter => new TikTokAdapter(
+        $c->get(\App\Integrations\Social\TikTok\TikTokApi::class),
+        $c->get(\App\Domain\Post\VideoProviderSessions::class),
+        $c->get(Config::class)->string('platforms.tiktok.verified_url_prefix'),
+        $c->get(Config::class)->string('media.disk'),
+    ));
+    $c->factory(\App\Integrations\Social\TikTok\TikTokOAuth::class, static fn (Container $c): \App\Integrations\Social\TikTok\TikTokOAuth => new \App\Integrations\Social\TikTok\TikTokOAuth(
+        $c->get(HttpClientInterface::class),
+        $c->get(Config::class)->string('platforms.tiktok.client_key'),
+        $c->get(Config::class)->string('platforms.tiktok.client_secret'),
+    ));
+    $c->factory(YouTubeAdapter::class, static fn (Container $c): YouTubeAdapter => new YouTubeAdapter(
+        $c->get(\App\Integrations\Social\YouTube\YouTubeApi::class),
+        $c->get(\App\Domain\Post\VideoProviderSessions::class),
+        $c->get(\App\Domain\Post\VideoUploadQuota::class),
+        $c->get(Config::class)->int('platforms.youtube.daily_upload_limit', 100),
+    ));
+    $c->factory(\App\Integrations\Social\YouTube\YouTubeOAuth::class, static fn (Container $c): \App\Integrations\Social\YouTube\YouTubeOAuth => new \App\Integrations\Social\YouTube\YouTubeOAuth(
+        $c->get(HttpClientInterface::class),
+        $c->get(Config::class)->string('platforms.youtube.client_id'),
+        $c->get(Config::class)->string('platforms.youtube.client_secret'),
+    ));
     $c->factory(FakeAdapter::class, static fn (Container $c): FakeAdapter => new FakeAdapter($c->get(LoggerInterface::class)));
     $c->factory(PlatformRegistry::class, static function (Container $c): PlatformRegistry {
         $config = $c->get(Config::class);
 
         return new PlatformRegistry(
-            [$c->get(TelegramAdapter::class), $c->get(VkAdapter::class), $c->get(MaxAdapter::class), $c->get(InstagramAdapter::class), $c->get(FakeAdapter::class)],
+            [$c->get(TelegramAdapter::class), $c->get(VkAdapter::class), $c->get(MaxAdapter::class), $c->get(InstagramAdapter::class), $c->get(TikTokAdapter::class), $c->get(YouTubeAdapter::class), $c->get(FakeAdapter::class)],
             array_values(array_filter(array_map('strval', $config->array('platforms.enabled')), static fn (string $v): bool => $v !== '')),
             !$config->isProduction(),
             // The owner can switch a platform off in the admin area (a kill switch for an outage or a lost key); read on every call.

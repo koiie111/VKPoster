@@ -13,6 +13,8 @@ enum Platform: string
     case Vk = 'vk';
     case Max = 'max';
     case Instagram = 'instagram';
+    case TikTok = 'tiktok';
+    case YouTube = 'youtube';
     case Fake = 'fake';
 
     public function label(): string
@@ -22,6 +24,8 @@ enum Platform: string
             self::Vk => 'ВКонтакте',
             self::Max => 'MAX',
             self::Instagram => 'Instagram',
+            self::TikTok => 'TikTok',
+            self::YouTube => 'YouTube Shorts',
             self::Fake => 'Тестовая сеть',
         };
     }
@@ -34,6 +38,8 @@ enum Platform: string
         return match ($this) {
             self::Telegram => 'tg',
             self::Instagram => 'ig',
+            self::TikTok => 'tiktok',
+            self::YouTube => 'youtube',
             default => $this->value,
         };
     }
@@ -48,6 +54,8 @@ enum Platform: string
             self::Vk => 'share-2',
             self::Max => 'message-circle',
             self::Instagram => 'image',
+            self::TikTok => 'clapperboard',
+            self::YouTube => 'youtube',
             self::Fake => 'zap',
         };
     }

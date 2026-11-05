@@ -11,6 +11,7 @@ final class EgressProbe
 {
     private const ENDPOINTS = ['telegram' => 'https://api.telegram.org/', 'vk' => 'https://api.vk.com/',
         'max' => 'https://platform-api.max.ru/', 'openai' => 'https://api.openai.com/',
+        'instagram' => 'https://graph.instagram.com/', 'tiktok' => 'https://open.tiktokapis.com/', 'youtube' => 'https://youtube.googleapis.com/',
         'tineye' => 'https://api.tineye.com/', 'replicate' => 'https://api.replicate.com/', 'anthropic' => 'https://api.anthropic.com/'];
 
     public function __construct(private readonly HttpClientInterface $http, private readonly Config $config, private readonly EgressRoutes $routes, private readonly EgressHealth $health)

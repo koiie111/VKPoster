@@ -47,7 +47,19 @@ return static function (Env $env): array {
             ],
             'instagram' => [
                 'image_bytes' => 8 * $mb, 'image_ratio' => [0.8, 1.91], 'image_crop' => true, 'video_bytes' => 100 * $mb,
-                'video_seconds' => 90, 'video_codecs' => ['h264'], 'no_documents' => true,
+                'video_seconds' => 90, 'short_video_bytes' => 1024 * $mb, 'short_video_seconds' => 180,
+                'short_video_ratio' => [0.55, 0.80], 'short_video_min_side' => 360,
+                'short_video_fps_max' => 60, 'video_codecs' => ['h264'], 'video_audio_codecs' => ['aac'], 'no_documents' => true,
+            ],
+            'tiktok' => [
+                'short_video_bytes' => 1024 * $mb, 'short_video_seconds' => 180,
+                'short_video_ratio' => [0.55, 0.80], 'short_video_min_side' => 360,
+                'short_video_fps_max' => 60, 'video_codecs' => ['h264'], 'video_audio_codecs' => ['aac'], 'no_documents' => true,
+            ],
+            'youtube' => [
+                'short_video_bytes' => 1024 * $mb, 'short_video_seconds' => 180,
+                'short_video_ratio' => [0.55, 1.0], 'short_video_min_side' => 360,
+                'short_video_fps_max' => 60, 'video_codecs' => ['h264'], 'video_audio_codecs' => ['aac'], 'no_documents' => true,
             ],
         ],
     ];

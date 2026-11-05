@@ -10,6 +10,7 @@ use App\Domain\Billing\PlanLimitException;
 use App\Domain\Channel\Channel;
 use App\Domain\Channel\ChannelCredentials;
 use App\Domain\Channel\ChannelRepository;
+use App\Domain\Settings\ShortVideoLimits;
 use App\Domain\Workspace\ChannelAccessRepository;
 use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
@@ -56,6 +57,9 @@ final class PostService
         private readonly Entitlements $entitlements,
         private readonly \App\Domain\Content\Publishing\ContentOriginGuard $origin,
         private readonly \App\Domain\Approval\ApprovalWorkflow $approvals,
+        private readonly ShortVideoLimits $shortVideoLimits,
+        private readonly VideoUploadQuota $videoQuota,
+        private readonly \App\Kernel\Config $config,
     ) {
     }
 
@@ -158,6 +162,9 @@ final class PostService
         $this->assertContent($context, $draft);
         $this->assertAllValid($context, $draft, $channels);
         $this->assertDailyLimits($context, $channels, $at, $existing?->id);
+        if ($draft->kind === PostKind::ShortVideo) {
+            $this->assertShortVideoRoom($context, $at, $existing);
+        }
         if ($existing !== null) {
             $this->assertEditable($context, $existing);
         }
@@ -177,7 +184,7 @@ final class PostService
 
             return $post;
         });
-        $this->dispatchNow($created, $now);
+        $this->dispatchNow($created, $now, $draft->kind);
         $this->audit->record($now ? 'post.publish_now' : 'post.scheduled', $context->userId, 'post', $post->publicId, ['title' => $post->title(60), 'at' => DbTime::format($at)], $context->workspaceId);
 
         return $this->posts->find($context, $post->publicId) ?? $post;
@@ -216,6 +223,9 @@ final class PostService
             throw new PostException('Пост нельзя перенести: ' . $this->firstProblem($problems), $problems);
         }
         $this->assertDailyLimits($context, array_values(array_filter(array_map(fn (PostVariant $v): ?Channel => $v->channelId === null ? null : $this->channelById($context, $v->channelId), $variants))), $at, $post->id);
+        if ($post->kind === PostKind::ShortVideo) {
+            $this->assertShortVideoRoom($context, $at, $post);
+        }
         $this->assertPlanRoom($context, $at, $post);
         $this->db->transaction(function () use ($context, $post, $at): void {
             if ($this->posts->lock($context, $post) === null) {
@@ -248,7 +258,7 @@ final class PostService
         $this->db->transaction(function () use ($context, $post): void {
             $this->posts->lock($context, $post);
             foreach ($this->publications->forPost($context, $post) as $publication) {
-                if ($publication->status === PublicationStatus::Sending) {
+                if (in_array($publication->status, [PublicationStatus::Sending, PublicationStatus::Processing], true)) {
                     throw new PostException('Пост уже публикуется, отменить его нельзя.');
                 }
                 if ($publication->status === PublicationStatus::Queued) {
@@ -282,7 +292,7 @@ final class PostService
         }
         $this->origin->assertCurrent($post);
         $copy = $this->db->transaction(function () use ($context, $post, $variants): Post {
-            $copy = $this->saveDraft($context, null, new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants));
+            $copy = $this->saveDraft($context, null, new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants, $post->kind));
             $this->origin->copy($post, $copy);
             return $copy;
         });
@@ -304,7 +314,7 @@ final class PostService
         $this->db->transaction(function () use ($context, $post): void {
             $this->posts->lock($context, $post);
             foreach ($this->publications->forPost($context, $post) as $publication) {
-                if (in_array($publication->status, [PublicationStatus::Sending, PublicationStatus::Sent, PublicationStatus::Unknown], true)) {
+                if (in_array($publication->status, [PublicationStatus::Sending, PublicationStatus::Processing, PublicationStatus::Sent, PublicationStatus::Unknown], true)) {
                     throw new PostException('Этот пост уже опубликован или публикуется, поэтому он остаётся в истории. Его можно удалить из соцсетей.');
                 }
             }
@@ -326,7 +336,7 @@ final class PostService
             }
         }
 
-        return new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants);
+        return new PostDraft($post->baseText, $post->mediaIds, $post->options, $post->perNetwork, $variants, $post->kind);
     }
 
     /**
@@ -415,7 +425,7 @@ final class PostService
             throw new PostException('Состояние публикации уже изменилось. Обновите страницу.');
         }
         $this->system->syncPostStatus($publication->postId);
-        $this->queue->dispatch(new PublishJob($publication->id), 0, PublishJob::QUEUE);
+        $this->queue->dispatch(new PublishJob($publication->id), 0, $loaded !== null && $loaded['post']->kind === PostKind::ShortVideo ? PublishJob::VIDEO_QUEUE : PublishJob::QUEUE);
         $this->system->markEnqueued([$publication->id]);
         $this->audit->record('post.retried', $context->userId, 'publication', $publication->publicId, [], $context->workspaceId);
     }
@@ -530,7 +540,7 @@ final class PostService
         $before = null;
         $beforeStatus = PostStatus::Draft;
         if ($existing === null) {
-            $post = $this->posts->create($context, $context->userId, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork, $status, $at, $context->timezone);
+            $post = $this->posts->create($context, $context->userId, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork, $status, $at, $context->timezone, $draft->kind);
         } else {
             $post = $this->posts->lock($context, $existing) ?? throw new PostException('Пост не найден.');
             $this->assertEditable($context, $post);
@@ -543,7 +553,7 @@ final class PostService
             }
             $before = $this->approvals->revision($context, $post);
             $beforeStatus = $post->status;
-            $this->posts->updateContent($context, $post, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork);
+            $this->posts->updateContent($context, $post, $draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork, $draft->kind);
             $this->posts->setSchedule($context, $post, $status, $at, $context->timezone);
         }
         $this->syncVariants($context, $post, $draft, $channels);
@@ -589,7 +599,7 @@ final class PostService
                 continue;
             }
             $latest = $this->publications->latestFor($context, $variant);
-            if ($latest !== null && in_array($latest->status, [PublicationStatus::Sending, PublicationStatus::Sent, PublicationStatus::Unknown], true)) {
+            if ($latest !== null && in_array($latest->status, [PublicationStatus::Sending, PublicationStatus::Processing, PublicationStatus::Sent, PublicationStatus::Unknown], true)) {
                 throw new PostException('Канал «' . $variant->channelName . '» нельзя убрать из поста: в него уже отправлено или отправляется.');
             }
             $this->posts->deleteVariant($context, $variant);
@@ -611,7 +621,7 @@ final class PostService
             } elseif ($latest->status === PublicationStatus::Queued) {
                 $this->publications->reschedule($context, $latest, $at);
                 $queued[] = $this->publications->find($context, $latest->publicId) ?? $latest;
-            } elseif ($latest->status === PublicationStatus::Sending) {
+            } elseif (in_array($latest->status, [PublicationStatus::Sending, PublicationStatus::Processing], true)) {
                 throw new PostException('Пост уже публикуется, изменить его сейчас нельзя.');
             } elseif ($latest->status === PublicationStatus::Unknown) {
                 throw new PostException('В «' . $variant->channelName . '» мы не уверены, вышел ли пост. Откройте пост, проверьте канал и отметьте результат, потом планируйте заново.');
@@ -627,7 +637,7 @@ final class PostService
     private function withdrawPlan(WorkspaceContext $context, Post $post): void
     {
         foreach ($this->publications->forPost($context, $post) as $publication) {
-            if ($publication->status === PublicationStatus::Sending) {
+            if (in_array($publication->status, [PublicationStatus::Sending, PublicationStatus::Processing], true)) {
                 throw new PostException('Пост уже публикуется, вернуть его в черновики нельзя.');
             }
             if ($publication->status === PublicationStatus::Queued) {
@@ -640,14 +650,14 @@ final class PostService
     /**
      * @param list<Publication> $publications
      */
-    private function dispatchNow(array $publications, bool $now): void
+    private function dispatchNow(array $publications, bool $now, PostKind $kind): void
     {
         if (!$now) {
             return; // the scheduler creates the jobs shortly before the planned time
         }
         $ids = [];
         foreach ($publications as $publication) {
-            $this->queue->dispatch(new PublishJob($publication->id), 0, PublishJob::QUEUE);
+            $this->queue->dispatch(new PublishJob($publication->id), 0, $kind === PostKind::ShortVideo ? PublishJob::VIDEO_QUEUE : PublishJob::QUEUE);
             $ids[] = $publication->id;
         }
         $this->system->markEnqueued($ids);
@@ -690,7 +700,33 @@ final class PostService
         if (count($draft->mediaIds) > self::MAX_MEDIA) {
             throw new PostException('К посту можно прикрепить не больше ' . self::MAX_MEDIA . ' файлов.');
         }
-        $this->builder->mediaFor($context, array_values(array_unique($ids)));
+        $media = $this->builder->mediaFor($context, array_values(array_unique($ids)));
+        if ($draft->kind === PostKind::ShortVideo) {
+            $byId = [];
+            foreach ($media as $item) {
+                $byId[$item->publicId] = $item;
+            }
+            $selections = [$draft->mediaIds];
+            foreach ($draft->variants as $variant) {
+                $selections[] = $variant->mediaIds ?? $draft->mediaIds;
+            }
+            foreach ($selections as $selection) {
+                if (count($selection) !== 1 || ($byId[$selection[0]]->kind ?? null) !== \App\Domain\Media\MediaKind::Video) {
+                    throw new PostException('Для короткого видео выберите ровно один видеофайл.');
+                }
+                if ($selection !== $draft->mediaIds) {
+                    throw new PostException('Для всех сетей короткого видео используйте один исходный видеофайл.');
+                }
+                $video = $byId[$selection[0]];
+                $planMiB = $this->entitlements->limit($context->workspaceId, 'short_video_file_mib');
+                if ($planMiB !== null && $video->size > $planMiB * 1024 * 1024) {
+                    throw new PostException('Это ограничение тарифа: выбранное видео слишком большое. Выберите файл поменьше или тариф с большим лимитом.');
+                }
+                if ($video->size > $this->shortVideoLimits->maxFileBytes() || $video->durationMs === null || $video->durationMs > $this->shortVideoLimits->maxDurationMs()) {
+                    throw new PostException(sprintf('Короткое видео должно быть не больше %d МиБ и не длиннее %d секунд.', $this->shortVideoLimits->maxFileMiB(), $this->shortVideoLimits->maxDurationSeconds()));
+                }
+            }
+        }
     }
 
     /**
@@ -709,6 +745,17 @@ final class PostService
         }
     }
 
+    /** @throws PostException */
+    private function assertShortVideoRoom(WorkspaceContext $context, DateTimeImmutable $at, ?Post $existing): void
+    {
+        $counted = $existing !== null && $existing->kind === PostKind::ShortVideo && Entitlements::countsTowardMonthlyLimit($existing->status->value) ? $existing->scheduledAt : null;
+        try {
+            $this->entitlements->assertCanPlanShortVideo($context->workspaceId, $at, $counted);
+        } catch (PlanLimitException $e) {
+            throw new PostException($e->getMessage(), planLimit: true);
+        }
+    }
+
     /**
      * Networks cap how many posts a channel may publish a day (VK: about 50). Planning past the cap would fail on the day, so it is refused now,
      * counting the posts already planned for the same calendar day (in the workspace's time zone).
@@ -722,8 +769,14 @@ final class PostService
         $start = $at->setTimezone($zone)->setTime(0, 0);
         $end = $start->modify('+1 day');
         $problems = [];
+        $youtubeRequested = 0;
         foreach ($channels as $channel) {
             if (!$this->registry->isEnabled($channel->platform)) {
+                continue;
+            }
+            if ($channel->platform === \App\Integrations\Social\Contracts\Platform::YouTube
+                && $this->videoQuota->remainingYouTube($at, $this->config->int('platforms.youtube.daily_upload_limit', 100), $exceptPostId) < ++$youtubeRequested) {
+                $problems[$channel->publicId] = ['Квота загрузок YouTube на этот день исчерпана. Выберите другой день.'];
                 continue;
             }
             $limit = $this->registry->adapter($channel->platform)->capabilities()->maxPostsPerDay;
@@ -767,7 +820,7 @@ final class PostService
             $input = $inputs[strtoupper($channel->publicId)] ?? null;
             $custom = $draft->perNetwork && $input !== null;
             $variant = new PostVariant(0, 0, $channel->id, $channel->platform, $channel->displayName(), $custom ? $input->text : null, $custom ? $input->mediaIds : null, $custom ? $input->options : null);
-            $resolved = new ResolvedVariant($variant, $variant->text ?? $draft->text, $variant->mediaIds ?? $draft->mediaIds, $variant->options ?? $draft->options);
+            $resolved = new ResolvedVariant($variant, $variant->text ?? $draft->text, $variant->mediaIds ?? $draft->mediaIds, $variant->options ?? $draft->options, $draft->kind);
             $found = $this->validator->problems($context, $resolved, $channel, true);
             if ($found !== []) {
                 $problems[$channel->publicId] = $found;

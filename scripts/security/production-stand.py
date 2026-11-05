@@ -28,6 +28,12 @@ def verify_image_rollback(command, folder, project, app_image):
     ).strip()
     if not image_id.startswith("sha256:") or len(image_id) != 71:
         raise RuntimeError("Unexpected immutable local image ID")
+    image_platform = subprocess.check_output(
+        ["docker", "image", "inspect", app_image, "--format", "{{.Os}}/{{.Architecture}}"],
+        text=True,
+    ).strip()
+    if image_platform not in ("linux/amd64", "linux/arm64"):
+        raise RuntimeError("Unexpected fixture image platform")
     if re.fullmatch(r"[A-Za-z0-9_./:@-]+", app_image) is None:
         raise RuntimeError("Invalid fixture image reference")
     bad_tag = project + "-unready:fixture"
@@ -42,7 +48,7 @@ def verify_image_rollback(command, folder, project, app_image):
     )
     try:
         run(
-            ["docker", "build", "--pull=false", "-t", bad_tag, str(build)],
+            ["docker", "build", "--platform", image_platform, "--pull=false", "-t", bad_tag, str(build)],
             stdout=subprocess.DEVNULL,
         )
         run(command + ["-f", str(broken), "up", "-d", "--no-build", "--no-deps", "app"])
@@ -291,6 +297,7 @@ def verify(crypto):
                     "app",
                     "nginx",
                     "worker",
+                    "video-worker",
                     "analytics-worker",
                     "scheduler",
                     "edge",

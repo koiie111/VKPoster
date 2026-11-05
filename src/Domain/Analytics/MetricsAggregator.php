@@ -195,6 +195,11 @@ final class MetricsAggregator
         ) as $row) {
             $add($row['status'] === 'sent' ? 'pubs_sent' : 'pubs_failed', (string) $row['platform'], (int) $row['c']);
         }
+        foreach ($this->db->select("SELECT name, COALESCE(JSON_UNQUOTE(JSON_EXTRACT(props_json, '$.platform')), '') AS platform, COUNT(*) AS c
+            FROM analytics_events WHERE name IN ('short_video_uploaded','short_video_published','short_video_failed')
+            AND occurred_at>=? AND occurred_at<? GROUP BY name,platform", [$from, $to]) as $row) {
+            $add((string) $row['name'], (string) $row['platform'], (int) $row['c']);
+        }
 
         $this->db->transaction(function (Connection $db) use ($date, $rows): void {
             $db->execute('DELETE FROM metrics_daily WHERE day = ?', [$date]);
