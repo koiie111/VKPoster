@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d6
 WORKDIR /opt/analytics-pdf
 COPY package.json package-lock.json ./
 RUN apt-get update \
-    && apt-get install -y --only-upgrade libbrotli1 \
+    && apt-get install -y --only-upgrade apt libapt-pkg6.0t64 libbrotli1 \
     && npm ci --omit=dev --no-audit --no-fund \
     && apt-get purge -y gstreamer1.0-plugins-bad libgstreamer-plugins-bad1.0-0 \
     && rm -rf /usr/lib/node_modules/npm /usr/bin/npm /usr/bin/npx \
