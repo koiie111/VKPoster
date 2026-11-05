@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+- Этап 19 закрыт по указанию владельца; неподтверждённые production-проверки 19.8 ведутся отдельно. Следующий этап — 22.
+- `symfony/filesystem` обновлён до исправленной версии 7.4 для GHSA-6prc-h956-hxjq.
 - `symfony/mime` обновлён до 7.4.22, закрывающей CVE-2026-45070; `symfony/polyfill-mbstring` обновлён до 1.43.3 как зависимость.
 - В README, руководстве по деплою, runbook и журнале прогресса уточнён статус: публичный сервис уже работает на ezposter.ru; для этапа 19 перечислены оставшиеся production-проверки владельца.
 - Production images refresh Alpine `curl`/`libcurl`, Oracle Linux `libbrotli`, Ubuntu `libbrotli1` in the PDF runtime, and Telegram Reader `pyasn1` 0.6.5; Caddy and OpenBao build with an in-tree security backport for `go-jose/v3` and `go-jose/v4` 4.1.7.
