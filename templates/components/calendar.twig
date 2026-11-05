@@ -2,7 +2,7 @@
     A real calendar (the page) sets `data-day` on the cells and `data-post-id` + draggable on movable items: `calendar.js` turns that into drag and drop. -#}
 
 {% macro item(it, href = null) -%}
-<li><a class="plat plat-{{ it.platform }} flex min-h-7 items-center gap-1.5 truncate rounded-sm border border-line bg-surface px-2 py-1 text-xs font-medium shadow-card hover:bg-sunken{{ (it.failed is defined and it.failed) or it.status == 'failed' ? ' !border-bad text-bad-fg' : '' }}" href="{{ href ?? it.href ?? '#' }}"{% if it.label is defined %} title="{{ it.label }}"{% endif %}{% if it.draggable is defined and it.draggable %} draggable="true" data-post-id="{{ it.post_id }}"{% endif %}><span class="shrink-0 tabular-nums">{{ it.time }}</span><span class="truncate">{{ it.title }}</span></a></li>
+<li><a class="plat plat-{{ it.platform }} flex min-h-7 items-center gap-1.5 truncate rounded-sm border border-line bg-surface px-2 py-1 text-xs font-medium shadow-card hover:bg-sunken{{ (it.failed is defined and it.failed) or it.status == 'failed' ? ' !border-bad text-bad-fg' : '' }}" href="{{ href ?? it.href ?? '#' }}"{% if it.label is defined %} title="{{ it.label }}"{% endif %}{% if it.draggable is defined and it.draggable %} draggable="true" data-post-id="{{ it.post_id }}"{% endif %}><span class="shrink-0 tabular-nums">{{ it.time }}</span>{% if it.kind ?? '' == 'short_video' %}<span aria-label="Короткое видео" title="Короткое видео">{{ icon('video', 'h-3 w-3') }}</span>{% endif %}<span class="truncate">{{ it.title }}</span></a></li>
 {%- endmacro %}
 
 {#- days: list of {label, num, today?, items}. Seven columns from md, a stacked list below. -#}
@@ -61,7 +61,7 @@
             <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 {{ not loop.first ? 'border-t border-line' : '' }}">
                 <span class="w-12 shrink-0 text-sm tabular-nums text-muted">{{ it.time }}</span>
                 {{ d.platform_badge(it.platform, (it.channel is defined and it.channel) ? it.channel : null) }}
-                <a class="min-w-0 flex-1 truncate font-medium hover:underline" href="{{ it.href ?? '#' }}">{{ it.title }}</a>
+                <a class="min-w-0 flex-1 truncate font-medium hover:underline" href="{{ it.href ?? '#' }}">{% if it.kind ?? '' == 'short_video' %}{{ icon('video', 'mr-1 inline h-4 w-4') }}{% endif %}{{ it.title }}</a>
                 {{ d.status_badge(it.status) }}
             </li>
             {% endfor %}

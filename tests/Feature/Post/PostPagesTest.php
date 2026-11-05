@@ -79,6 +79,18 @@ final class PostPagesTest extends PostTestCase
         self::assertSame(200, $this->get($this->base($workspace) . '/calendar')->status, 'a viewer may look at the calendar');
     }
 
+    public function testShortVideoEditorStartsWithOneVideoWorkflowAndNoPrivacyChoice(): void
+    {
+        [, $workspace] = $this->ownerWithChannel();
+        $page = $this->get($this->postsUrl($workspace, '/new?kind=short_video'));
+
+        self::assertSame(200, $page->status, $page->body);
+        self::assertStringContainsString('name="kind" value="short_video"', $page->body);
+        self::assertStringContainsString('name="short_video[privacy]"', $page->body);
+        self::assertStringContainsString('<option value="">Выберите видимость</option>', $page->body);
+        self::assertStringContainsString('data-cap="sv_privacy"', $page->body);
+    }
+
     public function testTheEditorWithoutChannelsPointsToConnectingOne(): void
     {
         [, $workspace] = $this->ownerSession();

@@ -29,6 +29,8 @@ use App\Http\Controllers\Dev\DevLoginController;
 use App\Http\Controllers\Dev\DevUiController;
 use App\Http\Controllers\Channels\ChannelController;
 use App\Http\Controllers\Channels\InstagramConnectController;
+use App\Http\Controllers\Channels\TikTokConnectController;
+use App\Http\Controllers\Channels\YouTubeConnectController;
 use App\Http\Controllers\Channels\MaxConnectController;
 use App\Http\Controllers\Channels\VkConnectController;
 use App\Http\Controllers\Sources\SourceController;
@@ -235,6 +237,8 @@ return static function (Router $router): void {
         // VK ID sends the browser back here (a fixed address registered in the VK application); the controller checks the workspace and the right.
         $r->get('/channels/connect/vk/callback', [VkConnectController::class, 'callback'])->middleware([RateLimit::class, ['bucket' => 'vk-callback', 'max' => 30, 'seconds' => 600]]);
         $r->get('/channels/connect/instagram/callback', [InstagramConnectController::class, 'callback'])->middleware([RateLimit::class, ['bucket' => 'instagram-callback', 'max' => 30, 'seconds' => 600]]);
+        $r->get('/channels/connect/tiktok/callback', [TikTokConnectController::class, 'callback'])->middleware([RateLimit::class, ['bucket' => 'tiktok-callback', 'max' => 30, 'seconds' => 600]]);
+        $r->get('/channels/connect/youtube/callback', [YouTubeConnectController::class, 'callback'])->middleware([RateLimit::class, ['bucket' => 'youtube-callback', 'max' => 30, 'seconds' => 600]]);
         $r->post('/workspaces', [WorkspaceController::class, 'store'])->middleware([RateLimit::class, ['bucket' => 'workspace-create', 'max' => 10, 'seconds' => 3600]]);
         $r->post('/invitations/' . $token . '/accept', [InvitationController::class, 'accept'])->middleware([RateLimit::class, ['bucket' => 'invitation-accept', 'max' => 20, 'seconds' => 3600]]);
 
@@ -304,9 +308,14 @@ return static function (Router $router): void {
                 $m->get('/media', [MediaController::class, 'index'])->name('workspace.media');
                 $m->get('/media/{mediaId:' . $ulid . '}', [MediaController::class, 'show'])->name('workspace.media.show');
             });
-            $w->group('', [[Authorize::class, ['permission' => 'media.upload']]], static function (Router $m): void {
+            $w->group('', [[Authorize::class, ['permission' => 'media.upload']]], static function (Router $m) use ($ulid): void {
                 $m->post('/media/upload', [MediaController::class, 'upload'])->middleware([RateLimit::class, ['bucket' => 'media-upload', 'max' => 300, 'seconds' => 600]]);
                 $m->post('/media/upload-url', [MediaController::class, 'uploadUrl'])->middleware([RateLimit::class, ['bucket' => 'media-url', 'max' => 30, 'seconds' => 600]]);
+                $m->post('/media/video-uploads', [MediaController::class, 'startVideoUpload'])->middleware([RateLimit::class, ['bucket' => 'video-upload-start', 'max' => 30, 'seconds' => 3600]]);
+                $m->get('/media/video-uploads/{uploadId:' . $ulid . '}', [MediaController::class, 'videoUploadStatus']);
+                $m->post('/media/video-uploads/{uploadId:' . $ulid . '}/chunks', [MediaController::class, 'appendVideoChunk'])->middleware([RateLimit::class, ['bucket' => 'video-upload-chunk', 'max' => 600, 'seconds' => 3600]]);
+                $m->post('/media/video-uploads/{uploadId:' . $ulid . '}/finish', [MediaController::class, 'finishVideoUpload'])->middleware([RateLimit::class, ['bucket' => 'video-upload-finish', 'max' => 30, 'seconds' => 3600]]);
+                $m->post('/media/{mediaId:' . $ulid . '}/cover', [MediaController::class, 'captureVideoCover'])->middleware([RateLimit::class, ['bucket' => 'video-cover', 'max' => 20, 'seconds' => 3600]]);
             });
             $w->group('', [[Authorize::class, ['permission' => 'media.manage']]], static function (Router $m) use ($ulid): void {
                 $item = '/media/{mediaId:' . $ulid . '}';
@@ -374,6 +383,10 @@ return static function (Router $router): void {
                 $c->post('/connect/vk/choose', [VkConnectController::class, 'connect'])->middleware([RateLimit::class, ['bucket' => 'vk-choose', 'max' => 30, 'seconds' => 3600]]);
                 $c->get('/connect/instagram', [InstagramConnectController::class, 'show']);
                 $c->get('/connect/instagram/start', [InstagramConnectController::class, 'start'])->middleware([RateLimit::class, ['bucket' => 'instagram-connect', 'max' => 30, 'seconds' => 3600]]);
+                $c->get('/connect/tiktok', [TikTokConnectController::class, 'show']);
+                $c->get('/connect/tiktok/start', [TikTokConnectController::class, 'start'])->middleware([RateLimit::class, ['bucket' => 'tiktok-connect', 'max' => 30, 'seconds' => 3600]]);
+                $c->get('/connect/youtube', [YouTubeConnectController::class, 'show']);
+                $c->get('/connect/youtube/start', [YouTubeConnectController::class, 'start'])->middleware([RateLimit::class, ['bucket' => 'youtube-connect', 'max' => 30, 'seconds' => 3600]]);
                 $c->get('/connect/telegram', [ChannelController::class, 'connectTelegram']);
                 $c->post('/connect/telegram/code', [ChannelController::class, 'issueCode'])->middleware([RateLimit::class, ['bucket' => 'channel-code', 'max' => 20, 'seconds' => 3600]]);
                 $c->get('/connect/telegram/status/{codeId:' . $ulid . '}', [ChannelController::class, 'codeStatus'])->middleware([RateLimit::class, ['bucket' => 'channel-code-status', 'max' => 600, 'seconds' => 600]]);

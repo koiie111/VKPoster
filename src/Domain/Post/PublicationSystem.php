@@ -81,9 +81,9 @@ final class PublicationSystem
     /**
      * @param list<string> $allIds
      */
-    public function markSent(Publication $publication, string $externalId, ?string $url, array $allIds, ?DateTimeImmutable $deleteAt): bool
+    public function markSent(Publication $publication, string $externalId, ?string $url, array $allIds, ?DateTimeImmutable $deleteAt, PublicationStatus $from = PublicationStatus::Sending): bool
     {
-        return $this->move($publication->id, PublicationStatus::Sending, PublicationStatus::Sent, [
+        return $this->move($publication->id, $from, PublicationStatus::Sent, [
             'external_post_id' => $externalId,
             'external_ids_json' => json_encode($allIds === [] ? [$externalId] : $allIds, JSON_THROW_ON_ERROR),
             'external_url' => $url,
@@ -95,9 +95,9 @@ final class PublicationSystem
         ]);
     }
 
-    public function markFailed(Publication $publication, string $code, string $message, string $detail): bool
+    public function markFailed(Publication $publication, string $code, string $message, string $detail, PublicationStatus $from = PublicationStatus::Sending): bool
     {
-        return $this->move($publication->id, PublicationStatus::Sending, PublicationStatus::Failed, $this->errorColumns($code, $message, $detail));
+        return $this->move($publication->id, $from, PublicationStatus::Failed, $this->errorColumns($code, $message, $detail));
     }
 
     public function markUnknown(Publication $publication, string $code, string $message, string $detail, PublicationStatus $from = PublicationStatus::Sending): bool
@@ -168,19 +168,20 @@ final class PublicationSystem
      * Queued publications that need a job: nothing is queued for them yet and they are due within `$horizonSeconds`, or their job
      * went missing (the publication is still queued `$staleSeconds` after its job was created or it fell due, whichever is later).
      *
-     * @return list<array{id: int, run_at: DateTimeImmutable}>
+     * @return list<array{id: int, run_at: DateTimeImmutable, kind: PostKind}>
      */
     public function dueForEnqueue(int $horizonSeconds, int $staleSeconds, int $limit): array
     {
         $now = $this->clock->now();
         $rows = $this->db->select(
-            'SELECT id, run_at FROM publications
-             WHERE status = ? AND run_at <= ? AND (enqueued_at IS NULL OR GREATEST(enqueued_at, run_at) < ?)
-             ORDER BY run_at, id LIMIT ' . max(1, $limit),
+            'SELECT p.id, p.run_at, po.kind FROM publications p
+             JOIN posts po ON po.id = p.post_id AND po.workspace_id = p.workspace_id
+             WHERE p.status = ? AND p.run_at <= ? AND (p.enqueued_at IS NULL OR GREATEST(p.enqueued_at, p.run_at) < ?)
+             ORDER BY p.run_at, p.id LIMIT ' . max(1, $limit),
             [PublicationStatus::Queued->value, DbTime::format($now->modify(sprintf('+%d seconds', $horizonSeconds))), DbTime::format($now->modify(sprintf('-%d seconds', $staleSeconds)))],
         );
 
-        return array_map(static fn (array $row): array => ['id' => (int) $row['id'], 'run_at' => DbTime::parse($row['run_at']) ?? new DateTimeImmutable('@0')], $rows);
+        return array_map(static fn (array $row): array => ['id' => (int) $row['id'], 'run_at' => DbTime::parse($row['run_at']) ?? new DateTimeImmutable('@0'), 'kind' => PostKind::from((string) $row['kind'])], $rows);
     }
 
     /**
@@ -192,8 +193,10 @@ final class PublicationSystem
     public function stuckSending(int $olderThanSeconds, int $limit = 200): array
     {
         $rows = $this->db->select(
-            'SELECT id FROM publications WHERE status = ? AND started_at < ? ORDER BY id LIMIT ' . max(1, $limit),
-            [PublicationStatus::Sending->value, DbTime::format($this->clock->now()->modify(sprintf('-%d seconds', $olderThanSeconds)))],
+            'SELECT p.id FROM publications p JOIN posts po ON po.id = p.post_id AND po.workspace_id = p.workspace_id
+             WHERE p.status = ? AND p.started_at < ? AND (po.kind <> ? OR p.started_at < ?)
+             ORDER BY p.id LIMIT ' . max(1, $limit),
+            [PublicationStatus::Sending->value, DbTime::format($this->clock->now()->modify(sprintf('-%d seconds', $olderThanSeconds))), PostKind::ShortVideo->value, DbTime::format($this->clock->now()->modify('-7500 seconds'))],
         );
 
         return array_map(static fn (array $row): int => (int) $row['id'], $rows);

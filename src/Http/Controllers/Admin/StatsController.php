@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Domain\Admin\AdminStats;
 use App\Domain\Admin\OperationalStats;
 use App\Domain\Admin\SystemStatus;
+use App\Domain\Post\VideoUploadQuota;
 use App\Domain\Settings\Settings;
 use App\Http\Admin\AdminInput;
 use App\Integrations\Social\PlatformRegistry;
@@ -31,6 +32,7 @@ final class StatsController
         private readonly Settings $settings,
         private readonly Config $config,
         private readonly Clock $clock,
+        private readonly VideoUploadQuota $videoQuota,
     ) {
     }
 
@@ -53,6 +55,12 @@ final class StatsController
             'periods' => self::PERIODS,
             'days' => (string) $days,
             'publications' => $this->stats->publications($from, $to),
+            'short_video' => $this->stats->shortVideo($from, $to),
+            'youtube_quota' => [
+                'limit' => $this->config->int('platforms.youtube.daily_upload_limit', 100),
+                'remaining' => $this->videoQuota->remainingYouTube($now, $this->config->int('platforms.youtube.daily_upload_limit', 100)),
+            ],
+            'video_queue' => $this->system->queue()['queues']['video'] ?? 0,
             'error_chart' => $datasets === [] ? null : ['title' => 'Доля ошибок по часам, %', 'type' => 'line', 'stacked' => false, 'format' => 'percent', 'currency' => 'RUB', 'labels' => $labels, 'datasets' => $datasets],
             'hour_attempts' => $hours,
             'channels' => $this->summary->channels(),

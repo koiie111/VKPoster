@@ -8,6 +8,10 @@ use App\Integrations\Social\Contracts\ErrorKind;
 use App\Integrations\Social\Contracts\PlatformError;
 use App\Integrations\Social\Instagram\InstagramOAuth;
 use App\Integrations\Social\Vk\VkOAuth;
+use App\Integrations\Social\TikTok\TikTokOAuth;
+use App\Integrations\Social\TikTok\TikTokTokens;
+use App\Integrations\Social\YouTube\YouTubeOAuth;
+use App\Integrations\Social\YouTube\YouTubeTokens;
 use App\Kernel\Database\Connection;
 use App\Kernel\Security\Crypto;
 use App\Support\Clock;
@@ -36,6 +40,8 @@ final class OAuthRefresher
         private readonly Crypto $crypto,
         private readonly VkOAuth $vk,
         private readonly InstagramOAuth $instagram,
+        private readonly TikTokOAuth $tiktok,
+        private readonly YouTubeOAuth $youtube,
         private readonly Redis $redis,
         private readonly Clock $clock,
         private readonly LoggerInterface $logger,
@@ -99,7 +105,12 @@ final class OAuthRefresher
         try {
             $this->recovery->dispatch($attempt['id']);
             try {
-                $tokens = $instagram ? $this->instagram->refresh($previous) : $this->vk->refresh($previous, $deviceId);
+                $tokens = match ($row['platform'] ?? '') {
+                    'instagram' => $this->instagram->refresh($previous),
+                    'tiktok' => $this->tiktok->refresh($previous),
+                    'youtube' => $this->youtube->refresh($previous),
+                    default => $this->vk->refresh($previous, $deviceId),
+                };
             } catch (PlatformError $error) {
                 if ($error->kind === ErrorKind::UnknownOutcome) {
                     $this->recovery->uncertain($attempt['id'], (int) $row['id']);
@@ -109,7 +120,7 @@ final class OAuthRefresher
             }
             // No remote dependency between successful response and encrypted durable receipt.
             $this->recovery->save($attempt['id'], $attempt['key'], [
-                'access' => $tokens->accessToken, 'refresh' => $tokens instanceof \App\Integrations\Social\Vk\VkTokens ? $tokens->refreshToken : '',
+                'access' => $tokens->accessToken, 'refresh' => $tokens instanceof \App\Integrations\Social\Vk\VkTokens || $tokens instanceof TikTokTokens || $tokens instanceof YouTubeTokens ? $tokens->refreshToken : '',
                 'expires' => $tokens->expiresIn,
             ]);
         } finally {

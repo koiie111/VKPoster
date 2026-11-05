@@ -54,12 +54,12 @@ final class PostServiceTest extends PostTestCase
             $settings->forget('limits.short_video_duration_seconds');
             $this->db->execute('UPDATE media SET duration_ms = ? WHERE id = ?', [$video->durationMs, $video->id]);
         }
-        try {
-            $this->service()->schedule($context, $post, $valid, $this->in('+1 hour'));
-            self::fail('The incomplete video pipeline must not publish a normal post instead.');
-        } catch (PostException $e) {
-            self::assertStringContainsString('пока недоступна', $e->getMessage());
-        }
+        $planned = $this->service()->schedule($context, $post, $valid, $this->clock->now(), true);
+        self::assertSame(PostStatus::Scheduled, $planned->status);
+        self::assertSame('video', $this->db->select('SELECT queue FROM jobs WHERE payload_json LIKE ?', ['%PublishJob%'])[0]['queue'] ?? null);
+        $this->probe->info = new \App\Domain\Media\VideoInfo(1080, 1920, 3000, 'h264', false);
+        self::assertTrue($this->app->container()->get(\App\Kernel\Queue\Worker::class)->runNext('video', 'test-video'));
+        self::assertSame(PostKind::ShortVideo, $this->fake->requests[0]->kind);
 
         $picture = $this->libraryPicture($context);
         $invalid = new PostDraft('Короткое видео', [$picture->publicId], new PostOptions(), false, [], PostKind::ShortVideo);

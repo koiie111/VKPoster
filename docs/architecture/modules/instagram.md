@@ -1,5 +1,7 @@
 # Instagram (этап 12)
 
+Этап 22 добавил отдельный тип `short_video`: один исходный ролик, обложку из медиатеки или выбранного кадра, `share_to_feed` и вертикальное превью. `PublishRequestBuilder` выдаёт подписанную ссылку на подготовленный H.264/AAC вариант. Общий конвейер и лимиты описаны в [short-video](short-video.md).
+
 Публикация в профессиональные аккаунты Instagram: фото, карусели (до 10 файлов), Reels, истории, первый комментарий. Решение об API и допущения: [ADR 0010](../../adr/0010-instagram-api.md). **Сеть выключена по умолчанию** (решение владельца, Meta признана в РФ экстремистской организацией): пока `instagram` нет в `PLATFORMS_ENABLED`, её нет в интерфейсе, маршруты подключения отвечают 404, адаптер не используется.
 
 Код: `src/Integrations/Social/Instagram` (`InstagramApi`, `InstagramOAuth`, `InstagramAccounts`, `InstagramAdapter`, `InstagramTokens`), `src/Domain/Channel/InstagramConnections.php`, `OAuthRefresher` (продление токена), `src/Http/Controllers/Channels/InstagramConnectController.php`, шаблон `templates/workspace/channels/connect_instagram.twig`, `PublishRequestBuilder` (публичные ссылки на файлы).

@@ -30,6 +30,7 @@ final class FfprobeVideoProbe implements VideoProbe
         }
         $video = null;
         $audio = false;
+        $audioCodec = null;
         foreach ($data['streams'] as $stream) {
             if (!is_array($stream)) {
                 continue;
@@ -38,6 +39,7 @@ final class FfprobeVideoProbe implements VideoProbe
                 $video = $stream;
             } elseif (($stream['codec_type'] ?? '') === 'audio') {
                 $audio = true;
+                $audioCodec ??= strtolower((string) ($stream['codec_name'] ?? 'unknown'));
             }
         }
         if ($video === null) {
@@ -54,7 +56,11 @@ final class FfprobeVideoProbe implements VideoProbe
         }
         $duration = (float) ($data['format']['duration'] ?? $video['duration'] ?? 0);
 
-        return new VideoInfo($width, $height, (int) round($duration * 1000), strtolower((string) ($video['codec_name'] ?? 'unknown')), $audio);
+        $rate = (string) ($video['avg_frame_rate'] ?? $video['r_frame_rate'] ?? '0/1');
+        [$numerator, $denominator] = array_pad(explode('/', $rate, 2), 2, '1');
+        $frameRate = is_numeric($numerator) && is_numeric($denominator) && (float) $denominator > 0 ? (float) $numerator / (float) $denominator : null;
+
+        return new VideoInfo($width, $height, (int) round($duration * 1000), strtolower((string) ($video['codec_name'] ?? 'unknown')), $audio, $audioCodec, $frameRate);
     }
 
     public function frame(string $path, string $dest, int $box, float $atSeconds): bool

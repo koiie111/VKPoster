@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Integrations\Social\Contracts;
 
+use App\Domain\Post\PostKind;
+use App\Domain\Post\ShortVideoOptions;
+
 /**
  * What to publish to one channel. Stage 07 builds it from a post variant; adapters never see posts or the database.
  */
@@ -25,6 +28,28 @@ final class PublishRequest
         public readonly bool $disablePreview = false,
         /** Kind of post for networks that have several (Instagram: `feed`, `reel`, `story`); empty = decided from the files. */
         public readonly string $mode = '',
+        public readonly PostKind $kind = PostKind::Regular,
+        public readonly ?ShortVideoOptions $shortVideo = null,
+        public readonly ?string $coverUrl = null,
+        public readonly ?string $idempotencyKey = null,
     ) {
+    }
+
+    public function withIdempotencyKey(string $key): self
+    {
+        return new self(
+            $this->text,
+            $this->media,
+            $this->buttons,
+            $this->poll,
+            $this->silent,
+            $this->format,
+            $this->disablePreview,
+            $this->mode,
+            $this->kind,
+            $this->shortVideo,
+            $this->coverUrl,
+            $key
+        );
     }
 }

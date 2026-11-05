@@ -38,7 +38,11 @@
 | `TELEGRAM_LOGIN_BOT_TOKEN` `TELEGRAM_LOGIN_BOT_NAME` | — | Бот для Telegram Login Widget (имя без `@`); нужны оба значения. В BotFather выполните `/setdomain` с публичным доменом |
 | `OAUTH_ORDER` | `vkid,yandex,telegram,google` | Порядок кнопок входа; не перечисленные в списке провайдеры идут в конце |
 | `DEV_OAUTH_FAKE` | `0` | `1` включает встроенного тестового провайдера `/dev/oauth/fake`. Префикс `DEV_`: при `APP_ENV=production` приложение не запустится |
-| `PLATFORMS_ENABLED` | `telegram` | Флаги платформ через запятую (`telegram`, `vk`, `max`, `instagram`); выключенная платформа не видна в интерфейсе. `fake` (тестовая сеть) работает только вне production |
+| `PLATFORMS_ENABLED` | `telegram` | Флаги платформ через запятую (`telegram`, `vk`, `max`, `instagram`, `tiktok`, `youtube`); выключенная платформа не видна в интерфейсе. `fake` (тестовая сеть) работает только вне production |
+| `TIKTOK_CLIENT_KEY` `TIKTOK_CLIENT_SECRET` | — | TikTok Login Kit; адрес возврата `<APP_URL>/channels/connect/tiktok/callback`. Нужны права `user.info.basic`, `video.publish`, `video.list` |
+| `TIKTOK_VERIFIED_URL_PREFIX` | — | Подтверждённый в TikTok публичный HTTPS префикс ссылки на видео; для PULL_FROM_URL требуется `MEDIA_DISK=s3` |
+| `YOUTUBE_CLIENT_ID` `YOUTUBE_CLIENT_SECRET` | — | Отдельный Google OAuth клиент для подключения YouTube; адрес возврата `<APP_URL>/channels/connect/youtube/callback` |
+| `YOUTUBE_DAILY_UPLOAD_LIMIT` | `100` | Лимит загрузок `videos.insert` в проекте за сутки по тихоокеанскому времени; установить по квоте проекта в Google Cloud |
 | `VK_CLIENT_ID` `VK_CLIENT_SECRET` | `VKID_*` | Приложение VK ID для публикации в сообщества (права на стену); адрес возврата `<APP_URL>/channels/connect/vk/callback`. Включается флагом `vk` в `PLATFORMS_ENABLED`. См. [modules/vk.md](modules/vk.md) |
 | `VK_SCOPE` | `wall photos video docs groups` | Права, которые просит подключение VK |
 | `VK_POSTS_PER_DAY` | `50` | Суточный лимит постов одного сообщества для предупреждения при планировании |
@@ -361,6 +365,9 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `TELEGRAM_LOGIN_BOT_NAME` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `TELEGRAM_LOGIN_BOT_TOKEN` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `TELEGRAM_WEBHOOK_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TIKTOK_CLIENT_KEY` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TIKTOK_CLIENT_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `TIKTOK_VERIFIED_URL_PREFIX` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
 | `TINEYE_API_KEY` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
 | `TRUSTED_PROXIES` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [config/app.php](../../config/app.php) |
 | `VAULT_APP_TOKEN_HOST_PATH` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
@@ -388,5 +395,8 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `YOOKASSA_SECRET_KEY` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
 | `YOOKASSA_SHOP_ID` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
 | `YOOKASSA_VERIFY_IP` | [.env.example](../../.env.example), [config/billing.php](../../config/billing.php) |
+| `YOUTUBE_CLIENT_ID` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `YOUTUBE_CLIENT_SECRET` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
+| `YOUTUBE_DAILY_UPLOAD_LIMIT` | [.env.example](../../.env.example), [config/platforms.php](../../config/platforms.php) |
 
 <!-- ENV_INVENTORY_END -->

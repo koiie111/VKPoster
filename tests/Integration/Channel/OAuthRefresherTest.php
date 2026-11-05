@@ -156,6 +156,8 @@ final class OAuthRefresherTest extends ChannelTestCase
             $this->app->container()->get(Crypto::class),
             $this->app->container()->get(VkOAuth::class),
             $this->app->container()->get(\App\Integrations\Social\Instagram\InstagramOAuth::class),
+            $this->app->container()->get(\App\Integrations\Social\TikTok\TikTokOAuth::class),
+            $this->app->container()->get(\App\Integrations\Social\YouTube\YouTubeOAuth::class),
             $redis,
             $this->clock,
             new \Psr\Log\NullLogger(),
@@ -306,6 +308,8 @@ final class OAuthRefresherTest extends ChannelTestCase
             $crypto,
             $this->app->container()->get(VkOAuth::class),
             $this->app->container()->get(InstagramOAuth::class),
+            $this->app->container()->get(\App\Integrations\Social\TikTok\TikTokOAuth::class),
+            $this->app->container()->get(\App\Integrations\Social\YouTube\YouTubeOAuth::class),
             TestEnv::redis(),
             $this->clock,
             new \Psr\Log\NullLogger()

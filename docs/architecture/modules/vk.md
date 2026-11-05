@@ -1,5 +1,7 @@
 # VK (этап 08)
 
+VK Клипы не включены в тип `short_video`: публичный API для публикации клипа от сообщества пока не подтверждён. Обычная отправка видео в VK не подменяет Клип. Решение и критерий включения — [ADR 0027](../../adr/0027-short-video.md).
+
 Публикация на стены сообществ ВКонтакте. Решение об авторизации: [ADR 0006](../../adr/0006-vk-auth.md). Код: `src/Integrations/Social/Vk`, `src/Domain/Channel` (`VkConnections`, `OAuthRefresher`), `src/Http/Controllers/Channels/VkConnectController.php`, шаблоны `templates/workspace/channels/{connect,choose}_vk.twig`.
 
 ## Включение

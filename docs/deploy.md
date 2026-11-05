@@ -228,7 +228,7 @@ the app release workflow. Provision its reviewed pins/production.cnf independent
 Application invocation:
 `MIGRATIONS_BACKWARD_COMPATIBLE=true bash scripts/deploy-release.sh VERSION REGISTRY_PREFIX /opt/ezposter/release-images.env`
 requires healthy pre-existing MySQL, Redis and ClamAV. It pulls pinned app artifacts,
-runs forward migration, then starts only app/nginx/worker/scheduler/analytics-worker
+runs forward migration, then starts only app/nginx/worker/video-worker/scheduler/analytics-worker
 (and optional analytics-pdf) with `--no-deps --no-build`. Failed readiness restores
 only previous application images. **Application rollback is not database rollback.**
 

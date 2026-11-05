@@ -10,6 +10,8 @@ use App\Integrations\Social\Vk\VkStatsFetcher;
 use App\Integrations\Social\Telegram\TelegramStatsFetcher;
 use App\Integrations\Social\Max\MaxStatsFetcher;
 use App\Integrations\Social\Instagram\InstagramStatsFetcher;
+use App\Integrations\Social\TikTok\TikTokStatsFetcher;
+use App\Integrations\Social\YouTube\YouTubeStatsFetcher;
 
 /** Typed registry reuses the existing API clients and their platform rate/error gates. */
 final class StatsFetchers
@@ -19,7 +21,9 @@ final class StatsFetchers
         private readonly VkStatsFetcher $vk,
         private readonly TelegramStatsFetcher $telegram,
         private readonly MaxStatsFetcher $max,
-        private readonly InstagramStatsFetcher $instagram
+        private readonly InstagramStatsFetcher $instagram,
+        private readonly TikTokStatsFetcher $tiktok,
+        private readonly YouTubeStatsFetcher $youtube,
     ) {
     }
     public function for(Platform $platform): StatsFetcher
@@ -29,7 +33,9 @@ final class StatsFetchers
             Platform::Vk => $this->vk,
             Platform::Telegram => $this->telegram,
             Platform::Max => $this->max,
-            Platform::Instagram => $this->instagram
+            Platform::Instagram => $this->instagram,
+            Platform::TikTok => $this->tiktok,
+            Platform::YouTube => $this->youtube,
         };
     }
 }

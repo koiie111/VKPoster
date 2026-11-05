@@ -13,6 +13,7 @@ use App\Domain\Media\MediaRepository;
 use App\Domain\Media\MediaService;
 use App\Domain\Media\MediaUrls;
 use App\Domain\Media\VariantService;
+use App\Domain\Media\VideoVariantService;
 use App\Domain\Media\VariantSpec;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Social\Contracts\Capabilities;
@@ -38,6 +39,7 @@ final class PublishRequestBuilder
         private readonly MediaLimits $limits,
         private readonly MediaUrls $urls,
         private readonly LinkRewriter $links,
+        private readonly VideoVariantService $videoVariants,
     ) {
     }
 
@@ -52,12 +54,22 @@ final class PublishRequestBuilder
         $text = $capabilities->textFormat === 'html' ? TextFormatter::toHtml($links['text']) : TextFormatter::toPlain($links['text']);
         $files = [];
         $temporary = [];
+        $coverUrl = null;
+        if ($resolved->kind === PostKind::ShortVideo && $options->shortVideo?->coverMediaId !== null) {
+            $cover = $this->media->find($context, $options->shortVideo->coverMediaId);
+            if ($cover === null || !$cover->isImage()) {
+                throw new PostException('Обложка короткого видео удалена или не является изображением.');
+            }
+            if ($withFiles) {
+                $coverUrl = $this->urls->signed($cover, 'original');
+            }
+        }
         try {
             foreach ($this->mediaFor($context, $resolved->mediaIds) as $item) {
                 $files[] = match (true) {
                     !$withFiles => new PublishMedia($item->kind, '', $item->originalName, $item->mime),
-                    $capabilities->publicMediaUrls => $this->publicLink($item, $resolved->variant->platform),
-                    default => $this->prepare($context, $item, $resolved->variant->platform, $temporary),
+                    $capabilities->publicMediaUrls => $this->publicLink($context, $item, $resolved->variant->platform, $resolved->kind),
+                    default => $this->prepare($context, $item, $resolved->variant->platform, $temporary, $resolved->kind),
                 };
             }
         } catch (\Throwable $e) {
@@ -75,7 +87,10 @@ final class PublishRequestBuilder
             $capabilities->silent && $options->silent,
             $capabilities->textFormat === 'html' ? 'html' : null,
             $capabilities->disablePreview && $options->disablePreview,
-            $options->format,
+            $resolved->kind === PostKind::ShortVideo ? 'reel' : $options->format,
+            $resolved->kind,
+            $options->shortVideo,
+            $coverUrl,
         ), $temporary);
     }
 
@@ -94,19 +109,56 @@ final class PublishRequestBuilder
         return $found;
     }
 
+    /** Caller owns the temporary JPEG and must delete it. */
+    public function coverFile(WorkspaceContext $context, string $publicId): string
+    {
+        $cover = $this->media->find($context, $publicId);
+        if ($cover === null || !$cover->isImage()) {
+            throw new PostException('Обложка короткого видео удалена или недоступна.');
+        }
+        try {
+            $variant = $this->variants->get($context, $cover, new VariantSpec('original', false, null, 1280, 2 * 1024 * 1024, true));
+            $input = $this->storage->read($variant['key']);
+            $path = $this->service->newTempFile();
+            try {
+                $output = fopen($path, 'wb');
+                if ($output === false) {
+                    throw new PostException('Не удалось подготовить обложку YouTube.');
+                }
+                try {
+                    stream_copy_to_stream($input, $output);
+                } finally {
+                    fclose($output);
+                }
+            } catch (\Throwable $error) {
+                @unlink($path);
+                throw $error;
+            } finally {
+                fclose($input);
+            }
+            return $path;
+        } catch (MediaException|StorageException $error) {
+            throw new PostException('Не удалось подготовить обложку YouTube: ' . $error->getMessage());
+        }
+    }
+
     /**
      * For networks that download media themselves: a signed, expiring link to the file instead of a copy. Pictures go out as JPEG and,
      * when their shape is outside what the network takes, cropped to the nearest allowed ratio (the stage 05 renditions).
      *
      * @throws PostException
      */
-    private function publicLink(Media $item, Platform $platform): PublishMedia
+    private function publicLink(WorkspaceContext $context, Media $item, Platform $platform, PostKind $kind): PublishMedia
     {
         if ($item->kind === MediaKind::Document) {
             throw new PostException('Файл «' . $item->originalName . '» — документ, а ' . $platform->label() . ' документы не принимает.');
         }
         if ($item->kind === MediaKind::Video) {
-            return new PublishMedia($item->kind, '', $item->originalName, $item->mime, $this->urls->signed($item, 'original'));
+            $variant = $kind === PostKind::ShortVideo ? $this->videoVariants->get($context, $item) : null;
+            if ($variant !== null) {
+                $this->assertShortVideoSize($platform, $variant['size']);
+            }
+            return new PublishMedia($item->kind, '', $item->originalName, $variant['mime'] ?? $item->mime, $this->urls->signed($item, $variant['slug'] ?? 'original', $kind === PostKind::ShortVideo ? 14400 : null));
         }
         if ($item->animated) {
             throw new PostException('Файл «' . $item->originalName . '» — анимация, а ' . $platform->label() . ' принимает только обычные фото. Загрузите его как видео.');
@@ -126,10 +178,16 @@ final class PublishRequestBuilder
      * @param list<string> $temporary collects the temporary files created, for the caller to delete
      * @throws PostException
      */
-    private function prepare(WorkspaceContext $context, Media $item, Platform $platform, array &$temporary): PublishMedia
+    private function prepare(WorkspaceContext $context, Media $item, Platform $platform, array &$temporary, PostKind $kind = PostKind::Regular): PublishMedia
     {
         $key = $item->storageKey;
         $mime = $item->mime;
+        if ($item->kind === MediaKind::Video && $kind === PostKind::ShortVideo) {
+            $variant = $this->videoVariants->get($context, $item);
+            $this->assertShortVideoSize($platform, $variant['size']);
+            $key = $variant['key'];
+            $mime = $variant['mime'];
+        }
         $rules = $this->limits->platforms[$platform->value] ?? [];
         $ceiling = is_int($rules['image_bytes'] ?? null) ? $rules['image_bytes'] : null;
         if ($item->isImage() && !$item->animated && $ceiling !== null && $item->size > $ceiling) {
@@ -158,5 +216,13 @@ final class PublishRequestBuilder
         }
 
         return new PublishMedia($item->kind, $path, $item->originalName, $mime);
+    }
+
+    private function assertShortVideoSize(Platform $platform, int $size): void
+    {
+        $max = $this->limits->platforms[$platform->value]['short_video_bytes'] ?? null;
+        if (is_int($max) && $size > $max) {
+            throw new PostException($platform->label() . ': подготовленное видео превышает лимит размера сети. Выберите файл поменьше.');
+        }
     }
 }

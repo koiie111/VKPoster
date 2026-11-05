@@ -36,6 +36,7 @@ final class PublicationScheduler
         private readonly WorkspaceRepository $workspaces,
         private readonly Notifier $notifier,
         private readonly LoggerInterface $logger,
+        private readonly VideoProviderSessions $videoSessions,
     ) {
     }
 
@@ -47,6 +48,17 @@ final class PublicationScheduler
         $this->reapStuck();
         $this->enqueueDue();
         $this->enqueueDeletions();
+        $this->enqueueVideoProcessing();
+    }
+
+    public function enqueueVideoProcessing(): int
+    {
+        $ids = $this->videoSessions->dueProcessing();
+        foreach ($ids as $id) {
+            $this->videoSessions->markPollEnqueued($id);
+            $this->queue->dispatch(new VideoProcessingJob($id), 0, PublishJob::VIDEO_QUEUE);
+        }
+        return count($ids);
     }
 
     /**
@@ -62,7 +74,7 @@ final class PublicationScheduler
             $ids = [];
             foreach ($due as $item) {
                 $delay = (int) max(0, ceil((float) $item['run_at']->format('U.u') - $now));
-                $this->queue->dispatch(new PublishJob($item['id']), $delay, PublishJob::QUEUE);
+                $this->queue->dispatch(new PublishJob($item['id']), $delay, $item['kind'] === PostKind::ShortVideo ? PublishJob::VIDEO_QUEUE : PublishJob::QUEUE);
                 $ids[] = $item['id'];
             }
             $this->system->markEnqueued($ids);

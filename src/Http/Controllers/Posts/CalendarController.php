@@ -187,6 +187,7 @@ final class CalendarController
                 'platform' => $item->platform->badgeKey(),
                 'time' => $local->format('H:i'),
                 'title' => $item->title,
+                'kind' => $item->kind->value,
                 'status' => $item->status->badge(),
                 'channel' => $item->channelName,
                 'author' => $item->authorName,

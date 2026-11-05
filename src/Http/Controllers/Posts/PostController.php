@@ -8,6 +8,7 @@ use App\Domain\Channel\ChannelRepository;
 use App\Domain\Post\Post;
 use App\Domain\Post\PostDraft;
 use App\Domain\Post\PostException;
+use App\Domain\Post\PostKind;
 use App\Domain\Post\PostRepository;
 use App\Domain\Post\PostService;
 use App\Domain\Post\PostStatus;
@@ -66,6 +67,9 @@ final class PostController
         $context = WorkspaceRequest::context($request);
         [$date, $time] = $this->editor->defaultSchedule($context, WorkspaceRequest::text($request->input('date')) === '' ? null : WorkspaceRequest::text($request->input('date')));
         $draft = $this->editor->blank();
+        if (WorkspaceRequest::text($request->input('kind')) === PostKind::ShortVideo->value) {
+            $draft = new PostDraft($draft->text, $draft->mediaIds, $draft->options, $draft->perNetwork, $draft->variants, PostKind::ShortVideo);
+        }
         $templateId = WorkspaceRequest::text($request->input('template'));
         if ($templateId !== '') {
             $template = $this->templates->find($context, $templateId) ?? throw new HttpException(404, 'Not found');

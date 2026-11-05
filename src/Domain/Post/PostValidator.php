@@ -40,6 +40,9 @@ final class PostValidator
         $options = $resolved->options->problems();
         $adapter = $this->registry->adapter($channel->platform);
         $capabilities = $adapter->capabilities();
+        if ($resolved->kind === PostKind::ShortVideo && !$capabilities->shortVideo) {
+            $problems[] = 'Публикация коротких видео пока недоступна для этой соцсети.';
+        }
         $empty = trim(TextFormatter::visible($resolved->text)) === '';
         if ($empty && $resolved->mediaIds === []) {
             $problems[] = 'Добавьте текст или файл: пустой пост опубликовать нельзя.';
@@ -60,7 +63,7 @@ final class PostValidator
             return [...$problems, $e->getMessage()];
         }
         foreach ($media as $item) {
-            $problems = [...$problems, ...$this->requirements->problems($item, $channel->platform->value, false)];
+            $problems = [...$problems, ...$this->requirements->problems($item, $channel->platform->value, false, $resolved->kind)];
         }
         try {
             $built = $this->builder->build($context, $resolved, $capabilities, false);

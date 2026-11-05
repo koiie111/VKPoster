@@ -185,7 +185,7 @@
                 Object.keys(panels).forEach(function (key) {
                     var list = [];
                     qsa(panels[key], '[data-media-source] li').forEach(function (li) {
-                        list.push({ id: li.getAttribute('data-media-id'), name: li.getAttribute('data-name'), kind: li.getAttribute('data-kind'), thumb: li.getAttribute('data-thumb') || '', missing: li.getAttribute('data-missing') === '1' });
+                        list.push({ id: li.getAttribute('data-media-id'), name: li.getAttribute('data-name'), kind: li.getAttribute('data-kind'), thumb: li.getAttribute('data-thumb') || '', durationMs: Number(li.getAttribute('data-duration-ms') || 0), missing: li.getAttribute('data-missing') === '1' });
                     });
                     models[key] = list;
                 });
@@ -259,6 +259,12 @@
                     var limit = mediaLimit();
                     note.textContent = model.length ? 'Файлов: ' + model.length + ' из ' + limit : '';
                     note.className = 'text-sm ' + (model.length > limit ? 'font-medium text-bad-fg' : 'text-muted');
+                    var frameBox = qs(panel, '[data-cover-frame-box]');
+                    if (frameBox) {
+                        var firstVideo = model.filter(function (m) { return m.kind === 'video' && m.durationMs > 0; })[0];
+                        frameBox.hidden = !firstVideo;
+                        if (firstVideo) { qs(frameBox, '[data-cover-range]').max = String(Math.max(0, firstVideo.durationMs - 1)); }
+                    }
                 }
 
                 function moveMedia(key, from, to) {
@@ -279,7 +285,7 @@
                 function addMedia(key, items) {
                     var model = models[key];
                     items.forEach(function (item) {
-                        if (!model.some(function (m) { return m.id === item.id; })) { model.push({ id: item.id, name: item.name, kind: item.kind, thumb: item.thumb || '', missing: false }); }
+                        if (!model.some(function (m) { return m.id === item.id; })) { model.push({ id: item.id, name: item.name, kind: item.kind, thumb: item.thumb || '', durationMs: item.duration_ms || 0, missing: false }); }
                     });
                     changedMedia(key);
                 }
@@ -375,8 +381,16 @@
                         var shown = 0;
                         qsa(panel, '[data-cap]').forEach(function (block) {
                             var cap = block.getAttribute('data-cap');
-                            var ok = sources.some(function (i) { return !!caps(i)[cap]; });
+                            var ok = sources.some(function (i) {
+                                var supported = caps(i);
+                                return cap.slice(0, 3) === 'sv_' ? (supported.short_video_fields || []).indexOf(cap.slice(3)) !== -1 : !!supported[cap];
+                            });
                             block.hidden = !ok;
+                            qsa(block, '[data-privacy-platform]').forEach(function (option) {
+                                var available = sources.some(function (i) { return i.getAttribute('data-platform') === option.getAttribute('data-privacy-platform'); });
+                                option.hidden = !available;
+                                option.disabled = !available;
+                            });
                             if (ok) { shown += 1; }
                         });
                         var none = qs(panel, '[data-no-options]');
@@ -403,7 +417,8 @@
                 function buildPreview(input) {
                     var key = input.value;
                     var kindMap = { tg: 'tg', vk: 'vk', max: 'max', ig: 'ig', fake: 'tg' };
-                    var tpl = qs(root, 'template[data-pv-template="' + (kindMap[input.getAttribute('data-badge')] || 'tg') + '"]');
+                    var previewKind = root.getAttribute('data-post-kind') === 'short_video' ? 'short' : (kindMap[input.getAttribute('data-badge')] || 'tg');
+                    var tpl = qs(root, 'template[data-pv-template="' + previewKind + '"]');
                     if (!tpl) { return null; }
                     var node = tpl.content.firstElementChild.cloneNode(true);
                     var data = previewData(key);
@@ -423,7 +438,7 @@
                         media.className = media.className.replace(/grid-cols-\d/g, '');
                         media.classList.add(shown.length > 1 ? 'grid-cols-2' : 'grid-cols-1');
                         shown.forEach(function (m, i) {
-                            var cell = el('div', 'relative aspect-video overflow-hidden bg-primary-soft text-primary-softfg');
+                            var cell = el('div', previewKind === 'short' ? 'relative aspect-[9/16] overflow-hidden bg-slate-900 text-white' : 'relative aspect-video overflow-hidden bg-primary-soft text-primary-softfg');
                             if (m.thumb) {
                                 var img = el('img', 'h-full w-full object-cover');
                                 img.src = m.thumb;
@@ -652,6 +667,31 @@
                     // Media: pick from the library, upload, and drop files on the block.
                     var pick = qs(panel, '[data-media-pick]');
                     if (pick && picker) { pick.addEventListener('click', function () { openPicker(key); }); }
+                    var coverPick = qs(panel, '[data-cover-pick]');
+                    if (coverPick && picker) { coverPick.addEventListener('click', function () { openPicker(key, 'cover'); }); }
+                    var coverFrame = qs(panel, '[data-cover-frame]');
+                    if (coverFrame) {
+                        coverFrame.addEventListener('click', function () {
+                            var video = models[key].filter(function (m) { return m.kind === 'video' && m.durationMs > 0; })[0];
+                            if (!video) { return; }
+                            var range = qs(panel, '[data-cover-range]');
+                            var status = qs(panel, '[data-cover-status]');
+                            var data = new FormData();
+                            data.append('millisecond', range.value);
+                            coverFrame.disabled = true;
+                            status.textContent = 'Извлекаем кадр…';
+                            fetch(uploadUrl.replace(/\/upload$/, '/' + encodeURIComponent(video.id) + '/cover'), {
+                                method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf(), 'Accept': 'application/json' }, body: data,
+                            }).then(function (response) { return response.json().then(function (body) { if (!response.ok || !body.ok) { throw new Error(body.errors && body.errors[0] || 'Не удалось извлечь кадр.'); } return body; }); })
+                                .then(function (body) {
+                                    var field = qs(panel, '[data-cover-id]');
+                                    field.value = body.item.id;
+                                    field.dispatchEvent(new Event('input', { bubbles: true }));
+                                    status.textContent = 'Обложка сохранена в медиатеке.';
+                                }).catch(function (error) { status.textContent = error.message; })
+                                .finally(function () { coverFrame.disabled = false; });
+                        });
+                    }
                     var upload = qs(panel, '[data-media-upload]');
                     if (upload && uploadInput) { upload.addEventListener('click', function () { uploadTarget = key; uploadInput.click(); }); }
                     var block = qs(panel, '[data-media-block]');
@@ -673,6 +713,20 @@
                     Array.prototype.forEach.call(files, function (file) {
                         var line = el('li', 'text-sm text-muted', file.name + ': загружаем…');
                         status.appendChild(line);
+                        if (file.type === 'video/mp4' || file.type === 'video/quicktime') {
+                            window.VKVideoUpload.upload(file, uploadUrl, '', function (percent, label) {
+                                line.textContent = file.name + ': ' + label + ' ' + percent + ' %';
+                            }).then(function (data) {
+                                addMedia(key, [data.items[0]]);
+                                line.textContent = file.name + ': готово, файл сохранён и в медиатеке.';
+                                line.className = 'text-sm text-ok-fg';
+                            }).catch(function (error) {
+                                line.textContent = file.name + ': ' + (error.message || 'не удалось загрузить.');
+                                line.className = 'text-sm font-medium text-bad-fg';
+                                line.setAttribute('role', 'alert');
+                            });
+                            return;
+                        }
                         var xhr = new XMLHttpRequest();
                         xhr.open('POST', uploadUrl);
                         xhr.setRequestHeader('Accept', 'application/json');
@@ -717,12 +771,18 @@
 
                 // ---- library picker ------------------------------------------------------------------------------------------
                 var pickerKey = 'common';
+                var pickerMode = 'media';
                 var pickerPage = 1;
                 var chosenInPicker = [];
-                function openPicker(key) {
+                function openPicker(key, mode) {
                     pickerKey = key;
+                    pickerMode = mode || 'media';
                     chosenInPicker = [];
                     pickerPage = 1;
+                    var kindSelect = qs(picker, '[data-picker-kind]');
+                    if (pickerMode === 'cover') { kindSelect.value = 'image'; }
+                    kindSelect.disabled = pickerMode === 'cover';
+                    qs(picker, '[data-picker-add]').textContent = pickerMode === 'cover' ? 'Выбрать обложку' : 'Добавить в пост';
                     loadPicker(true);
                     picker.showModal();
                     var s = qs(picker, '[data-picker-search]');
@@ -743,11 +803,13 @@
                                 var li = el('li');
                                 var label = el('label', 'block cursor-pointer');
                                 var box = el('input', 'peer sr-only');
-                                box.type = 'checkbox';
+                                box.type = pickerMode === 'cover' ? 'radio' : 'checkbox';
+                                if (pickerMode === 'cover') { box.name = 'picker-cover'; }
                                 box.value = item.id;
                                 box.checked = chosenInPicker.some(function (c) { return c.id === item.id; });
                                 box.addEventListener('change', function () {
-                                    if (box.checked) { chosenInPicker.push(item); } else { chosenInPicker = chosenInPicker.filter(function (c) { return c.id !== item.id; }); }
+                                    if (box.checked) { chosenInPicker = pickerMode === 'cover' ? [item] : chosenInPicker.concat([item]); }
+                                    else { chosenInPicker = chosenInPicker.filter(function (c) { return c.id !== item.id; }); }
                                 });
                                 var tile = el('span', 'block overflow-hidden rounded-ctl border-2 border-line bg-surface peer-checked:border-primary peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-primary-text');
                                 var thumb;
@@ -770,7 +832,12 @@
                     qs(picker, '[data-picker-kind]').addEventListener('change', function () { loadPicker(true); });
                     qs(picker, '[data-picker-more]').addEventListener('click', function () { pickerPage += 1; loadPicker(false); });
                     qs(picker, '[data-picker-add]').addEventListener('click', function () {
-                        if (chosenInPicker.length) { addMedia(pickerKey, chosenInPicker); }
+                        if (chosenInPicker.length) {
+                            if (pickerMode === 'cover') {
+                                var coverField = qs(panels[pickerKey], '[data-cover-id]');
+                                if (coverField) { coverField.value = chosenInPicker[0].id; coverField.dispatchEvent(new Event('input', { bubbles: true })); }
+                            } else { addMedia(pickerKey, chosenInPicker); }
+                        }
                         picker.close();
                     });
                 }

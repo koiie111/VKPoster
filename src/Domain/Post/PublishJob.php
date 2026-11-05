@@ -13,6 +13,7 @@ use App\Kernel\Queue\AbstractJob;
 final class PublishJob extends AbstractJob
 {
     public const QUEUE = 'publish';
+    public const VIDEO_QUEUE = 'video';
 
     public function __construct(public readonly int $publicationId)
     {

@@ -9,6 +9,7 @@ namespace App\Integrations\Social\Contracts;
  */
 final class Capabilities
 {
+    /** @param list<string> $shortVideoFields */
     public function __construct(
         public readonly int $maxText,
         public readonly int $maxCaption,
@@ -30,6 +31,10 @@ final class Capabilities
         public readonly bool $publicMediaUrls = false,
         /** The network has several kinds of post to choose from (Instagram: post, Reels, Stories): the editor shows the choice. */
         public readonly bool $postFormats = false,
+        /** This adapter can publish the dedicated short-video workflow. */
+        public readonly bool $shortVideo = false,
+        /** Short-video editor fields supported by this adapter. */
+        public readonly array $shortVideoFields = [],
     ) {
     }
 }

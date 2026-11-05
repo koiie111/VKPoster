@@ -176,6 +176,8 @@ final class PostEditorView
                     'disable_preview' => $caps->disablePreview,
                     'format' => $caps->textFormat,
                     'post_format' => $caps->postFormats,
+                    'short_video' => $caps->shortVideo,
+                    'short_video_fields' => $caps->shortVideoFields,
                 ],
                 'selected' => false,
                 'variant' => [],

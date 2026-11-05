@@ -291,6 +291,7 @@ def verify(crypto):
                     "app",
                     "nginx",
                     "worker",
+                    "video-worker",
                     "analytics-worker",
                     "scheduler",
                     "edge",

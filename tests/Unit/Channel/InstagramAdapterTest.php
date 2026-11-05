@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Channel;
 
 use App\Domain\Media\MediaKind;
+use App\Domain\Post\PostKind;
+use App\Domain\Post\ShortVideoOptions;
 use App\Integrations\Social\Contracts\Credential;
 use App\Integrations\Social\Contracts\ErrorKind;
 use App\Integrations\Social\Contracts\Platform;
@@ -136,6 +138,29 @@ final class InstagramAdapterTest extends TestCase
         self::assertSame('https://ezposter.example/media/VID1/original?signature=s', $form['video_url']);
         self::assertSame('true', $form['share_to_feed']);
         self::assertSame([2, 3], $this->pauses, 'growing pauses between looks at the container');
+        $this->http->assertAllConsumed();
+    }
+
+    public function testDedicatedShortVideoCarriesFeedChoiceAndCover(): void
+    {
+        $this->get(Fx::ACCOUNT . '/content_publishing_limit', 'limit_ok');
+        $this->post(Fx::ACCOUNT . '/media', 'container');
+        $this->get('17900000000000001', 'status_finished');
+        $this->post(Fx::ACCOUNT . '/media_publish', 'publish');
+        $this->get('17950000000000009', 'permalink');
+
+        $this->publish(new PublishRequest(
+            'Ролик',
+            [$this->video()],
+            mode: 'reel',
+            kind: PostKind::ShortVideo,
+            shortVideo: new ShortVideoOptions(shareToFeed: false),
+            coverUrl: 'https://ezposter.example/media/COVER/original?signature=s'
+        ));
+
+        $form = $this->form(Fx::ACCOUNT . '/media');
+        self::assertSame('false', $form['share_to_feed']);
+        self::assertSame('https://ezposter.example/media/COVER/original?signature=s', $form['cover_url']);
         $this->http->assertAllConsumed();
     }
 

@@ -3,5 +3,30 @@
     "name": "short-video-settings",
     "url": "/admin/settings",
     "login_as": "staff@ezposter.local"
+  },
+  {
+    "name": "short-video-editor",
+    "url": "/w/{ws}/posts/new?kind=short_video",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "short-video-media",
+    "url": "/w/{ws}/media?kind=video",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "tiktok-connect",
+    "url": "/w/{ws}/channels/connect/tiktok",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "youtube-connect",
+    "url": "/w/{ws}/channels/connect/youtube",
+    "login_as": "demo@ezposter.local"
+  },
+  {
+    "name": "short-video-admin-stats",
+    "url": "/admin/stats",
+    "login_as": "staff@ezposter.local"
   }
 ]

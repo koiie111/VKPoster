@@ -30,7 +30,7 @@ final class PostVariant
 
     public function resolve(Post $post): ResolvedVariant
     {
-        return new ResolvedVariant($this, $this->text ?? $post->baseText, $this->mediaIds ?? $post->mediaIds, $this->options ?? $post->options);
+        return new ResolvedVariant($this, $this->text ?? $post->baseText, $this->mediaIds ?? $post->mediaIds, $this->options ?? $post->options, $post->kind);
     }
 
     public function isCustom(): bool

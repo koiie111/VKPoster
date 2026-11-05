@@ -10,6 +10,7 @@ use App\Domain\Media\MediaKind;
 use App\Domain\Media\MediaLookup;
 use App\Domain\Media\VariantService;
 use App\Domain\Media\VariantSpec;
+use App\Domain\Media\VideoVariantService;
 use App\Domain\User\User;
 use App\Domain\Workspace\Permissions;
 use App\Domain\Workspace\WorkspaceContext;
@@ -115,6 +116,13 @@ final class MediaFileController
             }
 
             return ['key' => $media->thumbKey, 'mime' => $media->kind === MediaKind::Image ? 'image/webp' : 'image/jpeg', 'size' => 0, 'width' => 0, 'height' => 0];
+        }
+        if ($variant === VideoVariantService::SLUG) {
+            $cached = $media->kind === MediaKind::Video ? ($media->variants[$variant] ?? null) : null;
+            if ($cached === null || !$this->storage->exists($cached['key'])) {
+                throw new HttpException(404, 'Not found');
+            }
+            return $cached;
         }
         $spec = VariantSpec::fromSlug($variant);
         if ($spec === null) {

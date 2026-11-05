@@ -22,6 +22,7 @@
                 var action = root.getAttribute('data-upload-url');
                 var folder = root.getAttribute('data-folder') || '';
                 var max = parseInt(root.getAttribute('data-max-bytes') || '0', 10);
+                var maxVideo = parseInt(root.getAttribute('data-max-video-bytes') || '0', 10);
                 var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
                 var queue = [];
                 var running = 0;
@@ -55,6 +56,25 @@
 
                 var send = function (job) {
                     running += 1;
+                    if (job.file.type === 'video/mp4' || job.file.type === 'video/quicktime') {
+                        var doneVideo = function (ok, message) {
+                            running -= 1;
+                            job.bar.hidden = true;
+                            job.status.textContent = message;
+                            job.status.className = ok ? 'text-sm text-ok-fg' : 'text-sm font-medium text-bad-fg';
+                            if (!ok) { job.status.setAttribute('role', 'alert'); }
+                            if (ok) { done += 1; } else { failed += 1; }
+                            say(); next(); finishAll();
+                        };
+                        window.VKVideoUpload.upload(job.file, action, folder, function (percent, label) {
+                            job.bar.value = percent;
+                            job.status.textContent = label;
+                        }).then(function (data) {
+                            var item = data.items && data.items[0];
+                            doneVideo(true, item && item.duplicate ? 'Такой файл уже был в медиатеке' : 'Готово');
+                        }).catch(function (error) { doneVideo(false, error.message || 'Не удалось загрузить видео.'); });
+                        return;
+                    }
                     var xhr = new XMLHttpRequest();
                     xhr.open('POST', action);
                     xhr.setRequestHeader('Accept', 'application/json');
@@ -115,9 +135,10 @@
                         row.appendChild(head);
                         row.appendChild(bar);
                         list.appendChild(row);
-                        if (max > 0 && file.size > max) {
+                        var allowed = file.type === 'video/mp4' || file.type === 'video/quicktime' ? maxVideo : max;
+                        if (allowed > 0 && file.size > allowed) {
                             bar.hidden = true;
-                            status.textContent = 'Файл больше ' + Math.round(max / 1048576) + ' МБ';
+                            status.textContent = 'Файл больше ' + Math.round(allowed / 1048576) + ' МБ';
                             status.className = 'shrink-0 text-sm font-medium text-bad-fg';
                             status.setAttribute('role', 'alert');
                             failed += 1;

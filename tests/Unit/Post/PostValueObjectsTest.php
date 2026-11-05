@@ -56,7 +56,8 @@ final class PostValueObjectsTest extends TestCase
     {
         $allowed = [
             'queued' => ['sending', 'cancelled'],
-            'sending' => ['sent', 'queued', 'failed', 'unknown'],
+            'sending' => ['processing', 'sent', 'queued', 'failed', 'unknown'],
+            'processing' => ['sent', 'failed', 'unknown'],
             'failed' => ['queued'],
             'unknown' => ['queued', 'sent', 'cancelled'],
             'sent' => [],

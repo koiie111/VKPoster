@@ -155,6 +155,27 @@ final class EntitlementsTest extends BillingTestCase
         self::assertSame(1, $e->postsLeftInMonth($workspace->id, $inMonth->modify('+1 month')));
     }
 
+    public function testShortVideoPlanLimitCountsOnlyShortVideos(): void
+    {
+        [, $workspace] = $this->ownerWithWorkspace();
+        $this->givePlan($workspace, 'free', ['short_videos_per_month' => 1]);
+        $month = new DateTimeImmutable('2026-10-10 12:00:00', new DateTimeZone('UTC'));
+        $this->db->execute(
+            'INSERT INTO posts (public_id, workspace_id, status, kind, base_text, scheduled_at, timezone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))',
+            ['01JABCDEFGHJKMNPQRSTVWXYZ3', $workspace->id, 'scheduled', 'short_video', 'x', '2026-10-12 12:00:00', 'UTC'],
+        );
+        $entitlements = $this->entitlements();
+        self::assertSame(1, $entitlements->shortVideosInMonth($workspace->id, $month));
+        try {
+            $entitlements->assertCanPlanShortVideo($workspace->id, $month);
+            self::fail('the short-video month is full');
+        } catch (PlanLimitException $e) {
+            self::assertSame('short_videos', $e->limit);
+        }
+        $entitlements->assertCanPlanShortVideo($workspace->id, $month, $month);
+        $entitlements->assertCanPlanShortVideo($workspace->id, $month->modify('+1 month'));
+    }
+
     public function testMembersAreCountedTogetherWithOpenInvitations(): void
     {
         [$owner, $workspace] = $this->ownerWithWorkspace();

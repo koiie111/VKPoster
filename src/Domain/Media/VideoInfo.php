@@ -15,6 +15,8 @@ final class VideoInfo
         public readonly int $durationMs,
         public readonly string $codec,
         public readonly bool $hasAudio,
+        public readonly ?string $audioCodec = null,
+        public readonly ?float $frameRate = null,
     ) {
     }
 }

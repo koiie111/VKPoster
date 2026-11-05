@@ -6,6 +6,7 @@ namespace App\Domain\Media;
 
 use App\Domain\Audit\AuditLog;
 use App\Domain\Billing\Entitlements;
+use App\Domain\Settings\ShortVideoLimits;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Storage\MediaStorage;
 use App\Integrations\Storage\StorageException;
@@ -44,6 +45,7 @@ final class MediaService
         private readonly Entitlements $entitlements,
         private readonly string $tmpDir,
         private readonly ?\App\Kernel\Security\MalwareScanner $scanner = null,
+        private readonly ?ShortVideoLimits $shortVideoLimits = null,
     ) {
     }
 
@@ -58,13 +60,15 @@ final class MediaService
         if ($size === false || $size === 0) {
             throw new MediaException('Файл пустой или не загрузился. Попробуйте ещё раз.');
         }
-        if ($size > $this->limits->maxFileBytes) {
-            throw new MediaException(sprintf('Файл больше %s МБ.', self::megabytes($this->limits->maxFileBytes)));
+        $mime = $verifiedMime ?? self::sniff($path);
+        $isVideo = in_array($mime, ['video/mp4', 'video/quicktime'], true);
+        $maxFileBytes = $isVideo && $this->shortVideoLimits !== null ? $this->shortVideoLimits->maxFileBytes() : $this->limits->maxFileBytes;
+        if ($size > $maxFileBytes) {
+            throw new MediaException(sprintf('Файл больше %s МБ.', self::megabytes($maxFileBytes)));
         }
         $this->assertQuota($context, $size);
         $this->scanner?->scanFile($path);
 
-        $mime = $verifiedMime ?? self::sniff($path);
         if (!isset(self::TYPES[$mime])) {
             throw new MediaException('Этот тип файла не поддерживается. Можно загрузить JPG, PNG, WebP, GIF, MP4, MOV и PDF.');
         }
@@ -88,7 +92,7 @@ final class MediaService
         $temporary = [];
         try {
             $stored = $path;
-            $width = $height = $duration = $codec = null;
+            $width = $height = $duration = $codec = $audioCodec = $frameRate = null;
             $animated = false;
             $thumb = $this->tempFile($temporary);
             $hasThumb = false;
@@ -106,13 +110,15 @@ final class MediaService
                     if ($info->durationMs < 1) {
                         throw new MediaException('Не удалось определить длину видео.');
                     }
-                    if ($info->durationMs > $this->limits->maxVideoSeconds * 1000) {
-                        throw new MediaException(sprintf('Видео длиннее %d минут.', intdiv($this->limits->maxVideoSeconds, 60)));
+                    $maxVideoMs = max($this->shortVideoLimits?->maxDurationMs() ?? 0, $this->limits->maxVideoSeconds * 1000);
+                    if ($info->durationMs > $maxVideoMs) {
+                        throw new MediaException(sprintf('Видео длиннее %d секунд.', intdiv($maxVideoMs, 1000)));
                     }
                     if ($info->width > 7680 || $info->height > 7680) {
                         throw new MediaException('Разрешение видео слишком большое.');
                     }
                     [$width, $height, $duration, $codec] = [$info->width, $info->height, $info->durationMs, $info->codec];
+                    [$audioCodec, $frameRate] = [$info->audioCodec, $info->frameRate];
                     $hasThumb = $this->video->frame($path, $thumb, $this->limits->thumbSize, min(1.0, $info->durationMs / 2000));
                     break;
                 case MediaKind::Document:
@@ -152,6 +158,8 @@ final class MediaService
                     'height' => $height,
                     'duration_ms' => $duration,
                     'codec' => $codec,
+                    'audio_codec' => $audioCodec,
+                    'frame_rate' => $frameRate,
                     'animated' => $animated,
                     'sha256' => $sha,
                 ], $publicId);

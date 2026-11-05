@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Post;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Analytics\Analytics;
 use App\Domain\Channel\Channel;
 use App\Domain\Channel\ChannelCredentials;
 use App\Domain\Channel\ChannelHealthService;
@@ -19,6 +20,8 @@ use App\Integrations\Social\Contracts\PlatformAdapter;
 use App\Integrations\Social\Contracts\PlatformError;
 use App\Integrations\Social\Contracts\PublishRequest;
 use App\Integrations\Social\Contracts\PublishResult;
+use App\Integrations\Social\Contracts\VideoProcessingAdapter;
+use App\Integrations\Social\Contracts\VideoThumbnailAdapter;
 use App\Integrations\Social\PlatformRegistry;
 use App\Kernel\Config;
 use App\Kernel\Queue\Queue;
@@ -52,6 +55,7 @@ final class Publisher
     private const BACKOFF = [60, 300, 900, 3600];
 
     private const LOCK_SECONDS = 900;
+    private const VIDEO_LOCK_SECONDS = 7500;
 
     public function __construct(
         private readonly PublicationSystem $system,
@@ -73,14 +77,19 @@ final class Publisher
         private readonly \App\Domain\Content\Publishing\ContentOriginGuard $origin,
         private readonly \App\Domain\Automation\Trigger\TriggerEngine $triggers,
         private readonly \App\Domain\Approval\ApprovalWorkflow $approvals,
+        private readonly VideoProviderSessions $videoSessions,
+        private readonly Analytics $analytics,
     ) {
     }
 
     public function run(int $publicationId): void
     {
+        $publication = $this->system->find($publicationId);
+        $loaded = $publication === null ? null : $this->system->load($publication);
+        $lockSeconds = $loaded !== null && $loaded['post']->kind === PostKind::ShortVideo ? self::VIDEO_LOCK_SECONDS : self::LOCK_SECONDS;
         $key = 'publish:lock:' . $publicationId;
         $token = bin2hex(random_bytes(8));
-        if ($this->redis->set($key, $token, ['nx', 'ex' => self::LOCK_SECONDS]) !== true) {
+        if ($this->redis->set($key, $token, ['nx', 'ex' => $lockSeconds]) !== true) {
             $this->logger->info('Publication is being handled by another worker', ['publication' => $publicationId]);
 
             return;
@@ -167,6 +176,7 @@ final class Publisher
             return;
         }
 
+        $request = $built->request->withIdempotencyKey($publication->idempotencyKey);
         try {
             // Media preparation may take time. Revalidate immediately before the existing adapter sends anything.
             $originError = $this->origin->problem($post);
@@ -178,10 +188,10 @@ final class Publisher
                 $this->fail($publication, $post, $variant, $started, $problemCode, $originError, 'content origin changed during preparation');
                 return;
             }
-            $result = $adapter->publish($built->request, $channel->externalId, $this->credentials->forChannel($channel), $publication->idempotencyKey);
+            $result = $adapter->publish($request, $channel->externalId, $this->credentials->forChannel($channel), $publication->idempotencyKey);
         } catch (PlatformError $e) {
             // An unknown outcome is first checked against the channel itself (where the network allows it): a post that is there is a success.
-            $result = $e->kind === ErrorKind::UnknownOutcome ? $this->findPublished($adapter, $built->request, $channel, $started) : null;
+            $result = $e->kind === ErrorKind::UnknownOutcome ? $this->findPublished($adapter, $request, $channel, $started) : null;
             if ($result === null) {
                 $this->onPlatformError($publication, $post, $variant, $channel, $started, $e);
 
@@ -189,7 +199,7 @@ final class Publisher
             }
         } catch (Throwable $e) {
             // Something broke while the request may have been on its way: the outcome is unknown, never retried by itself.
-            $result = $this->findPublished($adapter, $built->request, $channel, $started);
+            $result = $this->findPublished($adapter, $request, $channel, $started);
             if ($result === null) {
                 $this->system->recordAttempt($publication, 'unknown', ErrorKind::UnknownOutcome->value, 'Не удалось выяснить, вышел ли пост.', $e::class . ': ' . $e->getMessage(), $started);
                 $this->system->markUnknown($publication, 'internal', 'Не удалось выяснить, вышел ли пост. Проверьте канал.', $e::class . ': ' . $e->getMessage());
@@ -201,7 +211,112 @@ final class Publisher
             $built->cleanup();
         }
 
+        if ($result->processing) {
+            if ($this->system->move($publication->id, PublicationStatus::Sending, PublicationStatus::Processing, ['external_post_id' => $result->externalId])) {
+                $this->system->recordAttempt($publication, 'processing', null, null, null, $started);
+                $this->system->syncPostStatus($post->id);
+                $this->videoSessions->pollLater($publication->idempotencyKey, 30);
+                $this->queue->dispatch(new VideoProcessingJob($publication->id), 30, PublishJob::VIDEO_QUEUE);
+            }
+            return;
+        }
         $this->onSuccess($publication, $post, $variant, $channel, $adapter, $result, $started);
+    }
+
+    /** Poll a network that accepted a video but has not finished processing it. */
+    public function pollVideo(int $publicationId): void
+    {
+        $key = 'publish:poll:' . $publicationId;
+        $token = bin2hex(random_bytes(8));
+        if ($this->redis->set($key, $token, ['nx', 'ex' => 120]) !== true) {
+            return;
+        }
+        try {
+            $publication = $this->system->find($publicationId);
+            if ($publication === null || $publication->status !== PublicationStatus::Processing) {
+                return;
+            }
+            $loaded = $this->system->load($publication);
+            $channel = $publication->channelId === null ? null : $this->channels->find($publication->channelId);
+            $session = $this->videoSessions->find($publication->idempotencyKey);
+            if ($loaded === null || $channel === null || $session === null || $session['remote_id'] === null) {
+                $message = 'Не удалось проверить обработку видео. Проверьте канал.';
+                $this->system->markUnknown($publication, 'video_session_lost', $message, 'video session missing', PublicationStatus::Processing);
+                if ($loaded !== null) {
+                    $this->afterFailure($loaded['post'], $loaded['variant'], $message, true);
+                } else {
+                    $this->system->syncPostStatus($publication->postId);
+                }
+                return;
+            }
+            if ($session['deadline_at'] <= $this->clock->now()) {
+                $message = 'Сеть слишком долго обрабатывает видео. Проверьте канал, прежде чем повторять публикацию.';
+                $this->system->markUnknown($publication, 'video_timeout', $message, 'processing deadline exceeded', PublicationStatus::Processing);
+                $this->afterFailure($loaded['post'], $loaded['variant'], $message, true);
+                return;
+            }
+            $adapter = $this->registry->adapter($channel->platform);
+            if (!$adapter instanceof VideoProcessingAdapter) {
+                throw new \LogicException('A processing video needs a video processing adapter.');
+            }
+            try {
+                $result = $adapter->pollVideo($session['remote_id'], $channel->externalId, $this->credentials->forChannel($channel));
+            } catch (PlatformError $error) {
+                if (in_array($error->kind, [ErrorKind::Temporary, ErrorKind::RateLimited], true)) {
+                    $this->pollAgain($publication, $error->retryAfter ?? 120);
+                    return;
+                }
+                $message = $error->forUser();
+                if ($error->kind === ErrorKind::UnknownOutcome) {
+                    $this->system->markUnknown($publication, 'video_status_unknown', $message, $error->getMessage(), PublicationStatus::Processing);
+                    $this->afterFailure($loaded['post'], $loaded['variant'], $message, true);
+                } else {
+                    $this->system->markFailed($publication, 'video_processing', $message, $error->getMessage(), PublicationStatus::Processing);
+                    $this->afterFailure($loaded['post'], $loaded['variant'], $message, false);
+                }
+                return;
+            }
+            if ($result === null) {
+                $elapsedMinutes = $publication->startedAt === null ? 0 : max(0, intdiv($this->clock->now()->getTimestamp() - $publication->startedAt->getTimestamp(), 60));
+                $this->pollAgain($publication, min(900, 30 * (2 ** min(5, $elapsedMinutes))));
+                return;
+            }
+            $coverId = $loaded['variant']->resolve($loaded['post'])->options->shortVideo?->coverMediaId;
+            if ($coverId !== null && $adapter instanceof VideoThumbnailAdapter) {
+                $context = $this->contexts->forPost($loaded['post']);
+                $coverPath = null;
+                try {
+                    if ($context === null) {
+                        throw new PostException('Не удалось подготовить обложку: нет участника пространства.');
+                    }
+                    $coverPath = $this->builder->coverFile($context, $coverId);
+                    $adapter->setThumbnail($result->externalId, $coverPath, $this->credentials->forChannel($channel));
+                } catch (Throwable $error) {
+                    $this->system->recordAttempt(
+                        $publication,
+                        'thumbnail_failed',
+                        $error instanceof PlatformError ? $error->kind->value : null,
+                        'Ролик опубликован, но обложку YouTube установить не удалось.',
+                        $error::class . ': ' . $error->getMessage(),
+                        $this->clock->now()
+                    );
+                } finally {
+                    if ($coverPath !== null) {
+                        @unlink($coverPath);
+                    }
+                }
+            }
+            $this->onSuccess($publication, $loaded['post'], $loaded['variant'], $channel, $adapter, $result, $publication->startedAt ?? $this->clock->now(), PublicationStatus::Processing);
+        } finally {
+            $this->redis->eval('if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end', [$key, $token], 1);
+        }
+    }
+
+    private function pollAgain(Publication $publication, int $seconds): void
+    {
+        $delay = max(30, min(900, $seconds));
+        $this->videoSessions->pollLater($publication->idempotencyKey, $delay);
+        $this->queue->dispatch(new VideoProcessingJob($publication->id), $delay, PublishJob::VIDEO_QUEUE);
     }
 
     /**
@@ -227,14 +342,17 @@ final class Publisher
         return $found;
     }
 
-    private function onSuccess(Publication $publication, Post $post, PostVariant $variant, Channel $channel, PlatformAdapter $adapter, PublishResult $result, DateTimeImmutable $started): void
+    private function onSuccess(Publication $publication, Post $post, PostVariant $variant, Channel $channel, PlatformAdapter $adapter, PublishResult $result, DateTimeImmutable $started, PublicationStatus $from = PublicationStatus::Sending): void
     {
         $options = $variant->resolve($post)->options;
         $capabilities = $adapter->capabilities();
         $deleteAt = $options->deleteAfterMinutes !== null && $capabilities->delete ? $this->clock->now()->modify(sprintf('+%d minutes', $options->deleteAfterMinutes)) : null;
         $url = $result->url ?? $channel->postUrl($result->externalId);
-        $stored = $this->system->markSent($publication, $result->externalId, $url, $result->allIds, $deleteAt);
+        $stored = $this->system->markSent($publication, $result->externalId, $url, $result->allIds, $deleteAt, $from);
         if (!$stored) {
+            if ($from === PublicationStatus::Processing) {
+                return;
+            }
             // A reaper judged this publication lost while a very slow upload was still running: the post did go out, so correct the record.
             $this->system->move($publication->id, PublicationStatus::Unknown, PublicationStatus::Sent, [
                 'external_post_id' => $result->externalId,
@@ -248,6 +366,9 @@ final class Publisher
             ]);
         }
         $this->system->recordAttempt($publication, 'sent', null, null, null, $started);
+        if ($post->kind === PostKind::ShortVideo) {
+            $this->analytics->track('short_video_published', null, $post->workspaceId, ['platform' => $channel->platform->value], 'short_video_published:' . $publication->id);
+        }
 
         $credential = null;
         if ($options->pin && $capabilities->pin) {
@@ -301,9 +422,9 @@ final class Publisher
                     return;
                 }
                 $delay = $error->kind === ErrorKind::RateLimited && $error->retryAfter !== null
-                    ? max(1, min($error->retryAfter, 3600))
+                    ? max(1, min($error->retryAfter, 90000))
                     : self::BACKOFF[min($publication->attempt, count(self::BACKOFF)) - 1];
-                $this->requeue($publication, $delay, $error->kind === ErrorKind::RateLimited ? 'rate_limited' : 'temporary', $error->forUser(), $detail);
+                $this->requeue($publication, $post->kind, $delay, $error->kind === ErrorKind::RateLimited ? 'rate_limited' : 'temporary', $error->forUser(), $detail);
                 $this->system->syncPostStatus($post->id);
 
                 return;
@@ -335,7 +456,7 @@ final class Publisher
     {
         $this->system->recordAttempt($publication, $kind->value, $kind->value, $message, $detail, $started);
         if ($kind === ErrorKind::Temporary && $publication->attempt < self::MAX_ATTEMPTS) {
-            $this->requeue($publication, self::BACKOFF[min($publication->attempt, count(self::BACKOFF)) - 1], $code, $message, $detail);
+            $this->requeue($publication, $post->kind, self::BACKOFF[min($publication->attempt, count(self::BACKOFF)) - 1], $code, $message, $detail);
             $this->system->syncPostStatus($post->id);
 
             return;
@@ -344,14 +465,14 @@ final class Publisher
         $this->afterFailure($post, $variant, $message, false);
     }
 
-    private function requeue(Publication $publication, int $delaySeconds, string $code, string $message, string $detail): void
+    private function requeue(Publication $publication, PostKind $kind, int $delaySeconds, string $code, string $message, string $detail): void
     {
         $runAt = $this->clock->now()->modify(sprintf('+%d seconds', $delaySeconds));
         if (!$this->system->requeue($publication, $runAt, $code, $message, $detail)) {
             return;
         }
         // The job for the next attempt is created right away, so a retry does not wait for the next scheduler tick.
-        $this->queue->dispatch(new PublishJob($publication->id), $delaySeconds, PublishJob::QUEUE);
+        $this->queue->dispatch(new PublishJob($publication->id), $delaySeconds, $kind === PostKind::ShortVideo ? PublishJob::VIDEO_QUEUE : PublishJob::QUEUE);
         $this->system->markEnqueued([$publication->id]);
     }
 
@@ -364,6 +485,9 @@ final class Publisher
 
     private function afterFailure(Post $post, PostVariant $variant, string $reason, bool $uncertain): void
     {
+        if ($post->kind === PostKind::ShortVideo) {
+            $this->analytics->track('short_video_failed', null, $post->workspaceId, ['platform' => $variant->platform->value, 'uncertain' => $uncertain ? 1 : 0]);
+        }
         $this->system->syncPostStatus($post->id);
         $workspace = $this->workspaces->findById($post->workspaceId);
         if ($workspace !== null) {

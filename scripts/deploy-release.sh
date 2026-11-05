@@ -51,7 +51,7 @@ while IFS='=' read -r key value; do
 done < "$images"
 [[ "$count" == 4 ]] || { echo 'Incomplete release image manifest' >&2; exit 2; }
 
-services=(app nginx worker scheduler analytics-worker)
+services=(app nginx worker video-worker scheduler analytics-worker)
 profiles=()
 case ${DEPLOY_ANALYTICS:-false} in
     true) profiles=(--profile analytics); services+=(analytics-pdf);;

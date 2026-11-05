@@ -75,6 +75,10 @@ binlog archival and isolated restore; external keys/S3/backup-account configurat
 are required. Never use the application DB as a restore target.
 `docs/architecture/modules/domain-catalog.md` indexes every Domain directory.
 
+## Stage 22 short videos
+
+TikTok and YouTube Shorts use dedicated OAuth connections and the `video` queue; Instagram Reels shares the short-video editor and processing flow. VK Clips remain unavailable until an official publishing API exists. The production stack and release runner include `video-worker`. See `docs/architecture/modules/short-video.md` and ADR 0027 for S3, egress, quota and owner live-check requirements.
+
 Review remediation: `/readyz` reads Redis cached health; the existing scheduler owns
 `readiness-refresh` (no heavy HTTP probes). `scripts/security/operations-tls-stand.py`
 validates real PDO/Oracle TLS against a disposable server. Release deployment takes

@@ -91,7 +91,7 @@ as a retry workaround. See ADR0025 for owner-accepted unsaved-response limitatio
 - `link_workspace_settings`: `workspace_id`, `utm_json`, `shorten`, `updated_at`
 - `login_attempts`: `id`, `user_id`, `outcome`, `ip`, `user_agent`, `created_at`
 - `mail_templates`: `template`, `subject`, `body_md`, `updated_by`, `updated_at`
-- `media`: `id`, `public_id`, `workspace_id`, `uploader_id`, `folder_id`, `kind`, `original_name`, `storage_key`, `thumb_key`, `mime`, `size`, `width`, `height`, `duration_ms`, `codec`, `animated`, `sha256`, `variants_json`, `created_at`
+- `media`: `id`, `public_id`, `workspace_id`, `uploader_id`, `folder_id`, `kind`, `original_name`, `storage_key`, `thumb_key`, `mime`, `size`, `width`, `height`, `duration_ms`, `codec`, `animated`, `sha256`, `variants_json`, `created_at`, `audio_codec`, `frame_rate`
 - `media_folders`: `id`, `public_id`, `workspace_id`, `name`, `created_at`
 - `member_channel_access`: `workspace_id`, `user_id`, `channel_id`, `granted_at`
 - `metrics_daily`: `day`, `metric`, `dim`, `value`
@@ -159,6 +159,9 @@ as a retry workaround. See ADR0025 for owner-accepted unsaved-response limitatio
 - `user_identities`: `id`, `user_id`, `provider`, `provider_user_id`, `email`, `display_name`, `linked_at`, `last_login_at`
 - `user_sessions`: `id`, `public_id`, `user_id`, `session_id_hash`, `ip`, `user_agent`, `created_at`, `last_seen_at`, `revoked_at`
 - `users`: `id`, `email`, `email_verified_at`, `password_hash`, `password_changed_at`, `name`, `locale`, `timezone`, `totp_secret_enc`, `totp_enabled_at`, `totp_last_step`, `is_superadmin`, `status`, `block_reason`, `consent_version`, `consent_at`, `marketing_opt_in_at`, `marketing_unsubscribed_at`, `created_at`, `updated_at`
+- `video_provider_sessions`: `publication_id`, `workspace_id`, `platform`, `remote_id`, `upload_url_enc`, `confirmed_bytes`, `phase`, `poll_after`, `deadline_at`, `created_at`, `updated_at`
+- `video_upload_quota_days`: `platform`, `quota_day`, `used`
+- `video_upload_quota_reservations`: `publication_id`, `platform`, `quota_day`, `created_at`
 - `watermarks`: `id`, `public_id`, `workspace_id`, `name`, `storage_key`, `width`, `height`, `position`, `opacity`, `scale`, `margin`, `is_default`, `created_at`, `updated_at`
 - `webauthn_challenges`: `id`, `user_id`, `session_hash`, `challenge_hash`, `purpose`, `expires_at`, `consumed_at`
 - `webauthn_credentials`: `id`, `user_id`, `credential_id`, `credential_hash`, `public_key`, `sign_count`, `label`, `created_at`, `last_used_at`, `revoked_at`

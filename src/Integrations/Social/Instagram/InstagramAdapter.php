@@ -34,7 +34,7 @@ final class InstagramAdapter implements PlatformAdapter, CommentingAdapter, Outc
     private const MAX_MEDIA = 10;
     private const MAX_HASHTAGS = 30;
     private const MAX_MENTIONS = 20;
-    private const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+    private const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
     /** How many of the latest posts are looked through when an outcome is unknown. */
     private const VERIFY_POSTS = 20;
     /** Pauses (seconds) between looks at a container that is still being processed: about five minutes in all. */
@@ -64,7 +64,26 @@ final class InstagramAdapter implements PlatformAdapter, CommentingAdapter, Outc
 
     public function capabilities(): Capabilities
     {
-        return new Capabilities(self::MAX_CAPTION, self::MAX_CAPTION, self::MAX_MEDIA, true, false, false, false, false, false, true, self::MAX_VIDEO_BYTES, false, 'plain', $this->postsPerDay, true, true);
+        return new Capabilities(
+            self::MAX_CAPTION,
+            self::MAX_CAPTION,
+            self::MAX_MEDIA,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            self::MAX_VIDEO_BYTES,
+            false,
+            'plain',
+            $this->postsPerDay,
+            true,
+            true,
+            true,
+            shortVideoFields: ['share_to_feed', 'cover_media_id']
+        );
     }
 
     public function validate(PublishRequest $request): array
@@ -133,7 +152,13 @@ final class InstagramAdapter implements PlatformAdapter, CommentingAdapter, Outc
 
         $mode = $this->mode($request);
         $container = match ($mode) {
-            'reel' => $this->createContainer($account, $token, ['media_type' => 'REELS', 'video_url' => (string) $request->media[0]->url, 'caption' => $request->text, 'share_to_feed' => true]),
+            'reel' => $this->createContainer($account, $token, array_filter([
+                'media_type' => 'REELS',
+                'video_url' => (string) $request->media[0]->url,
+                'caption' => $request->text,
+                'share_to_feed' => $request->shortVideo === null ? true : ($request->shortVideo->shareToFeed ?? true),
+                'cover_url' => $request->coverUrl,
+            ], static fn (mixed $value): bool => $value !== null)),
             'story' => $this->createContainer($account, $token, ['media_type' => 'STORIES'] + $this->source($request->media[0])),
             default => count($request->media) === 1
                 ? $this->createContainer($account, $token, ['caption' => $request->text] + $this->source($request->media[0]))

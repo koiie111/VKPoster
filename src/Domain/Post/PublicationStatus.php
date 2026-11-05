@@ -15,6 +15,7 @@ enum PublicationStatus: string
 {
     case Queued = 'queued';
     case Sending = 'sending';
+    case Processing = 'processing';
     case Sent = 'sent';
     case Failed = 'failed';
     case Unknown = 'unknown';
@@ -27,7 +28,8 @@ enum PublicationStatus: string
     {
         return match ($this) {
             self::Queued => [self::Sending, self::Cancelled],
-            self::Sending => [self::Sent, self::Queued, self::Failed, self::Unknown],
+            self::Sending => [self::Processing, self::Sent, self::Queued, self::Failed, self::Unknown],
+            self::Processing => [self::Sent, self::Failed, self::Unknown],
             self::Failed => [self::Queued],
             self::Unknown => [self::Queued, self::Sent, self::Cancelled],
             self::Sent, self::Cancelled => [],
@@ -49,6 +51,7 @@ enum PublicationStatus: string
         return match ($this) {
             self::Queued => 'В очереди',
             self::Sending => 'Отправляется',
+            self::Processing => 'Обрабатывается сетью',
             self::Sent => 'Опубликовано',
             self::Failed => 'Не удалось',
             self::Unknown => 'Нужно проверить',
@@ -64,6 +67,7 @@ enum PublicationStatus: string
         return match ($this) {
             self::Queued => 'scheduled',
             self::Sending => 'publishing',
+            self::Processing => 'publishing',
             self::Sent => 'published',
             self::Failed => 'failed',
             self::Unknown => 'unknown',

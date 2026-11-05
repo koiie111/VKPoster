@@ -9,7 +9,7 @@
 
 {% set nav_current = 'editor' %}
 {% block title %}{{ post ? 'Изменить пост' : 'Новый пост' }} · {{ app_name }}{% endblock %}
-{% block head %}<script src="{{ asset('js/editor.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% if can('ai.use') %}<script src="{{ asset('js/ai.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endif %}{% endblock %}
+{% block head %}<script src="{{ asset('js/video-upload.js') }}" nonce="{{ csp_nonce() }}" defer></script><script src="{{ asset('js/editor.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% if can('ai.use') %}<script src="{{ asset('js/ai.js') }}" nonce="{{ csp_nonce() }}" defer></script>{% endif %}{% endblock %}
 {% block content %}
 {{ d.breadcrumbs([{label: 'Календарь', href: base ~ '/calendar'}, {label: post ? 'Изменить пост' : 'Новый пост'}]) }}
 {% set head_actions %}
@@ -19,6 +19,7 @@
     {% endif %}
 {% endset %}
 <div class="mt-3">{{ d.page_header(post ? 'Изменить пост' : 'Новый пост', body = head_actions) }}</div>
+{% if not post %}<nav class="mb-5 flex flex-wrap gap-2" aria-label="Тип публикации"><a class="btn {{ kind == 'regular' ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/posts/new">Обычный пост</a><a class="btn {{ kind == 'short_video' ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/posts/new?kind=short_video">Короткое видео</a></nav>{% endif %}
 
 {% if channels is empty %}
 <div class="card">
@@ -33,6 +34,7 @@
 <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem]" x-data="composer"
      data-validate-url="{{ base }}/posts/validate" data-autosave-url="{{ autosave ? base ~ '/posts/autosave' : '' }}" data-picker-url="{{ base }}/media-picker"
      data-upload-url="{{ base }}/media/upload" data-post-id="{{ post ? post.publicId : '' }}" data-update-base="{{ base }}/posts"
+     data-post-kind="{{ kind }}"
      data-can-publish="{{ can_publish ? '1' : '0' }}">
     <form class="flex min-w-0 flex-col gap-6" method="post" action="{{ action }}" data-composer-form novalidate>
         {{ csrf_field() }}
@@ -60,9 +62,9 @@
         <div>
             <div class="flex gap-1 overflow-x-auto border-b border-line" role="tablist" aria-label="Для какой соцсети правим пост" data-tabs hidden></div>
             <div class="pt-4">
-                {{ k.panel('common', '', text, media, options, 'pf-common') }}
+                {{ k.panel('common', '', text, media, options, 'pf-common', false, {}, kind) }}
                 {% for ch in channels %}
-                    {{ k.panel(ch.id, 'v[' ~ ch.id ~ ']', ch.variant.text is not null ? ch.variant.text : text, ch.variant.media, ch.variant.options, 'pf-' ~ ch.id, true, {text: ch.variant.text_custom, media: ch.variant.media_custom, options: ch.variant.options_custom}) }}
+                    {{ k.panel(ch.id, 'v[' ~ ch.id ~ ']', ch.variant.text is not null ? ch.variant.text : text, ch.variant.media, ch.variant.options, 'pf-' ~ ch.id, true, {text: ch.variant.text_custom, media: ch.variant.media_custom, options: ch.variant.options_custom}, kind) }}
                 {% endfor %}
             </div>
         </div>
@@ -162,7 +164,7 @@
         <p class="mt-3 text-xs text-muted">Это приблизительный вид: в самой соцсети шрифты и отступы могут отличаться.</p>
     </aside>
 
-    {{ k.preview_template('tg') }}{{ k.preview_template('vk') }}{{ k.preview_template('max') }}{{ k.preview_template('ig') }}
+    {{ k.preview_template('tg') }}{{ k.preview_template('vk') }}{{ k.preview_template('max') }}{{ k.preview_template('ig') }}{{ k.preview_template('short') }}
     <template data-button-template>{{ k.button_row('', '__i__') }}</template>
 
     {% set picker_body %}

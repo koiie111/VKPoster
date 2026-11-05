@@ -16,24 +16,24 @@
 
 {#- Options of a post or variant. `o` is the options array (buttons, silent, disable_preview, pin, delete_after, delete_after_unit, first_comment).
     Every control carries data-cap: it is shown only when a selected channel's platform supports it. -#}
-{% macro options(prefix, o, uid) -%}
+{% macro options(prefix, o, uid, kind = 'regular') -%}
 {% import _self as k %}
 <div class="flex flex-col gap-5" data-options>
-    {% if o.short_video %}
-        {% set sv = o.short_video %}
+    {% if kind == 'short_video' %}
+        {% set sv = o.short_video ?? {} %}
         {% set sv_name = k.fname(prefix, 'short_video') %}
-        <input type="hidden" name="{{ sv_name }}[title]" value="{{ sv.title }}">
-        <input type="hidden" name="{{ sv_name }}[privacy]" value="{{ sv.privacy }}">
-        {% if sv.made_for_kids is not null %}<input type="hidden" name="{{ sv_name }}[made_for_kids]" value="{{ sv.made_for_kids ? '1' : '0' }}">{% endif %}
-        {% if sv.allow_comments is not null %}<input type="hidden" name="{{ sv_name }}[allow_comments]" value="{{ sv.allow_comments ? '1' : '0' }}">{% endif %}
-        {% if sv.allow_duet is not null %}<input type="hidden" name="{{ sv_name }}[allow_duet]" value="{{ sv.allow_duet ? '1' : '0' }}">{% endif %}
-        {% if sv.allow_stitch is not null %}<input type="hidden" name="{{ sv_name }}[allow_stitch]" value="{{ sv.allow_stitch ? '1' : '0' }}">{% endif %}
-        {% if sv.share_to_feed is not null %}<input type="hidden" name="{{ sv_name }}[share_to_feed]" value="{{ sv.share_to_feed ? '1' : '0' }}">{% endif %}
-        <input type="hidden" name="{{ sv_name }}[commercial_content]" value="{{ sv.commercial_content ? '1' : '0' }}">
-        <input type="hidden" name="{{ sv_name }}[music_rights_accepted]" value="{{ sv.music_rights_accepted ? '1' : '0' }}">
-        {% if sv.category_id %}<input type="hidden" name="{{ sv_name }}[category_id]" value="{{ sv.category_id }}">{% endif %}
-        {% for tag in sv.tags %}<input type="hidden" name="{{ sv_name }}[tags][]" value="{{ tag }}">{% endfor %}
-        {% if sv.cover_media_id %}<input type="hidden" name="{{ sv_name }}[cover_media_id]" value="{{ sv.cover_media_id }}">{% endif %}
+        <div data-cap="sv_title"><label class="label" for="{{ uid }}-sv-title">Заголовок видео</label><input class="field" id="{{ uid }}-sv-title" name="{{ sv_name }}[title]" maxlength="255" value="{{ sv.title ?? '' }}"></div>
+        <div data-cap="sv_privacy"><label class="label" for="{{ uid }}-sv-privacy">Кому показывать видео</label><select class="field" id="{{ uid }}-sv-privacy" name="{{ sv_name }}[privacy]"><option value="">Выберите видимость</option>{% for value, label in {PUBLIC_TO_EVERYONE: 'Всем', MUTUAL_FOLLOW_FRIENDS: 'Друзьям', FOLLOWER_OF_CREATOR: 'Подписчикам', SELF_ONLY: 'Только мне', public: 'Открытое YouTube', unlisted: 'По ссылке на YouTube', private: 'Личное YouTube'} %}<option value="{{ value }}"{% if sv.privacy ?? '' == value %} selected{% endif %} data-privacy-platform="{{ value in ['public', 'unlisted', 'private'] ? 'youtube' : 'tiktok' }}">{{ label }}</option>{% endfor %}</select></div>
+        <div data-cap="sv_made_for_kids"><label class="label" for="{{ uid }}-sv-kids">Видео для детей (YouTube)</label><select class="field" id="{{ uid }}-sv-kids" name="{{ sv_name }}[made_for_kids]"><option value="">Выберите ответ</option><option value="1"{% if (sv.made_for_kids ?? null) is same as(true) %} selected{% endif %}>Да</option><option value="0"{% if (sv.made_for_kids ?? null) is same as(false) %} selected{% endif %}>Нет</option></select></div>
+        <div data-cap="sv_cover_media_id"><label class="label" for="{{ uid }}-sv-cover">Обложка из медиатеки</label><div class="flex gap-2"><input class="field" id="{{ uid }}-sv-cover" name="{{ sv_name }}[cover_media_id]" maxlength="26" value="{{ sv.cover_media_id ?? '' }}" placeholder="ID изображения" data-cover-id><button type="button" class="btn btn-secondary" data-cover-pick>Выбрать</button></div><div class="mt-3" data-cover-frame-box hidden><label class="label" for="{{ uid }}-cover-time">Или выберите кадр видео</label><input class="w-full" type="range" id="{{ uid }}-cover-time" min="0" max="1000" step="1000" value="0" data-cover-range><button type="button" class="btn btn-secondary btn-sm mt-2" data-cover-frame>Сделать обложкой этот кадр</button><p class="hint" data-cover-status role="status"></p></div></div>
+        <div data-cap="sv_share_to_feed"><input type="hidden" name="{{ sv_name }}[share_to_feed]" value="0"><label class="flex items-center gap-2" for="{{ uid }}-sv-feed"><input class="check" type="checkbox" id="{{ uid }}-sv-feed" name="{{ sv_name }}[share_to_feed]" value="1"{% if sv.share_to_feed is not defined or sv.share_to_feed %} checked{% endif %}>Показать Reels в ленте Instagram</label></div>
+        <div data-cap="sv_commercial_content"><input type="hidden" name="{{ sv_name }}[commercial_content]" value="0"><label class="flex items-center gap-2" for="{{ uid }}-sv-commercial"><input class="check" type="checkbox" id="{{ uid }}-sv-commercial" name="{{ sv_name }}[commercial_content]" value="1"{% if sv.commercial_content ?? false %} checked{% endif %}>Это рекламный или коммерческий контент</label></div>
+        <div data-cap="sv_music_rights_accepted"><input type="hidden" name="{{ sv_name }}[music_rights_accepted]" value="0"><label class="flex items-center gap-2" for="{{ uid }}-sv-music"><input class="check" type="checkbox" id="{{ uid }}-sv-music" name="{{ sv_name }}[music_rights_accepted]" value="1"{% if sv.music_rights_accepted ?? false %} checked{% endif %}>У меня есть право использовать музыку в видео</label></div>
+        {% for field, label in {allow_comments: 'Разрешить комментарии', allow_duet: 'Разрешить дуэты', allow_stitch: 'Разрешить сшивание'} %}
+        <div data-cap="sv_{{ field }}"><label class="label" for="{{ uid }}-sv-{{ field }}">{{ label }} (TikTok)</label><select class="field" id="{{ uid }}-sv-{{ field }}" name="{{ sv_name }}[{{ field }}]"><option value="">По настройкам аккаунта</option><option value="1"{% if (sv[field] ?? null) is same as(true) %} selected{% endif %}>Да</option><option value="0"{% if (sv[field] ?? null) is same as(false) %} selected{% endif %}>Нет</option></select></div>
+        {% endfor %}
+        {% if sv.category_id ?? null %}<input type="hidden" name="{{ sv_name }}[category_id]" value="{{ sv.category_id }}">{% endif %}
+        {% for tag in sv.tags ?? [] %}<input type="hidden" name="{{ sv_name }}[tags][]" value="{{ tag }}">{% endfor %}
     {% endif %}
     <div data-cap="post_format">
         <label class="label" for="{{ uid }}-format">Что опубликовать</label>
@@ -77,11 +77,11 @@
 
 {#- One media tile as the server renders it (the script re-renders the list from this data). -#}
 {% macro media_data(items) -%}
-{% for m in items %}<li data-media-id="{{ m.id }}" data-name="{{ m.name }}" data-kind="{{ m.kind }}" data-thumb="{{ m.thumb ?? '' }}"{% if m.missing is defined and m.missing %} data-missing="1"{% endif %}></li>{% endfor %}
+{% for m in items %}<li data-media-id="{{ m.id }}" data-name="{{ m.name }}" data-kind="{{ m.kind }}" data-thumb="{{ m.thumb ?? '' }}" data-duration-ms="{{ m.duration_ms ?? 0 }}"{% if m.missing is defined and m.missing %} data-missing="1"{% endif %}></li>{% endfor %}
 {%- endmacro %}
 
 {#- A full editing panel. key: 'common' or the channel id. state: for a variant, the card['variant'] array. -#}
-{% macro panel(key, prefix, text, media, options, uid, hidden = false, custom = {}) -%}
+{% macro panel(key, prefix, text, media, options, uid, hidden = false, custom = {}, kind = 'regular') -%}
 {% import _self as k %}
 <section id="panel-{{ key }}" data-panel="{{ key }}" data-prefix="{{ prefix }}" role="tabpanel" aria-labelledby="tab-{{ key }}" class="flex flex-col gap-6"{% if hidden %} hidden{% endif %}>
     {% if key != 'common' %}
@@ -124,7 +124,7 @@
 
     <details class="rounded-card border border-line" data-details>
         <summary class="flex min-h-11 cursor-pointer items-center gap-2 px-4 text-[0.9375rem] font-semibold">{{ icon('settings', 'h-4 w-4') }}Дополнительно: кнопки, тихая отправка, закрепление, удаление</summary>
-        <div class="border-t border-line p-4">{{ k.options(prefix, options, uid) }}</div>
+        <div class="border-t border-line p-4">{{ k.options(prefix, options, uid, kind) }}</div>
     </details>
 </section>
 {%- endmacro %}
@@ -134,7 +134,18 @@
 {% macro preview_template(kind) -%}
 {% import 'components/display.twig' as d %}
 <template data-pv-template="{{ kind }}">
-{% if kind == 'vk' %}
+{% if kind == 'short' %}
+    <div class="mx-auto max-w-[18rem] overflow-hidden rounded-3xl border border-line bg-black text-white shadow-card">
+        <div class="relative aspect-[9/16]">
+            <div class="absolute inset-0 grid" data-pv-media></div>
+            <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent px-4 pb-5 pt-16">
+                <p class="text-sm font-semibold" data-pv-name></p>
+                <p class="mt-2 line-clamp-3 whitespace-pre-line break-words text-sm" data-pv-text></p>
+                <div class="mt-3 flex gap-4" aria-hidden="true">{{ icon('heart', 'h-5 w-5') }}{{ icon('message-circle', 'h-5 w-5') }}{{ icon('share-2', 'h-5 w-5') }}</div>
+            </div>
+        </div>
+    </div>
+{% elseif kind == 'vk' %}
     <div class="rounded-card border border-line bg-surface p-4">
         <div class="flex items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary-softfg" aria-hidden="true" data-pv-initials></span><div class="min-w-0"><p class="truncate font-semibold leading-tight" data-pv-name></p><p class="text-xs text-muted">только что</p></div></div>
         <p class="mt-3 whitespace-pre-line break-words text-[0.9375rem]" data-pv-text></p>
