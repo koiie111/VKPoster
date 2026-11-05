@@ -7,6 +7,7 @@ namespace App\Tests\Feature\Media;
 use App\Domain\Media\ChunkedVideoUploads;
 use App\Domain\Media\MediaException;
 use App\Domain\Media\MediaService;
+use App\Domain\Billing\Entitlements;
 use App\Domain\Workspace\Role;
 use App\Tests\Support\MediaFixtures;
 use App\Tests\Support\MediaTestCase;
@@ -59,6 +60,37 @@ final class ChunkedVideoUploadTest extends MediaTestCase
         $finish = $this->post($path . '/finish');
         self::assertSame(422, $finish->status);
         self::assertStringContainsString('Контрольная сумма', $finish->body);
+        self::assertSame([], $this->db->select('SELECT id FROM media'));
+        @unlink(dirname(__DIR__, 3) . '/storage/video-uploads/' . $id . '.part');
+        @unlink(dirname(__DIR__, 3) . '/storage/video-uploads/' . $id . '.json');
+    }
+
+    public function testFinishRechecksPlanAfterUploadStarted(): void
+    {
+        [, $workspace] = $this->ownerSession();
+        $bytes = MediaFixtures::mp4();
+        $base = $this->base($workspace) . '/media/video-uploads';
+        $start = $this->post($base, ['name' => 'clip.mp4', 'size' => (string) strlen($bytes), 'sha256' => hash('sha256', $bytes)]);
+        self::assertSame(200, $start->status, $start->body);
+        $id = (string) json_decode($start->body, true)['id'];
+        $path = $base . '/' . $id;
+        $chunk = $this->request('POST', $path . '/chunks', ['_token' => $this->csrfToken(), 'offset' => '0'], [], ['chunk' => $this->uploadedFile($bytes, 'part')]);
+        self::assertSame(200, $chunk->status, $chunk->body);
+
+        $planId = $this->app->container()->get(Entitlements::class)->plan($workspace->id)->id;
+        $row = $this->db->select('SELECT id, limits_json FROM plans WHERE id=?', [$planId])[0];
+        $originalLimits = (string) $row['limits_json'];
+        $limits = json_decode($originalLimits, true, 32, JSON_THROW_ON_ERROR);
+        self::assertIsArray($limits);
+        $limits['short_video_file_mib'] = 0;
+        $this->db->execute('UPDATE plans SET limits_json=? WHERE id=?', [json_encode($limits, JSON_THROW_ON_ERROR), $row['id']]);
+        try {
+            $finish = $this->post($path . '/finish');
+        } finally {
+            $this->db->execute('UPDATE plans SET limits_json=? WHERE id=?', [$originalLimits, $row['id']]);
+        }
+        self::assertSame(422, $finish->status, $finish->body);
+        self::assertStringContainsString('ограничение тарифа', $finish->body);
         self::assertSame([], $this->db->select('SELECT id FROM media'));
         @unlink(dirname(__DIR__, 3) . '/storage/video-uploads/' . $id . '.part');
         @unlink(dirname(__DIR__, 3) . '/storage/video-uploads/' . $id . '.json');

@@ -122,6 +122,10 @@ final class ChunkedVideoUploads
             if ((int) $metadata['offset'] !== (int) $metadata['size'] || filesize($part) !== (int) $metadata['size']) {
                 throw new MediaException('Видео загружено не полностью. Продолжите загрузку.');
             }
+            $planMiB = $this->entitlements->limit($context->workspaceId, 'short_video_file_mib');
+            if ($planMiB !== null && (int) $metadata['size'] > $planMiB * 1024 * 1024) {
+                throw new MediaException('Это ограничение тарифа: видео слишком большое. Выберите файл поменьше или тариф с большим лимитом.', true);
+            }
             $actual = hash_file('sha256', $part);
             if ($actual === false || !hash_equals((string) $metadata['sha256'], $actual)) {
                 throw new MediaException('Контрольная сумма видео не совпала. Загрузите файл заново.');
