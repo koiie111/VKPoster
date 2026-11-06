@@ -260,7 +260,7 @@ final class Automation
             return;
         }
         if ($run['step'] === 'selection' && ($settings['auto_selection'] === true) && ($this->materials->selection($ctx, $source, (int) $item['id'])['decision_mode'] ?? '') !== 'manual') {
-            if (($settings['semantic_selection'] === true) && (!$this->guard->allows('semantic') || !$this->semanticEnabled($ctx, $source))) {
+            if (($settings['semantic_selection'] === true) && (!$this->guard->allows('semantic', $ctx->workspaceId) || !$this->semanticEnabled($ctx, $source))) {
                 $this->finish($run, 'needs_review', 'Смысловой provider недоступен.');
                 return;
             }
@@ -293,7 +293,7 @@ final class Automation
         }
         if ($run['step'] === 'text' || $run['step'] === 'text_started') {
             if (($settings['auto_text_processing'] === true)) {
-                if ($settings['text_mode'] !== 'unchanged' && !$this->guard->allows('text')) {
+                if ($settings['text_mode'] !== 'unchanged' && !$this->guard->allows('text', $ctx->workspaceId)) {
                     $this->finish($run, 'needs_review', 'Текстовый provider недоступен.');
                     return;
                 }

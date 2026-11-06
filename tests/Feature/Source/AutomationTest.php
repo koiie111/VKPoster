@@ -364,7 +364,9 @@ final class AutomationTest extends SourceSelectionTestCase
     {
         $this->fixture(['text_mode' => 'rewrite']);
         $c = $this->app->container();
-        $c->instance(\App\Kernel\Config::class, \App\Kernel\Config::load(\App\Tests\Support\TestEnv::basePath() . '/config', \App\Tests\Support\TestEnv::env(['CONTENT_TEXT_PROVIDER' => 'openai', 'OPENAI_API_KEY' => ''])));
+        $config = \App\Kernel\Config::load(\App\Tests\Support\TestEnv::basePath() . '/config', \App\Tests\Support\TestEnv::env(['CONTENT_TEXT_PROVIDER' => 'llm']));
+        $c->instance(\App\Kernel\Config::class, $config);
+        $c->instance(\App\Domain\Content\Automation\AutomationGuard::class, new \App\Domain\Content\Automation\AutomationGuard($config));
         $this->tick();
         self::assertSame('needs_review', $this->runRow()['status']);
         self::assertSame(0, $this->db->table('source_text_processings')->count());

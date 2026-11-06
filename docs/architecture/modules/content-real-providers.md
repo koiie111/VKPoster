@@ -7,24 +7,22 @@ Real adapters extend the existing TextProvider, SemanticSelectionProvider, Image
 All providers default to Fake. Tests use TestEnv and MockHttpClient, never the developer `.env` or the internet. There is no automatic fallback from a failed real provider to fabricated content. Configure only the integrations you intend to use in the local, ignored `.env`:
 
 ```dotenv
-CONTENT_TEXT_PROVIDER=openai
-CONTENT_SEMANTIC_PROVIDER=openai
+CONTENT_TEXT_PROVIDER=llm
+CONTENT_SEMANTIC_PROVIDER=llm
 CONTENT_IMAGE_SEARCH_PROVIDER=tineye
 CONTENT_IMAGE_ENHANCEMENT_PROVIDER=replicate
 CONTENT_VIDEO_PROVIDER=replicate
-OPENAI_API_KEY=
-OPENAI_CONTENT_MODEL=gpt-5.4-mini-2026-03-17
 TINEYE_API_KEY=
 REPLICATE_API_TOKEN=
 ```
 
-Keys must be obtained using eligible provider accounts and supported regions, then inserted locally, never sent in chat. OpenAI's supported-country list does not include Russia; an API key alone does not establish regional availability. Check eligibility before enabling real calls. Since Stage 3.3, missing credentials do not prevent application startup: execution is denied before HTTP and automation falls back to manual review without substituting Fake content. Merely providing keys does not enable a real provider: explicit selection is also required. `CONTENT_IMAGE_ENHANCEMENT_PROVIDER=disabled` disables enhancement explicitly. Fake remains for development/tests, with the existing production execution guard. Restart long-lived workers after changing env. No real keys were available for Stage 3.2, so paid/live behavior has not been verified. The owner accepted Stage 3.2 on adapters and mocked contracts; OpenAI/TinEye/Replicate live smoke is scheduled for Stage 3.5, with no credentials requested now.
+Keys must be obtained using eligible provider accounts and supported regions, then inserted through `/admin/ai` for text and semantic operations, or through the remaining env settings for TinEye/Replicate; never send keys in chat. Stage 23 routes text and semantic calls through the same OpenAI-compatible provider registry and SSRF-guarded transport as the editor. A workspace's encrypted BYOK setting takes priority and avoids tariff credit charges. Chain steps can select `source_text` and `source_semantic` separately; absent a matching step, the configured default model answers. Missing model configuration blocks calls before quota charging. `CONTENT_IMAGE_ENHANCEMENT_PROVIDER=disabled` disables enhancement explicitly. Fake remains for development/tests and is rejected for explicit `llm` calls and in production. Restart long-lived workers after changing env.
 
 ## Text and semantic selection
 
-OpenAI Responses API, no new SDK dependency. A model snapshot is configuration, not business logic. `store=false`; developer policy/criteria/settings and JSON-encoded untrusted material are separate roles. Strict JSON Schema + runtime validation rejects refusals, incomplete output, invalid decision types/ranges and malformed annotations. Separating roles reduces injection exposure but is not proof that an LLM cannot be manipulated: deterministic excludes, thresholds, revision guards and manual decisions remain authoritative. TextProcessor enforces output constraints again after the adapter returns.
+Stage 23 text and semantic calls use the same OpenAI-compatible chat provider abstraction as the editor. The trusted policy and JSON-encoded untrusted material occupy separate roles; semantic output must be a bounded JSON object and is checked for every decision type, score, confidence and annotation. Deterministic excludes, thresholds, revision guards and manual decisions remain authoritative. TextProcessor enforces output constraints again after the adapter returns. The earlier direct OpenAI Responses adapter is retained only for legacy contract tests; it is no longer selectable through runtime configuration.
 
-Metadata contains allowlisted model and token usage; a labelled integer `estimated_cost_microusd` is calculated only for the documented default model, with cached input accounted for. It is an estimate, not a provider invoice. Prompts, response IDs, raw errors, credentials and signed URLs are not copied into technical metadata/logs. Text networking is outside DB locks. Semantic calls currently retain the existing synchronous Selection transaction; bounded HTTP calls can prolong workspace/source locks. Moving semantic execution to durable asynchronous work and introducing per-workspace cost budgets belongs to production hardening, before large-scale automatic use.
+Metadata contains allowlisted provider, model and token usage, without prompts, response IDs, raw errors, credentials or signed URLs. Text and semantic networking occurs outside DB locks through durable attempts. Workspace and service call limits remain in Redis; an unavailable limit denies a paid call.
 
 ## Image search and enhancement
 

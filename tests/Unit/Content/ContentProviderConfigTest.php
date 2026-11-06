@@ -14,7 +14,7 @@ final class ContentProviderConfigTest extends TestCase
 {
     public function testDefaultsStayFakeEvenWhenKeysExist(): void
     {
-        $config = Config::load(TestEnv::basePath() . '/config', TestEnv::env(['OPENAI_API_KEY' => 'test-key', 'TINEYE_API_KEY' => 'test-key', 'REPLICATE_API_TOKEN' => 'test-key']));
+        $config = Config::load(TestEnv::basePath() . '/config', TestEnv::env(['TINEYE_API_KEY' => 'test-key', 'REPLICATE_API_TOKEN' => 'test-key']));
         foreach (['text', 'semantic', 'image_search', 'image_enhancement', 'video'] as $name) {
             self::assertSame('fake', $config->string('content_providers.' . $name));
         }
@@ -22,8 +22,8 @@ final class ContentProviderConfigTest extends TestCase
     /** @return iterable<string,array{string,string,string}> */
     public static function providers(): iterable
     {
-        yield 'text' => ['TEXT', 'openai', 'OPENAI_API_KEY'];
-        yield 'semantic' => ['SEMANTIC', 'openai', 'OPENAI_API_KEY'];
+        yield 'text' => ['TEXT', 'llm', ''];
+        yield 'semantic' => ['SEMANTIC', 'llm', ''];
         yield 'search' => ['IMAGE_SEARCH', 'tineye', 'TINEYE_API_KEY'];
         yield 'enhancement' => ['IMAGE_ENHANCEMENT', 'replicate', 'REPLICATE_API_TOKEN'];
         yield 'video' => ['VIDEO', 'replicate', 'REPLICATE_API_TOKEN'];
@@ -31,14 +31,14 @@ final class ContentProviderConfigTest extends TestCase
     #[DataProvider('providers')]
     public function testRealSelectionRequiresItsCredential(string $name, string $provider, string $credential): void
     {
-        $config = Config::load(TestEnv::basePath() . '/config', TestEnv::env(['CONTENT_' . $name . '_PROVIDER' => $provider, $credential => '  ']));
+        $config = Config::load(TestEnv::basePath() . '/config', TestEnv::env(['CONTENT_' . $name . '_PROVIDER' => $provider] + ($credential === '' ? [] : [$credential => '  '])));
         self::assertFalse((new \App\Domain\Content\Automation\AutomationGuard($config))->allows(strtolower($name)));
         self::assertSame($provider, $config->string('content_providers.' . strtolower($name)));
     }
     #[DataProvider('providers')]
     public function testExplicitSelectionAndCredentialEnableRealAdapterConfig(string $name, string $provider, string $credential): void
     {
-        $config = Config::load(TestEnv::basePath() . '/config', TestEnv::env(['CONTENT_' . $name . '_PROVIDER' => $provider, $credential => 'test-only-key']));
+        $config = Config::load(TestEnv::basePath() . '/config', TestEnv::env(['CONTENT_' . $name . '_PROVIDER' => $provider] + ($credential === '' ? [] : [$credential => 'test-only-key'])));
         self::assertSame($provider, $config->string('content_providers.' . strtolower($name)));
     }
     public function testDisabledEnhancementNeedsNoCredentials(): void

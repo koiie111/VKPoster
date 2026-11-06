@@ -42,14 +42,19 @@ final class ProviderQuota
      *
      * @template T
      * @param Closure():T $call
+     * @param Closure():bool|null $freeAfter Whether the selected model step was free; evaluated only after success.
      * @return T
      * @throws ProviderException `quota_exceeded` / `workspace_rate_limited` / `limits_unavailable`
      */
-    public function run(int $workspaceId, string $operation, Closure $call): mixed
+    public function run(int $workspaceId, string $operation, Closure $call, ?Closure $freeAfter = null): mixed
     {
         $cost = $this->charge($workspaceId, $operation);
         try {
-            return $call();
+            $result = $call();
+            if ($cost > 0 && $freeAfter !== null && $freeAfter()) {
+                $this->refund($workspaceId, $cost);
+            }
+            return $result;
         } catch (ProviderException $e) {
             if ($e->retryable && $cost > 0) {
                 $this->refund($workspaceId, $cost);

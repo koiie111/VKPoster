@@ -59,9 +59,12 @@ final class ContentProcessor
         $category = null;
         $retryable = false;
         try {
-            $generate = fn (): string => $this->text->process((string) $attempt['item']['text'], $attempt['messages'], $source === null ? '' : $source->telegramUsername, $settings);
+            if ($settings->mode !== 'unchanged' && !$this->text->available($context->workspaceId)) {
+                throw new \App\Integrations\ContentProviders\ProviderException('not_configured');
+            }
+            $generate = fn (): string => $this->text->process((string) $attempt['item']['text'], $attempt['messages'], $source === null ? '' : $source->telegramUsername, $settings, $context->workspaceId);
             // Only a paid provider call is charged; the local "unchanged" mode never reaches a provider.
-            $output = $this->quota !== null && $settings->mode !== 'unchanged' ? $this->quota->run($context->workspaceId, 'text', $generate) : $generate();
+            $output = $this->quota !== null && $settings->mode !== 'unchanged' && !$this->text->usesOwnKey($context->workspaceId) ? $this->quota->run($context->workspaceId, 'text', $generate, fn (): bool => $this->text->resultIsFree()) : $generate();
         } catch (\App\Integrations\ContentProviders\ProviderException $e) {
             $category = $e->category;
             $retryable = $e->retryable;

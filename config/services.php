@@ -449,16 +449,22 @@ return static function (Container $c, string $base): void {
         $c->get(\App\Http\FormFlash::class),
         $c->get(Config::class)->int('links.manual_per_day', 100),
     ));
-    $c->factory(\App\Integrations\Ai\OpenAiResponses::class, static fn (Container $c): \App\Integrations\Ai\OpenAiResponses => new \App\Integrations\Ai\OpenAiResponses($c->get(\App\Integrations\ContentProviders\ProviderHttp::class), $c->get(Config::class)->string('content_providers.openai_key'), $c->get(Config::class)->string('content_providers.openai_model')));
     // Stage 17: AI assistant models. The transport is shared; the factory allows the offline fake only outside production.
     $c->factory(\App\Integrations\Ai\Llm\LlmTransport::class, static fn (Container $c): \App\Integrations\Ai\Llm\LlmTransport => new \App\Integrations\Ai\Llm\LlmTransport($c->get(HttpClientInterface::class), $c->get(Config::class)->int('ai.timeout_seconds', 60)));
     $c->factory(\App\Integrations\Ai\Llm\LlmFactory::class, static fn (Container $c): \App\Integrations\Ai\Llm\LlmFactory => new \App\Integrations\Ai\Llm\LlmFactory($c->get(\App\Integrations\Ai\Llm\LlmSettings::class), $c->get(\App\Integrations\Ai\Llm\LlmTransport::class), !$c->get(Config::class)->isProduction() && $c->get(Config::class)->bool('ai.fake', true)));
+    $c->factory(\App\Domain\Content\Automation\AutomationGuard::class, static fn (Container $c): \App\Domain\Content\Automation\AutomationGuard => new \App\Domain\Content\Automation\AutomationGuard($c->get(Config::class), $c->get(\App\Integrations\Ai\Llm\SourceLlm::class)));
     $c->factory(\App\Integrations\ContentProviders\ReplicateApi::class, static fn (Container $c): \App\Integrations\ContentProviders\ReplicateApi => new \App\Integrations\ContentProviders\ReplicateApi($c->get(\App\Integrations\ContentProviders\ProviderHttp::class), $c->get(Config::class)->string('content_providers.replicate_token')));
     $c->factory(\App\Integrations\Images\TinEyeImageSearchProvider::class, static fn (Container $c): \App\Integrations\Images\TinEyeImageSearchProvider => new \App\Integrations\Images\TinEyeImageSearchProvider($c->get(\App\Integrations\ContentProviders\ProviderHttp::class), $c->get(\App\Integrations\ContentProviders\SafeDownloads::class), $c->get(Config::class)->string('content_providers.tineye_key')));
 
-    $c->factory(\App\Integrations\Ai\TextProvider::class, static fn (Container $c): \App\Integrations\Ai\TextProvider => $c->get(Config::class)->string('content_providers.text') === 'openai' ? $c->get(\App\Integrations\Ai\OpenAiTextProvider::class) : new \App\Integrations\Ai\FakeTextProvider(!$c->get(Config::class)->isProduction()));
+    $c->factory(\App\Integrations\Ai\TextProvider::class, static fn (Container $c): \App\Integrations\Ai\TextProvider => match ($c->get(Config::class)->string('content_providers.text')) {
+        'llm' => $c->get(\App\Integrations\Ai\SharedLlmTextProvider::class),
+        default => new \App\Integrations\Ai\FakeTextProvider(!$c->get(Config::class)->isProduction()),
+    });
 
-    $c->factory(\App\Integrations\Selection\SemanticSelectionProvider::class, static fn (Container $c): \App\Integrations\Selection\SemanticSelectionProvider => $c->get(Config::class)->string('content_providers.semantic') === 'openai' ? $c->get(\App\Integrations\Selection\OpenAiSemanticSelectionProvider::class) : new \App\Integrations\Selection\FakeSemanticSelectionProvider(!$c->get(Config::class)->isProduction()));
+    $c->factory(\App\Integrations\Selection\SemanticSelectionProvider::class, static fn (Container $c): \App\Integrations\Selection\SemanticSelectionProvider => match ($c->get(Config::class)->string('content_providers.semantic')) {
+        'llm' => $c->get(\App\Integrations\Selection\SharedLlmSemanticSelectionProvider::class),
+        default => new \App\Integrations\Selection\FakeSemanticSelectionProvider(!$c->get(Config::class)->isProduction()),
+    });
     $c->factory(\App\Integrations\Discovery\DiscoveryProviders::class, static fn (Container $c): \App\Integrations\Discovery\DiscoveryProviders => new \App\Integrations\Discovery\DiscoveryProviders([
         new \App\Integrations\Discovery\FakeTelegramDiscoveryProvider(!$c->get(Config::class)->isProduction()),
         new \App\Integrations\Discovery\FakeWebNewsDiscoveryProvider(!$c->get(Config::class)->isProduction()),

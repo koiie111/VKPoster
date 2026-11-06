@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Content\Processing;
 
 use App\Integrations\Ai\TextProvider;
+use App\Integrations\Ai\WorkspaceTextProvider;
 use RuntimeException;
 
 /** Text-only transformations and deterministic output constraints; no storage, selection or publishing. */
@@ -28,8 +29,23 @@ final class TextProcessor
         return $this->usage;
     }
 
+    public function usesOwnKey(int $workspaceId): bool
+    {
+        return $this->provider instanceof WorkspaceTextProvider && $this->provider->usesOwnKey($workspaceId);
+    }
+
+    public function available(int $workspaceId): bool
+    {
+        return !$this->provider instanceof WorkspaceTextProvider || $this->provider->availableForWorkspace($workspaceId);
+    }
+
+    public function resultIsFree(): bool
+    {
+        return ($this->usage['charge_credits'] ?? true) === false;
+    }
+
     /** @param list<array<string, mixed>> $messages */
-    public function process(string $original, array $messages, string $username, TextSettings $settings): string
+    public function process(string $original, array $messages, string $username, TextSettings $settings, int $workspaceId = 0): string
     {
         $this->usage = [];
         $input = $original;
@@ -77,7 +93,9 @@ final class TextProcessor
         $output = $input;
         if ($settings->mode !== 'unchanged') {
             try {
-                $output = $this->provider->generate($input, $settings);
+                $output = $this->provider instanceof WorkspaceTextProvider
+                    ? $this->provider->generateForWorkspace($workspaceId, $input, $settings)
+                    : $this->provider->generate($input, $settings);
             } finally {
                 $this->usage = $this->provider instanceof \App\Integrations\ContentProviders\ProviderMetadata ? $this->provider->metadata() : [];
             }

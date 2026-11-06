@@ -21,7 +21,7 @@ final class ProviderQuotaTest extends BillingTestCase
         return new ProviderQuota(
             $this->db,
             $this->app->container()->get(Entitlements::class),
-            TestEnv::config($env + ['CONTENT_TEXT_PROVIDER' => 'openai', 'CONTENT_VIDEO_PROVIDER' => 'replicate', 'CONTENT_WORKSPACE_PER_MINUTE' => '50']),
+            TestEnv::config($env + ['CONTENT_TEXT_PROVIDER' => 'llm', 'CONTENT_VIDEO_PROVIDER' => 'replicate', 'CONTENT_WORKSPACE_PER_MINUTE' => '50']),
             $this->clock,
             TestEnv::redis(),
         );

@@ -8,6 +8,7 @@ use App\Domain\Content\Processing\MaterialRepository;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Selection\SemanticSelectionInput;
 use App\Integrations\Selection\SemanticSelectionProvider;
+use App\Integrations\Selection\WorkspaceSemanticSelectionProvider;
 use App\Kernel\Database\Connection;
 use App\Support\Clock;
 use App\Support\DbTime;
@@ -174,7 +175,16 @@ final class SemanticSelection
             if (mb_strlen($input->text) > 100000 || $row['provider'] !== $this->provider->name()) {
                 throw new \RuntimeException('Semantic input unavailable');
             }
-            $result = $this->quota !== null ? $this->quota->run((int) $row['workspace_id'], 'semantic', fn () => $this->provider->evaluate($input)) : $this->provider->evaluate($input);
+            $workspaceId = (int) $row['workspace_id'];
+            if ($this->provider instanceof WorkspaceSemanticSelectionProvider && !$this->provider->availableForWorkspace($workspaceId)) {
+                throw new \App\Integrations\ContentProviders\ProviderException('not_configured');
+            }
+            $call = fn (): \App\Integrations\Selection\SemanticSelectionResult => $this->provider instanceof WorkspaceSemanticSelectionProvider
+                ? $this->provider->evaluateForWorkspace($workspaceId, $input)
+                : $this->provider->evaluate($input);
+            $ownKey = $this->provider instanceof WorkspaceSemanticSelectionProvider && $this->provider->usesOwnKey($workspaceId);
+            $freeResult = fn (): bool => $this->provider instanceof \App\Integrations\ContentProviders\ProviderMetadata && ($this->provider->metadata()['charge_credits'] ?? true) === false;
+            $result = $this->quota !== null && !$ownKey ? $this->quota->run($workspaceId, 'semantic', $call, $freeResult) : $call();
             $final = $this->policy->combine(new SelectionResult((string) $row['deterministic_status'], (string) $row['deterministic_reason'], (string) $row['deterministic_rule']), $result, SemanticSettings::fromInput(json_decode((string) $row['settings_snapshot_json'], true, 32, JSON_THROW_ON_ERROR)));
             $values = ['status' => 'completed', 'decision' => $result->decision, 'score' => $result->score, 'confidence' => $result->confidence, 'reason' => $result->reason, 'matched_criteria_json' => json_encode($result->matchedCriteria, JSON_THROW_ON_ERROR), 'review_flags_json' => json_encode($result->reviewFlags, JSON_THROW_ON_ERROR), 'final_decision' => $final->status, 'final_reason' => $final->reason, 'error' => null];
         } catch (\App\Integrations\ContentProviders\ProviderException $e) {
