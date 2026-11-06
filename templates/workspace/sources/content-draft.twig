@@ -8,6 +8,7 @@
 {{ csrf_field() }}<input type="hidden" name="revision" value="{{ revision }}">
 {{ f.select('text_version', t('Результат обработки текста'), text_versions, value = old('text_version', ''), hint = t('Сначала обработайте актуальный принятый материал, в том числе в режиме «Без изменений».')) }}
 {{ f.select('video_version', t('Видео'), draft_videos, value = old('video_version', ''), hint = t('Fake VideoProvider не создаёт файл. Его демонстрационные результаты нельзя прикрепить к публикации.')) }}
+{{ f.checkbox('include_source', t('Добавить ссылку на источник в текст поста'), checked = old('include_source', '1') == '1', hint = t('Ссылка останется в сведениях о черновике, даже если вы не добавите её в текст.')) }}
 <div>{{ f.button(t('Создать черновик'), type = 'submit', disabled = selection_status != 'approved' or text_versions is empty) }}</div>
 </form>{% endif %}
 {% if created_drafts is empty %}<p class="mt-4 text-muted">{{ t('Черновики из этого материала пока не созданы.') }}</p>{% else %}

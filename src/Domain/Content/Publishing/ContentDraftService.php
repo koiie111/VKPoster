@@ -31,7 +31,7 @@ final class ContentDraftService
     }
 
     /** Current approved revision only. Repeated exports return the existing editable post without overwriting it. */
-    public function create(WorkspaceContext $ctx, ?Source $source, string $itemId, string $revision, string $textVersion, string $videoVersion = ''): Post
+    public function create(WorkspaceContext $ctx, ?Source $source, string $itemId, string $revision, string $textVersion, string $videoVersion = '', bool $includeSource = true): Post
     {
         if (!$this->permissions->allows($ctx->role, $source === null ? 'discovery.manage' : 'sources.manage') || !$this->permissions->allows($ctx->role, 'posts.draft')) {
             throw new HttpException(403, 'Forbidden');
@@ -39,7 +39,7 @@ final class ContentDraftService
         /** @var list<Media> $created */
         $created = [];
         try {
-            return $this->db->transaction(function () use ($ctx, $source, $itemId, $revision, $textVersion, $videoVersion, &$created): Post {
+            return $this->db->transaction(function () use ($ctx, $source, $itemId, $revision, $textVersion, $videoVersion, $includeSource, &$created): Post {
                 if ($source === null) {
                     $this->db->select('SELECT id FROM workspaces WHERE id = ? FOR UPDATE', [$ctx->workspaceId]);
                 } elseif ($this->db->select('SELECT id FROM sources WHERE workspace_id = ? AND id = ? FOR UPDATE', [$ctx->workspaceId, $source->id]) === []) {
@@ -86,11 +86,24 @@ final class ContentDraftService
                     $mediaIds[] = $this->importFile($ctx, $file, $created);
                 }
                 // Processed text is plain text; escape editor markup instead of silently interpreting source punctuation.
+                $candidate = $source === null ? ($this->db->select('SELECT d.* FROM discovery_items d JOIN discovery_imports l ON l.discovery_item_id = d.id AND l.workspace_id = d.workspace_id WHERE l.workspace_id = ? AND l.material_id = ?', [$ctx->workspaceId, $item['id']])[0] ?? throw new HttpException(409, 'Discovery origin missing')) : null;
+                $sourceUrl = $source === null ? (string) ($candidate['canonical_url'] ?? '') : $source->telegramUrl();
+                if ($sourceUrl === '') {
+                    throw new HttpException(409, 'Ссылка на исходный материал недоступна.');
+                }
+                if ($source !== null) {
+                    $messages = $this->materials->messages($ctx, $source, (int) $item['id']);
+                    if ($messages !== []) {
+                        $sourceUrl .= '/' . (int) $messages[0]['message_id'];
+                    }
+                }
                 $plain = (string) $text['processed_text'];
+                if ($includeSource) {
+                    $plain .= "\n\nИсточник: " . $sourceUrl;
+                }
                 $editorText = preg_replace('/([\\\\*_~\[\]()])/', '\\\\$1', $plain) ?? $plain;
                 $post = $this->posts->saveDraft($ctx, null, new PostDraft($editorText, $mediaIds, new PostOptions(), false, []));
-                $candidate = $source === null ? ($this->db->select('SELECT d.* FROM discovery_items d JOIN discovery_imports l ON l.discovery_item_id = d.id AND l.workspace_id = d.workspace_id WHERE l.workspace_id = ? AND l.material_id = ?', [$ctx->workspaceId, $item['id']])[0] ?? throw new HttpException(409, 'Discovery origin missing')) : null;
-                $snapshot = ['discovery_revision' => $candidate === null ? null : \App\Domain\Source\Selection\SemanticSelection::candidateRevision($candidate), 'text' => $text['public_id'], 'text_settings_version' => (int) $text['settings_version'], 'text_settings' => json_decode((string) $text['settings_json'], true, 32, JSON_THROW_ON_ERROR), 'image_processing' => array_map(static fn (array $image): array => array_intersect_key($image, array_flip(['processing_public_id', 'settings_version', 'settings_json', 'revision_hash', 'selection_hash', 'message_id'])), $images), 'image_variants' => $video === null ? array_column($images, 'public_id') : [], 'video' => $video['public_id'] ?? null, 'video_settings' => $video === null ? null : json_decode((string) $video['settings_json'], true, 32, JSON_THROW_ON_ERROR), 'video_basis' => $video === null ? null : json_decode((string) $video['basis_json'], true, 32, JSON_THROW_ON_ERROR), 'media_ids' => $mediaIds];
+                $snapshot = ['source_url' => $sourceUrl, 'source_attribution' => $includeSource, 'discovery_revision' => $candidate === null ? null : \App\Domain\Source\Selection\SemanticSelection::candidateRevision($candidate), 'text' => $text['public_id'], 'text_settings_version' => (int) $text['settings_version'], 'text_settings' => json_decode((string) $text['settings_json'], true, 32, JSON_THROW_ON_ERROR), 'image_processing' => array_map(static fn (array $image): array => array_intersect_key($image, array_flip(['processing_public_id', 'settings_version', 'settings_json', 'revision_hash', 'selection_hash', 'message_id'])), $images), 'image_variants' => $video === null ? array_column($images, 'public_id') : [], 'video' => $video['public_id'] ?? null, 'video_settings' => $video === null ? null : json_decode((string) $video['settings_json'], true, 32, JSON_THROW_ON_ERROR), 'video_basis' => $video === null ? null : json_decode((string) $video['basis_json'], true, 32, JSON_THROW_ON_ERROR), 'media_ids' => $mediaIds];
                 $this->db->table('content_post_origins')->insert(['workspace_id' => $ctx->workspaceId, 'item_id' => $item['id'], 'post_id' => $post->id, 'text_processing_id' => $text['id'], 'revision_hash' => $revision, 'selection_hash' => $hash, 'idempotency_key' => $key, 'snapshot_json' => json_encode($snapshot, JSON_THROW_ON_ERROR), 'created_by' => $ctx->userId, 'created_at' => DbTime::format($this->clock->now())]);
                 $this->audit->record('content.draft_created', $ctx->userId, 'post', $post->publicId, ['origin' => $source === null ? 'discovery' : 'source'], $ctx->workspaceId);
                 return $post;

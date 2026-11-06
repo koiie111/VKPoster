@@ -32,7 +32,10 @@ final class ContentDraftController
         $itemId = WorkspaceRequest::text($params['itemId'] ?? '');
         $back = '/w/' . $ctx->workspacePublicId . ($source === null ? '/radar/materials/' . $itemId : '/sources/' . $source->publicId . '/items/' . $itemId);
         try {
-            $post = $this->drafts->create($ctx, $source, $itemId, WorkspaceRequest::text($request->input('revision')), WorkspaceRequest::text($request->input('text_version')), WorkspaceRequest::text($request->input('video_version')));
+            if (!in_array($request->input('include_source'), [null, '1'], true)) {
+                throw new HttpException(422, 'Проверьте настройку ссылки на источник.');
+            }
+            $post = $this->drafts->create($ctx, $source, $itemId, WorkspaceRequest::text($request->input('revision')), WorkspaceRequest::text($request->input('text_version')), WorkspaceRequest::text($request->input('video_version')), $request->input('include_source') === '1');
             $this->flash->toast('Черновик готов. Его можно редактировать в обычном редакторе.');
             return Response::redirect('/w/' . $ctx->workspacePublicId . '/posts/' . $post->publicId . ($post->status->isEditablePlan() ? '/edit' : ''));
         } catch (HttpException $e) {

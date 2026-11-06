@@ -18,6 +18,8 @@
   gateway go first and a paid one last. New `tokenator` provider preset (`https://api.tokenator.cloud/v1`). An empty chain keeps the
   single default provider. Run `make migrate`.
 - Для источников Telegram добавлены тарифные лимиты и атомарная проверка при создании. Маршруты источников, Радара и сохранения автоматизации проверяют тариф. В системном состоянии админки виден heartbeat reader при включённой функции.
+- Сохранённые автоматизации источников останавливаются при снижении тарифа. Черновик сохраняет ссылку на исходный материал и по умолчанию добавляет её в текст; пользователь может снять эту опцию, а ссылка остаётся видимой в редакторе.
+- В оферту добавлен пункт об использовании и переработке материалов из «Источников» и «Радара». Редакцию должен проверить юрист до включения функции в production; версия документа повышена до 2026-11-06.
 - T-Bank API requests trust `resources/certs/russian-trusted-root-ca.crt` (`TBANK_CA_FILE`): its certificate is issued by the Russian Trusted CA, so payments failed with a transport error in production.
 - `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
 

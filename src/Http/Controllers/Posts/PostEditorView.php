@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Posts;
 
 use App\Domain\Channel\Channel;
+use App\Domain\ContentDiscovery\DiscoveryIdentity;
 use App\Domain\Channel\ChannelRepository;
 use App\Domain\Channel\ChannelStatus;
 use App\Domain\Media\MediaPresenter;
@@ -16,6 +17,7 @@ use App\Domain\Post\ScheduleTime;
 use App\Domain\Workspace\ChannelAccessRepository;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Integrations\Social\PlatformRegistry;
+use App\Kernel\Database\Connection;
 use App\Support\Clock;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -34,6 +36,7 @@ final class PostEditorView
         private readonly MediaPresenter $presenter,
         private readonly \App\Domain\Post\PostService $service,
         private readonly Clock $clock,
+        private readonly Connection $db,
     ) {
     }
 
@@ -93,6 +96,7 @@ final class PostEditorView
             'options' => self::optionsView($draft->options),
             'per_network' => $draft->perNetwork,
             'post' => $post,
+            'origin_url' => $post === null ? null : $this->originUrl($context, $post),
             'date' => $date,
             'time' => $time,
             'timezone' => $tz,
@@ -100,6 +104,24 @@ final class PostEditorView
             'min_date' => $now->setTimezone(new DateTimeZone($tz))->format('Y-m-d'),
             'base' => '/w/' . $context->workspacePublicId,
         ] + $extra;
+    }
+
+    private function originUrl(WorkspaceContext $context, Post $post): ?string
+    {
+        $row = $this->db->select('SELECT snapshot_json FROM content_post_origins WHERE workspace_id = ? AND post_id = ?', [$context->workspaceId, $post->id])[0] ?? null;
+        if ($row === null) {
+            return null;
+        }
+        $snapshot = json_decode((string) $row['snapshot_json'], true, 32, JSON_THROW_ON_ERROR);
+        $url = $snapshot['source_url'] ?? null;
+        if (!is_string($url)) {
+            return null;
+        }
+        try {
+            return DiscoveryIdentity::url($url);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
     }
 
     /**

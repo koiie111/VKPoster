@@ -72,7 +72,11 @@ final class ContentDraftTest extends PostTestCase
         $exports = $c->get(ContentDraftService::class);
         $post = $exports->create($ctx, $source, (string) $item['public_id'], $revision, $text);
         self::assertSame('draft', $post->status->value);
-        self::assertSame((string) $item['text'], \App\Domain\Post\TextFormatter::toPlain($post->baseText));
+        self::assertSame((string) $item['text'] . "\n\nИсточник: https://t.me/draft_fixture/10", \App\Domain\Post\TextFormatter::toPlain($post->baseText));
+        $origin = $this->db->table('content_post_origins')->first() ?? throw new \LogicException('Missing origin');
+        $snapshot = json_decode((string) $origin['snapshot_json'], true, 32, JSON_THROW_ON_ERROR);
+        self::assertSame('https://t.me/draft_fixture/10', $snapshot['source_url']);
+        self::assertTrue($snapshot['source_attribution']);
         $edited = $this->service()->saveDraft($ctx, $post, $this->draft('Edited in ordinary editor'));
         self::assertSame($post->id, $exports->create($ctx, $source, (string) $item['public_id'], $revision, 'ignored retry input')->id);
         self::assertSame('Edited in ordinary editor', $this->posts()->find($ctx, $post->publicId)?->baseText);
@@ -88,6 +92,23 @@ final class ContentDraftTest extends PostTestCase
         $url = '/w/' . $ctx->workspacePublicId . '/sources/' . $source->publicId . '/items/' . $item['public_id'];
         self::assertStringContainsString('Открыть черновик', $this->get($url)->body);
         self::assertStringContainsString('Опубликован', $this->get($url)->body);
+    }
+
+    public function testAttributionCanBeOmittedFromPostTextWithoutLosingProvenance(): void
+    {
+        [$ctx, $source, $item, $revision, $text] = $this->fixture();
+        $url = '/w/' . $ctx->workspacePublicId . '/sources/' . $source->publicId . '/items/' . $item['public_id'];
+        self::assertStringContainsString('name="include_source"', $this->get($url)->body);
+        $result = $this->post($url . '/draft', ['revision' => $revision, 'text_version' => $text]);
+        self::assertSame(302, $result->status);
+        $post = $this->db->table('posts')->first() ?? throw new \LogicException('Missing post');
+        self::assertSame((string) $item['text'], \App\Domain\Post\TextFormatter::toPlain((string) $post['base_text']));
+        $origin = $this->db->table('content_post_origins')->first() ?? throw new \LogicException('Missing origin');
+        $snapshot = json_decode((string) $origin['snapshot_json'], true, 32, JSON_THROW_ON_ERROR);
+        self::assertSame('https://t.me/draft_fixture/10', $snapshot['source_url']);
+        self::assertFalse($snapshot['source_attribution']);
+        self::assertStringContainsString('Источник материала:', $this->get((string) $result->header('Location'))->body);
+        self::assertStringContainsString('https://t.me/draft_fixture/10', $this->get((string) $result->header('Location'))->body);
     }
 
     public function testAlbumSelectedArchivesBecomeLibraryFilesAndPublishThroughExistingBuilder(): void
