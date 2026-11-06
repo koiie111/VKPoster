@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Content\Automation;
 
+use App\Domain\Billing\Entitlements;
 use App\Domain\Content\ImageProcessing\ImageWorkflow;
 use App\Domain\Content\Processing\ContentProcessor;
 use App\Domain\Content\Processing\MaterialRepository;
@@ -29,7 +30,7 @@ use Throwable;
 /** Durable coordinator on the existing Queue: checkpoints, current revision guards, safe restart and draft-only export. */
 final class Automation
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly Queue $queue, private readonly WorkspaceRepository $workspaces, private readonly SourceRepository $sources, private readonly MaterialRepository $materials, private readonly SelectionService $selection, private readonly ContentProcessor $text, private readonly ImageWorkflow $images, private readonly VideoWorkflow $videos, private readonly ContentDraftService $drafts, private readonly ContentDiscovery $discovery, private readonly DiscoveryMaterialGateway $gateway, private readonly AutomationGuard $guard, private readonly \App\Kernel\Config $operationsConfig)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly Queue $queue, private readonly WorkspaceRepository $workspaces, private readonly SourceRepository $sources, private readonly MaterialRepository $materials, private readonly SelectionService $selection, private readonly ContentProcessor $text, private readonly ImageWorkflow $images, private readonly VideoWorkflow $videos, private readonly ContentDraftService $drafts, private readonly ContentDiscovery $discovery, private readonly DiscoveryMaterialGateway $gateway, private readonly AutomationGuard $guard, private readonly \App\Kernel\Config $operationsConfig, private readonly Entitlements $entitlements)
     {
     }
 
@@ -47,6 +48,9 @@ final class Automation
             try {
                 [$ctx, $source] = $this->scope($policy);
             } catch (HttpException) {
+                continue;
+            }
+            if (!$this->entitlements->hasFeature($ctx->workspaceId, 'source_automation') || !$this->entitlements->hasFeature($ctx->workspaceId, $source === null ? 'radar' : 'sources')) {
                 continue;
             }
             $this->db->transaction(function () use ($ctx, $source, $policy, $settings): void {
@@ -135,6 +139,10 @@ final class Automation
             }
             $settings = json_decode((string) $policy['settings_json'], true, 32, JSON_THROW_ON_ERROR);
             [$ctx, $source] = $this->scope($policy);
+            if (!$this->entitlements->hasFeature($ctx->workspaceId, 'source_automation') || !$this->entitlements->hasFeature($ctx->workspaceId, $source === null ? 'radar' : 'sources')) {
+                $this->finish($run, 'paused', 'Автоматизация недоступна на текущем тарифе.');
+                return;
+            }
             if (!($settings['enabled'] === true) || ($source !== null && !$source->enabled)) {
                 $this->finish($run, 'paused', 'Автоматизация или источник выключены.');
                 return;

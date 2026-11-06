@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Feature\Source;
 
 use App\Domain\Content\Automation\Automation;
+use App\Domain\Billing\PlanLimitException;
 use App\Domain\Content\Automation\AutomationPolicies;
 use App\Domain\Content\Automation\AutomationSettings;
 use App\Domain\Content\Processing\MaterialRepository;
@@ -59,6 +60,25 @@ final class AutomationTest extends SourceSelectionTestCase
         self::assertSame('draft', ($this->db->table('posts')->first() ?? throw new \LogicException())['status']);
         self::assertSame(0, $this->db->table('publications')->count());
         self::assertSame(0, $this->db->table('source_video_generations')->count());
+    }
+    public function testDowngradeStopsQueuedAutomationBeforeProviderWork(): void
+    {
+        [$ctx, $source] = $this->fixture();
+        $automation = $this->app->container()->get(Automation::class);
+        $automation->tick();
+        $this->db->execute("UPDATE subscriptions s JOIN plans p ON p.code='start' SET s.plan_id=p.id WHERE s.workspace_id=?", [$ctx->workspaceId]);
+        self::assertTrue($this->app->container()->get(Worker::class)->runNext());
+        self::assertSame('paused', $this->runRow()['status']);
+        self::assertSame(0, $this->db->table('source_text_processings')->count());
+        self::assertSame(0, $this->db->table('posts')->count());
+        try {
+            $this->app->container()->get(AutomationPolicies::class)->save($ctx, $source, ['enabled' => true]);
+            self::fail('Start plan must reject automation settings.');
+        } catch (PlanLimitException $e) {
+            self::assertSame('feature:source_automation', $e->limit);
+        }
+        $automation->tick();
+        self::assertSame(1, $this->db->table('content_automation_runs')->count());
     }
     public function testRejectedStopsBeforeProcessing(): void
     {
