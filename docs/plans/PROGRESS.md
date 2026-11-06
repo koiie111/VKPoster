@@ -7,9 +7,9 @@
 ## Текущее состояние
 <!-- агент обновляет эти 4 строки в начале и в конце каждого запуска -->
 - **Текущий этап:** 23 (Источники контента)
-- **Статус:** TODO
+- **Статус:** IN_PROGRESS
 - **Публичный сервис:** [ezposter.ru](https://ezposter.ru/) — владелец подтвердил 2026-11-03, что релиз уже состоялся; открытые проверки production 19.8 перечислены ниже.
-- **Ветка / PR:** этап 19: [#32](https://github.com/koiie111/VKPoster/pull/32), [#48](https://github.com/koiie111/VKPoster/pull/48), [#49](https://github.com/koiie111/VKPoster/pull/49); этап 22: [#50](https://github.com/koiie111/VKPoster/pull/50)
+- **Ветка / PR:** `stage-23-sources` (PR ещё не открыт)
 - **Последнее обновление:** 2026-11-05 (владелец разрешил выпуск PR #50 и включение трёх платформ без живых проверок. Локально прошли `make check`, CSS и env-каталог; текущий коммит ожидает CI. Открытые проверки этапа 22 и production 19.8 сохранены в техдолге.)
 
 ## Этапы
@@ -39,7 +39,7 @@
 | 18 | Публичный API и вебхуки | DONE | `stage-18-public-api` | 2026-10-19 | Stateless Bearer API, scoped tokens, transactional idempotency, OpenAPI 3.1 + self-hosted Redoc; signed SSRF-safe outgoing webhooks through existing Queue. Owner verification не требуется; merge не выполнялся |
 | 19 | Hardening и production | DONE | [#32](https://github.com/koiie111/VKPoster/pull/32), [#48](https://github.com/koiie111/VKPoster/pull/48), [#49](https://github.com/koiie111/VKPoster/pull/49) | 2026-11-05 | Закрыт по прямому указанию владельца; production 19.8 и DoD не подтверждены полностью, v1.0.0 не выпускался. Оставшиеся проверки — в техдолге ниже |
 | 22 | Короткие видео: TikTok, YouTube Shorts, Reels, VK Клипы | DONE | [#50](https://github.com/koiie111/VKPoster/pull/50) | 2026-11-05 | Владелец разрешил выпуск и включение без живых проверок; реальные API, квоты и egress остаются техдолгом. Задачи агенту выпуска — в файле этапа. VK Клипы недоступны до официального API (ADR 0027) |
-| 23 | Источники контента, Радар, обработка материалов | TODO | [#18](https://github.com/koiie111/VKPoster/pull/18), [#20](https://github.com/koiie111/VKPoster/pull/20) | | Добавлен по решению владельца 2026-10-12; код от внешнего разработчика (PR #18), доработан и влит через PR #20. Ответы владельца получены 2026-10-14 (ADR 0012): остаётся реализация (аккаунты reader в админке и свой аккаунт пользователя, OpenAI-совместимые провайдеры, тарифы) и живая проверка. Функция **выключена** (`SOURCES_ENABLED=false`) до их завершения |
+| 23 | Источники контента, Радар, обработка материалов | IN_PROGRESS | [#18](https://github.com/koiie111/VKPoster/pull/18), [#20](https://github.com/koiie111/VKPoster/pull/20) | | Продолжение в `stage-23-sources`: тарифные лимиты и heartbeat reader перенесены на актуальный `main`. Остаются аккаунты reader, провайдеры, права на материалы, эксплуатационная проверка и живая проверка владельца. Функция **выключена** (`SOURCES_ENABLED=false`) до их завершения |
 | 24 | Discord | TODO | | | Будущая функция, добавлена владельцем 2026-10-25. Зависит от 19 (egress: Discord заблокирован в РФ). Перед стартом нужны решения владельца (см. файл этапа) |
 
 ## Вопросы владельцу

@@ -16,6 +16,21 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(SourceController::class)]
 final class SourceActionsTest extends WorkspaceTestCase
 {
+    public function testPlanGuardsSourceRadarAndAutomationRoutes(): void
+    {
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $this->actAs($owner);
+        $base = $this->base($workspace);
+        $this->db->execute("UPDATE subscriptions s JOIN plans p ON p.code='free' SET s.plan_id=p.id WHERE s.workspace_id=?", [$workspace->id]);
+        self::assertSame($base . '/billing/plans', $this->get($base . '/sources')->header('Location'));
+        self::assertSame($base . '/billing/plans', $this->get($base . '/radar')->header('Location'));
+
+        $this->db->execute("UPDATE subscriptions s JOIN plans p ON p.code='start' SET s.plan_id=p.id WHERE s.workspace_id=?", [$workspace->id]);
+        self::assertSame(200, $this->get($base . '/sources')->status);
+        self::assertSame($base . '/billing/plans', $this->get($base . '/radar')->header('Location'));
+        self::assertSame($base . '/billing/plans', $this->post($base . '/sources/' . $this->app->container()->get(SourceService::class)->create($this->contextFor($workspace, $owner), 'Источник', 'telegram', '@plan_channel')->publicId . '/automation', ['enabled' => '1'])->header('Location'));
+    }
+
     public function testPlanBlocksFreeAndLimitsStartWithoutWritingExtraSource(): void
     {
         [$owner, $workspace] = $this->ownerWithWorkspace();

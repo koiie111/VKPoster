@@ -333,11 +333,11 @@ return static function (Router $router): void {
                 $m->post($mark . '/update', [WatermarkController::class, 'update']);
                 $m->post($mark . '/delete', [WatermarkController::class, 'delete']);
             });
-            $w->group('/radar', [[Authorize::class, ['permission' => 'discovery.view']]], static function (Router $r) use ($ulid): void {
+            $w->group('/radar', [[Authorize::class, ['permission' => 'discovery.view']], [\App\Http\Middleware\PlanFeature::class, ['feature' => 'radar', 'name' => 'Радар']]], static function (Router $r) use ($ulid): void {
                 $r->get('', [\App\Http\Controllers\Discovery\RadarController::class, 'index']);
                 $r->get('/materials/{itemId:' . $ulid . '}', [\App\Http\Controllers\Discovery\RadarController::class, 'material']);
                 $r->group('', [[Authorize::class, ['permission' => 'discovery.manage']]], static function (Router $m) use ($ulid): void {
-                    $m->post('/automation', [\App\Http\Controllers\Sources\AutomationController::class, 'save']);
+                    $m->post('/automation', [\App\Http\Controllers\Sources\AutomationController::class, 'save'])->middleware([\App\Http\Middleware\PlanFeature::class, ['feature' => 'source_automation', 'name' => 'Автоматизация источников']]);
                     $m->post('/semantic-settings', [\App\Http\Controllers\Discovery\RadarController::class, 'semantic'])->middleware([RateLimit::class, ['bucket' => 'semantic-settings', 'max' => 10, 'seconds' => 60]]);
                     $m->post('/refresh', [\App\Http\Controllers\Discovery\RadarController::class, 'refresh'])->middleware([RateLimit::class, ['bucket' => 'discovery-refresh', 'max' => 5, 'seconds' => 60]]);
                     $m->post('/items/{discoveryId:' . $ulid . '}/import', [\App\Http\Controllers\Discovery\RadarController::class, 'import']);
@@ -348,12 +348,12 @@ return static function (Router $router): void {
                 });
             });
             // Sources and selection remain separate from the publishing pipeline.
-            $w->group('/sources', [[Authorize::class, ['permission' => 'sources.view']]], static function (Router $s) use ($ulid): void {
+            $w->group('/sources', [[Authorize::class, ['permission' => 'sources.view']], [\App\Http\Middleware\PlanFeature::class, ['feature' => 'sources', 'name' => 'Источники Telegram']]], static function (Router $s) use ($ulid): void {
                 $s->get('', [SourceController::class, 'index'])->name('workspace.sources');
                 $s->group('', [[Authorize::class, ['permission' => 'sources.manage']]], static function (Router $m) use ($ulid): void {
                     $m->get('/new', [SourceController::class, 'new']);
                     $m->post('', [SourceController::class, 'create']);
-                    $m->post('/{sourceId:' . $ulid . '}/automation', [\App\Http\Controllers\Sources\AutomationController::class, 'save']);
+                    $m->post('/{sourceId:' . $ulid . '}/automation', [\App\Http\Controllers\Sources\AutomationController::class, 'save'])->middleware([\App\Http\Middleware\PlanFeature::class, ['feature' => 'source_automation', 'name' => 'Автоматизация источников']]);
                     $m->get('/{sourceId:' . $ulid . '}/edit', [SourceController::class, 'edit']);
                     $m->post('/{sourceId:' . $ulid . '}', [SourceController::class, 'update']);
                     $m->post('/{sourceId:' . $ulid . '}/items/{itemId:' . $ulid . '}/draft', [\App\Http\Controllers\Sources\ContentDraftController::class, 'create'])->middleware([Authorize::class, ['permission' => 'posts.draft']])->middleware([RateLimit::class, ['bucket' => 'content-draft', 'max' => 10, 'seconds' => 60]]);

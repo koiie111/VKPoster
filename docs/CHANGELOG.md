@@ -17,7 +17,7 @@
   and a daily request cap (day start offset from UTC, Redis), a failure pause, a «charge credits» flag and a list of served actions, all set in the admin area; a spent, failing or unconfigured step is skipped and the next one answers, so free models of a
   gateway go first and a paid one last. New `tokenator` provider preset (`https://api.tokenator.cloud/v1`). An empty chain keeps the
   single default provider. Run `make migrate`.
-- Для источников Telegram добавлены тарифные лимиты и атомарная проверка при создании. В системном состоянии админки виден heartbeat reader при включённой функции.
+- Для источников Telegram добавлены тарифные лимиты и атомарная проверка при создании. Маршруты источников, Радара и сохранения автоматизации проверяют тариф. В системном состоянии админки виден heartbeat reader при включённой функции.
 - T-Bank API requests trust `resources/certs/russian-trusted-root-ca.crt` (`TBANK_CA_FILE`): its certificate is issued by the Russian Trusted CA, so payments failed with a transport error in production.
 - `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
 
