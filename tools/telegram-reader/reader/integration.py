@@ -10,12 +10,24 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 from telethon import TelegramClient
+from telethon import errors as telegram_errors
+from telethon.sessions import StringSession
 
-from .auth import authenticate
 from .egress import connect_with_backoff, proxy_config, route_identity
 from .image_delivery import ImageDelivery
 from .service import Reader
+from .store import Store
 from .transport import TelegramTransport
+
+
+AUTH_FAILURES = (
+    telegram_errors.AuthKeyDuplicatedError,
+    telegram_errors.AuthKeyInvalidError,
+    telegram_errors.AuthKeyUnregisteredError,
+    telegram_errors.SessionRevokedError,
+    telegram_errors.UserDeactivatedBanError,
+    telegram_errors.UserDeactivatedError,
+)
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -80,6 +92,29 @@ class InternalAPI:
         if result.get("version") != 1 or not isinstance(result.get("sources"), list):
             raise ValueError("invalid_source_list")
         return result["sources"]
+
+    async def accounts(self):
+        result = await asyncio.to_thread(self.request, "/internal/reader-accounts")
+        if result.get("version") != 1 or not isinstance(result.get("accounts"), list):
+            raise ValueError("invalid_account_list")
+        for account in result["accounts"]:
+            if (
+                not isinstance(account, dict)
+                or not isinstance(account.get("id"), str)
+                or not isinstance(account.get("telegram_user_id"), int)
+                or not isinstance(account.get("session"), str)
+                or not account["session"].startswith("1")
+                or not isinstance(account.get("sources"), list)
+            ):
+                raise ValueError("invalid_account_list")
+        return result["accounts"]
+
+    async def blocked(self, account_id):
+        result = await asyncio.to_thread(
+            self.request, "/internal/reader-accounts/blocked", {"account_id": account_id}
+        )
+        if result.get("ack") is not True:
+            raise ValueError("invalid_account_block_ack")
 
     async def send(self, event):
         result = await asyncio.to_thread(self.request, "/internal/source-events", event)
@@ -387,6 +422,8 @@ class SourceWorker:
                     await reader.reconcile()
                 self.store.finalize_albums()
                 self.outbox.export(sid, reader.channel)
+            except AUTH_FAILURES:
+                raise
             except Exception as error:  # noqa: BLE001
                 # SDK messages and request data are deliberately discarded.
                 if sid in self.readers:
@@ -406,6 +443,58 @@ class SourceWorker:
         return delivered
 
 
+class AccountAPI:
+    """Source placement snapshot for one authenticated Telegram identity."""
+
+    def __init__(self, api, sources):
+        self.api, self.assigned = api, sources
+
+    async def sources(self):
+        return self.assigned
+
+    def __getattr__(self, name):
+        return getattr(self.api, name)
+
+
+class AccountRuntime:
+    def __init__(self, account, api, state, api_id, api_hash, source_id):
+        self.account = account
+        session = StringSession(account["session"])
+        self.state = state / "accounts" / account["id"]
+        self.state.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self.store = Store(self.state / "reader.sqlite")
+        self.client = TelegramClient(
+            session, api_id, api_hash,
+            sequential_updates=True, flood_sleep_threshold=0, proxy=proxy_config(),
+        )
+        self.scoped_api = AccountAPI(api, account["sources"])
+        lock = asyncio.Lock()
+
+        def factory(sid):
+            reader = Reader(self.store, None, self.state)
+            transport = TelegramTransport(
+                self.state / "telegram", api_id, api_hash,
+                SourceStore(self.store, sid), reader.ingest, client=self.client,
+            )
+            transport.rpc_lock = lock
+            reader.transport = transport
+            return reader
+
+        self.worker = SourceWorker(
+            self.store, self.scoped_api, factory, self.state, source_id
+        )
+
+    async def connect(self):
+        await connect_with_backoff(self.client, self.store)
+        me = await self.client.get_me()
+        if me is None or me.bot or me.id != self.account["telegram_user_id"]:
+            raise ValueError("reader_account_identity")
+
+    async def close(self):
+        await self.client.disconnect()
+        self.store.db.close()
+
+
 async def run_sources(args, state, store):
     api = InternalAPI(
         os.environ.get("VKPOSTER_INTERNAL_URL", "http://host.docker.internal:8080"),
@@ -415,50 +504,48 @@ async def run_sources(args, state, store):
     api_hash = os.environ.get("TELEGRAM_API_HASH") or ""
     if api_id <= 0 or len(api_hash) != 32:
         raise ValueError("telegram_credentials")
-    client = TelegramClient(
-        str(state / "telegram"),
-        api_id,
-        api_hash,
-        sequential_updates=True,
-        flood_sleep_threshold=0,
-        proxy=proxy_config(),
-    )
-    shared_lock = asyncio.Lock()
+    runtimes = {}
     try:
-        await authenticate(
-            client,
-            os.environ.get("TELEGRAM_PHONE", ""),
-            interactive=False,
-            connect=lambda: connect_with_backoff(client, store),
-        )
-        me = await client.get_me()
-        if me.bot or store.get("account_id", str(me.id)) != str(me.id):
-            raise ValueError("test_account_identity")
-        store.set("account_id", str(me.id))
-
-        def factory(sid):
-            reader = Reader(store, None, state)
-            transport = TelegramTransport(
-                state / "telegram",
-                api_id,
-                api_hash,
-                SourceStore(store, sid),
-                reader.ingest,
-                client=client,
-            )
-            transport.rpc_lock = shared_lock
-            reader.transport = transport
-            return reader
-
-        worker = SourceWorker(store, api, factory, state, args.source_id)
         while True:
             try:
-                count = await worker.tick()
-                worker.outbox.compact(
-                    int(os.environ.get("READER_ACK_RETENTION_DAYS", "0"))
-                )
+                accounts = await api.accounts()
+                active = {account["id"] for account in accounts}
+                for account_id in set(runtimes) - active:
+                    await runtimes.pop(account_id).close()
+                count = 0
+                for account in accounts:
+                    account_id = account["id"]
+                    runtime = runtimes.get(account_id)
+                    if runtime is not None and runtime.account["session"] != account["session"]:
+                        await runtime.close()
+                        del runtimes[account_id]
+                        runtime = None
+                    try:
+                        if runtime is None:
+                            runtime = AccountRuntime(account, api, state, api_id, api_hash, args.source_id)
+                            await runtime.connect()
+                            runtimes[account_id] = runtime
+                        runtime.account = account
+                        runtime.scoped_api.assigned = account["sources"]
+                        count += await runtime.worker.tick()
+                        runtime.worker.outbox.compact(
+                            int(os.environ.get("READER_ACK_RETENTION_DAYS", "0"))
+                        )
+                    except AUTH_FAILURES:
+                        print("reader_account_blocked account_id=" + account_id, flush=True)
+                        try:
+                            await api.blocked(account_id)
+                        except (OSError, ValueError, urllib.error.URLError):
+                            print("reader_account_block_report_failed", flush=True)
+                        if runtime is not None:
+                            await runtime.close()
+                        runtimes.pop(account_id, None)
+                    except (OSError, ValueError, urllib.error.URLError) as error:
+                        print("reader_account_error type=" + type(error).__name__, flush=True)
+                        if runtime is not None and account_id not in runtimes:
+                            await runtime.close()
                 print(
-                    f"sources_cycle active={len(worker.readers)} acked={count}",
+                    f"sources_cycle accounts={len(runtimes)} active={sum(len(r.worker.readers) for r in runtimes.values())} acked={count}",
                     flush=True,
                 )
             except (OSError, ValueError, urllib.error.URLError) as error:
@@ -474,22 +561,24 @@ async def run_sources(args, state, store):
             except (OSError, ValueError, urllib.error.URLError) as error:
                 print("reader_heartbeat_error type=" + type(error).__name__, flush=True)
             if args.once:
-                if not worker.readers:
+                if not any(runtime.worker.readers for runtime in runtimes.values()):
                     raise ValueError("no_sources_connected")
                 # Let startup albums settle before exporting, without any media download.
                 await asyncio.sleep(6)
-                store.finalize_albums()
-                for sid, (_, reader) in worker.readers.items():
-                    worker.outbox.export(sid, reader.channel)
-                await worker.outbox.deliver(api, set(worker.readers))
-                for sid in worker.readers:
-                    pending = store.db.execute(
-                        "SELECT COUNT(*) FROM outbox WHERE state='pending' AND source_id=?",
-                        (sid,),
-                    ).fetchone()[0]
-                    if pending:
-                        raise ValueError("delivery_pending")
+                for runtime in runtimes.values():
+                    runtime.store.finalize_albums()
+                    for sid, (_, reader) in runtime.worker.readers.items():
+                        runtime.worker.outbox.export(sid, reader.channel)
+                    await runtime.worker.outbox.deliver(api, set(runtime.worker.readers))
+                    for sid in runtime.worker.readers:
+                        pending = runtime.store.db.execute(
+                            "SELECT COUNT(*) FROM outbox WHERE state='pending' AND source_id=?",
+                            (sid,),
+                        ).fetchone()[0]
+                        if pending:
+                            raise ValueError("delivery_pending")
                 return
             await asyncio.sleep(10)
     finally:
-        await client.disconnect()
+        for runtime in runtimes.values():
+            await runtime.close()

@@ -8,7 +8,10 @@ use App\Domain\Source\ReaderAccounts;
 use App\Domain\Source\SourceService;
 use App\Domain\Source\SourceException;
 use App\Kernel\Exception\HttpException;
+use App\Kernel\Config;
+use App\Kernel\Http\Request;
 use App\Kernel\Security\Crypto;
+use App\Tests\Support\TestEnv;
 use App\Tests\Support\WorkspaceTestCase;
 
 /** Registry and placement are tested without Telegram credentials or network calls. */
@@ -28,11 +31,25 @@ final class ReaderAccountsTest extends WorkspaceTestCase
         self::assertNotSame($session, $raw['session_enc']);
         self::assertSame($session, $this->app->container()->get(Crypto::class)->decrypt((string) $raw['session_enc'], 'telegram-reader-session'));
 
+        $this->app->container()->instance(Config::class, TestEnv::config(['SOURCES_READER_SECRET' => 'source-reader-test-secret-not-real-123456789']));
+        $request = static fn (string $secret): Request => Request::create('GET', '/internal/reader-accounts', headers: ['Authorization' => 'Bearer ' . $secret]);
+        self::assertSame(403, $this->app->handle($request('invalid'))->status);
+        $active = json_decode($this->app->handle($request('source-reader-test-secret-not-real-123456789'))->body, true, 32, JSON_THROW_ON_ERROR);
+        self::assertSame($session, $active['accounts'][0]['session']);
+        self::assertSame([], $active['accounts'][0]['sources']);
+
         $source = $this->app->container()->get(SourceService::class)->create($ctx, 'News', 'telegram', '@reader_news', true);
         $row = $this->db->table('sources')->where('id', '=', $source->id)->first() ?? throw new \LogicException('Missing source');
         self::assertSame((int) $raw['id'], (int) $row['reader_account_id']);
         $oldVersion = (int) $row['connection_version'];
-        $accounts->changeStatus($first, 'blocked', $owner->id);
+        $accounts->attachSession($first, 10001, '1' . str_repeat('Z', 200), $owner->id);
+        $row = $this->db->table('sources')->where('id', '=', $source->id)->first() ?? throw new \LogicException('Missing source');
+        self::assertGreaterThan($oldVersion, (int) $row['connection_version']);
+        $oldVersion = (int) $row['connection_version'];
+        $blocked = static fn (string $secret, string $id): Request => Request::create('POST', '/internal/reader-accounts/blocked', headers: ['Authorization' => 'Bearer ' . $secret, 'Content-Type' => 'application/json'], rawBody: json_encode(['account_id' => $id], JSON_THROW_ON_ERROR));
+        self::assertSame(403, $this->app->handle($blocked('invalid', $first))->status);
+        self::assertSame(400, $this->app->handle($blocked('source-reader-test-secret-not-real-123456789', 'invalid'))->status);
+        self::assertSame(200, $this->app->handle($blocked('source-reader-test-secret-not-real-123456789', $first))->status);
         $row = $this->db->table('sources')->where('id', '=', $source->id)->first() ?? throw new \LogicException('Missing source');
         $other = $this->db->table('source_reader_accounts')->where('public_id', '=', $second)->first() ?? throw new \LogicException('Missing account');
         self::assertSame((int) $other['id'], (int) $row['reader_account_id']);

@@ -135,6 +135,8 @@ return static function (Router $router): void {
     $router->post('/internal/source-image-results', [\App\Http\Controllers\Sources\ImageReaderController::class, 'result'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-images-results', 'max' => 60, 'seconds' => 60]]);
     $router->post('/internal/reader-heartbeat', [SourceReaderController::class, 'heartbeat'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'reader-heartbeat', 'max' => 12, 'seconds' => 60]]);
     $router->get('/internal/sources', [SourceReaderController::class, 'sources'])->middleware([RateLimit::class, ['bucket' => 'source-reader-list', 'max' => 120, 'seconds' => 60]]);
+    $router->get('/internal/reader-accounts', [SourceReaderController::class, 'accounts'])->middleware([RateLimit::class, ['bucket' => 'source-reader-accounts', 'max' => 120, 'seconds' => 60]]);
+    $router->post('/internal/reader-accounts/blocked', [SourceReaderController::class, 'blocked'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-reader-blocked', 'max' => 60, 'seconds' => 60]]);
     $router->post('/internal/source-events', [SourceReaderController::class, 'event'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-reader-events', 'max' => 600, 'seconds' => 60]]);
 
     // Public site: legal documents, the knowledge base, the status of the networks, and what search engines may read.

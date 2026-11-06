@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Sources;
 
 use App\Domain\Source\SourceIngress;
+use App\Domain\Source\ReaderAccounts;
 use App\Kernel\Config;
 use App\Kernel\Exception\HttpException;
 use App\Kernel\Http\Request;
@@ -15,8 +16,29 @@ use Throwable;
 /** Internal HTTP ingress: dedicated bearer secret, bounded payloads, sanitized operational errors and commit-before-ACK. */
 final class SourceReaderController
 {
-    public function __construct(private readonly Config $config, private readonly SourceIngress $ingress, private readonly LoggerInterface $logger, private readonly \App\Support\Heartbeat $heartbeat, private readonly ?\App\Kernel\HttpClient\EgressHealth $egress = null)
+    public function __construct(private readonly Config $config, private readonly SourceIngress $ingress, private readonly LoggerInterface $logger, private readonly \App\Support\Heartbeat $heartbeat, private readonly ReaderAccounts $accounts, private readonly ?\App\Kernel\HttpClient\EgressHealth $egress = null)
     {
+    }
+
+    public function accounts(Request $request): Response
+    {
+        $this->authenticate($request);
+        return Response::json(['version' => 1, 'accounts' => $this->accounts->activeForReader()])->withHeader('Cache-Control', 'no-store');
+    }
+
+    public function blocked(Request $request): Response
+    {
+        $this->authenticate($request);
+        if (strlen($request->rawBody) > 128) {
+            throw new HttpException(413, 'Too large');
+        }
+        $payload = $request->json();
+        $id = $payload['account_id'] ?? null;
+        if (!is_string($id) || preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/D', $id) !== 1) {
+            throw new HttpException(400, 'Invalid reader account');
+        }
+        $this->accounts->reportBlocked($id);
+        return Response::json(['ack' => true])->withHeader('Cache-Control', 'no-store');
     }
 
     public function sources(Request $request): Response

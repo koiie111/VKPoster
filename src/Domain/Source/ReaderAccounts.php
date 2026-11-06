@@ -65,6 +65,9 @@ final class ReaderAccounts
             if ($row['telegram_user_id'] !== null && (int) $row['telegram_user_id'] !== $telegramUserId) {
                 throw new SourceException('Этот аккаунт привязан к другому пользователю Telegram. Добавьте новый аккаунт для чтения.', 'session');
             }
+            if ($row['session_enc'] !== null) {
+                $this->db->execute('UPDATE sources SET connection_version=connection_version+1, status=?, updated_at=? WHERE reader_account_id=?', [SourceStatus::NotConnected->value, DbTime::format($this->clock->now()), $row['id']]);
+            }
             $this->db->execute('UPDATE source_reader_accounts SET telegram_user_id=?, session_enc=?, status=?, updated_at=? WHERE id=?', [$telegramUserId, $ciphertext, 'active', DbTime::format($this->clock->now()), $row['id']]);
             $this->assignWaiting($workspaceId);
             $this->audit->record('source.reader_account_connected', $actorId, 'reader_account', $publicId, [], $workspaceId);
@@ -106,6 +109,37 @@ final class ReaderAccounts
     {
         $filter = $workspaceId === null ? '' : ' WHERE a.workspace_id=?';
         return $this->db->select('SELECT a.id, a.public_id, a.workspace_id, a.label, a.status, a.telegram_user_id, a.last_seen_at, a.created_at, COUNT(s.id) AS source_count FROM source_reader_accounts a LEFT JOIN sources s ON s.reader_account_id=a.id' . $filter . ' GROUP BY a.id ORDER BY a.id', $workspaceId === null ? [] : [$workspaceId]);
+    }
+
+    /** @return list<array{id: string, telegram_user_id: int, session: string, sources: list<array<string, mixed>>}> */
+    public function activeForReader(): array
+    {
+        $accounts = [];
+        foreach ($this->db->select("SELECT id, public_id, telegram_user_id, session_enc FROM source_reader_accounts WHERE status='active' AND session_enc IS NOT NULL ORDER BY id") as $row) {
+            $sources = $this->db->select("SELECT public_id AS id, telegram_username AS username, connection_version FROM sources WHERE reader_account_id=? AND enabled=1 AND type='telegram' ORDER BY id", [$row['id']]);
+            $accounts[] = [
+                'id' => (string) $row['public_id'],
+                'telegram_user_id' => (int) $row['telegram_user_id'],
+                'session' => $this->crypto->decrypt((string) $row['session_enc'], self::PURPOSE),
+                'sources' => $sources,
+            ];
+        }
+        return $accounts;
+    }
+
+    /** A terminal Telegram authorization error invalidates this identity and moves service sources. */
+    public function reportBlocked(string $publicId): void
+    {
+        $this->db->transaction(function () use ($publicId): void {
+            $rows = $this->db->select('SELECT id, workspace_id, status FROM source_reader_accounts WHERE public_id=? FOR UPDATE', [strtoupper($publicId)]);
+            $row = $rows[0] ?? throw new HttpException(404, 'Reader account not found');
+            if ($row['status'] !== 'active') {
+                return;
+            }
+            $this->db->execute('UPDATE source_reader_accounts SET status=?, updated_at=? WHERE id=?', ['blocked', DbTime::format($this->clock->now()), $row['id']]);
+            $this->reassignFrom((int) $row['id'], $row['workspace_id'] === null);
+            $this->audit->record('source.reader_account_blocked', null, 'reader_account', $publicId, [], $row['workspace_id'] === null ? null : (int) $row['workspace_id']);
+        });
     }
 
     /** @return array<string, mixed> */
