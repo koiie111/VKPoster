@@ -19,6 +19,7 @@ use App\Integrations\Ai\SharedLlmTextProvider;
 use App\Integrations\Selection\SemanticSelectionInput;
 use App\Integrations\Selection\SharedLlmSemanticSelectionProvider;
 use App\Kernel\HttpClient\HttpClientInterface;
+use App\Kernel\Config;
 use App\Tests\Support\MockHttpClient;
 use App\Tests\Support\SourceSelectionTestCase;
 use App\Tests\Support\TestEnv;
@@ -63,6 +64,27 @@ final class SharedLlmProvidersTest extends SourceSelectionTestCase
         self::assertSame('Общий текст', $provider->generateForWorkspace($serviceWorkspace->id, 'Вход', $settings));
         self::assertSame('Api-Key sk-own-secret', $this->http->requests[0]['options']['headers']['Authorization']);
         self::assertSame('Bearer sk-service-secret', $this->http->requests[1]['options']['headers']['Authorization']);
+        $this->http->assertAllConsumed();
+    }
+
+    public function testWorkspaceHttpProcessingUsesConfiguredSharedProvider(): void
+    {
+        $this->app->container()->instance(Config::class, TestEnv::config(['CONTENT_TEXT_PROVIDER' => 'llm']));
+        [$owner, $workspace] = $this->ownerWithWorkspace();
+        $ctx = $this->contextFor($workspace, $owner);
+        $c = $this->app->container();
+        self::assertSame([], $c->get(LlmSettings::class)->save('openai', ['enabled' => '1', 'default' => '1', 'api_key' => 'sk-service-secret'], null));
+        $source = $c->get(SourceService::class)->create($ctx, 'News', 'telegram', '@shared_llm_http', true);
+        $this->ingest($source, [$this->message(10, 'Исходный текст')]);
+        $item = $this->db->table('source_items')->first() ?? throw new \LogicException('Missing material');
+        $c->get(SelectionService::class)->decide($ctx, $source, (string) $item['public_id'], true);
+        $revision = MaterialRepository::revision($item, $c->get(MaterialRepository::class)->messages($ctx, $source, (int) $item['id']));
+        $this->http->expect('POST', 'https://api.openai.com/v1/chat/completions', 200, json_encode(['choices' => [['message' => ['content' => 'Обработанный текст']]]], JSON_THROW_ON_ERROR));
+        $this->actAs($owner);
+        $url = $this->base($workspace) . '/sources/' . $source->publicId . '/items/' . $item['public_id'];
+        self::assertSame($url, $this->post($url . '/process', ['revision' => $revision, 'mode' => 'rewrite'])->header('Location'));
+        self::assertStringContainsString('Обработанный текст', $this->get($url)->body);
+        self::assertSame('completed', $this->db->table('source_text_processings')->first()['status'] ?? null);
         $this->http->assertAllConsumed();
     }
 

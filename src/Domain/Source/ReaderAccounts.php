@@ -51,7 +51,7 @@ final class ReaderAccounts
     }
 
     /** Stores only purpose-bound authenticated ciphertext; caller must have completed Telegram authorization. */
-    public function attachSession(string $publicId, int $telegramUserId, #[\SensitiveParameter] string $session, int $actorId, ?int $workspaceId = null): void
+    public function attachSession(string $publicId, int $telegramUserId, #[\SensitiveParameter] string $session, ?int $actorId, ?int $workspaceId = null): void
     {
         if ($telegramUserId <= 0 || preg_match('/^1[A-Za-z0-9_-]{100,1000}$/D', $session) !== 1) {
             throw new SourceException('Сессия Telegram не прошла проверку.', 'session');
@@ -72,6 +72,13 @@ final class ReaderAccounts
             $this->assignWaiting($workspaceId);
             $this->audit->record('source.reader_account_connected', $actorId, 'reader_account', $publicId, [], $workspaceId);
         });
+    }
+
+    /** Internal reader enrollment after QR login; account scope is looked up before the same encrypted attach path. */
+    public function attachFromReader(string $publicId, int $telegramUserId, #[\SensitiveParameter] string $session): void
+    {
+        $row = $this->db->select('SELECT workspace_id FROM source_reader_accounts WHERE public_id=?', [strtoupper($publicId)])[0] ?? throw new HttpException(404, 'Reader account not found');
+        $this->attachSession($publicId, $telegramUserId, $session, null, $row['workspace_id'] === null ? null : (int) $row['workspace_id']);
     }
 
     /** A blocked service account fails over to another active service account; customer accounts never consume service capacity. */
@@ -98,6 +105,10 @@ final class ReaderAccounts
     /** Assigns a newly created source without ever crossing the account owner's workspace. */
     public function assignNewSource(int $workspaceId, int $sourceId): void
     {
+        $source = $this->db->select('SELECT enabled, reader_account_id FROM sources WHERE id=? AND workspace_id=? FOR UPDATE', [$sourceId, $workspaceId])[0] ?? throw new HttpException(404, 'Source not found');
+        if ((int) $source['enabled'] !== 1 || $source['reader_account_id'] !== null) {
+            return;
+        }
         $accountId = $this->pick($workspaceId);
         if ($accountId !== null) {
             $this->move($sourceId, $accountId);
@@ -109,6 +120,12 @@ final class ReaderAccounts
     {
         $filter = $workspaceId === null ? '' : ' WHERE a.workspace_id=?';
         return $this->db->select('SELECT a.id, a.public_id, a.workspace_id, a.label, a.status, a.telegram_user_id, a.last_seen_at, a.created_at, COUNT(s.id) AS source_count FROM source_reader_accounts a LEFT JOIN sources s ON s.reader_account_id=a.id' . $filter . ' GROUP BY a.id ORDER BY a.id', $workspaceId === null ? [] : [$workspaceId]);
+    }
+
+    /** @return list<array<string, mixed>> Service identities only, without customer accounts or sessions. */
+    public function serviceList(): array
+    {
+        return $this->db->select('SELECT a.id, a.public_id, a.workspace_id, a.label, a.status, a.telegram_user_id, a.last_seen_at, a.created_at, COUNT(s.id) AS source_count FROM source_reader_accounts a LEFT JOIN sources s ON s.reader_account_id=a.id WHERE a.workspace_id IS NULL GROUP BY a.id ORDER BY a.id');
     }
 
     /** @return list<array{id: string, telegram_user_id: int, session: string, sources: list<array<string, mixed>>}> */

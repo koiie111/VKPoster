@@ -63,6 +63,8 @@ final class Analytics
             'approval.submitted', 'approval.approved', 'approval.changes_requested', 'guest_link.created',
             'queue.created', 'evergreen.created', 'recurring.created', 'trigger.created', 'crosspost.created', 'rss.created', 'import.confirmed',
             'content.draft_created', 'selection.semantic_settings_updated', 'source.images_completed', 'source.images_failed', 'source.images_stale',
+            'source.created', 'source.reader_account_connected', 'source.item_approved', 'source.item_rejected',
+            'content.automation_settings_updated',
             'discovery.refreshed', 'discovery.imported', 'source.video_completed', 'source.video_failed', 'source.text_completed', 'source.text_failed', 'source.text_stale' => $this->track(str_replace('.', '_', $action), $actorId, $workspaceId),
             'auth.register', 'auth.social.registered' => $this->track('user_registered', $actorId, null, ['method' => $action === 'auth.register' ? 'email' : 'social'], 'user_registered:' . $actorId),
             'auth.email.verified' => $this->track('email_verified', $actorId, null, [], 'email_verified:' . $actorId),

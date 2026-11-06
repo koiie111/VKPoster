@@ -1,0 +1,45 @@
+{% extends 'layouts/admin.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% import 'components/admin.twig' as a %}
+{% set nav_current = 'source_reader_accounts' %}
+{% block title %}Аккаунты чтения · Админка{% endblock %}
+{% block content %}
+{{ d.page_header('Аккаунты чтения Telegram', 'Служебные аккаунты читают источники пространств без собственного аккаунта. При блокировке источники автоматически переходят на другой активный служебный аккаунт.') }}
+<section class="card mt-4" aria-labelledby="reader-add">
+    <h2 class="text-lg font-semibold" id="reader-add">Добавить служебный аккаунт</h2>
+    <form method="post" action="/admin/source-reader-accounts" class="mt-3 grid gap-3 sm:grid-cols-2" autocomplete="off">
+        {{ csrf_field() }}
+        {{ f.input('label', 'Название', required = true, id = 'reader-label', hint = 'Например, Резервный аккаунт 2. Название видно только персоналу.') }}
+        {{ a.step_up('reader-create-code') }}
+        <div class="sm:col-span-2">{{ f.button('Создать аккаунт', type = 'submit', icon = 'plus') }}</div>
+    </form>
+</section>
+<section class="card mt-4" aria-labelledby="reader-list">
+    <h2 class="text-lg font-semibold" id="reader-list">Служебные аккаунты</h2>
+    {% if accounts is empty %}<p class="mt-3 text-sm text-muted">Пока нет аккаунтов для чтения.</p>{% endif %}
+    <ul class="mt-3 grid gap-4">
+        {% for account in accounts %}
+        <li class="rounded-lg border border-line p-4">
+            <div class="flex flex-wrap items-center gap-2"><strong>{{ account.label }}</strong>{{ d.badge(account.status, account.status == 'active' ? 'success' : (account.status == 'blocked' ? 'warning' : 'neutral')) }}</div>
+            <p class="mt-1 text-sm text-muted">ID {{ account.public_id }} · Telegram ID {{ account.telegram_user_id ?? 'не подключён' }} · Источников: {{ account.source_count }}</p>
+            {% if account.status != 'disabled' %}
+            <form method="post" action="/admin/source-reader-accounts/{{ account.public_id }}/session" class="mt-3 grid gap-3 sm:grid-cols-2" autocomplete="off">
+                {{ csrf_field() }}
+                {{ f.input('telegram_user_id', 'Telegram ID', value = account.telegram_user_id ?? '', required = true, id = 'reader-tg-' ~ account.public_id, hint = 'ID авторизованного пользователя; reader сверит его при подключении.') }}
+                {{ f.input('session', 'StringSession', type = 'password', required = true, id = 'reader-session-' ~ account.public_id, autocomplete = 'off', hint = 'Секрет отображается только при вводе и больше не показывается.') }}
+                <div class="min-w-48">{{ a.step_up('reader-session-code-' ~ account.public_id) }}</div>
+                <div class="flex items-end">{{ f.button('Подключить сессию', type = 'submit', variant = 'secondary') }}</div>
+            </form>
+            {% endif %}
+            <form method="post" action="/admin/source-reader-accounts/{{ account.public_id }}/status" class="mt-3 flex flex-wrap items-end gap-3" autocomplete="off">
+                {{ csrf_field() }}
+                <div class="min-w-48">{{ f.select('status', 'Состояние', {'active': 'Активен', 'disabled': 'Выключен', 'blocked': 'Заблокирован'}, value = account.status, id = 'reader-status-' ~ account.public_id) }}</div>
+                <div class="min-w-48">{{ a.step_up('reader-code-' ~ account.public_id) }}</div>
+                {{ f.button('Сохранить', type = 'submit', variant = 'secondary') }}
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

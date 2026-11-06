@@ -120,6 +120,9 @@ final class MetricsAggregator
         foreach ($this->db->select('SELECT status, COUNT(*) AS c FROM source_text_processings WHERE created_at >= ? AND created_at < ? GROUP BY status', [$from, $to]) as $row) {
             $add('source_text_attempts', (string) $row['status'], (int) $row['c']);
         }
+        foreach ($this->db->select("SELECT name, COUNT(*) AS c FROM analytics_events WHERE name IN ('source_created', 'source_reader_account_connected', 'source_item_approved', 'source_item_rejected', 'content_draft_created', 'content_automation_settings_updated') AND occurred_at >= ? AND occurred_at < ? GROUP BY name", [$from, $to]) as $row) {
+            $add('source_funnel', (string) $row['name'], (int) $row['c']);
+        }
 
         // Money, from the ledger (the provider's side of every movement).
         foreach ($this->db->select(

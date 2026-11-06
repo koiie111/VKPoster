@@ -41,10 +41,21 @@ final class SourceReaderController
         return Response::json(['ack' => true])->withHeader('Cache-Control', 'no-store');
     }
 
-    public function sources(Request $request): Response
+    public function enroll(Request $request): Response
     {
         $this->authenticate($request);
-        return Response::json(['version' => 1, 'sources' => $this->ingress->enabled()])->withHeader('Cache-Control', 'no-store');
+        if (strlen($request->rawBody) > 2048) {
+            throw new HttpException(413, 'Too large');
+        }
+        $payload = $request->json();
+        $id = $payload['account_id'] ?? null;
+        $telegramId = $payload['telegram_user_id'] ?? null;
+        $session = $payload['session'] ?? null;
+        if (!is_string($id) || preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/D', $id) !== 1 || !is_int($telegramId) || !is_string($session)) {
+            throw new HttpException(400, 'Invalid reader enrollment');
+        }
+        $this->accounts->attachFromReader($id, $telegramId, $session);
+        return Response::json(['ack' => true])->withHeader('Cache-Control', 'no-store');
     }
 
     public function heartbeat(Request $request): Response

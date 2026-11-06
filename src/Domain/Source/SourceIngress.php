@@ -17,12 +17,6 @@ final class SourceIngress
     {
     }
 
-    /** @return list<array<string, mixed>> Enabled Telegram configurations only; no workspace credentials. */
-    public function enabled(): array
-    {
-        return $this->db->select("SELECT public_id AS id, telegram_username AS username, connection_version FROM sources WHERE enabled = 1 AND type = 'telegram' ORDER BY id");
-    }
-
     /** @param array<string, mixed> $event Returns only after commit; retries with the same event id are safe. */
     public function accept(array $event): bool
     {

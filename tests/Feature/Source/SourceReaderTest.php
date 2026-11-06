@@ -6,6 +6,7 @@ namespace App\Tests\Feature\Source;
 
 use App\Domain\Source\Source;
 use App\Domain\Source\SourceIngress;
+use App\Domain\Source\ReaderAccounts;
 use App\Domain\Source\SourceService;
 use App\Domain\Source\SourceItemRepository;
 use App\Kernel\Config;
@@ -31,7 +32,7 @@ final class SourceReaderTest extends WorkspaceTestCase
     {
         return $this->app->handle(Request::create(
             $event === null ? 'GET' : 'POST',
-            $event === null ? '/internal/sources' : '/internal/source-events',
+            $event === null ? '/internal/reader-accounts' : '/internal/source-events',
             headers: ['Authorization' => 'Bearer ' . $secret, 'Content-Type' => 'application/json', 'Accept' => 'application/json'],
             rawBody: $event === null ? '' : json_encode($event, JSON_THROW_ON_ERROR)
         ));
@@ -53,7 +54,7 @@ final class SourceReaderTest extends WorkspaceTestCase
     private function event(Source $source, array $messages): array
     {
         $payload = ['peer_id' => '12345', 'grouped_id' => $messages[0]['grouped_id'], 'messages' => $messages];
-        return ['version' => 1, 'source_id' => $source->publicId, 'event_id' => hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR)), 'kind' => 'item', 'payload' => $payload];
+        return ['version' => 1, 'source_id' => $source->publicId, 'event_id' => hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR)), 'kind' => 'item', 'payload' => $payload, 'connection_version' => $source->connectionVersion];
     }
 
     public function testSecretAndEnabledSourcesWithoutCredentials(): void
@@ -61,16 +62,21 @@ final class SourceReaderTest extends WorkspaceTestCase
         [$owner, $workspace] = $this->ownerWithWorkspace();
         $service = $this->app->container()->get(SourceService::class);
         $context = $this->contextFor($workspace, $owner);
+        $accounts = $this->app->container()->get(ReaderAccounts::class);
+        $accountId = $accounts->create(null, 'Contract reader', $owner->id);
+        $accounts->attachSession($accountId, 12345, '1' . str_repeat('A', 200), $owner->id);
         $on = $service->create($context, 'Enabled', 'telegram', '@sample_channel', true);
         $off = $service->create($context, 'Disabled', 'telegram', '@other_channel');
         self::assertSame(403, $this->api(secret: 'wrong')->status);
-        self::assertSame(['version' => 1, 'sources' => [['id' => $on->publicId, 'username' => 'sample_channel', 'connection_version' => 1]]], json_decode($this->api()->body, true));
+        $accountsResponse = json_decode($this->api()->body, true);
+        self::assertSame($accountId, $accountsResponse['accounts'][0]['id']);
+        self::assertSame([['id' => $on->publicId, 'username' => 'sample_channel', 'connection_version' => 2]], $accountsResponse['accounts'][0]['sources']);
         self::assertSame(409, $this->api($this->event($off, [$this->message(1)]))->status);
         self::assertSame(0, $this->db->table('source_events')->count());
         $this->app->container()->instance(Config::class, TestEnv::config());
         // A fresh controller is required because previously autowired instances retain their dependencies.
         $app = TestEnv::app();
-        self::assertSame(404, $app->handle(Request::create('GET', '/internal/sources'))->status);
+        self::assertSame(404, $app->handle(Request::create('GET', '/internal/reader-accounts'))->status);
     }
 
     public function testCommitAckDedupEditsOutOfOrderAndUi(): void

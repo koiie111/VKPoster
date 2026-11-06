@@ -35,6 +35,7 @@ return static fn (Env $env): array => [
     'plans.manage' => ['superadmin', 'finance'],
     'providers.manage' => ['superadmin'],
     'ai.manage' => ['superadmin'],
+    'sources.accounts' => ['superadmin'],
     // Short links of all workspaces and the forbidden-domain list.
     'links.manage' => ['superadmin', 'support'],
     'grants.manage' => ['superadmin', 'finance'],

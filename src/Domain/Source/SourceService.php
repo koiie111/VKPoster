@@ -68,7 +68,7 @@ final class SourceService
                 $saved = $source === null
                     ? $this->sources->create($context, $name, $sourceType, $username, $enabled)
                     : $this->sources->update($context, $source, $name, $sourceType, $username, $enabled);
-                if ($source === null) {
+                if ($enabled) {
                     $this->readers->assignNewSource($context->workspaceId, $saved->id);
                     $saved = $this->sources->find($context, $saved->publicId) ?? throw new LogicException('The inserted source disappeared.');
                 }

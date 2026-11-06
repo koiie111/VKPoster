@@ -87,12 +87,6 @@ class InternalAPI:
         if result.get("ack") is not True:
             raise ValueError("invalid_heartbeat_ack")
 
-    async def sources(self):
-        result = await asyncio.to_thread(self.request, "/internal/sources")
-        if result.get("version") != 1 or not isinstance(result.get("sources"), list):
-            raise ValueError("invalid_source_list")
-        return result["sources"]
-
     async def accounts(self):
         result = await asyncio.to_thread(self.request, "/internal/reader-accounts")
         if result.get("version") != 1 or not isinstance(result.get("accounts"), list):
@@ -115,6 +109,19 @@ class InternalAPI:
         )
         if result.get("ack") is not True:
             raise ValueError("invalid_account_block_ack")
+
+    async def enroll(self, account_id, telegram_user_id, session):
+        result = await asyncio.to_thread(
+            self.request,
+            "/internal/reader-accounts/enroll",
+            {
+                "account_id": account_id,
+                "telegram_user_id": telegram_user_id,
+                "session": session,
+            },
+        )
+        if result.get("ack") is not True:
+            raise ValueError("invalid_account_enroll_ack")
 
     async def send(self, event):
         result = await asyncio.to_thread(self.request, "/internal/source-events", event)
@@ -529,7 +536,10 @@ async def run_sources(args, state, store):
                         runtime.scoped_api.assigned = account["sources"]
                         count += await runtime.worker.tick()
                         runtime.worker.outbox.compact(
-                            int(os.environ.get("READER_ACK_RETENTION_DAYS", "0"))
+                            int(os.environ.get("READER_ACK_RETENTION_DAYS", "30"))
+                        )
+                        runtime.store.compact_revisions(
+                            int(os.environ.get("READER_REVISION_RETENTION_DAYS", "90"))
                         )
                     except AUTH_FAILURES:
                         print("reader_account_blocked account_id=" + account_id, flush=True)

@@ -29,6 +29,7 @@ final class SourceController
         private readonly \App\Domain\Source\Selection\SelectionService $selection,
         private readonly \App\Domain\Source\Selection\SemanticSelection $semantic,
         private readonly \App\Domain\Content\Automation\AutomationPolicies $automation,
+        private readonly \App\Domain\Source\ReaderAccounts $readerAccounts,
     ) {
     }
 
@@ -40,6 +41,7 @@ final class SourceController
             'workspace' => $context,
             'base' => $this->base($request),
             'sources' => $this->sources->all($context),
+            'reader_account' => $this->readerAccounts->list($context->workspaceId)[0] ?? null,
         ]);
     }
 

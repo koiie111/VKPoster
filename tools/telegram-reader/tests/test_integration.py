@@ -10,12 +10,13 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from reader.integration import InternalAPI, Outbox, SourceStore, SourceWorker
 from reader.model import normalize
 from reader.service import Reader
 from reader.store import Store
+from reader.cli import enroll_qr, migrate_legacy_session
 from tests.test_reader import message, photo
 
 
@@ -228,6 +229,48 @@ class OutboxTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HTTPTests(unittest.IsolatedAsyncioTestCase):
+    async def test_legacy_session_removed_only_after_vault_ack(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            legacy = state / "telegram.session"
+            legacy.write_bytes(b"synthetic session")
+            store = Store(state / "reader.sqlite")
+            client = MagicMock()
+            client.get_me = AsyncMock(return_value=SimpleNamespace(id=12345, bot=False))
+            client.disconnect = AsyncMock()
+            api = MagicMock()
+            api.enroll = AsyncMock(side_effect=[ValueError("no ack"), None])
+            args = SimpleNamespace(account_id="0" * 26)
+            env = {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": "a" * 32, "SOURCES_READER_SECRET": "x" * 40}
+            with patch.dict(os.environ, env), patch("reader.cli.SQLiteSession") as session, patch("reader.cli.TelegramClient", return_value=client), patch("reader.cli.InternalAPI", return_value=api), patch("reader.cli.connect_with_backoff", new_callable=AsyncMock), patch("reader.cli.StringSession.save", return_value="1" + "A" * 200):
+                with self.assertRaises(ValueError):
+                    await migrate_legacy_session(args, state, store)
+                self.assertTrue(legacy.exists())
+                await migrate_legacy_session(args, state, store)
+            self.assertFalse(legacy.exists())
+            self.assertEqual(api.enroll.await_count, 2)
+            self.assertEqual(session.call_count, 2)
+            store.close()
+
+    async def test_qr_enrollment_keeps_telegram_session_in_memory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            store = Store(state / "reader.sqlite")
+            client = MagicMock()
+            client.get_me = AsyncMock(return_value=SimpleNamespace(id=12345, bot=False))
+            client.disconnect = AsyncMock()
+            api = MagicMock()
+            api.enroll = AsyncMock()
+            display = MagicMock()
+            display.__enter__.return_value = display
+            with patch.dict(os.environ, {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": "a" * 32, "SOURCES_READER_SECRET": "x" * 40}), patch("reader.cli.TelegramClient", return_value=client) as make_client, patch("reader.cli.InternalAPI", return_value=api), patch("reader.cli.QRDisplay", return_value=display), patch("reader.cli.authenticate_qr", new_callable=AsyncMock), patch("reader.cli.StringSession.save", return_value="1" + "A" * 200):
+                await enroll_qr(SimpleNamespace(account_id="0" * 26, qr_port=8765), store)
+            self.assertNotIsInstance(make_client.call_args.args[0], str)
+            api.enroll.assert_awaited_once_with("0" * 26, 12345, "1" + "A" * 200)
+            self.assertFalse((state / "telegram.session").exists())
+            client.disconnect.assert_awaited_once()
+            store.close()
+
     async def test_actual_http_secret_ack_validation_and_retry(self):
         received = []
         valid_ack = [False]
@@ -279,7 +322,9 @@ class PHPContractTests(unittest.IsolatedAsyncioTestCase):
         api = InternalAPI(
             os.environ["TEST_INTERNAL_URL"], os.environ["TEST_READER_SECRET"]
         )
-        sources = await api.sources()
+        accounts = await api.accounts()
+        self.assertEqual(len(accounts), 1)
+        sources = accounts[0]["sources"]
         self.assertEqual(len(sources), 2)
         with tempfile.TemporaryDirectory() as tmp:
             now = [100]
@@ -287,6 +332,8 @@ class PHPContractTests(unittest.IsolatedAsyncioTestCase):
             store = Store(path, clock=lambda: now[0])
             try:
                 box = Outbox(store)
+                for source in sources:
+                    store.set("binding:" + source["id"], source["connection_version"])
                 for mid in [10, 11]:
                     store.upsert(
                         normalize(123, message(mid, group=999, photo=photo(mid)))
