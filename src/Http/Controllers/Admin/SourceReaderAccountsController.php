@@ -74,4 +74,19 @@ final class SourceReaderAccountsController
         }
         return Response::redirect('/admin/source-reader-accounts');
     }
+
+    public function assign(Request $request): Response
+    {
+        $staff = WorkspaceRequest::user($request);
+        if (($denied = $this->stepUp->guard($request, $staff, '/admin/source-reader-accounts')) !== null) {
+            return $denied;
+        }
+        try {
+            $this->accounts->assignServiceSource(WorkspaceRequest::text($request->input('source_id')), WorkspaceRequest::text($request->input('account_id')), $staff->id);
+            $this->flash->toast('Источник назначен служебному аккаунту.');
+        } catch (SourceException $e) {
+            $this->flash->toast($e->getMessage(), 'error');
+        }
+        return Response::redirect('/admin/source-reader-accounts');
+    }
 }

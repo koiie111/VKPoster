@@ -128,6 +128,23 @@ final class ReaderAccounts
         return $this->db->select('SELECT a.id, a.public_id, a.workspace_id, a.label, a.status, a.telegram_user_id, a.last_seen_at, a.created_at, COUNT(s.id) AS source_count FROM source_reader_accounts a LEFT JOIN sources s ON s.reader_account_id=a.id WHERE a.workspace_id IS NULL GROUP BY a.id ORDER BY a.id');
     }
 
+    /** Staff override for an enabled source without a customer reader account. */
+    public function assignServiceSource(string $sourcePublicId, string $accountPublicId, int $actorId): void
+    {
+        $this->db->transaction(function () use ($sourcePublicId, $accountPublicId, $actorId): void {
+            $source = $this->db->select('SELECT id, workspace_id, enabled FROM sources WHERE public_id=? FOR UPDATE', [strtoupper($sourcePublicId)])[0] ?? throw new HttpException(404, 'Source not found');
+            $account = $this->db->select('SELECT id FROM source_reader_accounts WHERE public_id=? AND workspace_id IS NULL AND status=? FOR UPDATE', [strtoupper($accountPublicId), 'active'])[0] ?? throw new SourceException('Выберите активный служебный аккаунт.', 'account');
+            if ((int) $source['enabled'] !== 1) {
+                throw new SourceException('Сначала включите источник.', 'source');
+            }
+            if ($this->db->select('SELECT id FROM source_reader_accounts WHERE workspace_id=? LIMIT 1', [$source['workspace_id']]) !== []) {
+                throw new SourceException('Пространство использует собственный аккаунт Telegram.', 'source');
+            }
+            $this->move((int) $source['id'], (int) $account['id']);
+            $this->audit->record('source.reader_account_reassigned', $actorId, 'source', $sourcePublicId, ['reader_account' => $accountPublicId], (int) $source['workspace_id']);
+        });
+    }
+
     /** @return list<array{id: string, telegram_user_id: int, session: string, sources: list<array<string, mixed>>}> */
     public function activeForReader(): array
     {

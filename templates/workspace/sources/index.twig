@@ -13,14 +13,19 @@
     {% if reader_account is null %}
     <form method="post" action="{{ base }}/reader-account" class="mt-3">{{ csrf_field() }}{{ f.button('Добавить свой аккаунт', type = 'submit', variant = 'secondary') }}</form>
     {% else %}
-    <p class="mt-2 text-sm">Состояние: {{ d.badge(reader_account.status, reader_account.status == 'active' ? 'success' : 'warning') }} · Источников: {{ reader_account.source_count }}</p>
+    <p class="mt-2 text-sm">Состояние: {{ d.badge({pending: 'Ожидает подключения', active: 'Подключён', disabled: 'Выключен', blocked: 'Заблокирован'}[reader_account.status] ?? 'Неизвестно', reader_account.status == 'active' ? 'success' : 'warning') }} · Источников: {{ reader_account.source_count }}</p>
     {% if reader_account.status != 'disabled' %}
+    <form method="post" action="{{ base }}/reader-account/{{ reader_account.public_id }}/qr" class="mt-3">
+        {{ csrf_field() }}{{ f.button('Подключить через QR-код', type = 'submit', variant = 'primary') }}
+    </form>
+    <details class="mt-3"><summary class="cursor-pointer text-sm text-muted">Подключить готовую сессию вручную</summary>
     <form method="post" action="{{ base }}/reader-account/{{ reader_account.public_id }}/session" class="mt-3 grid gap-3 sm:grid-cols-2" autocomplete="off">
         {{ csrf_field() }}
         {{ f.input('telegram_user_id', 'Telegram ID', value = reader_account.telegram_user_id ?? '', required = true, id = 'own-reader-tg', hint = 'ID авторизованного пользователя Telegram.') }}
         {{ f.input('session', 'StringSession', type = 'password', required = true, id = 'own-reader-session', autocomplete = 'off', hint = 'Секрет сохранится зашифрованным и больше не будет показан.') }}
         <div class="sm:col-span-2">{{ f.button('Подключить сессию', type = 'submit', variant = 'secondary') }}</div>
     </form>
+    </details>
     {% endif %}
     <form method="post" action="{{ base }}/reader-account/{{ reader_account.public_id }}/status" class="mt-3 flex gap-2">
         {{ csrf_field() }}

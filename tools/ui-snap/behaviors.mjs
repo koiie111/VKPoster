@@ -4,6 +4,7 @@ import { chromium } from 'playwright';
 import { deflateSync } from 'node:zlib';
 
 const base = process.env.UI_SNAP_BASE_URL ?? 'http://nginx';
+const loginEmail = process.env.UI_BEHAVIOR_LOGIN_EMAIL ?? 'demo@ezposter.local';
 const browser = await chromium.launch();
 const failures = [];
 const check = (ok, msg) => { if (!ok) { failures.push(msg); console.log('FAIL', msg); } else { console.log('ok  ', msg); } };
@@ -109,10 +110,13 @@ function png(width, height, [r, g, b]) {
   page = await ctx.newPage();
   page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('Cross-Origin-Opener-Policy') && !m.text().includes('status of 422')) { failures.push(`console error on media: ${m.text()}`); console.log('FAIL console', m.text()); } });
   page.on('pageerror', (e) => { failures.push(`page error on media: ${e.message}`); console.log('FAIL pageerror', e.message); });
-  await page.goto(`${base}/dev/login-as/demo@ezposter.local`, { waitUntil: 'networkidle' });
+  await page.goto(`${base}/dev/login-as/${encodeURIComponent(loginEmail)}`, { waitUntil: 'networkidle' });
   await page.goto(`${base}/app`, { waitUntil: 'networkidle' });
   const library = `${page.url().replace(/\/$/, '')}/media`;
   await page.goto(library, { waitUntil: 'networkidle' });
+  if (await page.locator('[data-upload-input]').count() === 0) {
+    throw new Error(`Media upload widget missing at ${page.url()} (requested ${library})`);
+  }
   const name = `behavior-${Date.now()}.png`;
   const before = await page.locator('section[aria-label="Файлы"] ul li').count();
 

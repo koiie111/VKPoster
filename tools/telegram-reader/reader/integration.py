@@ -1,9 +1,12 @@
 """Internal HTTP contract and durable SQLite outbox; no access to application DB."""
 
 import asyncio
+import base64
 import hashlib
+import io
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -12,9 +15,11 @@ from urllib.parse import urlsplit
 from telethon import TelegramClient
 from telethon import errors as telegram_errors
 from telethon.sessions import StringSession
+import qrcode
 
 from .egress import connect_with_backoff, proxy_config, route_identity
 from .image_delivery import ImageDelivery
+from .qr import authenticate_qr
 from .service import Reader
 from .store import Store
 from .transport import TelegramTransport
@@ -110,18 +115,45 @@ class InternalAPI:
         if result.get("ack") is not True:
             raise ValueError("invalid_account_block_ack")
 
-    async def enroll(self, account_id, telegram_user_id, session):
+    async def enroll(self, account_id, telegram_user_id, session, challenge=None):
+        payload = {
+            "account_id": account_id,
+            "telegram_user_id": telegram_user_id,
+            "session": session,
+        }
+        if challenge is not None:
+            payload["challenge"] = challenge
         result = await asyncio.to_thread(
             self.request,
             "/internal/reader-accounts/enroll",
-            {
-                "account_id": account_id,
-                "telegram_user_id": telegram_user_id,
-                "session": session,
-            },
+            payload,
         )
         if result.get("ack") is not True:
             raise ValueError("invalid_account_enroll_ack")
+
+    async def pending_qr(self):
+        result = await asyncio.to_thread(self.request, "/internal/reader-qr")
+        if result.get("version") != 1 or not isinstance(result.get("accounts"), list):
+            raise ValueError("invalid_reader_qr_list")
+        return result["accounts"]
+
+    async def qr_publish(self, account_id, challenge, state, image=None):
+        payload = {"account_id": account_id, "challenge": challenge, "state": state}
+        if image is not None:
+            payload["image"] = image
+        result = await asyncio.to_thread(self.request, "/internal/reader-qr/publish", payload)
+        if result.get("ack") is not True:
+            raise ValueError("invalid_reader_qr_ack")
+
+    def qr_password(self, account_id, challenge):
+        result = self.request(
+            "/internal/reader-qr/password",
+            {"account_id": account_id, "challenge": challenge},
+        )
+        value = result.get("password")
+        if value is not None and not isinstance(value, str):
+            raise ValueError("invalid_reader_qr_password")
+        return value
 
     async def send(self, event):
         result = await asyncio.to_thread(self.request, "/internal/source-events", event)
@@ -463,6 +495,66 @@ class AccountAPI:
         return getattr(self.api, name)
 
 
+class RemoteQRDisplay:
+    """Send only a short-lived Telegram QR image to the scoped workspace page."""
+
+    def __init__(self, api, account_id, challenge):
+        self.api, self.account_id, self.challenge = api, account_id, challenge
+
+    async def publish(self, url):
+        output = io.BytesIO()
+        qrcode.make(url, box_size=10, border=4).save(output, format="PNG")
+        await self.api.qr_publish(
+            self.account_id, self.challenge, "qr",
+            base64.b64encode(output.getvalue()).decode("ascii"),
+        )
+
+    async def clear(self):
+        await self.api.qr_publish(self.account_id, self.challenge, "waiting")
+
+    async def password_needed(self):
+        await self.api.qr_publish(self.account_id, self.challenge, "password_needed")
+
+    async def error(self):
+        await self.api.qr_publish(self.account_id, self.challenge, "error")
+
+
+async def enroll_workspace_qr(api, account_id, challenge, state, api_id, api_hash, store):
+    """Authorize one customer account without persisting an MTProto session on reader disk."""
+    client = TelegramClient(
+        StringSession(), api_id, api_hash,
+        sequential_updates=True, flood_sleep_threshold=0, proxy=proxy_config(),
+    )
+    display = RemoteQRDisplay(api, account_id, challenge)
+
+    def wait_password(_prompt):
+        deadline = time.monotonic() + 300
+        while time.monotonic() < deadline:
+            password = api.qr_password(account_id, challenge)
+            if password is not None:
+                return password
+            time.sleep(2)
+        return ""
+
+    try:
+        await authenticate_qr(
+            client, display, allow_password=True, prompt=wait_password,
+            connect=lambda: connect_with_backoff(client, store),
+        )
+        me = await client.get_me()
+        if me is None or me.bot:
+            raise ValueError("reader_account_identity")
+        await api.enroll(account_id, int(me.id), StringSession.save(client.session), challenge)
+    except Exception:  # noqa: BLE001
+        try:
+            await display.error()
+        except (OSError, ValueError, urllib.error.URLError):
+            pass
+        raise
+    finally:
+        await client.disconnect()
+
+
 class AccountRuntime:
     def __init__(self, account, api, state, api_id, api_hash, source_id):
         self.account = account
@@ -512,9 +604,30 @@ async def run_sources(args, state, store):
     if api_id <= 0 or len(api_hash) != 32:
         raise ValueError("telegram_credentials")
     runtimes = {}
+    enrollment_tasks = {}
+    finished_enrollments = set()
     try:
         while True:
             try:
+                pending = await api.pending_qr()
+                for item in pending:
+                    if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not isinstance(item.get("challenge"), str):
+                        raise ValueError("invalid_reader_qr_list")
+                    key = (item["id"], item["challenge"])
+                    if key not in enrollment_tasks and key not in finished_enrollments:
+                        enrollment_tasks[key] = asyncio.create_task(
+                            enroll_workspace_qr(api, key[0], key[1], state, api_id, api_hash, store)
+                        )
+                for key, task in list(enrollment_tasks.items()):
+                    if task.done():
+                        try:
+                            task.result()
+                        except Exception as error:  # noqa: BLE001
+                            print("reader_qr_error type=" + type(error).__name__, flush=True)
+                        finished_enrollments.add(key)
+                        del enrollment_tasks[key]
+                active_enrollments = {(item["id"], item["challenge"]) for item in pending}
+                finished_enrollments.intersection_update(active_enrollments)
                 accounts = await api.accounts()
                 active = {account["id"] for account in accounts}
                 for account_id in set(runtimes) - active:
@@ -590,5 +703,8 @@ async def run_sources(args, state, store):
                 return
             await asyncio.sleep(10)
     finally:
+        for task in enrollment_tasks.values():
+            task.cancel()
+        await asyncio.gather(*enrollment_tasks.values(), return_exceptions=True)
         for runtime in runtimes.values():
             await runtime.close()

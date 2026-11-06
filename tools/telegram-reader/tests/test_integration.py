@@ -12,7 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from reader.integration import InternalAPI, Outbox, SourceStore, SourceWorker
+from reader.integration import InternalAPI, Outbox, SourceStore, SourceWorker, enroll_workspace_qr
 from reader.model import normalize
 from reader.service import Reader
 from reader.store import Store
@@ -229,6 +229,32 @@ class OutboxTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HTTPTests(unittest.IsolatedAsyncioTestCase):
+    async def test_workspace_qr_uses_remote_image_and_one_time_password(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Store(Path(tmp) / "reader.sqlite")
+            api = MagicMock()
+            api.qr_publish = AsyncMock()
+            api.qr_password.return_value = "private-password"
+            api.enroll = AsyncMock()
+            client = MagicMock()
+            client.get_me = AsyncMock(return_value=SimpleNamespace(id=12345, bot=False))
+            client.disconnect = AsyncMock()
+
+            async def login(_client, display, **kwargs):
+                await display.publish("tg://login?token=synthetic")
+                await display.password_needed()
+                self.assertEqual(kwargs["prompt"](""), "private-password")
+
+            with patch("reader.integration.TelegramClient", return_value=client), patch("reader.integration.authenticate_qr", side_effect=login), patch("reader.integration.StringSession.save", return_value="1" + "A" * 200):
+                await enroll_workspace_qr(api, "0" * 26, "a" * 64, Path(tmp), 123, "a" * 32, store)
+            publish = api.qr_publish.await_args_list[0].args
+            self.assertEqual(publish[:3], ("0" * 26, "a" * 64, "qr"))
+            self.assertTrue(__import__("base64").b64decode(publish[3]).startswith(b"\x89PNG"))
+            api.enroll.assert_awaited_once_with("0" * 26, 12345, "1" + "A" * 200, "a" * 64)
+            self.assertFalse((Path(tmp) / "telegram.session").exists())
+            client.disconnect.assert_awaited_once()
+            store.close()
+
     async def test_legacy_session_removed_only_after_vault_ack(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)

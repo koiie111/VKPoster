@@ -6,11 +6,34 @@ namespace App\Tests\Feature\Source;
 
 use App\Domain\Admin\StaffRole;
 use App\Domain\Source\ReaderAccounts;
+use App\Domain\Source\SourceService;
 use App\Tests\Support\AdminTestCase;
 
 /** Staff controls service identities with scoped permission, CSRF and step-up verification. */
 final class ReaderAccountsAdminTest extends AdminTestCase
 {
+    public function testStaffCanMoveOnlyServiceManagedSources(): void
+    {
+        $staff = $this->staff();
+        [$owner, $workspace] = $this->ownerWithWorkspace('reader-assign-owner@example.com');
+        $accounts = $this->app->container()->get(ReaderAccounts::class);
+        $first = $accounts->create(null, 'First', $staff->id);
+        $second = $accounts->create(null, 'Second', $staff->id);
+        $accounts->attachSession($first, 111, '1' . str_repeat('A', 200), $staff->id);
+        $accounts->attachSession($second, 222, '1' . str_repeat('B', 200), $staff->id);
+        $source = $this->app->container()->get(SourceService::class)->create($this->contextFor($workspace, $owner), 'News', 'telegram', '@reader_assign', true);
+        $target = (int) ($this->db->table('source_reader_accounts')->where('public_id', '=', $second)->first()['id'] ?? 0);
+        self::assertSame(302, $this->post('/admin/source-reader-accounts/assign', $this->confirm(['source_id' => $source->publicId, 'account_id' => $second]))->status);
+        self::assertSame($target, (int) ($this->db->table('sources')->where('id', '=', $source->id)->first()['reader_account_id'] ?? 0));
+        $own = $accounts->create($workspace->id, 'Customer', $owner->id);
+        $accounts->attachSession($own, 333, '1' . str_repeat('C', 200), $owner->id, $workspace->id);
+        $ownTarget = (int) ($this->db->table('source_reader_accounts')->where('public_id', '=', $own)->first()['id'] ?? 0);
+        self::assertSame(302, $this->post('/admin/source-reader-accounts/assign', $this->confirm(['source_id' => $source->publicId, 'account_id' => $second]))->status);
+        self::assertSame($ownTarget, (int) ($this->db->table('sources')->where('id', '=', $source->id)->first()['reader_account_id'] ?? 0));
+        $this->staff(StaffRole::Support);
+        self::assertSame(403, $this->post('/admin/source-reader-accounts/assign', ['source_id' => $source->publicId, 'account_id' => $first])->status);
+    }
+
     public function testCreateAndDisableRequirePermissionAndFreshCode(): void
     {
         $this->staff(StaffRole::Superadmin);

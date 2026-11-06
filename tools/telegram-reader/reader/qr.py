@@ -3,6 +3,7 @@
 import asyncio
 import getpass
 import io
+import inspect
 import time
 import warnings
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -115,6 +116,11 @@ async def authenticate_qr(
         return
     deadline = time.monotonic() + duration
     qr = await client.qr_login()
+    async def show(method, *args):
+        result = getattr(display, method)(*args)
+        if inspect.isawaitable(result):
+            await result
+
     try:
         while time.monotonic() < deadline:
             wait = asyncio.create_task(
@@ -123,24 +129,24 @@ async def authenticate_qr(
             try:
                 # Telethon must register UpdateLoginToken before the user can scan.
                 await asyncio.sleep(0)
-                display.publish(qr.url)
-                print("QR ready on local page; waiting for confirmation", flush=True)
+                await show("publish", qr.url)
+                print("QR ready; waiting for confirmation", flush=True)
                 await wait
                 return
             except asyncio.TimeoutError:
-                display.clear()
+                await show("clear")
                 if time.monotonic() < deadline:
                     await qr.recreate()
             except errors.SessionPasswordNeededError:
-                display.clear()
+                await show("password_needed" if hasattr(display, "password_needed") else "clear")
                 if not allow_password:
                     raise AuthInputError(
                         "Telegram требует 2FA. Повторите login-qr в интерактивном Terminal; пароль не передавайте в чат."
                     ) from None
-                print(
-                    "QR принят. Введите Telegram 2FA password только в этом Terminal.",
-                    flush=True,
-                )
+                if hasattr(display, "password_needed"):
+                    print("QR accepted; waiting for the workspace 2FA form", flush=True)
+                else:
+                    print("QR принят. Введите Telegram 2FA password только в этом Terminal.", flush=True)
                 for attempt in range(3):
                     # Keep the MTProto event loop responsive while the user types locally.
                     password = await asyncio.to_thread(
@@ -156,10 +162,10 @@ async def authenticate_qr(
                             raise AuthInputError(
                                 "2FA не принят; авторизация остановлена."
                             ) from None
-                        print(
-                            "2FA не принят. Повторите скрытый ввод в Terminal.",
-                            flush=True,
-                        )
+                        if hasattr(display, "password_needed"):
+                            print("2FA rejected; waiting for a new workspace password", flush=True)
+                        else:
+                            print("2FA не принят. Повторите скрытый ввод в Terminal.", flush=True)
                     finally:
                         del password
             finally:
@@ -168,4 +174,4 @@ async def authenticate_qr(
                 await asyncio.gather(wait, return_exceptions=True)
         raise AuthInputError("QR истёк; авторизация остановлена. Повторите login-qr.")
     finally:
-        display.clear()
+        await show("clear")

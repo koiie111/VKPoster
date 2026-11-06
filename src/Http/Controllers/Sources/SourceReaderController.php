@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Sources;
 
 use App\Domain\Source\SourceIngress;
 use App\Domain\Source\ReaderAccounts;
+use App\Domain\Source\ReaderQr;
 use App\Kernel\Config;
 use App\Kernel\Exception\HttpException;
 use App\Kernel\Http\Request;
@@ -16,7 +17,7 @@ use Throwable;
 /** Internal HTTP ingress: dedicated bearer secret, bounded payloads, sanitized operational errors and commit-before-ACK. */
 final class SourceReaderController
 {
-    public function __construct(private readonly Config $config, private readonly SourceIngress $ingress, private readonly LoggerInterface $logger, private readonly \App\Support\Heartbeat $heartbeat, private readonly ReaderAccounts $accounts, private readonly ?\App\Kernel\HttpClient\EgressHealth $egress = null)
+    public function __construct(private readonly Config $config, private readonly SourceIngress $ingress, private readonly LoggerInterface $logger, private readonly \App\Support\Heartbeat $heartbeat, private readonly ReaderAccounts $accounts, private readonly ReaderQr $qr, private readonly ?\App\Kernel\HttpClient\EgressHealth $egress = null)
     {
     }
 
@@ -51,11 +52,74 @@ final class SourceReaderController
         $id = $payload['account_id'] ?? null;
         $telegramId = $payload['telegram_user_id'] ?? null;
         $session = $payload['session'] ?? null;
+        $challenge = $payload['challenge'] ?? null;
         if (!is_string($id) || preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/D', $id) !== 1 || !is_int($telegramId) || !is_string($session)) {
             throw new HttpException(400, 'Invalid reader enrollment');
         }
+        if ($challenge !== null) {
+            if (!is_string($challenge) || preg_match('/^[a-f0-9]{64}$/D', $challenge) !== 1) {
+                throw new HttpException(400, 'Invalid reader challenge');
+            }
+            $this->qr->assertChallenge($id, $challenge);
+        }
         $this->accounts->attachFromReader($id, $telegramId, $session);
+        if (is_string($challenge)) {
+            $this->qr->complete($id, $challenge);
+        }
         return Response::json(['ack' => true])->withHeader('Cache-Control', 'no-store');
+    }
+
+    public function qrPending(Request $request): Response
+    {
+        $this->authenticate($request);
+        return Response::json(['version' => 1, 'accounts' => $this->qr->pending()])->withHeader('Cache-Control', 'no-store');
+    }
+
+    public function qrPublish(Request $request): Response
+    {
+        $this->authenticate($request);
+        if (strlen($request->rawBody) > 80000) {
+            throw new HttpException(413, 'Too large');
+        }
+        $payload = $request->json();
+        [$id, $challenge] = $this->qrIdentity($payload);
+        if (($payload['state'] ?? null) === 'password_needed') {
+            $this->qr->passwordNeeded($id, $challenge);
+        } elseif (($payload['state'] ?? null) === 'waiting') {
+            $this->qr->waiting($id, $challenge);
+        } elseif (($payload['state'] ?? null) === 'error') {
+            $this->qr->error($id, $challenge);
+        } elseif (($payload['state'] ?? null) === 'qr' && is_string($payload['image'] ?? null)) {
+            $this->qr->publish($id, $challenge, $payload['image']);
+        } else {
+            throw new HttpException(400, 'Invalid reader QR update');
+        }
+        return Response::json(['ack' => true]);
+    }
+
+    public function qrPassword(Request $request): Response
+    {
+        $this->authenticate($request);
+        if (strlen($request->rawBody) > 200) {
+            throw new HttpException(413, 'Too large');
+        }
+        $payload = $request->json();
+        [$id, $challenge] = $this->qrIdentity($payload);
+        return Response::json(['password' => $this->qr->takePassword($id, $challenge)])->withHeader('Cache-Control', 'no-store');
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{0: string, 1: string}
+     */
+    private function qrIdentity(array $payload): array
+    {
+        $id = $payload['account_id'] ?? null;
+        $challenge = $payload['challenge'] ?? null;
+        if (!is_string($id) || preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/D', $id) !== 1 || !is_string($challenge) || preg_match('/^[a-f0-9]{64}$/D', $challenge) !== 1) {
+            throw new HttpException(400, 'Invalid reader QR identity');
+        }
+        return [$id, $challenge];
     }
 
     public function heartbeat(Request $request): Response
