@@ -83,6 +83,15 @@ final class SystemStatus
                 'state' => $age !== null && $age <= self::STALE_SECONDS ? 'ok' : 'bad',
                 'text' => $age === null ? 'Reader ещё не подтвердил работу.' : ($age <= self::STALE_SECONDS ? 'Последний успешный цикл ' . $age . ' с назад.' : 'Reader не подтверждал работу ' . intdiv($age, 60) . ' мин.'),
             ];
+            try {
+                $blocked = (int) ($this->db->select("SELECT COUNT(*) AS c FROM source_reader_accounts WHERE status='blocked'")[0]['c'] ?? 0);
+                $unassigned = (int) ($this->db->select('SELECT COUNT(*) AS c FROM sources WHERE enabled=1 AND reader_account_id IS NULL')[0]['c'] ?? 0);
+                if ($blocked > 0 || $unassigned > 0) {
+                    $checks[] = ['name' => 'Аккаунты для чтения', 'state' => 'bad', 'text' => sprintf('Заблокировано аккаунтов: %d; источников без аккаунта: %d.', $blocked, $unassigned)];
+                }
+            } catch (\Throwable) {
+                $checks[] = ['name' => 'Аккаунты для чтения', 'state' => 'bad', 'text' => 'Не удалось проверить состояние аккаунтов.'];
+            }
         }
         try {
             $version = (string) ($this->db->select('SELECT VERSION() AS v')[0]['v'] ?? '');

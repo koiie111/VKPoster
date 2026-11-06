@@ -40,6 +40,7 @@ final class SourceMigrationTest extends TestCase
         $origins = require TestEnv::basePath() . '/database/migrations/2026_10_06_000028_create_content_post_origins.php';
         $providers = require TestEnv::basePath() . '/database/migrations/2026_10_06_000029_add_content_provider_metadata.php';
         $automation = require TestEnv::basePath() . '/database/migrations/2026_10_06_000030_create_content_automation.php';
+        $readerAccounts = require TestEnv::basePath() . '/database/migrations/2026_11_06_000056_source_reader_accounts.php';
         $automation->down($db);
         $providers->down($db);
         $origins->down($db);
@@ -49,6 +50,7 @@ final class SourceMigrationTest extends TestCase
         $processing->down($db);
         $selection->down($db);
         $incoming->down($db);
+        $readerAccounts->down($db);
         $migration->down($db);
         try {
             self::assertSame(['2026_10_05_000013_create_sources'], $migrator->migrate());
@@ -75,6 +77,7 @@ final class SourceMigrationTest extends TestCase
             $origins->up($db);
             $providers->up($db);
             $automation->up($db);
+            $readerAccounts->up($db);
             $db->execute('DROP TABLE IF EXISTS migrations_sources_test');
             unlink($directory . '/2026_10_05_000013_create_sources.php');
             rmdir($directory);

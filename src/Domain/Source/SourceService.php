@@ -24,6 +24,7 @@ final class SourceService
         private readonly TelegramSourceLocator $locator,
         private readonly AuditLog $audit,
         private readonly Entitlements $entitlements,
+        private readonly ReaderAccounts $readers,
     ) {
     }
 
@@ -67,6 +68,10 @@ final class SourceService
                 $saved = $source === null
                     ? $this->sources->create($context, $name, $sourceType, $username, $enabled)
                     : $this->sources->update($context, $source, $name, $sourceType, $username, $enabled);
+                if ($source === null) {
+                    $this->readers->assignNewSource($context->workspaceId, $saved->id);
+                    $saved = $this->sources->find($context, $saved->publicId) ?? throw new LogicException('The inserted source disappeared.');
+                }
                 $this->audit->record($source === null ? 'source.created' : 'source.updated', $context->userId, 'source', $saved->publicId, ['name' => $saved->name], $context->workspaceId);
 
                 return $saved;

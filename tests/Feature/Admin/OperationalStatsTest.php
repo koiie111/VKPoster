@@ -141,6 +141,9 @@ final class OperationalStatsTest extends AdminTestCase
         self::assertSame('ok', $states['Чтение источников Telegram']);
         self::assertSame('ok', $states['MySQL']);
         self::assertSame('ok', $states['Redis']);
+        $now = DbTime::format($this->clock->now());
+        $this->db->execute('INSERT INTO source_reader_accounts (public_id, label, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', [(string) new Ulid(), 'blocked fixture', 'blocked', $now, $now]);
+        self::assertSame('bad', $byName($status->checks())['Аккаунты для чтения']);
 
         $this->clock->advance(SystemStatus::STALE_SECONDS + 60);
         self::assertSame('bad', $byName($status->checks())['Планировщик'], 'a process that fell silent is a problem');

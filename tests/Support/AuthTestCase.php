@@ -34,6 +34,7 @@ abstract class AuthTestCase extends HttpTestCase
     protected function setUp(): void
     {
         $this->db = TestEnv::connection();
+        $this->db->execute('DELETE FROM source_reader_accounts');
         $this->db->execute('DELETE FROM workspaces');
         $this->db->execute('DELETE FROM video_upload_quota_days');
         $this->db->execute('DELETE FROM users');
