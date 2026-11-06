@@ -4,7 +4,6 @@
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 - Этап 22: загрузка коротких видео частями с возобновлением и SHA-256, обложка из кадра или медиатеки, перекодирование H.264/AAC в отдельной очереди, вертикальное превью; подключение TikTok и YouTube, Direct Post и возобновляемый YouTube upload, асинхронный статус сети, защита от дублей, тарифные лимиты, квота YouTube на проект, статистика и справка.
 - Этап 22 начат: ADR 0027 уточняет актуальные API TikTok, YouTube и Instagram; VK Клипы остаются недоступными до официального API. Добавлен тип поста `short_video`, миграция, настройки по сетям и проверка одного исходного ролика. Начальные пределы 1 ГиБ / 180 секунд редактируются в админке. Для Instagram, TikTok и YouTube добавлены маршруты egress; production отказывается запускать включённую сеть без прокси/туннеля. Планирование коротких видео включится после готовности отдельного конвейера.
 - Этап 19 закрыт по указанию владельца; неподтверждённые production-проверки 19.8 ведутся отдельно. Следующий этап — 22.
@@ -18,9 +17,7 @@
   and a daily request cap (day start offset from UTC, Redis), a failure pause, a «charge credits» flag and a list of served actions, all set in the admin area; a spent, failing or unconfigured step is skipped and the next one answers, so free models of a
   gateway go first and a paid one last. New `tokenator` provider preset (`https://api.tokenator.cloud/v1`). An empty chain keeps the
   single default provider. Run `make migrate`.
-=======
 - Для источников Telegram добавлены тарифные лимиты и атомарная проверка при создании. В системном состоянии админки виден heartbeat reader при включённой функции.
->>>>>>> daa88bd (feat(sources): enforce source plan limits and report reader heartbeat)
 - T-Bank API requests trust `resources/certs/russian-trusted-root-ca.crt` (`TBANK_CA_FILE`): its certificate is issued by the Russian Trusted CA, so payments failed with a transport error in production.
 - `telegram:poll --allow-production` lets the opt-in `telegram-poll` service run in production (the command refused without it).
 

@@ -60,49 +60,29 @@ return static function (Env $env): array {
             'free' => [
                 'name' => 'Free',
                 'sort' => 0,
-<<<<<<< HEAD
-                'limits' => ['channels' => 2, 'posts_per_month' => 30, 'short_videos_per_month' => 2, 'short_video_file_mib' => 250, 'workspaces' => 1, 'members' => 1, 'storage_bytes' => 500 * $mb, 'crosspost_rules' => 0, 'analytics_days' => 7, 'ai_credits' => 10],
+                'limits' => ['channels' => 2, 'posts_per_month' => 30, 'short_videos_per_month' => 2, 'short_video_file_mib' => 250, 'workspaces' => 1, 'members' => 1, 'storage_bytes' => 500 * $mb, 'crosspost_rules' => 0, 'analytics_days' => 7, 'ai_credits' => 10, 'sources' => 0],
                 'features' => ['short_video'],
-=======
-                'limits' => ['channels' => 2, 'posts_per_month' => 30, 'workspaces' => 1, 'members' => 1, 'storage_bytes' => 500 * $mb, 'crosspost_rules' => 0, 'analytics_days' => 7, 'ai_credits' => 10, 'sources' => 0],
-                'features' => [],
->>>>>>> daa88bd (feat(sources): enforce source plan limits and report reader heartbeat)
                 'prices' => [],
             ],
             'start' => [
                 'name' => 'Старт',
                 'sort' => 1,
-<<<<<<< HEAD
-                'limits' => ['channels' => 10, 'posts_per_month' => null, 'short_videos_per_month' => 10, 'short_video_file_mib' => 500, 'workspaces' => 1, 'members' => 2, 'storage_bytes' => 5 * 1024 * $mb, 'crosspost_rules' => 1, 'analytics_days' => 30, 'ai_credits' => 100],
-                'features' => ['slots', 'crosspost', 'short_video'],
-=======
-                'limits' => ['channels' => 10, 'posts_per_month' => null, 'workspaces' => 1, 'members' => 2, 'storage_bytes' => 5 * 1024 * $mb, 'crosspost_rules' => 1, 'analytics_days' => 30, 'ai_credits' => 100, 'sources' => 3],
-                'features' => ['slots', 'crosspost', 'sources'],
->>>>>>> daa88bd (feat(sources): enforce source plan limits and report reader heartbeat)
+                'limits' => ['channels' => 10, 'posts_per_month' => null, 'short_videos_per_month' => 10, 'short_video_file_mib' => 500, 'workspaces' => 1, 'members' => 2, 'storage_bytes' => 5 * 1024 * $mb, 'crosspost_rules' => 1, 'analytics_days' => 30, 'ai_credits' => 100, 'sources' => 3],
+                'features' => ['sources', 'slots', 'crosspost', 'short_video'],
                 'prices' => ['month' => 39000, 'year' => 390000],
             ],
             'pro' => [
                 'name' => 'Про',
                 'sort' => 2,
-<<<<<<< HEAD
-                'limits' => ['channels' => 30, 'posts_per_month' => null, 'short_videos_per_month' => 60, 'short_video_file_mib' => 1024, 'workspaces' => 3, 'members' => 5, 'storage_bytes' => 20 * 1024 * $mb, 'crosspost_rules' => null, 'analytics_days' => 365, 'ai_credits' => 500],
-                'features' => ['slots', 'crosspost', 'approvals', 'guest_links', 'api', 'analytics_export', 'short_video'],
-=======
-                'limits' => ['channels' => 30, 'posts_per_month' => null, 'workspaces' => 3, 'members' => 5, 'storage_bytes' => 20 * 1024 * $mb, 'crosspost_rules' => null, 'analytics_days' => 365, 'ai_credits' => 500, 'sources' => 15],
-                'features' => ['slots', 'crosspost', 'approvals', 'guest_links', 'api', 'analytics_export', 'sources', 'radar', 'source_automation'],
->>>>>>> daa88bd (feat(sources): enforce source plan limits and report reader heartbeat)
+                'limits' => ['channels' => 30, 'posts_per_month' => null, 'short_videos_per_month' => 60, 'short_video_file_mib' => 1024, 'workspaces' => 3, 'members' => 5, 'storage_bytes' => 20 * 1024 * $mb, 'crosspost_rules' => null, 'analytics_days' => 365, 'ai_credits' => 500, 'sources' => 15],
+                'features' => ['sources', 'radar', 'source_automation', 'slots', 'crosspost', 'approvals', 'guest_links', 'api', 'analytics_export', 'short_video'],
                 'prices' => ['month' => 99000, 'year' => 990000],
             ],
             'agency' => [
                 'name' => 'Агентство',
                 'sort' => 3,
-<<<<<<< HEAD
-                'limits' => ['channels' => 100, 'posts_per_month' => null, 'short_videos_per_month' => 300, 'short_video_file_mib' => 1024, 'workspaces' => null, 'members' => 20, 'storage_bytes' => 100 * 1024 * $mb, 'crosspost_rules' => null, 'analytics_days' => 365, 'ai_credits' => 2000],
-                'features' => ['slots', 'crosspost', 'approvals', 'guest_links', 'api', 'analytics_export', 'client_reports', 'white_label', 'short_video'],
-=======
-                'limits' => ['channels' => 100, 'posts_per_month' => null, 'workspaces' => null, 'members' => 20, 'storage_bytes' => 100 * 1024 * $mb, 'crosspost_rules' => null, 'analytics_days' => 365, 'ai_credits' => 2000, 'sources' => 50],
-                'features' => ['slots', 'crosspost', 'approvals', 'guest_links', 'api', 'analytics_export', 'client_reports', 'white_label', 'sources', 'radar', 'source_automation'],
->>>>>>> daa88bd (feat(sources): enforce source plan limits and report reader heartbeat)
+                'limits' => ['channels' => 100, 'posts_per_month' => null, 'short_videos_per_month' => 300, 'short_video_file_mib' => 1024, 'workspaces' => null, 'members' => 20, 'storage_bytes' => 100 * 1024 * $mb, 'crosspost_rules' => null, 'analytics_days' => 365, 'ai_credits' => 2000, 'sources' => 50],
+                'features' => ['sources', 'radar', 'source_automation', 'slots', 'crosspost', 'approvals', 'guest_links', 'api', 'analytics_export', 'client_reports', 'white_label', 'short_video'],
                 'prices' => ['month' => 299000, 'year' => 2990000],
             ],
         ],
