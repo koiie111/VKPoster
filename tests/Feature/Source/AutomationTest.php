@@ -13,6 +13,7 @@ use App\Domain\Source\Selection\SelectionRules;
 use App\Domain\Source\Selection\SelectionService;
 use App\Domain\Source\SourceService;
 use App\Jobs\Content\AutomationJob;
+use App\Jobs\Content\AutomationScanJob;
 use App\Kernel\Queue\Queue;
 use App\Kernel\Queue\Worker;
 use App\Tests\Support\SourceSelectionTestCase;
@@ -45,6 +46,29 @@ final class AutomationTest extends SourceSelectionTestCase
     private function runRow(): array
     {
         return $this->db->table('content_automation_runs')->first() ?? throw new \LogicException();
+    }
+    public function testSchedulerScansEachWorkspaceInItsOwnJob(): void
+    {
+        [$first] = $this->fixture();
+        [$owner, $workspace] = $this->ownerWithWorkspace('automation-second@example.com');
+        $second = $this->contextFor($workspace, $owner);
+        $service = $this->app->container()->get(SourceService::class);
+        $source = $service->create($second, 'Second workspace', 'telegram', '@second_fixture', true);
+        $this->app->container()->get(AutomationPolicies::class)->save($second, $source, array_replace(AutomationSettings::defaults(), ['enabled' => true]));
+        $this->ingest($source, [$this->message(11, 'Other news')]);
+
+        $this->app->container()->get(Automation::class)->schedule();
+        $this->app->container()->get(Automation::class)->schedule();
+        $jobs = $this->db->select('SELECT payload_json FROM jobs ORDER BY id');
+        self::assertCount(2, $jobs);
+        foreach ($jobs as $job) {
+            self::assertSame(AutomationScanJob::class, json_decode((string) $job['payload_json'], true, 32, JSON_THROW_ON_ERROR)['class']);
+        }
+        self::assertTrue($this->app->container()->get(Worker::class)->runNext());
+        self::assertSame(1, $this->db->table('content_automation_runs')->where('workspace_id', '=', $first->workspaceId)->count());
+        self::assertSame(0, $this->db->table('content_automation_runs')->where('workspace_id', '=', $second->workspaceId)->count());
+        self::assertTrue($this->app->container()->get(Worker::class)->runNext());
+        self::assertSame(1, $this->db->table('content_automation_runs')->where('workspace_id', '=', $second->workspaceId)->count());
     }
     public function testNewTelegramRevisionCreatesOneOrdinaryDraftAndDoesNotPublish(): void
     {

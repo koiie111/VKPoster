@@ -20,6 +20,7 @@ use App\Domain\Source\SourceRepository;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Domain\Workspace\WorkspaceRepository;
 use App\Jobs\Content\AutomationJob;
+use App\Jobs\Content\AutomationScanJob;
 use App\Kernel\Database\Connection;
 use App\Kernel\Exception\HttpException;
 use App\Kernel\Queue\Queue;
@@ -34,13 +35,44 @@ final class Automation
     {
     }
 
-    /** Existing minute scheduler discovers work and reclaims lost enqueues, bounded to 100 materials per policy/tick. */
-    public function tick(): void
+    /** Minute scheduler enqueues one bounded scan per workspace; no material processing occurs in the scheduler. */
+    public function schedule(): void
     {
         if (!$this->operationsConfig->bool('sources.enabled')) {
             return;
         }
-        foreach ($this->db->select('SELECT p.* FROM content_automation_settings p LEFT JOIN sources s ON s.id=p.source_id AND s.workspace_id=p.workspace_id WHERE p.source_id IS NULL OR s.enabled=1 ORDER BY p.id') as $policy) {
+        foreach ($this->db->select("SELECT DISTINCT workspace_id FROM content_automation_settings WHERE JSON_UNQUOTE(JSON_EXTRACT(settings_json, '$.enabled'))='true' ORDER BY workspace_id") as $row) {
+            $workspaceId = (int) $row['workspace_id'];
+            $pending = $this->db->select("SELECT id FROM jobs WHERE JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.class'))=? AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.data.workspace_id'))=? LIMIT 1", [AutomationScanJob::class, (string) $workspaceId]);
+            if ($pending === []) {
+                $this->queue->dispatch(new AutomationScanJob($workspaceId));
+            }
+        }
+    }
+
+    /** Backward-compatible manual scan, used by CLI and tests. Production schedules scan jobs instead. */
+    public function tick(): void
+    {
+        $this->scan(null);
+    }
+
+    /** Scans only this workspace, capped to 100 materials per policy, and reclaims its lost run enqueues. */
+    public function scanWorkspace(int $workspaceId): void
+    {
+        if ($workspaceId <= 0) {
+            return;
+        }
+        $this->scan($workspaceId);
+    }
+
+    private function scan(?int $workspaceId): void
+    {
+        if (!$this->operationsConfig->bool('sources.enabled')) {
+            return;
+        }
+        $policySql = 'SELECT p.* FROM content_automation_settings p LEFT JOIN sources s ON s.id=p.source_id AND s.workspace_id=p.workspace_id WHERE (p.source_id IS NULL OR s.enabled=1)';
+        $policySql .= $workspaceId === null ? '' : ' AND p.workspace_id=?';
+        foreach ($this->db->select($policySql . ' ORDER BY p.id', $workspaceId === null ? [] : [$workspaceId]) as $policy) {
             $settings = json_decode((string) $policy['settings_json'], true, 32, JSON_THROW_ON_ERROR);
             if (!($settings['enabled'] === true)) {
                 continue;
@@ -87,9 +119,15 @@ final class Automation
                 }
             });
         }
-        $this->db->transaction(function (): void {
+        $this->db->transaction(function () use ($workspaceId): void {
             $now = DbTime::format($this->clock->now());
-            $rows = $this->db->select('SELECT id FROM content_automation_runs WHERE status IN (?, ?) AND available_at <= ? AND (queued_at IS NULL OR queued_at < ?) ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED', ['pending', 'waiting', $now, DbTime::format($this->clock->now()->modify('-16 minutes'))]);
+            $sql = 'SELECT id FROM content_automation_runs WHERE status IN (?, ?) AND available_at <= ? AND (queued_at IS NULL OR queued_at < ?)';
+            $bindings = ['pending', 'waiting', $now, DbTime::format($this->clock->now()->modify('-16 minutes'))];
+            if ($workspaceId !== null) {
+                $sql .= ' AND workspace_id=?';
+                $bindings[] = $workspaceId;
+            }
+            $rows = $this->db->select($sql . ' ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED', $bindings);
             foreach ($rows as $row) {
                 $this->queue->dispatch(new AutomationJob((int) $row['id']), queue: 'default');
                 $this->db->execute('UPDATE content_automation_runs SET queued_at=? WHERE id=?', [$now, $row['id']]);
