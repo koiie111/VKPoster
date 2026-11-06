@@ -18,6 +18,9 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
     go build -p 1 -mod=readonly -trimpath -tags=openbao \
     -ldflags="-s -w -X github.com/openbao/openbao/v2/internal/version.fullVersion=2.7.1 -X github.com/openbao/openbao/v2/internal/version.VersionMetadata=vkposter-security -X github.com/openbao/openbao/v2/internal/version.GitCommit=a5db72cef75c24b920ade02065b18dd8eb666bac -X github.com/openbao/openbao/v2/internal/version.CommitDate=2026-10-01T15:32:54Z" -o /bao .
 FROM quay.io/openbao/openbao:2.7.1@sha256:6d2b93856e3fcf7b18ad855a0b51eaba474dc8b79cf554379ea32034797d2acf
+USER root
+RUN apk add --no-cache 'zlib>=1.3.2-r1'
+USER openbao
 COPY --from=build --chmod=0555 /bao /usr/bin/bao
 # An operator must supply initialized durable storage/TLS/unseal policy. Never default to a dev server.
 CMD ["server", "-config=/openbao/config"]
