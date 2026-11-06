@@ -26,7 +26,7 @@ for raw in subprocess.check_output(['git', 'ls-files', '--cached', '--others', '
     shutil.copyfile(source, destination)
 PYCODE
 docker compose run -d --no-deps --name "$container" -p "127.0.0.1:$port:8085" \
-    -e APP_ENV=testing -e APP_DEBUG=0 -e SOURCES_ENABLED=true -e DB_DATABASE=app_test -e REDIS_DB=15 -e MEDIA_LOCAL_ROOT=storage/testing/source-image-contract \
+    -e APP_ENV=testing -e APP_DEBUG=0 -e APP_KEY="$(python3 -c 'import base64; print(base64.b64encode(bytes(range(32))).decode())')" -e SOURCES_ENABLED=true -e DB_DATABASE=app_test -e REDIS_DB=15 -e MEDIA_LOCAL_ROOT=storage/testing/source-image-contract \
     -e "SOURCES_READER_SECRET=$secret" app php -S 0.0.0.0:8085 -t public >/dev/null
 docker compose run --rm --no-deps app php tools/telegram-reader/tests/seed_contract.php
 docker run --rm --read-only --tmpfs /tmp -v "$fixture:/work:ro" -w /work \

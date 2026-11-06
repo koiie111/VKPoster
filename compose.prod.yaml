@@ -7,7 +7,10 @@ x-app: &app
     dockerfile: docker/php/Dockerfile
     target: prod
   image: ${APP_IMAGE:-ezposter-app:prod}
-  env_file: ["${APP_ENV_FILE:-.env}"]
+  env_file:
+    - path: ${APP_ENV_FILE:-.env}
+    - path: ${SOURCES_ENV_FILE:-/dev/null}
+      required: false
   environment:
     APP_ENV: production
     DB_HOST: mysql
@@ -128,6 +131,33 @@ services:
       start_period: 30s
       retries: 3
     restart: unless-stopped
+
+  # Opt-in customer/source reader. Its credentials are isolated from the application env.
+  reader:
+    image: ${READER_IMAGE:-ezposter-reader:prod}
+    profiles: [sources]
+    command: [sources]
+    env_file:
+      - path: ${SOURCES_ENV_FILE:-/dev/null}
+        required: false
+      - path: ${READER_ENV_FILE:-/dev/null}
+        required: false
+    environment:
+      VKPOSTER_INTERNAL_URL: http://nginx
+    volumes: [reader-state:/state]
+    init: true
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 120s
+    logging: *logging
+    restart: unless-stopped
+    depends_on:
+      nginx: {condition: service_healthy}
 
   backup:
     <<: *app
@@ -289,3 +319,4 @@ volumes:
   mysql-run:
   redis-data:
   app-storage:
+  reader-state:

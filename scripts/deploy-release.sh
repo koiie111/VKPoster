@@ -39,6 +39,9 @@ while IFS='=' read -r key value; do
         OPS_IMAGE)
             suffix=ops
             ;;
+        READER_IMAGE)
+            suffix=reader
+            ;;
         *)
             echo 'Unexpected release image key' >&2
             exit 2
@@ -49,7 +52,7 @@ while IFS='=' read -r key value; do
     count=$((count+1))
     printf '%s=%s\n' "$key" "$value" >> "$next"
 done < "$images"
-[[ "$count" == 4 ]] || { echo 'Incomplete release image manifest' >&2; exit 2; }
+[[ "$count" == 5 ]] || { echo 'Incomplete release image manifest' >&2; exit 2; }
 
 services=(app nginx worker video-worker scheduler analytics-worker)
 profiles=()
@@ -58,7 +61,31 @@ case ${DEPLOY_ANALYTICS:-false} in
     false) ;;
     *) echo 'DEPLOY_ANALYTICS must be true or false' >&2; exit 2;;
 esac
+case ${DEPLOY_SOURCES:-false} in
+    true)
+        SOURCES_ENV_FILE=${SOURCES_ENV_FILE:-/etc/ezposter/sources.env}
+        READER_ENV_FILE=${READER_ENV_FILE:-/etc/ezposter/reader.env}
+        export SOURCES_ENV_FILE READER_ENV_FILE
+        for file in "$SOURCES_ENV_FILE" "$READER_ENV_FILE"; do
+            [[ -f "$file" && ! -L "$file" && $(stat -c %a "$file") == 600 ]] || { echo 'Private source reader env files required' >&2; exit 2; }
+        done
+        grep -Eq '^SOURCES_ENABLED=true$' "$SOURCES_ENV_FILE" || { echo 'Source feature flag required' >&2; exit 2; }
+        secret=$(sed -n 's/^SOURCES_READER_SECRET=//p' "$SOURCES_ENV_FILE")
+        [[ ${#secret} -ge 32 && "$secret" != *$'\n'* ]] || { echo 'Reader secret missing or too short' >&2; exit 2; }
+        unset secret
+        if grep -q '^SOURCES_READER_SECRET=' "$READER_ENV_FILE"; then echo 'Reader secret must come from the shared source env' >&2; exit 2; fi
+        grep -Eq '^TELEGRAM_API_ID=[1-9][0-9]*$' "$READER_ENV_FILE" || { echo 'Telegram API ID required' >&2; exit 2; }
+        grep -Eq '^TELEGRAM_API_HASH=[0-9a-fA-F]{32}$' "$READER_ENV_FILE" || { echo 'Telegram API hash required' >&2; exit 2; }
+        grep -Eq '^EGRESS_TELEGRAM_MODE=tunnel$' "$READER_ENV_FILE" || { echo 'Private Telegram egress tunnel required' >&2; exit 2; }
+        grep -Eq '^EGRESS_TELEGRAM_PROXY_URL=.+$' "$READER_ENV_FILE" || { echo 'Telegram egress endpoint required' >&2; exit 2; }
+        profiles+=(--profile sources)
+        services+=(reader)
+        ;;
+    false) ;;
+    *) echo 'DEPLOY_SOURCES must be true or false' >&2; exit 2;;
+esac
 compose() { docker compose -f compose.prod.yaml --env-file "$config" --env-file "$1" --env-file "$infra" "${profiles[@]}" "${@:2}"; }
+compose_previous() { SOURCES_ENV_FILE=/dev/null READER_ENV_FILE=/dev/null compose "$previous" "$@"; }
 ready() {
     for attempt in $(seq 1 30); do
         if curl --fail --silent --max-time 5 http://127.0.0.1:8080/readyz >/dev/null; then return 0; fi
@@ -74,7 +101,7 @@ for service in mysql redis clamav; do
 done
 compose "$next" pull "${services[@]}"
 while IFS='=' read -r key reference; do
-    [[ "$key" == OPS_IMAGE || ( "$key" == PDF_IMAGE && ${DEPLOY_ANALYTICS:-false} == false ) ]] && continue
+    [[ "$key" == OPS_IMAGE || ( "$key" == PDF_IMAGE && ${DEPLOY_ANALYTICS:-false} == false ) || ( "$key" == READER_IMAGE && ${DEPLOY_SOURCES:-false} == false ) ]] && continue
     docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$reference" | grep -Fxq "$reference" || { echo 'Pulled/deployed digest mismatch' >&2; exit 1; }
 done < "$images"
 if ! compose "$next" run --rm --no-deps app php bin/console migrate; then
@@ -86,7 +113,13 @@ if compose "$next" up -d --no-build --no-deps "${services[@]}" && ready; then
     echo 'Release ready'
 else
     if [[ -s "$previous" ]]; then
-        compose "$previous" up -d --no-build --no-deps "${services[@]}"
+        if [[ ${DEPLOY_SOURCES:-false} == true ]]; then
+            compose "$next" stop reader
+            rollback_services=("${services[@]:0:${#services[@]}-1}")
+        else
+            rollback_services=("${services[@]}")
+        fi
+        compose_previous up -d --no-build --no-deps "${rollback_services[@]}"
         ready || { echo 'Image rollback readiness failed; manual recovery required' >&2; exit 1; }
         echo 'Previous images restored; database schema was not rolled back' >&2
     else

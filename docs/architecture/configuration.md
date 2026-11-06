@@ -105,7 +105,7 @@
 
 ### Content provider opt-in
 
-`config/content_providers.php` reads `CONTENT_TEXT_PROVIDER`, `CONTENT_SEMANTIC_PROVIDER` (fake/openai), `CONTENT_IMAGE_SEARCH_PROVIDER` (fake/tineye), `CONTENT_IMAGE_ENHANCEMENT_PROVIDER` (fake/disabled/replicate), `CONTENT_VIDEO_PROVIDER` (fake/replicate). All default to fake. Credentials: `OPENAI_API_KEY`, `TINEYE_API_KEY`, `REPLICATE_API_TOKEN`; configurable `OPENAI_CONTENT_MODEL`. See [real provider operations](modules/content-real-providers.md).
+`config/content_providers.php` reads `CONTENT_TEXT_PROVIDER`, `CONTENT_SEMANTIC_PROVIDER` (fake/llm), `CONTENT_IMAGE_SEARCH_PROVIDER` (fake/tineye), `CONTENT_IMAGE_ENHANCEMENT_PROVIDER` (fake/disabled/replicate), `CONTENT_VIDEO_PROVIDER` (fake/replicate). All default to fake. Text and semantic providers use the encrypted `/admin/ai` registry and workspace BYOK settings; the other credentials are `TINEYE_API_KEY` and `REPLICATE_API_TOKEN`. See [real provider operations](modules/content-real-providers.md).
 
 Stage 3.2 is accepted on mocked HTTP/contracts. Real integrations need explicit selection plus corresponding env credentials; absent credentials prevent activation. OpenAI/TinEye/Replicate live smoke is deferred to Stage 3.5; Fake remains the dev/test default.
 
@@ -259,8 +259,8 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `EGRESS_GLITCHTIP_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_GLITCHTIP_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_IDENTITY_SALT` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Config.php](../../src/Kernel/Config.php), [src/Kernel/HttpClient/EgressRoutes.php](../../src/Kernel/HttpClient/EgressRoutes.php) |
-| `EGRESS_INSTAGRAM_MODE` | [.env.example](../../.env.example) |
-| `EGRESS_INSTAGRAM_PROXY_URL` | [.env.example](../../.env.example) |
+| `EGRESS_INSTAGRAM_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_INSTAGRAM_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_MAX_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_MAX_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_OPENAI_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
@@ -271,14 +271,14 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `EGRESS_REQUIRED_PROVIDERS` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/HttpClient/EgressHealth.php](../../src/Kernel/HttpClient/EgressHealth.php), [src/Kernel/HttpClient/EgressProbe.php](../../src/Kernel/HttpClient/EgressProbe.php), [src/Kernel/HttpClient/EgressRoutes.php](../../src/Kernel/HttpClient/EgressRoutes.php) |
 | `EGRESS_TELEGRAM_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_TELEGRAM_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
-| `EGRESS_TIKTOK_MODE` | [.env.example](../../.env.example) |
-| `EGRESS_TIKTOK_PROXY_URL` | [.env.example](../../.env.example) |
+| `EGRESS_TIKTOK_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_TIKTOK_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_TINEYE_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_TINEYE_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_VK_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `EGRESS_VK_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
-| `EGRESS_YOUTUBE_MODE` | [.env.example](../../.env.example) |
-| `EGRESS_YOUTUBE_PROXY_URL` | [.env.example](../../.env.example) |
+| `EGRESS_YOUTUBE_MODE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
+| `EGRESS_YOUTUBE_PROXY_URL` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `GOOGLE_CLIENT_ID` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `GOOGLE_CLIENT_SECRET` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
 | `HTTP_PORT` | [.env.production.example](../../.env.production.example) |
@@ -309,8 +309,6 @@ Secrets are provisioned externally; inventory presence never means a credential 
 | `MEDIA_URL_TIMEOUT` | [.env.example](../../.env.example), [config/media.php](../../config/media.php) |
 | `MYSQL_IMAGE` | [.env.production.example](../../.env.production.example) |
 | `OAUTH_ORDER` | [.env.example](../../.env.example), [config/oauth.php](../../config/oauth.php) |
-| `OPENAI_API_KEY` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
-| `OPENAI_CONTENT_MODEL` | [.env.example](../../.env.example), [config/content_providers.php](../../config/content_providers.php) |
 | `OPERATIONS_DB_TLS_CA_FILE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationsDbPolicy.php](../../src/Kernel/Operations/OperationsDbPolicy.php) |
 | `OPS_IMAGE` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example) |
 | `OPS_MONITOR_ENABLED` | [.env.example](../../.env.example), [.env.production.example](../../.env.production.example), [src/Kernel/Operations/OperationalMonitor.php](../../src/Kernel/Operations/OperationalMonitor.php) |

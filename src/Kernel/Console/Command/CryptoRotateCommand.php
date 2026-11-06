@@ -27,6 +27,7 @@ final class CryptoRotateCommand implements Command
         ['table' => 'payment_providers', 'column' => 'config_enc', 'key' => 'code'],
         ['table' => 'ai_providers', 'column' => 'config_enc', 'key' => 'code'],
         ['table' => 'ai_workspace_settings', 'column' => 'byok_enc', 'key' => 'workspace_id'],
+        ['table' => 'source_reader_accounts', 'column' => 'session_enc'],
     ];
 
     public function __construct(private readonly Connection $db, private readonly Crypto $crypto, private readonly ?\App\Kernel\Config $config = null)
@@ -84,7 +85,11 @@ final class CryptoRotateCommand implements Command
         foreach (self::COLUMNS as $entry) {
             ['table' => $table, 'column' => $column] = $entry;
             $key = $entry['key'] ?? 'id';
-            $purpose = $table === 'webhook_subscriptions' ? 'webhook' : 'application';
+            $purpose = match ($table) {
+                'webhook_subscriptions' => 'webhook',
+                'source_reader_accounts' => 'telegram-reader-session',
+                default => 'application',
+            };
             $count = 0;
             $lastId = $key === 'id' ? 0 : '';
             do {

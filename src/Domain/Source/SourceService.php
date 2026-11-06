@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Source;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Billing\Entitlements;
+use App\Domain\Billing\PlanLimitException;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Kernel\Database\Connection;
 use LogicException;
@@ -21,10 +23,15 @@ final class SourceService
         private readonly SourceRepository $sources,
         private readonly TelegramSourceLocator $locator,
         private readonly AuditLog $audit,
+        private readonly Entitlements $entitlements,
+        private readonly ReaderAccounts $readers,
     ) {
     }
 
-    /** @throws SourceException for invalid input or a duplicate workspace source. */
+    /**
+     * @throws SourceException for invalid input or a duplicate workspace source.
+     * @throws PlanLimitException when the workspace plan does not allow another source.
+     */
     public function create(WorkspaceContext $context, string $name, string $type, string $reference, bool $enabled = false): Source
     {
         return $this->save($context, null, $name, $type, $reference, $enabled);
@@ -49,9 +56,22 @@ final class SourceService
         $username = $this->locator->normalize($reference);
         try {
             return $this->db->transaction(function () use ($context, $source, $name, $sourceType, $username, $enabled): Source {
+                if ($source === null) {
+                    $this->db->select('SELECT id FROM workspaces WHERE id = ? FOR UPDATE', [$context->workspaceId]);
+                    $this->entitlements->assertFeature($context->workspaceId, 'sources', 'Источники Telegram');
+                    $limit = $this->entitlements->limit($context->workspaceId, 'sources');
+                    $used = $this->db->table('sources')->where('workspace_id', '=', $context->workspaceId)->count();
+                    if ($limit !== null && $used >= $limit) {
+                        throw new PlanLimitException('sources', sprintf('Достигнут лимит источников на вашем тарифе: %d.', $limit));
+                    }
+                }
                 $saved = $source === null
                     ? $this->sources->create($context, $name, $sourceType, $username, $enabled)
                     : $this->sources->update($context, $source, $name, $sourceType, $username, $enabled);
+                if ($enabled) {
+                    $this->readers->assignNewSource($context->workspaceId, $saved->id);
+                    $saved = $this->sources->find($context, $saved->publicId) ?? throw new LogicException('The inserted source disappeared.');
+                }
                 $this->audit->record($source === null ? 'source.created' : 'source.updated', $context->userId, 'source', $saved->publicId, ['name' => $saved->name], $context->workspaceId);
 
                 return $saved;

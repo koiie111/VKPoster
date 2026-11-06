@@ -6,6 +6,35 @@
 {% block content %}
 {% set actions %}{% if can('sources.manage') %}{{ f.button(t('Добавить источник'), href = base ~ '/new', icon = 'plus') }}{% endif %}{% endset %}
 {{ d.page_header(t('Источники'), t('Каналы Telegram, из которых вы получаете материалы для дальнейшей работы.'), body = actions) }}
+{% if can('sources.manage') %}
+<section class="card mb-4" id="reader-account" aria-labelledby="reader-account-title">
+    <h2 class="text-lg font-semibold" id="reader-account-title">Собственный аккаунт чтения</h2>
+    <p class="mt-1 text-sm text-muted">Если подключить свой аккаунт Telegram, источники этого пространства будут читаться через него, а не через служебный аккаунт сервиса.</p>
+    {% if reader_account is null %}
+    <form method="post" action="{{ base }}/reader-account" class="mt-3">{{ csrf_field() }}{{ f.button('Добавить свой аккаунт', type = 'submit', variant = 'secondary') }}</form>
+    {% else %}
+    <p class="mt-2 text-sm">Состояние: {{ d.badge({pending: 'Ожидает подключения', active: 'Подключён', disabled: 'Выключен', blocked: 'Заблокирован'}[reader_account.status] ?? 'Неизвестно', reader_account.status == 'active' ? 'success' : 'warning') }} · Источников: {{ reader_account.source_count }}</p>
+    {% if reader_account.status != 'disabled' %}
+    <form method="post" action="{{ base }}/reader-account/{{ reader_account.public_id }}/qr" class="mt-3">
+        {{ csrf_field() }}{{ f.button('Подключить через QR-код', type = 'submit', variant = 'primary') }}
+    </form>
+    <details class="mt-3"><summary class="cursor-pointer text-sm text-muted">Подключить готовую сессию вручную</summary>
+    <form method="post" action="{{ base }}/reader-account/{{ reader_account.public_id }}/session" class="mt-3 grid gap-3 sm:grid-cols-2" autocomplete="off">
+        {{ csrf_field() }}
+        {{ f.input('telegram_user_id', 'Telegram ID', value = reader_account.telegram_user_id ?? '', required = true, id = 'own-reader-tg', hint = 'ID авторизованного пользователя Telegram.') }}
+        {{ f.input('session', 'StringSession', type = 'password', required = true, id = 'own-reader-session', autocomplete = 'off', hint = 'Секрет сохранится зашифрованным и больше не будет показан.') }}
+        <div class="sm:col-span-2">{{ f.button('Подключить сессию', type = 'submit', variant = 'secondary') }}</div>
+    </form>
+    </details>
+    {% endif %}
+    <form method="post" action="{{ base }}/reader-account/{{ reader_account.public_id }}/status" class="mt-3 flex gap-2">
+        {{ csrf_field() }}
+        <input type="hidden" name="status" value="{{ reader_account.status == 'disabled' ? 'active' : 'disabled' }}">
+        {{ f.button(reader_account.status == 'disabled' ? 'Включить чтение' : 'Отключить чтение', type = 'submit', variant = 'secondary') }}
+    </form>
+    {% endif %}
+</section>
+{% endif %}
 {% if sources is empty %}
 <div class="card">{{ d.empty_state(t('Пока нет источников'), t('Добавьте публичный Telegram-канал и включите источник, чтобы получать материалы.'), 'share-2', can('sources.manage') ? t('Добавить источник') : null, base ~ '/new') }}</div>
 {% else %}

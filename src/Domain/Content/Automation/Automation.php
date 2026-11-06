@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Content\Automation;
 
+use App\Domain\Billing\Entitlements;
 use App\Domain\Content\ImageProcessing\ImageWorkflow;
 use App\Domain\Content\Processing\ContentProcessor;
 use App\Domain\Content\Processing\MaterialRepository;
@@ -19,6 +20,7 @@ use App\Domain\Source\SourceRepository;
 use App\Domain\Workspace\WorkspaceContext;
 use App\Domain\Workspace\WorkspaceRepository;
 use App\Jobs\Content\AutomationJob;
+use App\Jobs\Content\AutomationScanJob;
 use App\Kernel\Database\Connection;
 use App\Kernel\Exception\HttpException;
 use App\Kernel\Queue\Queue;
@@ -29,17 +31,48 @@ use Throwable;
 /** Durable coordinator on the existing Queue: checkpoints, current revision guards, safe restart and draft-only export. */
 final class Automation
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly Queue $queue, private readonly WorkspaceRepository $workspaces, private readonly SourceRepository $sources, private readonly MaterialRepository $materials, private readonly SelectionService $selection, private readonly ContentProcessor $text, private readonly ImageWorkflow $images, private readonly VideoWorkflow $videos, private readonly ContentDraftService $drafts, private readonly ContentDiscovery $discovery, private readonly DiscoveryMaterialGateway $gateway, private readonly AutomationGuard $guard, private readonly \App\Kernel\Config $operationsConfig)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly Queue $queue, private readonly WorkspaceRepository $workspaces, private readonly SourceRepository $sources, private readonly MaterialRepository $materials, private readonly SelectionService $selection, private readonly ContentProcessor $text, private readonly ImageWorkflow $images, private readonly VideoWorkflow $videos, private readonly ContentDraftService $drafts, private readonly ContentDiscovery $discovery, private readonly DiscoveryMaterialGateway $gateway, private readonly AutomationGuard $guard, private readonly \App\Kernel\Config $operationsConfig, private readonly Entitlements $entitlements)
     {
     }
 
-    /** Existing minute scheduler discovers work and reclaims lost enqueues, bounded to 100 materials per policy/tick. */
-    public function tick(): void
+    /** Minute scheduler enqueues one bounded scan per workspace; no material processing occurs in the scheduler. */
+    public function schedule(): void
     {
         if (!$this->operationsConfig->bool('sources.enabled')) {
             return;
         }
-        foreach ($this->db->select('SELECT p.* FROM content_automation_settings p LEFT JOIN sources s ON s.id=p.source_id AND s.workspace_id=p.workspace_id WHERE p.source_id IS NULL OR s.enabled=1 ORDER BY p.id') as $policy) {
+        foreach ($this->db->select("SELECT DISTINCT workspace_id FROM content_automation_settings WHERE JSON_UNQUOTE(JSON_EXTRACT(settings_json, '$.enabled'))='true' ORDER BY workspace_id") as $row) {
+            $workspaceId = (int) $row['workspace_id'];
+            $pending = $this->db->select("SELECT id FROM jobs WHERE JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.class'))=? AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.data.workspace_id'))=? LIMIT 1", [AutomationScanJob::class, (string) $workspaceId]);
+            if ($pending === []) {
+                $this->queue->dispatch(new AutomationScanJob($workspaceId));
+            }
+        }
+    }
+
+    /** Backward-compatible manual scan, used by CLI and tests. Production schedules scan jobs instead. */
+    public function tick(): void
+    {
+        $this->scan(null);
+    }
+
+    /** Scans only this workspace, capped to 100 materials per policy, and reclaims its lost run enqueues. */
+    public function scanWorkspace(int $workspaceId): void
+    {
+        if ($workspaceId <= 0) {
+            return;
+        }
+        $this->scan($workspaceId);
+    }
+
+    private function scan(?int $workspaceId): void
+    {
+        if (!$this->operationsConfig->bool('sources.enabled')) {
+            return;
+        }
+        $policySql = 'SELECT p.* FROM content_automation_settings p LEFT JOIN sources s ON s.id=p.source_id AND s.workspace_id=p.workspace_id WHERE (p.source_id IS NULL OR s.enabled=1)';
+        $policySql .= $workspaceId === null ? '' : ' AND p.workspace_id=?';
+        foreach ($this->db->select($policySql . ' ORDER BY p.id', $workspaceId === null ? [] : [$workspaceId]) as $policy) {
             $settings = json_decode((string) $policy['settings_json'], true, 32, JSON_THROW_ON_ERROR);
             if (!($settings['enabled'] === true)) {
                 continue;
@@ -47,6 +80,9 @@ final class Automation
             try {
                 [$ctx, $source] = $this->scope($policy);
             } catch (HttpException) {
+                continue;
+            }
+            if (!$this->entitlements->hasFeature($ctx->workspaceId, 'source_automation') || !$this->entitlements->hasFeature($ctx->workspaceId, $source === null ? 'radar' : 'sources')) {
                 continue;
             }
             $this->db->transaction(function () use ($ctx, $source, $policy, $settings): void {
@@ -83,9 +119,15 @@ final class Automation
                 }
             });
         }
-        $this->db->transaction(function (): void {
+        $this->db->transaction(function () use ($workspaceId): void {
             $now = DbTime::format($this->clock->now());
-            $rows = $this->db->select('SELECT id FROM content_automation_runs WHERE status IN (?, ?) AND available_at <= ? AND (queued_at IS NULL OR queued_at < ?) ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED', ['pending', 'waiting', $now, DbTime::format($this->clock->now()->modify('-16 minutes'))]);
+            $sql = 'SELECT id FROM content_automation_runs WHERE status IN (?, ?) AND available_at <= ? AND (queued_at IS NULL OR queued_at < ?)';
+            $bindings = ['pending', 'waiting', $now, DbTime::format($this->clock->now()->modify('-16 minutes'))];
+            if ($workspaceId !== null) {
+                $sql .= ' AND workspace_id=?';
+                $bindings[] = $workspaceId;
+            }
+            $rows = $this->db->select($sql . ' ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED', $bindings);
             foreach ($rows as $row) {
                 $this->queue->dispatch(new AutomationJob((int) $row['id']), queue: 'default');
                 $this->db->execute('UPDATE content_automation_runs SET queued_at=? WHERE id=?', [$now, $row['id']]);
@@ -135,6 +177,10 @@ final class Automation
             }
             $settings = json_decode((string) $policy['settings_json'], true, 32, JSON_THROW_ON_ERROR);
             [$ctx, $source] = $this->scope($policy);
+            if (!$this->entitlements->hasFeature($ctx->workspaceId, 'source_automation') || !$this->entitlements->hasFeature($ctx->workspaceId, $source === null ? 'radar' : 'sources')) {
+                $this->finish($run, 'paused', 'Автоматизация недоступна на текущем тарифе.');
+                return;
+            }
             if (!($settings['enabled'] === true) || ($source !== null && !$source->enabled)) {
                 $this->finish($run, 'paused', 'Автоматизация или источник выключены.');
                 return;
@@ -214,7 +260,7 @@ final class Automation
             return;
         }
         if ($run['step'] === 'selection' && ($settings['auto_selection'] === true) && ($this->materials->selection($ctx, $source, (int) $item['id'])['decision_mode'] ?? '') !== 'manual') {
-            if (($settings['semantic_selection'] === true) && (!$this->guard->allows('semantic') || !$this->semanticEnabled($ctx, $source))) {
+            if (($settings['semantic_selection'] === true) && (!$this->guard->allows('semantic', $ctx->workspaceId) || !$this->semanticEnabled($ctx, $source))) {
                 $this->finish($run, 'needs_review', 'Смысловой provider недоступен.');
                 return;
             }
@@ -247,7 +293,7 @@ final class Automation
         }
         if ($run['step'] === 'text' || $run['step'] === 'text_started') {
             if (($settings['auto_text_processing'] === true)) {
-                if ($settings['text_mode'] !== 'unchanged' && !$this->guard->allows('text')) {
+                if ($settings['text_mode'] !== 'unchanged' && !$this->guard->allows('text', $ctx->workspaceId)) {
                     $this->finish($run, 'needs_review', 'Текстовый provider недоступен.');
                     return;
                 }

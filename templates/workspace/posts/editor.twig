@@ -20,6 +20,7 @@
 {% endset %}
 <div class="mt-3">{{ d.page_header(post ? 'Изменить пост' : 'Новый пост', body = head_actions) }}</div>
 {% if not post %}<nav class="mb-5 flex flex-wrap gap-2" aria-label="Тип публикации"><a class="btn {{ kind == 'regular' ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/posts/new">Обычный пост</a><a class="btn {{ kind == 'short_video' ? 'btn-primary' : 'btn-secondary' }}" href="{{ base }}/posts/new?kind=short_video">Короткое видео</a></nav>{% endif %}
+{% if origin_url %}<div class="card mb-5"><p class="text-sm">Источник материала: <a class="text-link underline" href="{{ origin_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ origin_url }}</a></p><p class="hint mt-1">Ссылка сохранена отдельно от текста поста. Вы отвечаете за право публиковать переработанный материал.</p></div>{% endif %}
 
 {% if channels is empty %}
 <div class="card">

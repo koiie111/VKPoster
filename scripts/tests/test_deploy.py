@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class DeployTest(unittest.TestCase):
-    def run_release(self, mode, compatible="true", locked=False, analytics="false"):
+    def run_release(self, mode, compatible="true", locked=False, analytics="false", sources="false"):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             config = root / "app.env"
@@ -21,7 +21,15 @@ class DeployTest(unittest.TestCase):
             infra.write_text("MYSQL_IMAGE=owner-mysql\nREDIS_IMAGE=owner-redis\n")
             infra.chmod(0o600)
             images = root / "release-images.env"
-            images.write_text("".join(f"{name.upper()}_IMAGE=ghcr.io/fixture/vkposter-{name}@sha256:{'a' * 64}\n" for name in ("app", "web", "ops", "pdf")))
+            images.write_text("".join(f"{name.upper()}_IMAGE=ghcr.io/fixture/vkposter-{name}@sha256:{'a' * 64}\n" for name in ("app", "web", "ops", "pdf", "reader")))
+            source_config = root / "sources.env"
+            source_config.write_text("SOURCES_ENABLED=true\nSOURCES_READER_SECRET=" + "s" * 40 + "\n")
+            source_config.chmod(0o600)
+            reader_config = root / "reader.env"
+            reader_config.write_text("TELEGRAM_API_ID=12345\nTELEGRAM_API_HASH=" + "a" * 32 + "\nEGRESS_TELEGRAM_MODE=tunnel\nEGRESS_TELEGRAM_PROXY_URL=socks5://127.0.0.1:1080\n")
+            reader_config.chmod(0o600)
+            if mode == "missing-reader-env":
+                reader_config.unlink()
             (root / ".release.env").write_text("APP_IMAGE=previous\n")
             tools = root / "bin"
             tools.mkdir()
@@ -32,7 +40,7 @@ class DeployTest(unittest.TestCase):
                     '#!/bin/sh\necho "$*" >> "$TRACE"\n'
                     'case "$*" in *"ps -q"*) echo fixture-infra;; '
                     'inspect*) test "$MODE" != infra-down || exit 1; echo "true healthy";; '
-                    'image\ inspect*) test "$MODE" != digest-mismatch || exit 1; for arg in "$@"; do last="$arg"; done; echo "$last";; '
+                    'image\\ inspect*) test "$MODE" != digest-mismatch || exit 1; for arg in "$@"; do last="$arg"; done; echo "$last";; '
                     '*migrate*) test "$MODE" != migration-fail || exit 1;; '
                     '*"up -d"*) : > "$LAST_UP"; prev=""; for arg in "$@"; do if test "$prev" = --env-file; then cat "$arg" >> "$LAST_UP"; fi; prev="$arg"; done;; esac\n'
                 ),
@@ -52,6 +60,9 @@ class DeployTest(unittest.TestCase):
                 MIGRATIONS_BACKWARD_COMPATIBLE=compatible,
                 MODE=mode,
                 DEPLOY_ANALYTICS=analytics,
+                DEPLOY_SOURCES=sources,
+                SOURCES_ENV_FILE=str(source_config),
+                READER_ENV_FILE=str(reader_config),
                 TRACE=str(root / "trace"),
                 LAST_UP=str(root / "last-up"),
             )
@@ -94,6 +105,17 @@ class DeployTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(trace, "")
 
+    def test_sources_release_requires_private_configuration_and_deploys_reader(self):
+        code, trace, current = self.run_release("success", sources="true")
+        self.assertEqual(code, 0)
+        self.assertIn("--profile sources", trace)
+        self.assertIn("reader", trace)
+        self.assertIn("READER_IMAGE=", current)
+        code, trace, current = self.run_release("missing-reader-env", sources="true")
+        self.assertEqual(code, 2)
+        self.assertEqual(trace, "")
+        self.assertEqual(current, "APP_IMAGE=previous\n")
+
     def test_success(self):
         code, trace, current = self.run_release("success")
         self.assertEqual(code, 0)
@@ -114,7 +136,16 @@ class DeployTest(unittest.TestCase):
             if "up -d" in invocation:
                 self.assertIn("--no-deps", invocation)
                 targets = invocation.split("--no-deps", 1)[1].split()
-                self.assertTrue(set(targets).issubset({"app", "nginx", "worker", "video-worker", "scheduler", "analytics-worker", "analytics-pdf"}))
+                self.assertTrue(set(targets).issubset({"app", "nginx", "worker", "video-worker", "scheduler", "analytics-worker", "analytics-pdf", "reader"}))
+
+    def test_sources_rollback_stops_reader_and_uses_previous_app_images(self):
+        code, trace, current = self.run_release("ready-fail", sources="true")
+        self.assertEqual(code, 1)
+        self.assertEqual(current, "APP_IMAGE=previous\n")
+        self.assertIn("stop reader", trace)
+        rollbacks = [line for line in trace.splitlines() if "up -d" in line]
+        self.assertEqual(len(rollbacks), 2)
+        self.assertNotIn("reader", rollbacks[-1])
 
     def test_migration_failure_preserves_running_release(self):
         code, trace, current = self.run_release("migration-fail")

@@ -134,7 +134,12 @@ return static function (Router $router): void {
 
     $router->post('/internal/source-image-results', [\App\Http\Controllers\Sources\ImageReaderController::class, 'result'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-images-results', 'max' => 60, 'seconds' => 60]]);
     $router->post('/internal/reader-heartbeat', [SourceReaderController::class, 'heartbeat'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'reader-heartbeat', 'max' => 12, 'seconds' => 60]]);
-    $router->get('/internal/sources', [SourceReaderController::class, 'sources'])->middleware([RateLimit::class, ['bucket' => 'source-reader-list', 'max' => 120, 'seconds' => 60]]);
+    $router->get('/internal/reader-accounts', [SourceReaderController::class, 'accounts'])->middleware([RateLimit::class, ['bucket' => 'source-reader-accounts', 'max' => 120, 'seconds' => 60]]);
+    $router->post('/internal/reader-accounts/blocked', [SourceReaderController::class, 'blocked'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-reader-blocked', 'max' => 60, 'seconds' => 60]]);
+    $router->post('/internal/reader-accounts/enroll', [SourceReaderController::class, 'enroll'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-reader-enroll', 'max' => 10, 'seconds' => 3600]]);
+    $router->get('/internal/reader-qr', [SourceReaderController::class, 'qrPending'])->middleware([RateLimit::class, ['bucket' => 'source-reader-qr', 'max' => 120, 'seconds' => 60]]);
+    $router->post('/internal/reader-qr/publish', [SourceReaderController::class, 'qrPublish'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-reader-qr', 'max' => 120, 'seconds' => 60]]);
+    $router->post('/internal/reader-qr/password', [SourceReaderController::class, 'qrPassword'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-reader-qr', 'max' => 120, 'seconds' => 60]]);
     $router->post('/internal/source-events', [SourceReaderController::class, 'event'])->withoutCsrf()->middleware([RateLimit::class, ['bucket' => 'source-reader-events', 'max' => 600, 'seconds' => 60]]);
 
     // Public site: legal documents, the knowledge base, the status of the networks, and what search engines may read.
@@ -333,11 +338,11 @@ return static function (Router $router): void {
                 $m->post($mark . '/update', [WatermarkController::class, 'update']);
                 $m->post($mark . '/delete', [WatermarkController::class, 'delete']);
             });
-            $w->group('/radar', [[Authorize::class, ['permission' => 'discovery.view']]], static function (Router $r) use ($ulid): void {
+            $w->group('/radar', [[Authorize::class, ['permission' => 'discovery.view']], [\App\Http\Middleware\PlanFeature::class, ['feature' => 'radar', 'name' => 'Радар']]], static function (Router $r) use ($ulid): void {
                 $r->get('', [\App\Http\Controllers\Discovery\RadarController::class, 'index']);
                 $r->get('/materials/{itemId:' . $ulid . '}', [\App\Http\Controllers\Discovery\RadarController::class, 'material']);
                 $r->group('', [[Authorize::class, ['permission' => 'discovery.manage']]], static function (Router $m) use ($ulid): void {
-                    $m->post('/automation', [\App\Http\Controllers\Sources\AutomationController::class, 'save']);
+                    $m->post('/automation', [\App\Http\Controllers\Sources\AutomationController::class, 'save'])->middleware([\App\Http\Middleware\PlanFeature::class, ['feature' => 'source_automation', 'name' => 'Автоматизация источников']]);
                     $m->post('/semantic-settings', [\App\Http\Controllers\Discovery\RadarController::class, 'semantic'])->middleware([RateLimit::class, ['bucket' => 'semantic-settings', 'max' => 10, 'seconds' => 60]]);
                     $m->post('/refresh', [\App\Http\Controllers\Discovery\RadarController::class, 'refresh'])->middleware([RateLimit::class, ['bucket' => 'discovery-refresh', 'max' => 5, 'seconds' => 60]]);
                     $m->post('/items/{discoveryId:' . $ulid . '}/import', [\App\Http\Controllers\Discovery\RadarController::class, 'import']);
@@ -348,12 +353,19 @@ return static function (Router $router): void {
                 });
             });
             // Sources and selection remain separate from the publishing pipeline.
-            $w->group('/sources', [[Authorize::class, ['permission' => 'sources.view']]], static function (Router $s) use ($ulid): void {
+            $w->group('/sources', [[Authorize::class, ['permission' => 'sources.view']], [\App\Http\Middleware\PlanFeature::class, ['feature' => 'sources', 'name' => 'Источники Telegram']]], static function (Router $s) use ($ulid): void {
                 $s->get('', [SourceController::class, 'index'])->name('workspace.sources');
                 $s->group('', [[Authorize::class, ['permission' => 'sources.manage']]], static function (Router $m) use ($ulid): void {
+                    $m->post('/reader-account', [\App\Http\Controllers\Sources\ReaderAccountController::class, 'create'])->middleware([RateLimit::class, ['bucket' => 'workspace-reader-account', 'max' => 10, 'seconds' => 3600]]);
+                    $m->post('/reader-account/{id:' . $ulid . '}/session', [\App\Http\Controllers\Sources\ReaderAccountController::class, 'attach'])->middleware([RateLimit::class, ['bucket' => 'workspace-reader-account', 'max' => 10, 'seconds' => 3600]]);
+                    $m->post('/reader-account/{id:' . $ulid . '}/qr', [\App\Http\Controllers\Sources\ReaderAccountController::class, 'startQr'])->middleware([RateLimit::class, ['bucket' => 'workspace-reader-qr', 'max' => 10, 'seconds' => 3600]]);
+                    $m->get('/reader-account/{id:' . $ulid . '}/qr', [\App\Http\Controllers\Sources\ReaderAccountController::class, 'qr']);
+                    $m->get('/reader-account/{id:' . $ulid . '}/qr.png', [\App\Http\Controllers\Sources\ReaderAccountController::class, 'qrImage']);
+                    $m->post('/reader-account/{id:' . $ulid . '}/qr/password', [\App\Http\Controllers\Sources\ReaderAccountController::class, 'password'])->middleware([RateLimit::class, ['bucket' => 'workspace-reader-password', 'max' => 5, 'seconds' => 600]]);
+                    $m->post('/reader-account/{id:' . $ulid . '}/status', [\App\Http\Controllers\Sources\ReaderAccountController::class, 'status'])->middleware([RateLimit::class, ['bucket' => 'workspace-reader-account', 'max' => 10, 'seconds' => 3600]]);
                     $m->get('/new', [SourceController::class, 'new']);
                     $m->post('', [SourceController::class, 'create']);
-                    $m->post('/{sourceId:' . $ulid . '}/automation', [\App\Http\Controllers\Sources\AutomationController::class, 'save']);
+                    $m->post('/{sourceId:' . $ulid . '}/automation', [\App\Http\Controllers\Sources\AutomationController::class, 'save'])->middleware([\App\Http\Middleware\PlanFeature::class, ['feature' => 'source_automation', 'name' => 'Автоматизация источников']]);
                     $m->get('/{sourceId:' . $ulid . '}/edit', [SourceController::class, 'edit']);
                     $m->post('/{sourceId:' . $ulid . '}', [SourceController::class, 'update']);
                     $m->post('/{sourceId:' . $ulid . '}/items/{itemId:' . $ulid . '}/draft', [\App\Http\Controllers\Sources\ContentDraftController::class, 'create'])->middleware([Authorize::class, ['permission' => 'posts.draft']])->middleware([RateLimit::class, ['bucket' => 'content-draft', 'max' => 10, 'seconds' => 60]]);
@@ -568,6 +580,11 @@ return static function (Router $router): void {
             $s->post('/links/blocklist', [\App\Http\Controllers\Admin\LinksAdminController::class, 'saveBlocklist'])->middleware($can('links.manage'), [RateLimit::class, ['bucket' => 'admin-links', 'max' => 60, 'seconds' => 3600]]);
             $s->post('/links/{id:' . $ulid26 . '}/toggle', [\App\Http\Controllers\Admin\LinksAdminController::class, 'toggle'])->middleware($can('links.manage'), [RateLimit::class, ['bucket' => 'admin-links', 'max' => 300, 'seconds' => 3600]]);
             $s->get('/ai', [\App\Http\Controllers\Admin\AiProvidersController::class, 'index'])->name('admin.ai')->middleware($can('ai.manage'));
+            $s->get('/source-reader-accounts', [\App\Http\Controllers\Admin\SourceReaderAccountsController::class, 'index'])->name('admin.source_reader_accounts')->middleware($can('sources.accounts'));
+            $s->post('/source-reader-accounts', [\App\Http\Controllers\Admin\SourceReaderAccountsController::class, 'create'])->middleware($can('sources.accounts'), [RateLimit::class, ['bucket' => 'admin-reader-accounts', 'max' => 20, 'seconds' => 3600]]);
+            $s->post('/source-reader-accounts/assign', [\App\Http\Controllers\Admin\SourceReaderAccountsController::class, 'assign'])->middleware($can('sources.accounts'), [RateLimit::class, ['bucket' => 'admin-reader-accounts', 'max' => 20, 'seconds' => 3600]]);
+            $s->post('/source-reader-accounts/{id:' . $ulid26 . '}/status', [\App\Http\Controllers\Admin\SourceReaderAccountsController::class, 'status'])->middleware($can('sources.accounts'), [RateLimit::class, ['bucket' => 'admin-reader-accounts', 'max' => 20, 'seconds' => 3600]]);
+            $s->post('/source-reader-accounts/{id:' . $ulid26 . '}/session', [\App\Http\Controllers\Admin\SourceReaderAccountsController::class, 'attach'])->middleware($can('sources.accounts'), [RateLimit::class, ['bucket' => 'admin-reader-accounts', 'max' => 20, 'seconds' => 3600]]);
             $s->post('/ai', [\App\Http\Controllers\Admin\AiProvidersController::class, 'create'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
             $s->post('/ai/{code:[a-z0-9-]{3,40}}', [\App\Http\Controllers\Admin\AiProvidersController::class, 'save'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);
             $s->post('/ai/{code:[a-z0-9-]{3,40}}/delete', [\App\Http\Controllers\Admin\AiProvidersController::class, 'delete'])->middleware($can('ai.manage'), [RateLimit::class, ['bucket' => 'admin-ai', 'max' => 60, 'seconds' => 3600]]);

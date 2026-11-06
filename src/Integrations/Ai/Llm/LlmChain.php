@@ -18,6 +18,18 @@ final class LlmChain
 {
     public const MAX_STEPS = 20;
 
+    public const SOURCE_ACTIONS = ['source_text' => 'Обработка текста источника', 'source_semantic' => 'Смысловой отбор источника'];
+
+    /** @return array<string, string> */
+    public static function actionLabels(): array
+    {
+        $labels = [];
+        foreach (\App\Domain\Ai\AiAction::cases() as $action) {
+            $labels[$action->value] = $action->label();
+        }
+        return $labels + self::SOURCE_ACTIONS;
+    }
+
     private const COUNTER_TTL = 172800;
 
     /** Seconds a step is skipped after a failure; `refused` is about the text, not the model, so it has none. */
@@ -160,7 +172,7 @@ final class LlmChain
         if ($cooldown !== '' && (preg_match('/^\d{1,5}$/D', $cooldown) !== 1 || (int) $cooldown > 86400)) {
             $errors[] = 'Пауза после ошибки: секунды от 0 до 86400 (0 = по причине ошибки).';
         }
-        if (array_diff($actions, array_map(static fn (\App\Domain\Ai\AiAction $a): string => $a->value, \App\Domain\Ai\AiAction::cases())) !== []) {
+        if (array_diff($actions, array_keys(self::actionLabels())) !== []) {
             $errors[] = 'Неизвестное действие ассистента.';
         }
         if ($id === null && count($this->all()) >= self::MAX_STEPS) {

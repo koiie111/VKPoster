@@ -1,0 +1,37 @@
+{% extends 'layouts/app.twig' %}
+{% import 'components/display.twig' as d %}
+{% import 'components/forms.twig' as f %}
+{% set nav_current = 'sources' %}
+{% block title %}Подключение Telegram · {{ app_name }}{% endblock %}
+{% block content %}
+{{ d.page_header('Подключение Telegram', 'Откройте Telegram на телефоне: Настройки → Устройства → Подключить устройство. Отсканируйте код и подтвердите вход.') }}
+<section class="card mt-4" aria-live="polite">
+{% if account and account.status == 'active' and qr.state == 'expired' %}
+<p>Аккаунт подключён. Источники пространства будут читаться через него.</p>
+{% elseif qr.state == 'qr' %}
+<p class="mb-3">Код обновляется автоматически. Он действует только для вашего пространства.</p>
+<img src="{{ base }}/reader-account/{{ account_id }}/qr.png" alt="QR-код входа в Telegram" width="410" height="410" class="max-w-full">
+{% elseif qr.state == 'password_needed' %}
+{% if submitted %}
+<p>Пароль передан. Ожидаем подтверждения Telegram.</p>
+{% else %}
+<p>Telegram запросил пароль двухэтапной проверки. Введите его здесь для завершения подключения.</p>
+<form method="post" action="{{ base }}/reader-account/{{ account_id }}/qr/password" class="mt-3 max-w-md" autocomplete="off">
+    {{ csrf_field() }}
+    {{ f.input('password', 'Пароль Telegram', type = 'password', required = true, id = 'reader-qr-password', autocomplete = 'off') }}
+    <div class="mt-3">{{ f.button('Подтвердить вход', type = 'submit') }}</div>
+</form>
+{% endif %}
+{% elseif qr.state == 'waiting' %}
+<p>Готовим код подключения. Страница обновится автоматически.</p>
+{% elseif qr.state == 'error' %}
+<p>Подключение не завершилось. Создайте новый код и попробуйте ещё раз.</p>
+{% else %}
+<p>Время подключения истекло. Создайте новый код.</p>
+{% endif %}
+{% if qr.state in ['expired', 'error'] %}
+<form method="post" action="{{ base }}/reader-account/{{ account_id }}/qr" class="mt-3">{{ csrf_field() }}{{ f.button('Создать новый код', type = 'submit') }}</form>
+{% endif %}
+<p class="mt-4">{{ f.button('Вернуться к источникам', href = base, variant = 'secondary') }}</p>
+</section>
+{% endblock %}

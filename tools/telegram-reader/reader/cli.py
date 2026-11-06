@@ -8,11 +8,15 @@ import logging
 import os
 import signal
 import sys
+import re
 from pathlib import Path
 
+from telethon import TelegramClient
+from telethon.sessions import SQLiteSession, StringSession
+
 from .auth import AuthInputError, authenticate
-from .egress import connect_with_backoff
-from .integration import Outbox, run_sources
+from .egress import connect_with_backoff, proxy_config
+from .integration import InternalAPI, Outbox, run_sources
 from .model import channel_username
 from .qr import QRDisplay, authenticate_qr
 from .service import Reader
@@ -112,6 +116,74 @@ async def live(args, state, store):
         await transport.client.disconnect()
 
 
+async def enroll_qr(args, store):
+    """QR-authorize in memory and deliver the session directly to the encrypted registry."""
+    if not args.account_id or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{26}", args.account_id):
+        raise ValueError("account_id_required")
+    api_id = int(os.environ.get("TELEGRAM_API_ID") or "0")
+    api_hash = os.environ.get("TELEGRAM_API_HASH") or ""
+    if api_id <= 0 or len(api_hash) != 32:
+        raise ValueError("telegram_credentials")
+    api = InternalAPI(
+        os.environ.get("VKPOSTER_INTERNAL_URL", "http://host.docker.internal:8080"),
+        os.environ.get("SOURCES_READER_SECRET", ""),
+    )
+    client = TelegramClient(
+        StringSession(), api_id, api_hash, sequential_updates=True,
+        flood_sleep_threshold=0, proxy=proxy_config(),
+    )
+    try:
+        with QRDisplay(args.qr_port) as display:
+            await authenticate_qr(
+                client, display, allow_password=sys.stdin.isatty(),
+                connect=lambda: connect_with_backoff(client, store),
+            )
+        me = await client.get_me()
+        if me is None or me.bot:
+            raise ValueError("reader_account_identity")
+        session = StringSession.save(client.session)
+        await api.enroll(args.account_id, int(me.id), session)
+        print("Reader account connected; session stored in the application vault", flush=True)
+    finally:
+        await client.disconnect()
+
+
+async def migrate_legacy_session(args, state, store):
+    """Move an existing SQLite authorization into the encrypted account registry."""
+    if not args.account_id or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{26}", args.account_id):
+        raise ValueError("account_id_required")
+    legacy = state / "telegram.session"
+    if not legacy.is_file() or legacy.is_symlink():
+        raise ValueError("legacy_session_missing")
+    api_id = int(os.environ.get("TELEGRAM_API_ID") or "0")
+    api_hash = os.environ.get("TELEGRAM_API_HASH") or ""
+    if api_id <= 0 or len(api_hash) != 32:
+        raise ValueError("telegram_credentials")
+    api = InternalAPI(
+        os.environ.get("VKPOSTER_INTERNAL_URL", "http://host.docker.internal:8080"),
+        os.environ.get("SOURCES_READER_SECRET", ""),
+    )
+    session = SQLiteSession(str(state / "telegram"))
+    client = TelegramClient(
+        session, api_id, api_hash, sequential_updates=True,
+        flood_sleep_threshold=0, proxy=proxy_config(),
+    )
+    try:
+        await connect_with_backoff(client, store)
+        me = await client.get_me()
+        if me is None or me.bot:
+            raise ValueError("reader_account_identity")
+        await api.enroll(args.account_id, int(me.id), StringSession.save(session))
+    finally:
+        await client.disconnect()
+        session.close()
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        path = state / ("telegram.session" + suffix)
+        if path.exists() and not path.is_symlink():
+            path.unlink()
+    print("Legacy session migrated to the application vault and local session removed", flush=True)
+
+
 def main():
     # SDK diagnostics can expose request parameters; only our redacted events log.
     sdk_logger = logging.getLogger("telethon")
@@ -125,6 +197,8 @@ def main():
         choices=(
             "login",
             "login-qr",
+            "enroll-qr",
+            "migrate-legacy-session",
             "smoke",
             "run",
             "status",
@@ -140,6 +214,7 @@ def main():
         "--source-id", help="Restrict a controlled smoke run to one enabled Source"
     )
     parser.add_argument("--event-id")
+    parser.add_argument("--account-id", help="Pending service account ID for enroll-qr")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--state", default="/state")
     args = parser.parse_args()
@@ -180,6 +255,10 @@ def main():
             print(json.dumps({"requeued": Outbox(store).retry_failed(args.event_id)}))
         elif args.command == "sources":
             asyncio.run(run_sources(args, state, store))
+        elif args.command == "enroll-qr":
+            asyncio.run(enroll_qr(args, store))
+        elif args.command == "migrate-legacy-session":
+            asyncio.run(migrate_legacy_session(args, state, store))
         else:
             asyncio.run(live(args, state, store))
     except (KeyboardInterrupt, EOFError):

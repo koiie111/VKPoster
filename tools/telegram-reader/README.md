@@ -1,5 +1,22 @@
 # Telegram reader: изолированный read-only spike
 
+## Актуальное подключение аккаунтов (этап 23)
+
+Команда `sources` теперь получает активные аккаунты и назначенные им источники через `/internal/reader-accounts`. Для каждого аккаунта используется Telethon `StringSession` в памяти и отдельная папка `/state/accounts/<account-id>` с историей и outbox; файл `telegram.session` не создаётся. Старые команды `login`, `login-qr`, `run` и `smoke` остаются только для локальной диагностики и сохраняют SQLiteSession. Их старый файл нельзя использовать как рабочую сессию `sources`.
+
+Служебный аккаунт создаётся в `/admin/source-reader-accounts` (право `sources.accounts`, свежий код 2FA). После создания скопируйте его публичный ID и выполните из каталога reader:
+
+```bash
+docker compose build reader
+docker compose run --rm -p 127.0.0.1:18186:8765 reader enroll-qr --account-id ACCOUNT_PUBLIC_ID
+```
+
+Откройте `http://localhost:18186`, отсканируйте QR контролируемым Telegram-аккаунтом. Команда держит сессию только в памяти и отправляет её в приложение через внутренний API с `SOURCES_READER_SECRET`; приложение сразу шифрует её. Пароль Telegram 2FA при необходимости вводится только скрыто в локальном Terminal. Не передавайте StringSession или код через чат. Для собственного аккаунта откройте «Источники» → «Добавить свой аккаунт» → «Подключить через QR-код». Reader без сохранения локальной Telegram-сессии передаст QR на защищённую страницу пространства; отсканируйте его в Telegram и введите пароль 2FA в форме, если он запрошен. Код и пароль живут не более 10 и 5 минут соответственно; пароль в Redis зашифрован и выдаётся reader один раз. Ручной ввод готовой StringSession доступен как резервный путь, reader сверяет Telegram ID при старте.
+
+Для переноса старой локальной сессии остановите reader и выполните `docker compose run --rm reader migrate-legacy-session --account-id ACCOUNT_PUBLIC_ID`. Команда проверяет Telegram ID, отправляет StringSession через защищённый внутренний API и удаляет старый `telegram.session` только после подтверждения сохранения в зашифрованном реестре. Если ответ сервера не получен, файл остаётся для повторной попытки.
+
+В рабочем режиме ACK-события через 30 дней теряют тело, сохраняя ID для дедупликации; старые заменённые ревизии сообщений удаляются через 90 дней. Актуальные сообщения, tombstone удаления, checkpoint и незавершённые задания остаются, пока используется аккаунт: они нужны для восстановления после перезапуска и сверки правок. Доступ к `/state` должен быть ограничен оператором, volume удаляется после отключения аккаунта и завершения обработки. Переменные `READER_ACK_RETENTION_DAYS` (минимум 7; 0 отключает) и `READER_REVISION_RETENTION_DAYS` настраивают эти сроки.
+
 Прототип для одного тестового аккаунта и одного контролируемого публичного
 канала. Сам не обращается к MySQL, PostService и publishing pipeline VKPoster: с PHP он
 разговаривает только через внутренний HTTP ingress (`/internal/source-events`), который
@@ -193,7 +210,7 @@ docker compose run --rm reader sources --once --source-id SOURCE_PUBLIC_ID
 docker compose up -d reader
 ```
 
-`GET /internal/sources` returns only enabled Telegram Source IDs and normalized usernames. `POST /internal/source-events` accepts v1 `item` or `status` events under `Authorization: Bearer ...`. No Telegram credentials, session, access hashes, file references or binary images are exported. Integration mode does not download photos; media metadata includes Telegram IDs and the largest available photo-size metadata.
+`GET /internal/reader-accounts` returns active accounts with their assigned Telegram Source IDs, usernames and encrypted-at-rest sessions to the dedicated reader container under `Authorization: Bearer ...`. The retired `/internal/sources` route no longer exposes a global source list. `POST /internal/source-events` accepts v1 `item` or `status` events. Media metadata includes Telegram IDs and the largest available photo-size metadata.
 
 SQLite `outbox` stores each complete event before sending. The event ID is a SHA-256 of the canonical envelope. Messages remain durable even if the process dies before export; startup rebuilds missing outbox snapshots from durable messages/albums. Albums wait for the existing five-second quiet window. HTTP/network errors and missing/mismatched ACK retry with bounded exponential backoff (up to 300 seconds), without deleting events. ACKed rows remain to deduplicate exports. Pending rows for disabled Sources remain on disk and are not sent; they can resume when enabled again. One failed Source does not block others. No full content or exception messages are logged.
 

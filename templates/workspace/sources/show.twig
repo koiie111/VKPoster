@@ -8,6 +8,7 @@
 {{ d.breadcrumbs([{label: t('Источники'), href: base}, {label: source.name}]) }}
 {% set actions %}{% if can('sources.manage') %}{{ f.button(t('Редактировать источник'), href = base ~ '/' ~ source.publicId ~ '/edit', variant = 'secondary', icon = 'pencil') }}{% endif %}{% endset %}
 <div class="mt-3 break-words">{{ d.page_header(source.name, t('Источник контента для вашего пространства.'), body = actions) }}</div>
+{% if source.status.value == 'error' %}<div class="mb-5">{{ d.alert('error', t('Чтение источника остановлено'), t('Аккаунт Telegram недоступен. Проверьте подключение или обратитесь в поддержку; материалы пока не поступают.')) }}</div>{% endif %}
 {% set details %}
 <dl class="grid gap-4">
     <div><dt class="text-sm text-muted">{{ t('Тип источника') }}</dt><dd>{{ source.type.label() }}</dd></div>

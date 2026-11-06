@@ -81,7 +81,7 @@ def promote(directory, version, prefix, output):
         docker("buildx", "imagetools", "create", "--prefer-index=false", "--tag", tag, reference)
         if digest(tag) != row["digest"]:
             raise RuntimeError("Published/scanned digest mismatch")
-        if row["suffix"] in {"app", "web", "ops", "pdf"}:
+        if row["suffix"] in {"app", "web", "ops", "pdf", "reader"}:
             release.append(row["suffix"].upper() + "_IMAGE=" + reference)
     output.write_text("\n".join(sorted(release)) + "\n")
     output.chmod(0o600)

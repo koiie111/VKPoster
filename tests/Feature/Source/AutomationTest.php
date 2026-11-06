@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Feature\Source;
 
 use App\Domain\Content\Automation\Automation;
+use App\Domain\Billing\PlanLimitException;
 use App\Domain\Content\Automation\AutomationPolicies;
 use App\Domain\Content\Automation\AutomationSettings;
 use App\Domain\Content\Processing\MaterialRepository;
@@ -12,6 +13,7 @@ use App\Domain\Source\Selection\SelectionRules;
 use App\Domain\Source\Selection\SelectionService;
 use App\Domain\Source\SourceService;
 use App\Jobs\Content\AutomationJob;
+use App\Jobs\Content\AutomationScanJob;
 use App\Kernel\Queue\Queue;
 use App\Kernel\Queue\Worker;
 use App\Tests\Support\SourceSelectionTestCase;
@@ -45,6 +47,29 @@ final class AutomationTest extends SourceSelectionTestCase
     {
         return $this->db->table('content_automation_runs')->first() ?? throw new \LogicException();
     }
+    public function testSchedulerScansEachWorkspaceInItsOwnJob(): void
+    {
+        [$first] = $this->fixture();
+        [$owner, $workspace] = $this->ownerWithWorkspace('automation-second@example.com');
+        $second = $this->contextFor($workspace, $owner);
+        $service = $this->app->container()->get(SourceService::class);
+        $source = $service->create($second, 'Second workspace', 'telegram', '@second_fixture', true);
+        $this->app->container()->get(AutomationPolicies::class)->save($second, $source, array_replace(AutomationSettings::defaults(), ['enabled' => true]));
+        $this->ingest($source, [$this->message(11, 'Other news')]);
+
+        $this->app->container()->get(Automation::class)->schedule();
+        $this->app->container()->get(Automation::class)->schedule();
+        $jobs = $this->db->select('SELECT payload_json FROM jobs ORDER BY id');
+        self::assertCount(2, $jobs);
+        foreach ($jobs as $job) {
+            self::assertSame(AutomationScanJob::class, json_decode((string) $job['payload_json'], true, 32, JSON_THROW_ON_ERROR)['class']);
+        }
+        self::assertTrue($this->app->container()->get(Worker::class)->runNext());
+        self::assertSame(1, $this->db->table('content_automation_runs')->where('workspace_id', '=', $first->workspaceId)->count());
+        self::assertSame(0, $this->db->table('content_automation_runs')->where('workspace_id', '=', $second->workspaceId)->count());
+        self::assertTrue($this->app->container()->get(Worker::class)->runNext());
+        self::assertSame(1, $this->db->table('content_automation_runs')->where('workspace_id', '=', $second->workspaceId)->count());
+    }
     public function testNewTelegramRevisionCreatesOneOrdinaryDraftAndDoesNotPublish(): void
     {
         $this->fixture();
@@ -59,6 +84,25 @@ final class AutomationTest extends SourceSelectionTestCase
         self::assertSame('draft', ($this->db->table('posts')->first() ?? throw new \LogicException())['status']);
         self::assertSame(0, $this->db->table('publications')->count());
         self::assertSame(0, $this->db->table('source_video_generations')->count());
+    }
+    public function testDowngradeStopsQueuedAutomationBeforeProviderWork(): void
+    {
+        [$ctx, $source] = $this->fixture();
+        $automation = $this->app->container()->get(Automation::class);
+        $automation->tick();
+        $this->db->execute("UPDATE subscriptions s JOIN plans p ON p.code='start' SET s.plan_id=p.id WHERE s.workspace_id=?", [$ctx->workspaceId]);
+        self::assertTrue($this->app->container()->get(Worker::class)->runNext());
+        self::assertSame('paused', $this->runRow()['status']);
+        self::assertSame(0, $this->db->table('source_text_processings')->count());
+        self::assertSame(0, $this->db->table('posts')->count());
+        try {
+            $this->app->container()->get(AutomationPolicies::class)->save($ctx, $source, ['enabled' => true]);
+            self::fail('Start plan must reject automation settings.');
+        } catch (PlanLimitException $e) {
+            self::assertSame('feature:source_automation', $e->limit);
+        }
+        $automation->tick();
+        self::assertSame(1, $this->db->table('content_automation_runs')->count());
     }
     public function testRejectedStopsBeforeProcessing(): void
     {
@@ -320,7 +364,9 @@ final class AutomationTest extends SourceSelectionTestCase
     {
         $this->fixture(['text_mode' => 'rewrite']);
         $c = $this->app->container();
-        $c->instance(\App\Kernel\Config::class, \App\Kernel\Config::load(\App\Tests\Support\TestEnv::basePath() . '/config', \App\Tests\Support\TestEnv::env(['CONTENT_TEXT_PROVIDER' => 'openai', 'OPENAI_API_KEY' => ''])));
+        $config = \App\Kernel\Config::load(\App\Tests\Support\TestEnv::basePath() . '/config', \App\Tests\Support\TestEnv::env(['CONTENT_TEXT_PROVIDER' => 'llm']));
+        $c->instance(\App\Kernel\Config::class, $config);
+        $c->instance(\App\Domain\Content\Automation\AutomationGuard::class, new \App\Domain\Content\Automation\AutomationGuard($config));
         $this->tick();
         self::assertSame('needs_review', $this->runRow()['status']);
         self::assertSame(0, $this->db->table('source_text_processings')->count());

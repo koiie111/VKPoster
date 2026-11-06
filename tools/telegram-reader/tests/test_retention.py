@@ -7,6 +7,23 @@ from reader.store import Store
 
 
 class RetentionTest(unittest.TestCase):
+    def test_old_superseded_revisions_are_pruned_but_current_snapshot_remains(self):
+        store = Store(":memory:", clock=lambda: 100 * 86400)
+        with store.db:
+            store.db.execute("INSERT INTO messages(channel,id,content_hash,payload) VALUES('c',1,'new','{}')")
+            for content_hash, age in (("old", 9), ("new", 9), ("recent", 95)):
+                store.db.execute(
+                    "INSERT INTO revisions VALUES('c',1,?,'private content',?)",
+                    (content_hash, age * 86400),
+                )
+        self.assertEqual(store.compact_revisions(90), 1)
+        self.assertEqual(
+            [row[0] for row in store.db.execute("SELECT content_hash FROM revisions ORDER BY observed_at")],
+            ["new", "recent"],
+        )
+        self.assertEqual(store.compact_revisions(90), 0)
+        store.db.close()
+
     def test_compact_keeps_ids_pending_and_legacy_ack(self):
         store = Store(":memory:", clock=lambda: 100 * 86400)
         outbox = Outbox(store)

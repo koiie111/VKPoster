@@ -28,7 +28,7 @@ return static function (Schedule $schedule): void {
     $schedule->call('post-statistics', '* * * * *', [\App\Domain\Analytics\StatsCollector::class, 'tick']);
     $schedule->call('post-statistics-retention', '43 3 * * *', [\App\Domain\Analytics\StatsCollector::class, 'prune']);
     $schedule->call('content-maintenance', '37 * * * *', [\App\Domain\Content\Operations\ContentMaintenance::class, 'tick']);
-    $schedule->call('content-automation', '* * * * *', [\App\Domain\Content\Automation\Automation::class, 'tick']);
+    $schedule->call('content-automation', '* * * * *', [\App\Domain\Content\Automation\Automation::class, 'schedule']);
     $schedule->call('auth-prune', '17 3 * * *', [AuthMaintenance::class, 'prune']);
     $schedule->call('video-uploads-prune', '21 3 * * *', [\App\Domain\Media\ChunkedVideoUploads::class, 'pruneExpired']);
     // Hourly, so the checks of many channels are spread out; a channel is rechecked once its last check is older than 6 hours.

@@ -6,7 +6,7 @@ namespace App\Domain\Billing;
 
 /**
  * A tariff: what it allows (`limits`, null = unlimited), which features it switches on and what it costs per period and currency.
- * Limit keys: channels, posts_per_month, workspaces, members, storage_bytes, crosspost_rules, analytics_days, ai_credits.
+ * Limit keys: channels, posts_per_month, workspaces, members, storage_bytes, crosspost_rules, sources, analytics_days, ai_credits.
  */
 final class Plan
 {

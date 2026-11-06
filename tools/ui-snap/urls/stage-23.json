@@ -1,0 +1,55 @@
+[
+  {
+    "name": "sources-list",
+    "url": "/w/{ws}/sources",
+    "login_as": "stage23-ui@example.test",
+    "actions": [
+      {
+        "click": "button:has-text('Только необходимые')"
+      }
+    ]
+  },
+  {
+    "name": "sources-qr-waiting",
+    "url": "/w/{ws}/sources",
+    "login_as": "stage23-ui@example.test",
+    "actions": [
+      {
+        "click": "button:has-text('Только необходимые')"
+      },
+      {
+        "click": "main button:has-text('Подключить через QR-код')"
+      }
+    ]
+  },
+  {
+    "name": "sources-new",
+    "url": "/w/{ws}/sources/new",
+    "login_as": "stage23-ui@example.test",
+    "actions": [
+      {
+        "click": "button:has-text('Только необходимые')"
+      }
+    ]
+  },
+  {
+    "name": "reader-admin",
+    "url": "/admin/source-reader-accounts",
+    "login_as": "stage23-staff@example.test",
+    "actions": [
+      {
+        "click": "button:has-text('Только необходимые')"
+      }
+    ]
+  },
+  {
+    "name": "source-stats",
+    "url": "/admin/stats",
+    "login_as": "stage23-staff@example.test",
+    "actions": [
+      {
+        "click": "button:has-text('Только необходимые')"
+      }
+    ]
+  }
+]

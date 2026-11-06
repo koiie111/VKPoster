@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Domain\Ai\AiAction;
 use App\Domain\Ai\AiUsageLog;
 use App\Domain\Audit\AuditLog;
 use App\Http\Admin\StepUp;
@@ -59,7 +58,7 @@ final class AiProvidersController
 
         return $this->view->response('admin/ai.twig', [
             'steps' => $steps,
-            'actions' => array_column(array_map(static fn (AiAction $a): array => [$a->value, $a->label()], AiAction::cases()), 1, 0),
+            'actions' => LlmChain::actionLabels(),
             'providers' => $providers,
             'cards' => $cards,
             'auth_schemes' => LlmCatalog::AUTH_SCHEMES,

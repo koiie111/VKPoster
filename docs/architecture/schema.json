@@ -7897,6 +7897,86 @@
             "EXTRA": ""
         },
         {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": "auto_increment"
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "public_id",
+            "COLUMN_TYPE": "char(26)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "workspace_id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "label",
+            "COLUMN_TYPE": "varchar(80)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "telegram_user_id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "session_enc",
+            "COLUMN_TYPE": "mediumtext",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "status",
+            "COLUMN_TYPE": "varchar(24)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": "pending",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "last_seen_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "created_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "COLUMN_NAME": "updated_at",
+            "COLUMN_TYPE": "datetime(6)",
+            "IS_NULLABLE": "NO",
+            "COLUMN_DEFAULT": null,
+            "EXTRA": ""
+        },
+        {
             "TABLE_NAME": "source_selection_decisions",
             "COLUMN_NAME": "id",
             "COLUMN_TYPE": "bigint unsigned",
@@ -8542,6 +8622,14 @@
             "COLUMN_TYPE": "int unsigned",
             "IS_NULLABLE": "NO",
             "COLUMN_DEFAULT": "1",
+            "EXTRA": ""
+        },
+        {
+            "TABLE_NAME": "sources",
+            "COLUMN_NAME": "reader_account_id",
+            "COLUMN_TYPE": "bigint unsigned",
+            "IS_NULLABLE": "YES",
+            "COLUMN_DEFAULT": null,
             "EXTRA": ""
         },
         {
@@ -14021,6 +14109,41 @@
             "COLUMN_NAME": "workspace_id"
         },
         {
+            "TABLE_NAME": "source_reader_accounts",
+            "INDEX_NAME": "idx_reader_account_scope",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "workspace_id"
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "INDEX_NAME": "idx_reader_account_scope",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "status"
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "INDEX_NAME": "PRIMARY",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "id"
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "INDEX_NAME": "uq_reader_account_public",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "public_id"
+        },
+        {
+            "TABLE_NAME": "source_reader_accounts",
+            "INDEX_NAME": "uq_reader_telegram_user",
+            "NON_UNIQUE": 0,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "telegram_user_id"
+        },
+        {
             "TABLE_NAME": "source_selection_decisions",
             "INDEX_NAME": "decided_by",
             "NON_UNIQUE": 1,
@@ -14250,6 +14373,20 @@
             "NON_UNIQUE": 1,
             "SEQ_IN_INDEX": 1,
             "COLUMN_NAME": "created_by"
+        },
+        {
+            "TABLE_NAME": "sources",
+            "INDEX_NAME": "idx_source_reader_account",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 1,
+            "COLUMN_NAME": "reader_account_id"
+        },
+        {
+            "TABLE_NAME": "sources",
+            "INDEX_NAME": "idx_source_reader_account",
+            "NON_UNIQUE": 1,
+            "SEQ_IN_INDEX": 2,
+            "COLUMN_NAME": "enabled"
         },
         {
             "TABLE_NAME": "sources",

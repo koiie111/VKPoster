@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Content\Automation;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Billing\Entitlements;
 use App\Domain\Source\Source;
 use App\Domain\Source\Selection\SemanticSelection;
 use App\Domain\Workspace\WorkspaceContext;
@@ -15,7 +16,7 @@ use App\Support\DbTime;
 /** Workspace-scoped automation configuration and safe technical run summaries. */
 final class AutomationPolicies
 {
-    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly AuditLog $audit)
+    public function __construct(private readonly Connection $db, private readonly Clock $clock, private readonly AuditLog $audit, private readonly Entitlements $entitlements)
     {
     }
     /** @return array<string,mixed> */
@@ -27,6 +28,7 @@ final class AutomationPolicies
     /** @param array<string,mixed> $input */
     public function save(WorkspaceContext $ctx, ?Source $source, array $input): void
     {
+        $this->entitlements->assertFeature($ctx->workspaceId, 'source_automation', 'Автоматизация источников');
         $settings = AutomationSettings::validate($input);
         $this->db->transaction(function () use ($ctx, $source, $settings): void {
             if ($source !== null) {

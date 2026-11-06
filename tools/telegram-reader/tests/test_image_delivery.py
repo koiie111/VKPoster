@@ -153,7 +153,9 @@ class PHPImageContractTests(unittest.IsolatedAsyncioTestCase):
         )
         jobs = await api.image_jobs()
         self.assertEqual(len(jobs), 4)
-        sources = await api.sources()
+        accounts = await api.accounts()
+        self.assertEqual(len(accounts), 1)
+        sources = accounts[0]["sources"]
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)
             store = Store(state / "reader.sqlite")

@@ -30,7 +30,7 @@ final class SourcesSwitchTest extends WorkspaceTestCase
     public function testReaderIngressIsNotFoundWhileTheFeatureIsOff(): void
     {
         $app = TestEnv::app(['SOURCES_ENABLED' => '0', 'SOURCES_READER_SECRET' => self::SECRET]);
-        $request = Request::create('GET', '/internal/sources', headers: ['Authorization' => 'Bearer ' . self::SECRET, 'Accept' => 'application/json']);
+        $request = Request::create('GET', '/internal/reader-accounts', headers: ['Authorization' => 'Bearer ' . self::SECRET, 'Accept' => 'application/json']);
 
         self::assertSame(404, $app->handle($request)->status);
     }

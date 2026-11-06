@@ -38,7 +38,8 @@ class ReleaseArtifactsTest(unittest.TestCase):
                 self.assertTrue(call.args[-1].endswith("@" + DIGEST))
                 self.assertIn("--prefer-index=false", call.args)
             lines = output.read_text().splitlines()
-            self.assertEqual(len(lines), 4)
+            self.assertEqual(len(lines), 5)
+            self.assertTrue(any(line.startswith("READER_IMAGE=") for line in lines))
             self.assertTrue(all(line.endswith("@" + DIGEST) for line in lines))
             self.assertEqual(output.stat().st_mode & 0o777, 0o600)
 

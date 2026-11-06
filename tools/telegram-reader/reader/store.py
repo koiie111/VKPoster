@@ -182,5 +182,20 @@ class Store:
             for table in ("messages", "revisions", "albums", "downloads")
         }
 
+    def compact_revisions(self, retention_days=90):
+        """Discard old superseded bodies while keeping the latest snapshot and checkpoints."""
+        if retention_days < 7:
+            return 0
+        cutoff = self.clock() - retention_days * 86400
+        with self.db:
+            return self.db.execute(
+                "DELETE FROM revisions WHERE rowid IN ("
+                "SELECT r.rowid FROM revisions r JOIN messages m "
+                "ON m.channel=r.channel AND m.id=r.id "
+                "WHERE r.observed_at<? AND r.content_hash<>m.content_hash "
+                "ORDER BY r.observed_at LIMIT 100)",
+                (cutoff,),
+            ).rowcount
+
     def close(self):
         self.db.close()
