@@ -46,7 +46,19 @@ accessible to the app UID in the ops container. Store a second recoverable copy
 outside the host and outside backup archives. Never print either application or
 backup keys in CI logs. Key rotation: [runbook](runbook.md); preserve old keys until
 ciphertext migration and recovery validation complete. Reader session/env remain
-separate private runtime state; production reader provisioning is not implied here.
+separate private runtime state. To enable Stage 23, set protected GitHub `production`
+environment secrets `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`,
+`TELEGRAM_EGRESS_PROXY_URL` and `SOURCES_READER_SECRET` (32+ random characters).
+The egress URL must name a private HTTP/SOCKS5 endpoint reachable **from the reader
+container**, not its own loopback. The release workflow validates these values without
+printing them, transfers two 0600 files to `/opt/ezposter/private` over pinned SSH,
+and starts the reader with `SOURCES_ENABLED=true` and a private Telegram tunnel.
+The reader receives the shared secret from `sources.env` and keeps Telegram sessions
+in the `reader-state` volume. Check that the host can pull GHCR images and that the
+private tunnel is ready. Then set repository variable
+`PRODUCTION_SOURCES_ENABLED=true` before tagging. Missing secrets or malformed
+configuration stop the rollout before migration. When the variable is false,
+app containers use an empty source overlay and the reader profile is not started.
 
 ## Release layout and activation review (owner 19.8)
 
@@ -60,12 +72,14 @@ environment, require approval and set deploy host/user/key/known-hosts secrets t
 A host key mismatch is a hard failure, not a reason to disable SSH checking.
 
 Release workflow accepts only a `v*` tag whose commit is in main history, runs CI
-and security, then publishes versioned app/web/ops/pdf images to GHCR. Deploy is off
+and security, then publishes versioned app/web/ops/pdf/reader images to GHCR. Deploy is off
 unless the original repository sets `PRODUCTION_DEPLOY_ENABLED=true`. An explicit
 `RELEASE_SCHEMA_BACKWARD_COMPATIBLE=true` declaration is mandatory. The deploy runner
 uses the common `.operations.lock`, pulls images, migrates before rollout, restarts
 app/workers/scheduler, and waits for `/readyz`. The previous `.release.env` image refs
 are retained for rollback. Tags must not be overwritten; retain previous images.
+For a sources release, confirm `reader` is running and its heartbeat appears in
+`/admin/status` after deployment. `/readyz` alone does not prove Telegram ingestion.
 
 Analytics renderer is optional: `PRODUCTION_ANALYTICS_ENABLED=true` enables the
 release `analytics` profile, updates the verify-only renderer; no master/derived HMAC key init container in production.

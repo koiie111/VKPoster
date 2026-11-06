@@ -112,6 +112,14 @@ function png(width, height, [r, g, b]) {
   page.on('pageerror', (e) => { failures.push(`page error on media: ${e.message}`); console.log('FAIL pageerror', e.message); });
   await page.goto(`${base}/dev/login-as/${encodeURIComponent(loginEmail)}`, { waitUntil: 'networkidle' });
   await page.goto(`${base}/app`, { waitUntil: 'networkidle' });
+  if (new URL(page.url()).pathname === '/consent') {
+    if (loginEmail !== 'demo@ezposter.local') throw new Error('Consent update requires a synthetic demo account');
+    await page.locator('input[name="consent"]').check();
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle' }),
+      page.locator('form[action="/consent"] button[type="submit"]').click(),
+    ]);
+  }
   const library = `${page.url().replace(/\/$/, '')}/media`;
   await page.goto(library, { waitUntil: 'networkidle' });
   if (await page.locator('[data-upload-input]').count() === 0) {

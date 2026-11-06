@@ -53,6 +53,21 @@ class ProductionConfigTest(unittest.TestCase):
             self.assertIn("/tmp:size=128m,mode=1777", data["services"]["app"]["tmpfs"])
             self.assertIn("/tmp:size=8m,mode=1777", data["services"]["redis"]["tmpfs"])
 
+            sources = subprocess.run(
+                [
+                    "docker", "compose", "--env-file", str(config), "-f",
+                    str(ROOT / "compose.prod.yaml"), "--profile", "sources",
+                    "config", "--format", "json",
+                ],
+                env=dict(os.environ, APP_ENV_FILE=str(config)),
+                capture_output=True, text=True, check=True,
+            )
+            reader = json.loads(sources.stdout)["services"]["reader"]
+            self.assertTrue(reader["read_only"])
+            self.assertIn("no-new-privileges:true", reader["security_opt"])
+            self.assertEqual(reader["environment"]["VKPOSTER_INTERNAL_URL"], "http://nginx")
+            self.assertNotIn("TELEGRAM_API_HASH", reader["environment"])
+
 
 if __name__ == "__main__":
     unittest.main()

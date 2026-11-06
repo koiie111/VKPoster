@@ -139,19 +139,29 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           RELEASE: ${{ github.ref_name }}
           WITH_ANALYTICS: ${{ vars.PRODUCTION_ANALYTICS_ENABLED }}
+          WITH_SOURCES: ${{ vars.PRODUCTION_SOURCES_ENABLED }}
           SCHEMA_COMPATIBLE: ${{ vars.RELEASE_SCHEMA_BACKWARD_COMPATIBLE }}
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          SOURCES_READER_SECRET: ${{ secrets.SOURCES_READER_SECRET }}
+          TELEGRAM_EGRESS_PROXY_URL: ${{ secrets.TELEGRAM_EGRESS_PROXY_URL }}
+          RUN_ID: ${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ && "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
           WITH_ANALYTICS=${WITH_ANALYTICS:-false}
           [[ "$WITH_ANALYTICS" == true || "$WITH_ANALYTICS" == false ]] || exit 2
+          WITH_SOURCES=${WITH_SOURCES:-false}
+          [[ "$WITH_SOURCES" == true || "$WITH_SOURCES" == false ]] || exit 2
           [[ "$SCHEMA_COMPATIBLE" == true ]] || { echo "Explicit release schema compatibility declaration required" >&2; exit 2; }
           [[ "$RELEASE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           umask 077
           key=$(mktemp)
           hosts=$(mktemp)
-          trap 'rm -f "$key" "$hosts"' EXIT
+          source_dir=$(mktemp -d)
+          trap 'rm -f "$key" "$hosts"; rm -rf "$source_dir"' EXIT
           printf '%s\n' "$DEPLOY_KEY" > "$key"
           printf '%s\n' "$KNOWN_HOSTS" > "$hosts"
           ssh_options=(-i "$key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts")
@@ -159,4 +169,15 @@ jobs:
           scp "${ssh_options[@]}" release-images.env "$DEPLOY_USER@$DEPLOY_HOST:/opt/ezposter/release-images.env"
           scp "${ssh_options[@]}" compose.prod.yaml "$DEPLOY_USER@$DEPLOY_HOST:/opt/ezposter/compose.prod.yaml"
           scp "${ssh_options[@]}" scripts/deploy-release.sh "$DEPLOY_USER@$DEPLOY_HOST:/opt/ezposter/deploy-release.sh"
-          ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_ANALYTICS=$WITH_ANALYTICS MIGRATIONS_BACKWARD_COMPATIBLE=true bash /opt/ezposter/deploy-release.sh '$RELEASE' 'ghcr.io/koiie111/vkposter' '/opt/ezposter/release-images.env'"
+          if [[ "$WITH_SOURCES" == true ]]; then
+            python3 scripts/release-source-config.py "$source_dir"
+            scp "${ssh_options[@]}" "$source_dir/sources.env" "$DEPLOY_USER@$DEPLOY_HOST:/opt/ezposter/.sources.$RUN_ID.next"
+            scp "${ssh_options[@]}" "$source_dir/reader.env" "$DEPLOY_USER@$DEPLOY_HOST:/opt/ezposter/.reader.$RUN_ID.next"
+            ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "install -d -m 700 /opt/ezposter/private && install -m 600 /opt/ezposter/.sources.$RUN_ID.next /opt/ezposter/private/sources.env && install -m 600 /opt/ezposter/.reader.$RUN_ID.next /opt/ezposter/private/reader.env && rm -f /opt/ezposter/.sources.$RUN_ID.next /opt/ezposter/.reader.$RUN_ID.next"
+            source_env_file=/opt/ezposter/private/sources.env
+            reader_env_file=/opt/ezposter/private/reader.env
+          else
+            source_env_file=/dev/null
+            reader_env_file=/dev/null
+          fi
+          ssh "${ssh_options[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "SOURCES_ENV_FILE=$source_env_file READER_ENV_FILE=$reader_env_file DEPLOY_ANALYTICS=$WITH_ANALYTICS DEPLOY_SOURCES=$WITH_SOURCES MIGRATIONS_BACKWARD_COMPATIBLE=true bash /opt/ezposter/deploy-release.sh '$RELEASE' 'ghcr.io/koiie111/vkposter' '/opt/ezposter/release-images.env'"
